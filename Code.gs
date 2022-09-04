@@ -1,22 +1,3 @@
-/**
- *  Print exception message to screen
- *
- *  @param {Error} err
- *  @param {String} msg
- *
- */
-function handleException(err, msg) {
-  const range = err.range;
-  var errStr, errLocation;
-  if (range === undefined) {
-    errStr = `Error: ${err}\n${msg}`
-  } else {
-    errLocation = range.getA1Notation();
-    errStr = `Error at ${errLocation}: ${err}\n${msg}`
-  }
-  Logger.log(errStr);
-  SpreadsheetApp.getUi().alert(errStr);
-}
 
 function onEdit(e) {
 /*
