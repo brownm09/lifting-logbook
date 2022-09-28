@@ -20,8 +20,12 @@ function onChange(e) {
   // SpreadsheetApp.getUi().alert(`Change type: ${changeTypeStr}`);
   try {
     if (changeTypeStr == "INSERT_GRID" || changeTypeStr == "REMOVE_GRID") {
-      if (changeTypeStr == "INSERT_GRID") {
-        updateRefs();
+      try {
+        if (changeTypeStr == "INSERT_GRID") {
+          updateRefs();
+        }
+      } catch(err) {
+        handleException(err, "Error updating references");
       }
       sortSheets();
       updateTOC();

@@ -1,10 +1,36 @@
-function deleteNamedRanges() {
+function testRenameSheet() {
+  const testSheetName1 = "Cycle_2.2.0_Leader_FSL";
+  const testSheetName2 = "Cycle_3.0.0_Leader_SSL";
+  // const sheet1 = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(testSheetName1);
+  // hideFilledColumns(sheet1);
+  const sheet2 = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(testSheetName2);
+  updateName(sheet2);
+}
+function testHideColumns() {
+  const testSheetName1 = "Cycle_2.2.0_Leader_FSL";
+  const testSheetName2 = "Cycle_3.0.0_Leader_SSL";
+  const sheet1 = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(testSheetName1);
+  hideFilledColumns(sheet1);
+  const sheet2 = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(testSheetName2);
+  // hideFilledColumns(sheet2);
+}
+
+function testClearEntries() {
+  const testSheetName2 = "Cycle_3.0.0_Leader_SSL";
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(testSheetName2);
+  const range = sheet.getRange("A37:E42");
+  clearEntries(sheet, range);
+}
+
+function testClearDates() {
+  const testSheetName2 = "Cycle_3.0.0_Leader_SSL";
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  var namedRanges = ss.getNamedRanges();
-  namedRanges.forEach(namedRange => {
-    Logger.log("Removing named range '%s'", namedRange.getName());
-    ss.removeNamedRange(namedRange.getName())
-  });
+  try {
+    var testSheet = ss.getSheetByName(testSheetName2);
+    var result = clearDates(testSheet);
+  } catch(err) {
+    handleException(err, "Exception found while clearing dates from sheet");
+  }
 }
 
 function testIdentfyLiftRanges() {
@@ -51,4 +77,16 @@ function testCreateLiftRanges() {
   } catch(err) {
     handleException(err, "Exception found while identifying named ranges");
   }
+}
+
+/**
+ * A test helper function.
+ */
+function deleteNamedRanges() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  var namedRanges = ss.getNamedRanges();
+  namedRanges.forEach(namedRange => {
+    Logger.log("Removing named range '%s'", namedRange.getName());
+    ss.removeNamedRange(namedRange.getName())
+  });
 }
