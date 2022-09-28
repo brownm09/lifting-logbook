@@ -179,13 +179,14 @@ function identifyLiftRanges(sheet) {
 
 /**
  * Create named range.
- * @param {String} rangeName
+ * @param {String} sheetName
+ * @param {String} liftName
  * @param {SpreadsheetApp.Range} range
  */
-function createNamedRange(rangeName, range) {
+function createNamedRange(sheetName, liftName, range) {
   try {
     var ss = SpreadsheetApp.getActive();
-    var rangeName = rangeName.replaceAll(NAMED_RANGE_CLEAN_REGEX, '_');
+    var rangeName = getRangeName(sheetName, liftName);
     Logger.log("Creating named range '%s'; A1 notation: %s", 
       rangeName,
       range.getA1Notation()
@@ -209,11 +210,55 @@ function updateEstimated1Rms() {
 }
 
 /**
- * Hide and unhide sections based on the current date and current lift.
- * @param {String} sectionName The section to view
- * @param {String} columnNum The column to view
+ * Hide and unhide columns based on the current week selected.
+ * @param {String} colNum The column to view
  */
-function updateView() {
+function updateColView(colNum) {
   var ss = SpreadsheetApp.getActive();
   var sheet = ss.getActiveSheet();
+  var colHideRange = sheet.getRange(COL_HIDE_RANGE);
+  var colUnhideRange = sheet.getRange(1, colNum + WARMUP_COL_INDEX);
+  sheet.hideColumn(colHideRange);
+  sheet.unhideColumn(colUnhideRange);
+}
+
+/**
+ * Hide and unhide sections based on the current date and current lift.
+ * @param {String} liftName The section to view
+ */
+function updateLiftView(liftName) {
+  var ss = SpreadsheetApp.getActive();
+  var sheet = ss.getActiveSheet();
+  var rowHeaders = flatten(sheet.getRange("A1:A").getValues());
+  var rangeStart = rowHeaders.indexOf(SECTION_HIDE_START_KEY) + 1;
+  var hideRangeA1Notation = `A${rangeStart}:A`;
+  var hideRange = sheet.getRange(hideRangeA1Notation);
+  sheet.hideRow(hideRange);
+  var namedRange = getLiftNamedRange(sheet.getName(), liftName); 
+  Logger.log(namedRange);
+  sheet.unhideRow(namedRange.getRange());
+}
+
+/**
+ * Retrieve named range for selected lift.
+ * @param {String} sheetName The name of the sheet to get a named range for.
+ * @param {String} liftName The name of the lift to get a named range for.
+ * @return {SpreadsheetApp.Range} The named range.
+ */
+function getLiftNamedRange(sheetName, liftName) {
+  var ss = SpreadsheetApp.getActive();
+  var sheet = ss.getActiveSheet();
+  var rangeName = getRangeName(sheetName, liftName);
+  Logger.log(sheet.getNamedRanges());
+  return sheet.getNamedRanges().find(namedRange => namedRange.getName() == rangeName);  
+}
+
+/**
+ * Retrieve named range for selected lift.
+ * @param {String} sheetName The name of the sheet to get a named range for.
+ * @param {String} liftName The name of the lift to get a named range for.
+ * @return {String} The sanitized range name.
+ */
+function getRangeName(sheetName, liftName) {
+  return `${sheetName}.${liftName}`.replaceAll(NAMED_RANGE_CLEAN_REGEX, '_');
 }

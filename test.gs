@@ -60,23 +60,32 @@ function testCreateLiftRanges() {
   var result = null;
   try {
     testSheet = ss.getSheetByName(testSheetName2);
+    ss.setActiveSheet(testSheet);
     result = identifyLiftRanges(testSheet);
     if (result != null) {
       Logger.log(result);
       MAIN_LIFT_NAMES.forEach((liftName) => {
-        var rangeName = `${testSheetName2}.${liftName}`
-        createNamedRange(rangeName, result[liftName]);
+        createNamedRange(testSheetName2, liftName, result[liftName]);
       });
-      ss.getNamedRanges().forEach(namedRange => {
-        Logger.log("Removing named range '%s'", namedRange.getName());
-        ss.removeNamedRange(namedRange.getName())
-      });
+      // ss.getNamedRanges().forEach(namedRange => {
+      //   Logger.log("Removing named range '%s'", namedRange.getName());
+      //   ss.removeNamedRange(namedRange.getName())
+      // });
     } else {
       Logger.log("Result = null");
     }
   } catch(err) {
     handleException(err, "Exception found while identifying named ranges");
   }
+}
+
+function testUpdateView() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const testSheetName2 = "Cycle_3.0.0_Leader_SSL";
+  testSheet = ss.getSheetByName(testSheetName2);
+  ss.setActiveSheet(testSheet);
+  updateColView(3);
+  updateLiftView("Bench Press");
 }
 
 /**
