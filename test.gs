@@ -91,11 +91,13 @@ function testUpdateView() {
 /**
  * A test helper function.
  */
-function deleteNamedRanges() {
+function testDeleteNamedRanges() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   var namedRanges = ss.getNamedRanges();
+  Logger.log(`Found ${namedRanges.length} named ranges.`);
   namedRanges.forEach(namedRange => {
     Logger.log("Removing named range '%s'", namedRange.getName());
-    ss.removeNamedRange(namedRange.getName())
+    namedRange.remove();
+    // ss.removeNamedRange(namedRange.getName())
   });
 }

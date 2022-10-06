@@ -1,6 +1,57 @@
 
-function updateRefs() {
+/**
+ * Update sheet name based on data copied.
+ * @param {SpreadsheetApp.Sheet} sheet
+ * @return {String} New program name
+ */
+function updateProgram(sheet, programName) {
+  // Lookup program abbreviation on other sheet and rename sheet accordingly
+  var sheetName = sheet.getSheetName();
+  var matches = sheetName.match(CYCLE_NAME_REGEX);
+  if (matches == null) {
+    Logger.log(`Unable to match versioning syntax for ${sheetName}.`);
+  } else {
+    var program = matches.groups.program;
+    var phase = matches.groups.phase;
+    var replacementProgram = getProgramAbbreviation(programName);
+    sheetName = sheetName.replace(program, replacementProgram);
+    sheet.setName(sheetName);
+  }
+}
 
+/**
+ * Update sheet name based on data copied.
+ * @param {SpreadsheetApp.Sheet} sheet
+ * @return {String} New program name abbreviation
+ */
+function getProgramAbbreviation(programName) {
+  var programRefSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(PROG_REF_SHEET_TITLE);
+  // var sheetValues = programRefSheet.getSheetValues();
+  var row = getRowByIndex(programRefSheet, 1);
+  var col = getColByIndex(programRefSheet, 1);
+  // return sheetValues
+  //   [row.indexOf(PROG_REF_ABBRV_COL_TITLE)]
+  //   [col.indexOf(programName)];
+  // Logger.log(row);
+  // Logger.log(col);
+  return programRefSheet.getRange(
+    col.indexOf(programName) + 1,
+    row.indexOf(PROG_REF_ABBRV_COL_TITLE) + 1,
+  ).getValue();
+}
+
+
+/**
+ * Update sheet name based on data copied.
+ * @param {SpreadsheetApp.Sheet} sheet
+ * @return {String} Previous sheet name
+ */
+function updatePreviousSheetName(sheet) {
+  var sheetName = sheet.getSheetName();
+  sheetName = sheetName.replace(COPIED_SHEET_PREFIX, '');
+  var previousCycleRange = sheet.getRange(PREVIOUS_CYCLE_INDEX);
+  previousCycleRange.setValue(sheetName);
+  return sheetName;
 }
 
 /**
@@ -8,10 +59,10 @@ function updateRefs() {
  * @param {SpreadsheetApp.Sheet} sheet
  */
 function updateName(sheet) {
-  const CYCLE_NAME_REGEX = "Cycle_([0-9])\.([0-9])\.?([0-9])?";
   // const CYCLE_MAJOR_VER_REGEX = /Cycle_[0-9]/;
   // const CYCLE_MINOR_VER_REGEX = "Cycle_([0-9])\.([0-9])\.?([0-9])?";
   var sheetName = sheet.getSheetName();
+  sheetName = sheetName.replace(COPIED_SHEET_PREFIX, '');
   var matches = sheetName.match(CYCLE_NAME_REGEX);
   if (matches == null) {
     Logger.log(`Unable to match versioning syntax for ${sheetName}.`);
@@ -37,168 +88,7 @@ function updateName(sheet) {
       );
     }
     Logger.log(sheetName);
-    // sheet.setName(sheetName);
-  }
-}
-
-/**
- * Clear data, but preserve conditional formatting of modifiable fields.
- * @param {SpreadsheetApp.Sheet} sheet
- */
-function clearDates(sheet) {
-  var textFinder = sheet.createTextFinder(DATE_FORMAT_REGEX);
-  textFinder.useRegularExpression(true);
-  textFinder.matchFormulaText(false);
-  textFinder.matchEntireCell(true);
-  // textFinder.findAll().forEach(match => {
-    // Logger.log(`Match located: ${match.getA1Notation()}: ${match.getValue()}`);
-    // match.clearContent();
-  // });
-  textFinder.replaceAllWith("");
-}
-
-/**
- * Clear entered data from range
- * @param {SpreadsheetApp.Sheet} sheet
- * @param {SpreadsheetApp.Range} range
- */
-function clearEntries(sheet, range) {
-  // Find "Set 3" row in range (can find dynamically, but it's usually fourth row in range)
-  var cellR = range.createTextFinder("Set 3").matchEntireCell(true).matchCase(true).findNext();
-  var editableRow = cellR.getRow();
-  var cellC = range.createTextFinder("Warm-Up").matchEntireCell(true).matchCase(true).findNext();
-  var editableCol = cellC.getColumn();
-  var rowCount = range.getLastRow() - editableRow;
-  var colCount = range.getLastColumn() - editableCol;
-  // console.log(`Row: ${editableRow}`);
-  // console.log(`Col: ${editableCol}`);
-  // console.log(`End-R: ${range.getLastRow()}`);
-  // console.log(`End-C: ${range.getLastColumn()}`);
-  var editableRange = sheet.getRange(
-    editableRow + 1, editableCol + 1, rowCount, colCount
-  );
-  console.log(`Editable range: ${editableRange.getA1Notation()}`);
-  for (var i = 1; i <= rowCount; i++) {
-    for (var j = 1; j <= colCount; j++) {
-      var cell = editableRange.getCell(i, j);
-      if (cell.getDataValidation() == null && cell.getFormula() == "") {
-        // console.log(`Cell ${cell.getA1Notation()} is safe to clear.`);
-        cell.clearContent();
-      }
-    }
-  }
-}
-
-/**
- * Hide columns for which dates have been filled all the way down
- * @param {SpreadsheetApp.Sheet} sheet
- */
-function hideFilledColumns(sheet) {
-  const WEEK_SUMMARY_REGEX = "Week [0-9]";
-  var textFinder = sheet.createTextFinder(WEEK_SUMMARY_REGEX);
-  textFinder.useRegularExpression(true);
-  textFinder.matchFormulaText(false);
-  
-  var weekHeaders = textFinder.findAll();
-  weekHeaders.forEach(week => {
-    var weekColNum = week.getColumn();
-    var weekCol = sheet.getRange(1, weekColNum, sheet.getLastRow(), 1);
-    var dateTextFinder = weekCol.createTextFinder(DATE_FORMAT_REGEX);
-    dateTextFinder.useRegularExpression(true);
-    dateTextFinder.matchFormulaText(false);
-    dateTextFinder.matchEntireCell(true);
-    if (dateTextFinder.findAll().length == MAIN_LIFT_NAMES.length) {
-      Logger.log(`Hiding column ${weekColNum}`)
-      sheet.hideColumn(weekCol);
-    } else {
-      Logger.log(`Column ${weekColNum} only has ${dateTextFinder.findAll().length} dates in it; ${MAIN_LIFT_NAMES.length} dates needed.`);
-
-    }
-  });
-  
-}
-
-/**
- * Identify editable range of lift-specfic section.
- * @param {SpreadsheetApp.Sheet} sheet
- * @return {Object}
- */
-function identifyLiftRanges(sheet) {
-  try {
-    var ss = SpreadsheetApp.getActive();
-    var sheetName = sheet.getName();
-    Logger.log(`Identifying named ranges for sheet ${sheetName}.`)
-    var liftRanges = {};
-    var liftNames = []
-    var lastRow = sheet.getLastRow();
-    var column = sheet.getRange(1,1, lastRow, 1);
-    var values = column.getValues().flat();
-    var r1 = null;
-    var c1 = 1;
-    var r2 = null;
-    var c2 = sheet.getLastColumn();
-    var currLiftName = null;
-    var setsFound = false;
-  } catch(err) {
-    handleException(err, "Could not set variables");
-  }
-  MAIN_LIFT_NAMES.forEach(lift => liftNames.push(lift));
-  for (var i = values.length - 1; i > 0 && liftNames.length > 0; i--) {
-    if (values[i] == "Notes") {
-      if (r2 == null) {
-        r2 = i+1;
-      }
-    } else if (!setsFound && SET_REGEX.test(values[i])) {
-      setsFound = true;
-    } else if (setsFound && liftNames.includes(values[i])) {
-      currLiftName = values[i];
-      if (r2 != null && r1 == null) {
-        r1 = i+1;
-      }
-    }
-    if (r1 != null && r2 != null && setsFound && currLiftName != null) {
-      if (r1 < r2) {
-        try {
-          var rangeR1C1Notation = `R[${r1}]C[${c1}]R[${r2}]C[${c2}]`;
-          Logger.log("Range for %s (R1C1): %s", currLiftName, rangeR1C1Notation);
-          liftRanges[currLiftName] = sheet.getRange(r1, c1, (r2-r1)+1, (c2-c1)+1);
-          Logger.log("Range for %s (A1): %s", currLiftName, liftRanges[currLiftName].getA1Notation());
-        } catch (err) {
-          handleException(err, `Could not generate range for ${currLiftName} at ${rangeR1C1Notation}`);
-        } finally {
-          r1 = null;
-          r2 = null;
-          currLiftName = null;
-          setsFound = false;
-        }
-      }
-    }
-  }
-  return liftRanges;
-}
-
-/**
- * Create named range.
- * @param {String} sheetName
- * @param {String} liftName
- * @param {SpreadsheetApp.Range} range
- */
-function createNamedRange(sheetName, liftName, range) {
-  try {
-    var ss = SpreadsheetApp.getActive();
-    var rangeName = getRangeName(sheetName, liftName);
-    Logger.log("Creating named range '%s'; A1 notation: %s", 
-      rangeName,
-      range.getA1Notation()
-    );
-    ss.setNamedRange(rangeName, range);
-    if (ss.getNamedRanges().find(namedRange => namedRange.getName() == rangeName) == undefined) {
-      throw new RuntimeError(`Range '${rangeName}' not created successfully.`);
-    }
-    // liftNames = liftNames.filter(lift => lift != currLiftName);
-    Logger.log(`Successfully create named range ${rangeName}`);
-  } catch (err) {
-    handleException(err, `Error creating named range ${rangeName} at ${range.getA1Notation()}`);
+    sheet.setName(sheetName);
   }
 }
 
@@ -207,58 +97,4 @@ function createNamedRange(sheetName, liftName, range) {
  */
 function updateEstimated1Rms() {
   
-}
-
-/**
- * Hide and unhide columns based on the current week selected.
- * @param {String} colNum The column to view
- */
-function updateColView(colNum) {
-  var ss = SpreadsheetApp.getActive();
-  var sheet = ss.getActiveSheet();
-  var colHideRange = sheet.getRange(COL_HIDE_RANGE);
-  var colUnhideRange = sheet.getRange(1, colNum + WARMUP_COL_INDEX);
-  sheet.hideColumn(colHideRange);
-  sheet.unhideColumn(colUnhideRange);
-}
-
-/**
- * Hide and unhide sections based on the current date and current lift.
- * @param {String} liftName The section to view
- */
-function updateLiftView(liftName) {
-  var ss = SpreadsheetApp.getActive();
-  var sheet = ss.getActiveSheet();
-  var rowHeaders = flatten(sheet.getRange("A1:A").getValues());
-  var rangeStart = rowHeaders.indexOf(SECTION_HIDE_START_KEY) + 1;
-  var hideRangeA1Notation = `A${rangeStart}:A`;
-  var hideRange = sheet.getRange(hideRangeA1Notation);
-  sheet.hideRow(hideRange);
-  var namedRange = getLiftNamedRange(sheet.getName(), liftName); 
-  Logger.log(namedRange);
-  sheet.unhideRow(namedRange.getRange());
-}
-
-/**
- * Retrieve named range for selected lift.
- * @param {String} sheetName The name of the sheet to get a named range for.
- * @param {String} liftName The name of the lift to get a named range for.
- * @return {SpreadsheetApp.Range} The named range.
- */
-function getLiftNamedRange(sheetName, liftName) {
-  var ss = SpreadsheetApp.getActive();
-  var sheet = ss.getActiveSheet();
-  var rangeName = getRangeName(sheetName, liftName);
-  Logger.log(sheet.getNamedRanges());
-  return sheet.getNamedRanges().find(namedRange => namedRange.getName() == rangeName);  
-}
-
-/**
- * Retrieve named range for selected lift.
- * @param {String} sheetName The name of the sheet to get a named range for.
- * @param {String} liftName The name of the lift to get a named range for.
- * @return {String} The sanitized range name.
- */
-function getRangeName(sheetName, liftName) {
-  return `${sheetName}.${liftName}`.replaceAll(NAMED_RANGE_CLEAN_REGEX, '_');
 }

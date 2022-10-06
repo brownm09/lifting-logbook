@@ -35,6 +35,7 @@
   function updateTOC() {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheetList = ss.getSheets();
+    const currSheet = ss.getActiveSheet();
     try {
       var tocSheet = ss.getSheetByName(TOC_SHEET_NAME);
       ss.setActiveSheet(tocSheet);
@@ -47,6 +48,7 @@
       range.setValues(cellData);
       SpreadsheetApp.flush();
       tocSheet.autoResizeColumn(1);
+      ss.setActiveSheet(currSheet);
     } catch (err) {
       handleException(err, "Error generating TOC");
     }
