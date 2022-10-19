@@ -17,6 +17,7 @@ function updateProgram(sheet, programName) {
     sheetName = sheetName.replace(program, replacementProgram);
     sheet.setName(sheetName);
   }
+  // TODO: Set program-specific row formatting (ex. PR Set, BBB Sets, etc.)
 }
 
 /**
@@ -51,6 +52,7 @@ function updatePreviousSheetName(sheet) {
   sheetName = sheetName.replace(COPIED_SHEET_PREFIX, '');
   var previousCycleRange = sheet.getRange(PREVIOUS_CYCLE_INDEX);
   previousCycleRange.setValue(sheetName);
+  // TODO: Set hyperlink
   return sheetName;
 }
 
