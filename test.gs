@@ -88,6 +88,15 @@ function testUpdateView() {
   updateLiftView("Bench Press");
 }
 
+function testRptUpdates() {
+  const sheetName = 'Copy of RPT_Week_1_20221024';
+  const sheet = SpreadsheetApp.getActive().getSheetByName(sheetName);
+  // updateRptNumbers(sheet);
+  // clearRptEntries(sheet);
+  // clearDates(sheet);
+  // updateNameRpt(sheet);
+}
+
 /**
  * A test helper function.
  */

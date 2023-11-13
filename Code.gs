@@ -6,20 +6,27 @@ function onEdit(e) {
   const currSheetId = currSheet.getSheetId();
   Logger.log(`Current sheet: ${currSheetName}`);
   Logger.log(`Change type: ${e.changeType}`);
-  if (COPIED_SHEET_NAME_REGEX.test(currSheetName)) { // This takes too long
+  if (COPIED_SHEET_NAME_REGEX.test(currSheetName) || currSheetName.startsWith("Copy of RPT_Week_")) { // This takes too long
     try {
-      clearDates(currSheet);
-      var prevSheetName = updatePreviousSheetName(currSheet);
-      updateName(currSheet);
-      Logger.log(`Current sheet name 1: ${currSheet.getName()}`);
-      currSheet = currSpreadsheet.getActiveSheet();
-      Logger.log(`Current sheet name 2: ${currSheet.getName()}`);
-      createNamedRanges(currSheet);
-      validateNamedRanges(currSheet);
-      clearAllEntries(currSheet);
-      updateView(currSheet);
-      // sortSheets();
-      // updateTOC();
+      if (currSheetName.includes("RPT_")) {
+        updateRptNumbers(currSheet);
+        clearRptEntries(currSheet);
+        clearDates(currSheet);
+        updateNameRpt(currSheet);
+      } else if (currSheetName.includes("Cycle_")) {
+        clearDates(currSheet);
+        var prevSheetName = updatePreviousSheetName(currSheet);
+        updateName(currSheet);
+        Logger.log(`Current sheet name 1: ${currSheet.getName()}`);
+        currSheet = currSpreadsheet.getActiveSheet();
+        Logger.log(`Current sheet name 2: ${currSheet.getName()}`);
+        createNamedRanges(currSheet);
+        validateNamedRanges(currSheet);
+        clearAllEntries(currSheet);
+        updateView(currSheet);
+        // sortSheets();
+        // updateTOC();
+      }
     } catch (err) {
       currSpreadsheet.setActiveSheet(currSpreadsheet.getSheetByName(prevSheetName));
       handleException(err, `An exception occurred when updating this sheet`);
@@ -79,6 +86,9 @@ function onChange(e) {
           // updateRefs(currSheet);
           // sortSheets();
           // updateTOC();
+        } else {
+          sortSheets();
+          updateTOC();
         }
         Logger.log("Updated references.");
       } catch(err) {
