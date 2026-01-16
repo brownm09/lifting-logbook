@@ -54,3 +54,9 @@ function doesRangeIntersect(range1, range2) {
 
   return true;
 }
+
+// For Node.js/CommonJS compatibility in tests and local dev
+declare var module: any;
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { getRowByIndex, getColByIndex, flatten, doesRangeIntersect };
+}

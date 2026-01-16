@@ -1,3 +1,38 @@
+// Test/demo functions moved from workout.ts
+import { createGrid } from './workout';
+
+function testCreateGrid() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet(); 
+  var specSheet = ss.getSheetByName(RPT_SPEC_SHEET_NAME);
+  var tmSheet = ss.getSheetByName(TM_SHEET_NAME);
+  // var histSheet = ss.getSheetByName(RPT_HIST_SHEET_NAME);
+  var specData = specSheet.getDataRange().getValues();
+  var tmData = tmSheet.getDataRange().getValues();
+  // var histData = histSheet.getDataRange().getValues();
+  console.log(`Program spec data: \n\t${specData.join('\n\t')}`)
+  console.log(`Training max data: \n\t${tmData.join('\n\t')}`)
+  const result = createGrid(specData, tmData, new Date());
+  console.log(`Cycle grid: \n\t${result.join('\n\t')}`)
+}
+
+function testApplyGrid() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet(); 
+  var specSheet = ss.getSheetByName(RPT_SPEC_SHEET_NAME);
+  var tmSheet = ss.getSheetByName(TM_SHEET_NAME);
+  // var histSheet = ss.getSheetByName(RPT_HIST_SHEET_NAME);
+  var specData = specSheet.getDataRange().getValues();
+  var tmData = tmSheet.getDataRange().getValues();
+  // var histData = histSheet.getDataRange().getValues();
+  console.log(`Program spec data: \n\t${specData.join('\n\t')}`)
+  console.log(`Training max data: \n\t${tmData.join('\n\t')}`)
+  const result = createGrid(specData, tmData, new Date());
+  console.log(`Cycle grid: \n\t${result.join('\n\t')}`)
+  ss.insertSheet();
+  var newSheet = ss.getActiveSheet();
+  newSheet.getRange(1, 1, result.length, result[0].length).setValues(result);
+  cropSheet(newSheet);
+  formatSheet(newSheet);
+}
 function testUpdateToc() {
   updateTOC();
 }

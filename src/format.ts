@@ -1,4 +1,19 @@
 /**
+ * Formats a sheet with bold headers, row banding, and auto-resize.
+ * @param {SpreadsheetApp.Sheet} sheet
+ */
+function formatSheet(sheet) {
+  var colHeaders = sheet.getRange(1, 1, 2, sheet.getLastColumn()).setFontWeight('bold');
+  var rowHeaders = sheet.getRange(1, 1, sheet.getLastRow(), 1).setFontWeight('bold');
+  var fullGrid = sheet.getRange(1, 1, sheet.getLastRow(), sheet.getLastColumn()).setHorizontalAlignment('center').applyRowBanding();
+  sheet.createTextFinder(SET_REP_SCHEME_REGEX).useRegularExpression(true).findAll().forEach((setRepRange) => {
+    sheet.getRange(setRepRange.getRow(), 1, 1, sheet.getLastColumn()).setFontWeight('bold');
+  })
+  sheet.autoResizeColumns(1, sheet.getLastColumn());
+}
+
+export { formatSheet };
+/**
  *  Delete blank rows and columns from sheet
  *
  *  @param {SpreadsheetApp.Sheet} sheet

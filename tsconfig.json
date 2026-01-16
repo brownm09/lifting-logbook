@@ -4,16 +4,20 @@
     "lib": [
       "ESNext"
     ],
-    "module": "None",
+    "module": "commonjs",
     "typeRoots": [
       "./node_modules/@types"
     ],
     "types": [
-      "google-apps-script"
+      "google-apps-script",
+      "jest",
+      "node"
     ],
     "esModuleInterop": true
   },
   "include": [
-    "src/**/*.ts"
-  ]
+    "src/**/*.ts",
+    "tests/**/*.ts"
+  ],
+  
 }

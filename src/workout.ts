@@ -1,4 +1,115 @@
 /**
+ * Greate a cycle grid using training max data and a program spec (typed version).
+ * @param {RptProgramSpec[]} progSpecData
+ * @param {TrainingMax[]} tmData
+ * @param {Date} startDate
+ * @returns {any[][]}
+ */
+import { formatDateYYYYMMDD, addDaysUTC } from './jsUtil';
+
+function createGridV2(progSpecData, tmData, startDate) {
+  // Constants for headers and formatting
+  const LIFT_DATE_HEADER = "Lift Date";
+  const WORKOUT_SHEET_HEADERS = ["Program", "", "Cycle", "", "Weight", ""];
+  const LIFT_SPEC_HEADERS = ["Core Lift", "Scheme", "TM", "Inc. Amt.", "Activ. Ex.", LIFT_DATE_HEADER];
+  const LIFT_PLAN_HEADERS = ["Date", "Lift", "Set", "Weight", "Reps", "Notes"];
+  let resultGrid: any[][] = [];
+  
+  resultGrid.push(WORKOUT_SHEET_HEADERS)
+  let progSpecGrid: any[][] = [];
+  progSpecGrid.push(LIFT_SPEC_HEADERS);
+  let workoutGrid : any[][] = [];
+  workoutGrid.push(LIFT_PLAN_HEADERS);
+
+  // console.log(`Program spec data: \n\t${progSpecData.join('\n\t')}`)
+  // console.log(`Training max data: \n\t${tmData.join('\n\t')}`)
+
+  for (let i = 0; i < tmData.length; i++) {
+    const tm = tmData[i];
+    // console.log(`Training max: ${tm.lift}, ${tm.weight}`);
+    for (let j = 0; j < progSpecData.length; j++) {
+      const ps = progSpecData[j];
+      // console.log(`Program spec: ${ps.lift}, ${ps.offset}, ${ps.sets}, ${ps.reps}, ${ps.warmUpPct}, ${ps.wtDecrementPct}`);
+      if (ps.lift === tm.lift && ps.offset >= 0) {
+        const liftSpec = generateLiftSpec(tm, ps, startDate);
+        progSpecGrid.push(liftSpec);
+        const liftPlan = generateLiftPlan(tm, ps, startDate);
+        workoutGrid.push(...liftPlan);
+      }
+    }
+  }
+
+  resultGrid.push(...progSpecGrid, ...workoutGrid);
+  return resultGrid;
+}
+
+/**
+ * Creates a lift specification from a training max and program spec.
+ * @param {TrainingMax} tm
+ * @param {RptProgramSpec} ps
+ * @param {Date} startDate
+ * @return {any[]}
+ */
+function generateLiftSpec(tm, ps, startDate) {
+  // console.log(`Offset for ${ps.lift}: ${ps.offset}`);
+  let liftDate = addDaysUTC(startDate, ps.offset);
+  // console.log(`Original start date: ${formatDateYYYYMMDD(startDate)}; offset date: ${formatDateYYYYMMDD(liftDate)}`);
+  return [
+    ps.lift,
+    `${ps.sets} × ${ps.reps}`,
+    tm.weight,
+    ps.increment,
+    formatDateYYYYMMDD(liftDate),
+    ps.activation,
+  ];
+}
+
+/**
+ * Creates a lift plan from a training max and program spec.
+ * @param {TrainingMax} tm
+ * @param {RptProgramSpec} ps
+ * @param {Date} startDate
+ * @return {any[]}
+ */
+function generateLiftPlan(tm, ps, startDate) {
+  let workoutGrid: any[][] = [];
+  const LIFT_DATE_HEADER = "Lift Date";
+  const WARMUP_BASE_REPS = 5;
+  const progSpecLiftName = ps.lift;
+  const progSpecNumSets = ps.sets;
+  const progSpecIncrement = ps.increment;
+  const progSpecWtDec = ps.wtDecrementPct;
+  // Warm-up percentages
+  const progSpecWarmPcts = `${ps.warmUpPct}`.split(",").map((pct) => parseFloat(pct));
+  // Work set percentages
+  const progSpecWorkPcts = Array(progSpecNumSets).fill(1).reduce((acc, num) => {
+    acc.push(num - (acc.length * progSpecWtDec));
+    return acc;
+  }, [] as number[]);
+  for (let k = 0; k < progSpecWarmPcts.length; k++) {
+    workoutGrid.push([
+      `=INDEX(A1:F, MATCH("${progSpecLiftName}", A1:A, 0), MATCH("${LIFT_DATE_HEADER}", A2:2, 0))`,
+      progSpecLiftName,
+      `Warm-up ${k + 1}`,
+      `=MROUND(PRODUCT(INDEX(A1:D, MATCH("${progSpecLiftName}", A1:A, 0), MATCH("TM", A2:2, 0)), ${progSpecWarmPcts[k]}), ${progSpecIncrement})`,
+      WARMUP_BASE_REPS - k,
+      "",
+    ]);
+  }
+  for (let k = 0; k < progSpecWorkPcts.length; k++) {
+    workoutGrid.push([
+      `=INDEX(A1:F, MATCH("${progSpecLiftName}", A1:A, 0), MATCH("${LIFT_DATE_HEADER}", A2:2, 0))`,
+      progSpecLiftName,
+      `Set ${k + 1}`,
+      `=MROUND(PRODUCT(INDEX(A1:D, MATCH("${progSpecLiftName}", A1:A, 0), MATCH("TM", A2:2, 0)), ${progSpecWorkPcts[k]}), ${progSpecIncrement})`,
+      "",
+      "",
+    ]);
+  }
+  return workoutGrid;
+}
+
+/**
  * Greate a cycle grid using training max data and a program spec.
  * @param {any[][]} progSpecData Program spec data values
  * @param {any[][]} tmData Training max data values
@@ -102,48 +213,6 @@ function createGrid(progSpecData, tmData, startDate) {
   return tmGrid.concat(MINI_WORKOUT_HEADERS, resultGrid);
 }
 
-function testCreateGrid() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet(); 
-  var specSheet = ss.getSheetByName(RPT_SPEC_SHEET_NAME);
-  var tmSheet = ss.getSheetByName(TM_SHEET_NAME);
-  // var histSheet = ss.getSheetByName(RPT_HIST_SHEET_NAME);
-  var specData = specSheet.getDataRange().getValues();
-  var tmData = tmSheet.getDataRange().getValues();
-  // var histData = histSheet.getDataRange().getValues();
-  console.log(`Program spec data: \n\t${specData.join('\n\t')}`)
-  console.log(`Training max data: \n\t${tmData.join('\n\t')}`)
-  const result = createGrid(specData, tmData, new Date());
-  console.log(`Cycle grid: \n\t${result.join('\n\t')}`)
-}
 
-/** 
- * @param {SpreadsheetApp.Sheet} sheet
- */
-function formatSheet(sheet) {
-  var colHeaders = sheet.getRange(1, 1, 2, sheet.getLastColumn()).setFontWeight('bold');
-  var rowHeaders = sheet.getRange(1, 1, sheet.getLastRow(), 1).setFontWeight('bold');
-  var fullGrid = sheet.getRange(1, 1, sheet.getLastRow(), sheet.getLastColumn()).setHorizontalAlignment('center').applyRowBanding();
-  sheet.createTextFinder(SET_REP_SCHEME_REGEX).useRegularExpression(true).findAll().forEach((setRepRange) => {
-    sheet.getRange(setRepRange.getRow(), 1, 1, sheet.getLastColumn()).setFontWeight('bold');
-  })
-  sheet.autoResizeColumns(1, sheet.getLastColumn());
-}
-
-function testApplyGrid() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet(); 
-  var specSheet = ss.getSheetByName(RPT_SPEC_SHEET_NAME);
-  var tmSheet = ss.getSheetByName(TM_SHEET_NAME);
-  // var histSheet = ss.getSheetByName(RPT_HIST_SHEET_NAME);
-  var specData = specSheet.getDataRange().getValues();
-  var tmData = tmSheet.getDataRange().getValues();
-  // var histData = histSheet.getDataRange().getValues();
-  console.log(`Program spec data: \n\t${specData.join('\n\t')}`)
-  console.log(`Training max data: \n\t${tmData.join('\n\t')}`)
-  const result = createGrid(specData, tmData, new Date());
-  console.log(`Cycle grid: \n\t${result.join('\n\t')}`)
-  ss.insertSheet();
-  var newSheet = ss.getActiveSheet();
-  newSheet.getRange(1, 1, result.length, result[0].length).setValues(result);
-  cropSheet(newSheet);
-  formatSheet(newSheet);
-}
+// For Node.js/CommonJS compatibility in tests and local dev
+export { createGridV2, generateLiftSpec, generateLiftPlan };
