@@ -118,6 +118,7 @@
     const columnData531 = sheetLinks.filter((data) => data.includes("\"Cycle_"));
     const columnDataRpt = sheetLinks.filter((data) => data.includes("\"RPT_"));
     const columnDataOther = sheetLinks.filter((data) => !(columnData531.includes(data) || columnDataRpt.includes(data)));
+    Logger.log(`[DEBUG] Number of sheets per category: 5/3/1 (${columnData531.length}), RPT (${columnDataRpt.length}), Other (${columnDataOther.length})`);
     for (var i = 0; i < columnData531.length || i < columnDataRpt.length || i < columnDataOther.length; i++) {
       data.push([
         i < columnData531.length ? columnData531[i] : "",

@@ -1,8 +1,10 @@
-const CYCLE_NAME_REGEX = "Cycle_(?<majorNum>[0-9])\\.(?<minorNum>[0-9])(?:\\.(?<patchNum>[0-9]))?_(?<program>[^_]+)(?:_(?<phase>[^_]+))?";
+const CYCLE_NAME_REGEX =
+  "Cycle_(?<majorNum>[0-9])\\.(?<minorNum>[0-9])(?:\\.(?<patchNum>[0-9]))?_(?<program>[^_]+)(?:_(?<phase>[^_]+))?";
 const CYCLE_PHASES = ["Leader", "Anchor"];
 const CYCLE_PROGRAMS = ["SSL", "FSL", "531", "5x531", "Deload", "PRT"];
 const CYCLE_SHEET_NAME_REGEX = new RegExp(CYCLE_NAME_REGEX);
 const COPIED_SHEET_NAME_REGEX = new RegExp(`Copy of ${CYCLE_NAME_REGEX}`);
+const DASH_SHEET_NAME = "DASHBOARD";
 const TOC_SHEET_NAME = "TOC";
 const CYCLE_SHEET_PREFIX = "Cycle_";
 const COPIED_SHEET_PREFIX = "Copy of ";
@@ -19,7 +21,33 @@ const PROG_REF_ABBRV_COL_TITLE = "Abbreviation";
 const SECTION_HIDE_START_KEY = "Cycle #";
 const SECTION_HIDE_NEXT_KEY = "Percentages";
 // const DATE_FORMAT_REGEX = /^(0?[1-9]|1[012])[\/\-](0?[1-9]|[12][0-9]|3[01])[\/\-]\d{4}$/;
-const DATE_FORMAT_REGEX = "^(0?[1-9]|1[012])[\/\-](0?[1-9]|[12][0-9]|3[01])[\/\-][0-9]{4}$";
+const DATE_FORMAT_REGEX =
+  "^(0?[1-9]|1[012])[/-](0?[1-9]|[12][0-9]|3[01])[/-][0-9]{4}$";
 const NAMED_RANGE_CLEAN_REGEX = /[^A-Za-z0-9_]/g;
 const SET_REGEX = /Set [0-9]/g;
-const MAIN_LIFT_NAMES = ["Squat", "Bench Press", "Chin-up", "Overhead Press", "Deadlift"];
+const MAIN_LIFT_NAMES = [
+  "Squat",
+  "Bench Press",
+  "Chin-up",
+  "Overhead Press",
+  "Deadlift",
+];
+const RPT_HISTORY_HEADERS = [
+  "Program",
+  "Cycle #",
+  "Workout #",
+  "Date",
+  "Lift",
+  "Set #",
+  "Weight",
+  "Reps",
+  "Notes",
+];
+const RPT_NAME_REGEX = "RPT_Week_([0-9]+)_([0-9]+)";
+const SET_REP_SCHEME_REGEX = "([0-9]+)\\s*×\\s*([0-9]+)";
+const DATE_FORMAT_STR = "YYYYMMDD";
+const SET_NAME_REGEX = "^Set\\s*([0-9]+)";
+const TM_SHEET_NAME = "TRAINING_MAXES";
+const RPT_SPEC_SHEET_NAME = "RPT_PROGRAM_SPEC";
+const RPT_HIST_SHEET_NAME = "LIFT_RECORDS";
+const WARMUP_BASE_REPS = 5;

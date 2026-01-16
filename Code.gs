@@ -1,35 +1,27 @@
+// When duplicating this app, run createEditTrigger()
 
-function onEdit(e) {
+function onEditHandler(e) {
   var currSpreadsheet = e.source;
   var currSheet = currSpreadsheet.getActiveSheet();
   var currSheetName = currSheet.getName();
   const currSheetId = currSheet.getSheetId();
   Logger.log(`Current sheet: ${currSheetName}`);
   Logger.log(`Change type: ${e.changeType}`);
+  if ((e.changeType === "EDIT" || e.changeType === undefined) && currSheetName.includes("RPT_")) {
+    Logger.log(`Editing ${currSheetName}`);
+    hideRowOnEntry(e);
+    // onWeeklySheetEdit(e.range, currSheet);
+  }
   if (COPIED_SHEET_NAME_REGEX.test(currSheetName) || currSheetName.startsWith("Copy of RPT_Week_")) { // This takes too long
     try {
       if (currSheetName.includes("RPT_")) {
-        updateRptNumbers(currSheet);
-        clearRptEntries(currSheet);
-        clearDates(currSheet);
-        updateNameRpt(currSheet);
+        processCompletedSheetRpt(currSheet);
       } else if (currSheetName.includes("Cycle_")) {
-        clearDates(currSheet);
-        var prevSheetName = updatePreviousSheetName(currSheet);
-        updateName(currSheet);
-        Logger.log(`Current sheet name 1: ${currSheet.getName()}`);
-        currSheet = currSpreadsheet.getActiveSheet();
-        Logger.log(`Current sheet name 2: ${currSheet.getName()}`);
-        createNamedRanges(currSheet);
-        validateNamedRanges(currSheet);
-        clearAllEntries(currSheet);
-        updateView(currSheet);
-        // sortSheets();
-        // updateTOC();
+        processCompletedSheet531(currSheet, currSpreadsheet);
       }
     } catch (err) {
-      currSpreadsheet.setActiveSheet(currSpreadsheet.getSheetByName(prevSheetName));
       handleException(err, `An exception occurred when updating this sheet`);
+      currSpreadsheet.setActiveSheet(currSpreadsheet.getSheetByName(prevSheetName));
       // if (err.range.getSheet().getSheetId() === currSheetId) {
         currSpreadsheet.deleteSheet(currSheet);
       // } else {
@@ -104,6 +96,18 @@ function onChange(e) {
   Logger.log("Completed onChange()");
 }
 
+/**
+ * Update weekly sheet based on edit location.
+ * @param {SpreadsheetApp.Range} evtRange Event range
+ * @param {SpreadsheetApp.Sheet} currSheet Current sheet object
+ */
+function onWeeklySheetEdit(evtRange, currSheet) {
+  const WORKOUT_ENTRY_EDIT_RANGE = currSheet.getRange("C14:C");
+  if (doesRangeIntersect(evtRange, WORKOUT_ENTRY_EDIT_RANGE)) {
+    currSheet.hideRow(evtRange.getRow());
+  }
+}
+
 // function createInsertGridTrigger() {
 //   var triggers = ScriptApp.getProjectTriggers();
 //   var shouldCreateTrigger = true;
@@ -120,3 +124,24 @@ function onChange(e) {
 //       .create();
 //   }
 // }
+
+/**
+ * Creates a trigger that runs onEditHandler() when the spreadsheet is edited.
+ * Configured for: From Spreadsheet, On Edit, and Daily Failure Notifications.
+ */
+function createEditTrigger() {
+  // First, check if the trigger already exists to avoid duplicates
+  const triggers = ScriptApp.getProjectTriggers();
+  const triggerExists = triggers.some(t => t.getHandlerFunction() === 'onEditHandler');
+
+  if (!triggerExists) {
+    ScriptApp.newTrigger('onEditHandler')
+      .forSpreadsheet(SpreadsheetApp.getActive())
+      .onEdit()
+      .create();
+    
+    console.log('Trigger successfully created.');
+  } else {
+    console.log('Trigger already exists.');
+  }
+}

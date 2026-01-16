@@ -1,3 +1,7 @@
+function testUpdateToc() {
+  updateTOC();
+}
+
 function testRenameSheet() {
   const testSheetName1 = "Cycle_2.2.0_Leader_FSL";
   const testSheetName2 = "Cycle_3.0.0_Leader_SSL";
