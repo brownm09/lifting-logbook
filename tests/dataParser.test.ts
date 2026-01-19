@@ -1,7 +1,8 @@
 import {
+  parseRptProgramSpec,
   parseTrainingMaxes,
   tableToObjects,
-} from "../src/core/utils/dataParser";
+} from "../src/core";
 import { loadCsvFixture } from "./testUtils";
 
 describe("dataParser", () => {
@@ -36,7 +37,6 @@ describe("dataParser", () => {
   });
 
   it("parses rpt_program_spec.csv to array of RptProgramSpec objects", () => {
-    const { parseRptProgramSpec } = require("../src/dataParser");
     const data = loadCsvFixture("rpt_program_spec.csv");
     const result = parseRptProgramSpec(data);
     expect(Array.isArray(result)).toBe(true);
