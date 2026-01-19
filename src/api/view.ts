@@ -1,3 +1,15 @@
+import {
+  COL_HIDE_RANGE,
+  CURRENT_LIFT_INDEX,
+  CURRENT_WEEK_INDEX,
+  DATE_FORMAT_REGEX,
+  MAIN_LIFT_NAMES,
+  SECTION_HIDE_START_KEY,
+  WARMUP_COL_INDEX,
+} from "./constants";
+import { getLiftNamedRange } from "./namedRanges";
+import { flatten } from "./util";
+
 /**
  * Update sheet name based on data copied.
  * @param {SpreadsheetApp.Sheet} sheet
@@ -34,7 +46,7 @@ function updateLiftView(sheet, liftName) {
   var hideRangeA1Notation = `A${rangeStart}:A`;
   var hideRange = sheet.getRange(hideRangeA1Notation);
   sheet.hideRow(hideRange);
-  var namedRange = getLiftNamedRange(sheet.getName(), liftName); 
+  var namedRange = getLiftNamedRange(sheet.getName(), liftName);
   Logger.log(namedRange);
   sheet.unhideRow(namedRange.getRange());
 }
@@ -48,9 +60,9 @@ function hideFilledColumns(sheet) {
   var textFinder = sheet.createTextFinder(WEEK_SUMMARY_REGEX);
   textFinder.useRegularExpression(true);
   textFinder.matchFormulaText(false);
-  
+
   var weekHeaders = textFinder.findAll();
-  weekHeaders.forEach(week => {
+  weekHeaders.forEach((week) => {
     var weekColNum = week.getColumn();
     var weekCol = sheet.getRange(1, weekColNum, sheet.getLastRow(), 1);
     var dateTextFinder = weekCol.createTextFinder(DATE_FORMAT_REGEX);
@@ -58,11 +70,14 @@ function hideFilledColumns(sheet) {
     dateTextFinder.matchFormulaText(false);
     dateTextFinder.matchEntireCell(true);
     if (dateTextFinder.findAll().length == MAIN_LIFT_NAMES.length) {
-      Logger.log(`Hiding column ${weekColNum}`)
+      Logger.log(`Hiding column ${weekColNum}`);
       sheet.hideColumn(weekCol);
     } else {
-      Logger.log(`Column ${weekColNum} only has ${dateTextFinder.findAll().length} dates in it; ${MAIN_LIFT_NAMES.length} dates needed.`);
-
+      Logger.log(
+        `Column ${weekColNum} only has ${dateTextFinder.findAll().length} dates in it; ${MAIN_LIFT_NAMES.length} dates needed.`,
+      );
     }
   });
 }
+
+export { hideFilledColumns, updateColView, updateLiftView, updateView };

@@ -1,3 +1,6 @@
+import { DATE_FORMAT_REGEX, MAIN_LIFT_NAMES } from "./constants";
+import { getLiftNamedRange, getRangeName } from "./namedRanges";
+
 /**
  * Clear data, but preserve conditional formatting of modifiable fields.
  * @param {SpreadsheetApp.Sheet} sheet
@@ -8,8 +11,8 @@ function clearDates(sheet) {
   textFinder.matchFormulaText(false);
   textFinder.matchEntireCell(true);
   // textFinder.findAll().forEach(match => {
-    // Logger.log(`Match located: ${match.getA1Notation()}: ${match.getValue()}`);
-    // match.clearContent();
+  // Logger.log(`Match located: ${match.getA1Notation()}: ${match.getValue()}`);
+  // match.clearContent();
   // });
   textFinder.replaceAllWith("");
 }
@@ -21,9 +24,17 @@ function clearDates(sheet) {
  */
 function clearEntries(sheet, range) {
   // Find "Set 3" row in range (can find dynamically, but it's usually fourth row in range)
-  var cellR = range.createTextFinder("Set 3").matchEntireCell(true).matchCase(true).findNext();
+  var cellR = range
+    .createTextFinder("Set 3")
+    .matchEntireCell(true)
+    .matchCase(true)
+    .findNext();
   var editableRow = cellR.getRow();
-  var cellC = range.createTextFinder("Warm-Up").matchEntireCell(true).matchCase(true).findNext();
+  var cellC = range
+    .createTextFinder("Warm-Up")
+    .matchEntireCell(true)
+    .matchCase(true)
+    .findNext();
   var editableCol = cellC.getColumn();
   var rowCount = range.getLastRow() - editableRow;
   var colCount = range.getLastColumn() - editableCol;
@@ -32,7 +43,10 @@ function clearEntries(sheet, range) {
   // console.log(`End-R: ${range.getLastRow()}`);
   // console.log(`End-C: ${range.getLastColumn()}`);
   var editableRange = sheet.getRange(
-    editableRow + 1, editableCol + 1, rowCount, colCount
+    editableRow + 1,
+    editableCol + 1,
+    rowCount,
+    colCount,
   );
   console.log(`Editable range: ${editableRange.getA1Notation()}`);
   for (var i = 1; i <= rowCount; i++) {
@@ -52,13 +66,17 @@ function clearEntries(sheet, range) {
  */
 function clearAllEntries(sheet) {
   const sheetName = sheet.getSheetName();
-  MAIN_LIFT_NAMES.forEach(liftName => {
+  MAIN_LIFT_NAMES.forEach((liftName) => {
     var rangeName = getRangeName(sheetName, liftName);
     var namedRange = getLiftNamedRange(sheetName, liftName);
     var targetRange = namedRange.getRange();
-    Logger.log(`Result of getLiftNamedRange(${sheetName},${liftName}): ${namedRange}`);
+    Logger.log(
+      `Result of getLiftNamedRange(${sheetName},${liftName}): ${namedRange}`,
+    );
     if (namedRange === undefined) {
-      Logger.log(`No named range found for ${rangeName}; could not clear entries.`);
+      Logger.log(
+        `No named range found for ${rangeName}; could not clear entries.`,
+      );
     } else {
       Logger.log(`Clearing entries for range ${targetRange.getA1Notation()}.`);
       clearEntries(sheet, targetRange);
@@ -66,4 +84,4 @@ function clearAllEntries(sheet) {
   });
 }
 
-
+export { clearAllEntries, clearDates, clearEntries };

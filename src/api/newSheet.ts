@@ -1,3 +1,19 @@
+import { createGrid } from "../core/workout";
+import { clearAllEntries, clearDates } from "./clearData";
+import {
+  DASH_SHEET_NAME,
+  RPT_HIST_SHEET_NAME,
+  RPT_SPEC_SHEET_NAME,
+  TM_SHEET_NAME,
+} from "./constants";
+import { getCurrSheetName, getProxyCellPivoted, newCycle } from "./dashboard";
+import { cropSheet, formatSheet } from "./format";
+import { updateRptHistory } from "./history";
+import { updateTrainingMaxesWithSpec } from "./maxes";
+import { createNamedRanges, validateNamedRanges } from "./namedRanges";
+import { nextDate, updateName, updatePreviousSheetName } from "./update";
+import { updateView } from "./view";
+
 /**
  * Process completed RPT workout sheet.
  * @param {SpreadsheetApp.Sheet} currSheet Current sheet object
@@ -13,19 +29,21 @@ function processCompletedSheetRpt(currSheet) {
   var dashData = dashSheet.getDataRange().getValues();
   updateRptHistory(currSheet, histSheet);
   var histData = histSheet.getDataRange().getValues();
-  console.log(`Program spec data: \n\t${specData.join('\n\t')}`)
-  console.log(`Training max data (before): \n\t${tmData.join('\n\t')}`)
+  console.log(`Program spec data: \n\t${specData.join("\n\t")}`);
+  console.log(`Training max data (before): \n\t${tmData.join("\n\t")}`);
   updateTrainingMaxesWithSpec(specData, tmData, histData);
-  console.log(`Training max data (after): \n\t${tmData.join('\n\t')}`)
+  console.log(`Training max data (after): \n\t${tmData.join("\n\t")}`);
   tmSheet.getRange(1, 1, tmData.length, tmData[0].length).setValues(tmData);
   const prevCycleDateStr = getProxyCellPivoted(dashData, "Cycle Date");
   const prevCycleDate = new Date(Date.parse(prevCycleDateStr));
   const result = createGrid(specData, tmData, nextDate(1, prevCycleDate));
-  console.log(`Cycle grid: \n\t${result.join('\n\t')}`);
+  console.log(`Cycle grid: \n\t${result.join("\n\t")}`);
   cropSheet(tmSheet);
   cropSheet(dashSheet);
   newCycle(dashData);
-  dashSheet.getRange(1, 1, dashData.length, dashData[0].length).setValues(dashData);
+  dashSheet
+    .getRange(1, 1, dashData.length, dashData[0].length)
+    .setValues(dashData);
   const newSheetName = getCurrSheetName(dashData);
   const newSheet = ss.getSheetByName(newSheetName);
   newSheet.getRange(1, 1, result.length, result[0].length).setValues(result);
@@ -43,7 +61,7 @@ function processCompletedSheetRpt(currSheet) {
  * @param {SpreadsheetApp.Sheet} currSheet Current sheet object
  * @param {SpreadsheetApp.Spreadsheet} currSpreadsheet Current sheet object
  */
-function processCompletedSheet531(currSheet, ) {
+function processCompletedSheet531(currSheet, currSpreadsheet) {
   clearDates(currSheet);
   var prevSheetName = updatePreviousSheetName(currSheet);
   updateName(currSheet);
@@ -58,3 +76,5 @@ function processCompletedSheet531(currSheet, ) {
   // sortSheets();
   // updateTOC();
 }
+
+export { processCompletedSheet531, processCompletedSheetRpt };

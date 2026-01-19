@@ -1,5 +1,21 @@
 // When duplicating this app, run createEditTrigger()
 
+import {
+  COPIED_SHEET_NAME_REGEX,
+  CURRENT_LIFT_INDEX,
+  CURRENT_PROGRAM_INDEX,
+  CURRENT_WEEK_INDEX,
+  CYCLE_SHEET_NAME_REGEX,
+} from "./constants";
+import { sortSheets, updateTOC } from "./contents";
+import { handleException } from "./error";
+import { hideRowOnEntry } from "./format";
+import { validateNamedRanges } from "./namedRanges";
+import { processCompletedSheet531, processCompletedSheetRpt } from "./newSheet";
+import { updateProgram } from "./update";
+import { doesRangeIntersect } from "./util";
+import { updateColView, updateLiftView } from "./view";
+
 function onEditHandler(e) {
   var currSpreadsheet = e.source;
   var currSheet = currSpreadsheet.getActiveSheet();
@@ -7,12 +23,19 @@ function onEditHandler(e) {
   const currSheetId = currSheet.getSheetId();
   Logger.log(`Current sheet: ${currSheetName}`);
   Logger.log(`Change type: ${e.changeType}`);
-  if ((e.changeType === "EDIT" || e.changeType === undefined) && currSheetName.includes("RPT_")) {
+  if (
+    (e.changeType === "EDIT" || e.changeType === undefined) &&
+    currSheetName.includes("RPT_")
+  ) {
     Logger.log(`Editing ${currSheetName}`);
     hideRowOnEntry(e);
     // onWeeklySheetEdit(e.range, currSheet);
   }
-  if (COPIED_SHEET_NAME_REGEX.test(currSheetName) || currSheetName.startsWith("Copy of RPT_Week_")) { // This takes too long
+  if (
+    COPIED_SHEET_NAME_REGEX.test(currSheetName) ||
+    currSheetName.startsWith("Copy of RPT_Week_")
+  ) {
+    // This takes too long
     try {
       if (currSheetName.includes("RPT_")) {
         processCompletedSheetRpt(currSheet);
@@ -21,30 +44,44 @@ function onEditHandler(e) {
       }
     } catch (err) {
       handleException(err, `An exception occurred when updating this sheet`);
-      currSpreadsheet.setActiveSheet(currSpreadsheet.getSheetByName(prevSheetName));
+      currSpreadsheet.setActiveSheet(
+        currSpreadsheet.getSheetByName(currSheetName),
+      );
       // if (err.range.getSheet().getSheetId() === currSheetId) {
-        currSpreadsheet.deleteSheet(currSheet);
+      currSpreadsheet.deleteSheet(currSheet);
       // } else {
-        // handleException(err, "An error occurred while updating the TOC or sorting sheets");
+      // handleException(err, "An error occurred while updating the TOC or sorting sheets");
       // }
     }
   } else if (CYCLE_SHEET_NAME_REGEX.test(currSheetName)) {
-    // var currRange = e.range; 
-    var currWeekRangeUrl = currSheet.getRange(CURRENT_WEEK_INDEX).getDataSourceUrl();
-    var currLiftRangeUrl = currSheet.getRange(CURRENT_LIFT_INDEX).getDataSourceUrl();
-    var currProgramRangeUrl = currSheet.getRange(CURRENT_PROGRAM_INDEX).getDataSourceUrl();
+    // var currRange = e.range;
+    var currWeekRangeUrl = currSheet
+      .getRange(CURRENT_WEEK_INDEX)
+      .getDataSourceUrl();
+    var currLiftRangeUrl = currSheet
+      .getRange(CURRENT_LIFT_INDEX)
+      .getDataSourceUrl();
+    var currProgramRangeUrl = currSheet
+      .getRange(CURRENT_PROGRAM_INDEX)
+      .getDataSourceUrl();
     const currValue = e.range.getValue();
 
     if (e.range.getDataSourceUrl() == currWeekRangeUrl) {
-      Logger.log(`Updated current week selection at ${e.range.getA1Notation()} to ${currValue}. Updating view accordingly.`);
+      Logger.log(
+        `Updated current week selection at ${e.range.getA1Notation()} to ${currValue}. Updating view accordingly.`,
+      );
       updateColView(currSheet, currValue);
     }
     if (e.range.getDataSourceUrl() == currLiftRangeUrl) {
-      Logger.log(`Updated current lift selection at ${e.range.getA1Notation()} to ${currValue}. Updating view accordingly.`);
+      Logger.log(
+        `Updated current lift selection at ${e.range.getA1Notation()} to ${currValue}. Updating view accordingly.`,
+      );
       updateLiftView(currSheet, currValue);
     }
     if (e.range.getDataSourceUrl() == currProgramRangeUrl) {
-      Logger.log(`Updated current program selection at ${e.range.getA1Notation()} to ${currValue}. Updating sheet name accordingly.`);
+      Logger.log(
+        `Updated current program selection at ${e.range.getA1Notation()} to ${currValue}. Updating sheet name accordingly.`,
+      );
       updateProgram(currSheet, currValue);
       // updateSpecialSetRow(currSheet, currValue);
       validateNamedRanges(currSheet);
@@ -73,7 +110,7 @@ function onChange(e) {
            * Need to send/receive Promise to onEdit() here before sorting sheets and updating TOC.
            * Alternatively, can just sortSheets() and updateTOC() after editing the name.
            */
-          // 
+          //
           // clearEntries(sheet, range);
           // updateRefs(currSheet);
           // sortSheets();
@@ -83,7 +120,7 @@ function onChange(e) {
           updateTOC();
         }
         Logger.log("Updated references.");
-      } catch(err) {
+      } catch (err) {
         handleException(err, "Error updating references");
       }
       // Logger.log("Updated TOC.");
@@ -113,10 +150,10 @@ function onWeeklySheetEdit(evtRange, currSheet) {
 //   var shouldCreateTrigger = true;
 //   triggers.forEach(function (trigger) {
 //     if(trigger.getEventType() === ScriptApp.ChangeType.INSERT_GRID && trigger.getHandlerFunction() === "updateTOC") {
-//       shouldCreateTrigger = false; 
+//       shouldCreateTrigger = false;
 //     }
 //   });
-  
+
 //   if(shouldCreateTrigger) {
 //     ScriptApp.newTrigger("sendEmailReport")
 //       .forSpreadsheet(SpreadsheetApp.getActive())
@@ -132,16 +169,26 @@ function onWeeklySheetEdit(evtRange, currSheet) {
 function createEditTrigger() {
   // First, check if the trigger already exists to avoid duplicates
   const triggers = ScriptApp.getProjectTriggers();
-  const triggerExists = triggers.some(t => t.getHandlerFunction() === 'onEditHandler');
+  const triggerExists = triggers.some(
+    (t) => t.getHandlerFunction() === "onEditHandler",
+  );
 
   if (!triggerExists) {
-    ScriptApp.newTrigger('onEditHandler')
+    ScriptApp.newTrigger("onEditHandler")
       .forSpreadsheet(SpreadsheetApp.getActive())
       .onEdit()
       .create();
-    
-    console.log('Trigger successfully created.');
+
+    console.log("Trigger successfully created.");
   } else {
-    console.log('Trigger already exists.');
+    console.log("Trigger already exists.");
   }
 }
+
+export {
+  createEditTrigger,
+  onChange,
+  onEditHandler,
+  onOpen,
+  onWeeklySheetEdit,
+};

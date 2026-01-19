@@ -8,6 +8,13 @@
 //   tmRange.setValues(tmData);
 // }
 
+import {
+  RPT_HIST_SHEET_NAME,
+  RPT_HISTORY_HEADERS,
+  RPT_SPEC_SHEET_NAME,
+  TM_SHEET_NAME,
+} from "./constants";
+
 /**
  * Update sheet name based on data copied.
  * @param {SpreadsheetApp.Sheet} currSheet
@@ -29,7 +36,7 @@ function updateCurrSheet(currSheet) {
     }
   }
   tmRange.setValues(tmData);
-  
+
   // var dateRange = currSheet.getRange(4, 17);
 }
 
@@ -67,26 +74,37 @@ function updateTrainingMaxesWithSpec(progSpecData, tmData, histData) {
   var increment;
 
   for (var i = 1; i < tmData.length; i++) {
-    console.log(`Training max: ${tmData[i]}`)
+    console.log(`Training max: ${tmData[i]}`);
     for (var j = 0; j < progSpecData.length; j++) {
       if (progSpecData[j][PS_LIFT_COL_NUM] === tmData[i][TM_LIFT_COL_NUM]) {
-        console.log(`Program spec: ${progSpecData[j]}`)
+        console.log(`Program spec: ${progSpecData[j]}`);
         increment = progSpecData[j][PS_INC_COL_NUM];
         for (var k = histData.length - 1; k >= 1; k--) {
-          if (tmData[i][TM_LIFT_COL_NUM] === histData[k][HIST_LIFT_COL_NUM] &&
-          tmData[i][TM_DATE_COL_NUM] < histData[k][HIST_DATE_COL_NUM] &&
-          histData[k][HIST_SET_COL_NUM] === 1) {
-            console.log(`Evaluating set 1 of lift ${tmData[i][TM_LIFT_COL_NUM]} on date ${histData[k][HIST_DATE_COL_NUM]} against training max (${tmData[i][TM_DATE_COL_NUM]}) set on ${tmData[i][TM_DATE_COL_NUM]}`);
+          if (
+            tmData[i][TM_LIFT_COL_NUM] === histData[k][HIST_LIFT_COL_NUM] &&
+            tmData[i][TM_DATE_COL_NUM] < histData[k][HIST_DATE_COL_NUM] &&
+            histData[k][HIST_SET_COL_NUM] === 1
+          ) {
+            console.log(
+              `Evaluating set 1 of lift ${tmData[i][TM_LIFT_COL_NUM]} on date ${histData[k][HIST_DATE_COL_NUM]} against training max (${tmData[i][TM_DATE_COL_NUM]}) set on ${tmData[i][TM_DATE_COL_NUM]}`,
+            );
             // console.log(`Lift record: ${histData[k]}`)
             if (tmData[i][TM_WT_COL_NUM] > histData[k][HIST_WT_COL_NUM]) {
-              console.log(`Resetting ${tmData[i][TM_LIFT_COL_NUM]} training max to ${histData[k][HIST_WT_COL_NUM]} (from ${tmData[i][TM_WT_COL_NUM]}).`);
+              console.log(
+                `Resetting ${tmData[i][TM_LIFT_COL_NUM]} training max to ${histData[k][HIST_WT_COL_NUM]} (from ${tmData[i][TM_WT_COL_NUM]}).`,
+              );
               tmData[i][TM_WT_COL_NUM] = histData[k][HIST_WT_COL_NUM];
               tmData[i][TM_DATE_COL_NUM] = histData[k][HIST_DATE_COL_NUM];
-            } 
-            if (tmData[i][TM_WT_COL_NUM] <= histData[k][HIST_WT_COL_NUM] &&
-              histData[k][HIST_REPS_COL_NUM] >= progSpecData[j][PS_REPS_COL_NUM]) {
-              console.log(`Incrementing ${tmData[i][TM_LIFT_COL_NUM]} training max to ${histData[k][HIST_WT_COL_NUM] + increment} (from ${tmData[i][TM_WT_COL_NUM]}).`);
-              tmData[i][TM_WT_COL_NUM] = histData[k][HIST_WT_COL_NUM] + increment;
+            }
+            if (
+              tmData[i][TM_WT_COL_NUM] <= histData[k][HIST_WT_COL_NUM] &&
+              histData[k][HIST_REPS_COL_NUM] >= progSpecData[j][PS_REPS_COL_NUM]
+            ) {
+              console.log(
+                `Incrementing ${tmData[i][TM_LIFT_COL_NUM]} training max to ${histData[k][HIST_WT_COL_NUM] + increment} (from ${tmData[i][TM_WT_COL_NUM]}).`,
+              );
+              tmData[i][TM_WT_COL_NUM] =
+                histData[k][HIST_WT_COL_NUM] + increment;
               tmData[i][TM_DATE_COL_NUM] = histData[k][HIST_DATE_COL_NUM];
               break;
             }
@@ -99,18 +117,24 @@ function updateTrainingMaxesWithSpec(progSpecData, tmData, histData) {
 }
 
 function testUpdateTrainingMaxesWithSpec() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet(); 
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
   var specSheet = ss.getSheetByName(RPT_SPEC_SHEET_NAME);
   var tmSheet = ss.getSheetByName(TM_SHEET_NAME);
   var histSheet = ss.getSheetByName(RPT_HIST_SHEET_NAME);
   var specData = specSheet.getDataRange().getValues();
   var tmData = tmSheet.getDataRange().getValues();
   var histData = histSheet.getDataRange().getValues();
-  console.log(`Historical lift data: \n\t${histData.join('\n\t')}`)
-  console.log(`Training max data (before): \n\t${tmData.join('\n\t')}`)
+  console.log(`Historical lift data: \n\t${histData.join("\n\t")}`);
+  console.log(`Training max data (before): \n\t${tmData.join("\n\t")}`);
   updateTrainingMaxesWithSpec(specData, tmData, histData);
-  console.log(`Training max data (after): \n\t${tmData.join('\n\t')}`)
+  console.log(`Training max data (after): \n\t${tmData.join("\n\t")}`);
   // var tmRange = tmSheet.getRange(1, 1, tmData.length, tmData[0].length);
   // tmRange.setValues(tmData);
-        
 }
+
+export {
+  getTrainingMax,
+  testUpdateTrainingMaxesWithSpec,
+  updateCurrSheet,
+  updateTrainingMaxesWithSpec,
+};

@@ -1,3 +1,6 @@
+import { DASH_SHEET_NAME } from "./constants";
+import { cropSheet } from "./format";
+import { nextDate } from "./update";
 
 /**
  * Get current sheet name from dashboard data
@@ -34,16 +37,15 @@ function testNextDate() {
 }
 
 function testNewCycle() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet(); 
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
   var dashSheet = ss.getSheetByName(DASH_SHEET_NAME);
   var dashData = dashSheet.getDataRange().getValues();
-  console.log(`Dashboard data (before): \n\t${dashData.join('\n\t')}`)
+  console.log(`Dashboard data (before): \n\t${dashData.join("\n\t")}`);
   newCycle(dashData);
-  console.log(`Dashboard data (after): \n\t${dashData.join('\n\t')}`)
+  console.log(`Dashboard data (after): \n\t${dashData.join("\n\t")}`);
   var newSheetName = getCurrSheetName(dashData);
   console.log(`New sheet name: ${newSheetName}`);
 }
-
 
 /**
  * Generate workout sheet name from program, cycle number, and cycle data.
@@ -54,7 +56,7 @@ function testNewCycle() {
  * @return {string} Resulting string
  */
 function worksheetName(progName, cycleUnit, cycleNum, cycleDate) {
-  var dateStr = cycleDate.toISOString().slice(0,10).replace(/-/g,"");
+  var dateStr = cycleDate.toISOString().slice(0, 10).replace(/-/g, "");
   return `${progName}_${cycleUnit}_${cycleNum}_${dateStr}`;
 }
 
@@ -69,7 +71,7 @@ function worksheetName(progName, cycleUnit, cycleNum, cycleDate) {
 //   var dateStr = matches[2];
 //   var cycleDate = new Date(dateStr.substring(0,4), parseInt(dateStr.substring(4,6)) - 1, dateStr.substring(6,8));
 //   updateProxyCellPivoted(dashData, "Cycle Date", cycleDate);
-//   var sheetLink = generateSheetLinkFormula(worksheetName());    
+//   var sheetLink = generateSheetLinkFormula(worksheetName());
 //   updateProxyCellPivoted(dashData, "Sheet Link", sheetLink);
 // }
 
@@ -85,21 +87,21 @@ function worksheetName(progName, cycleUnit, cycleNum, cycleDate) {
 //     var dateStr = matches[2];
 //     var cycleDate = new Date(dateStr.substring(0,4), parseInt(dateStr.substring(4,6)) - 1, dateStr.substring(6,8));
 //     updateProxyCellPivoted(dashData, "Cycle Date", cycleDate);
-//     var sheetLink = generateSheetLinkFormula(sheetName);    
+//     var sheetLink = generateSheetLinkFormula(sheetName);
 //     updateProxyCellPivoted(dashData, "Sheet Link", sheetLink);
 //   }
 // }
 
 function testUpdateDashboardData() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet(); 
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
   var dashSheet = ss.getSheetByName("DASHBOARD");
   var workSheet = ss.getSheetByName("RPT_Week_44_20240303");
   var dashData = dashSheet.getDataRange().getValues();
   // var tmData = tmSheet.getDataRange().getValues();
   // var workData = workSheet.getDataRange().getValues();
-  console.log(`Dashboard data (before): \n\t${dashData.join('\n\t')}`)
-  updateDashboardData(workSheet, dashData);
-  console.log(`Dashboard data (after): \n\t${dashData.join('\n\t')}`)
+  console.log(`Dashboard data (before): \n\t${dashData.join("\n\t")}`);
+  // updateDashboardData(workSheet, dashData);
+  console.log(`Dashboard data (after): \n\t${dashData.join("\n\t")}`);
   dashSheet.getDataRange().setValues(dashData);
   cropSheet(dashSheet);
   dashSheet.autoResizeColumns(1, dashSheet.getLastColumn());
@@ -142,7 +144,7 @@ function updateProxyCellPivoted(data, rowHeader, val) {
 function generateSheetLinkFormula(sheetName) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet;
-  if (sheet = ss.getSheetByName(sheetName) === null) {
+  if ((sheet = ss.getSheetByName(sheetName) === null)) {
     ss.insertSheet();
     sheet = ss.getActiveSheet();
     sheet.setName(sheetName);
@@ -150,3 +152,15 @@ function generateSheetLinkFormula(sheetName) {
   var gid = sheet.getSheetId();
   return `=HYPERLINK("#gid=${gid}","${sheetName}")`;
 }
+
+export {
+  generateSheetLinkFormula,
+  getCurrSheetName,
+  getProxyCellPivoted,
+  newCycle,
+  testNewCycle,
+  testNextDate,
+  testUpdateDashboardData,
+  updateProxyCellPivoted,
+  worksheetName,
+};

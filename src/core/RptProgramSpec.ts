@@ -1,0 +1,14 @@
+// RptProgramSpec interface for RPT program specification objects
+export interface RptProgramSpec {
+  offset: number;
+  lift: string;
+  increment: number;
+  order: number;
+  sets: number;
+  reps: number;
+  amrap: string | boolean;
+  warmUpPct: string;
+  wtDecrementPct: number;
+  activation: string;
+  [key: string]: any;
+}
