@@ -10,7 +10,7 @@ import { getColByIndex } from "./util";
  * Create named ranges
  * @param {SpreadsheetApp.Sheet} sheet
  */
-function createNamedRanges(sheet) {
+export function createNamedRanges(sheet) {
   const currSheetName = sheet.getName();
   const liftRanges = identifyLiftRanges(sheet);
   MAIN_LIFT_NAMES.forEach((liftName) => {
@@ -22,7 +22,7 @@ function createNamedRanges(sheet) {
  * Validate named ranges
  * @param {SpreadsheetApp.Sheet} sheet
  */
-function validateNamedRanges(sheet) {
+export function validateNamedRanges(sheet) {
   const currSheetName = sheet.getSheetName();
   const currSheetId = `${sheet.getSheetId()}`;
   Logger.log(
@@ -55,7 +55,7 @@ function validateNamedRanges(sheet) {
  * Delete named ranges for current sheet
  * @param {SpreadsheetApp.Sheet} sheet
  */
-function deleteNamedRanges(sheet) {
+export function deleteNamedRanges(sheet) {
   const currSheetName = sheet.getSheetName();
   const currSheetId = sheet.getSheetId();
   var namedRanges = sheet
@@ -76,7 +76,7 @@ function deleteNamedRanges(sheet) {
  * @param {SpreadsheetApp.Sheet} sheet
  * @return {Object}
  */
-function identifyLiftRanges(sheet) {
+export function identifyLiftRanges(sheet) {
   try {
     var ss = SpreadsheetApp.getActive();
     var sheetName = sheet.getName();
@@ -150,7 +150,7 @@ function identifyLiftRanges(sheet) {
  * @param {String} liftName
  * @param {SpreadsheetApp.Range} range
  */
-function createNamedRange(sheetName, liftName, range) {
+export function createNamedRange(sheetName, liftName, range) {
   try {
     var ss = SpreadsheetApp.getActive();
     var rangeName = getRangeName(sheetName, liftName);
@@ -183,7 +183,7 @@ function createNamedRange(sheetName, liftName, range) {
  * @param {String} liftName The name of the lift to get a named range for.
  * @return {SpreadsheetApp.NamedRange} The named range.
  */
-function getLiftNamedRange(sheetName, liftName) {
+export function getLiftNamedRange(sheetName, liftName) {
   var ss = SpreadsheetApp.getActive();
   var sheet = ss.getActiveSheet();
   var rangeName = getRangeName(sheetName, liftName);
@@ -199,16 +199,6 @@ function getLiftNamedRange(sheetName, liftName) {
  * @param {String} liftName The name of the lift to get a named range for.
  * @return {String} The sanitized range name.
  */
-function getRangeName(sheetName, liftName) {
+export function getRangeName(sheetName, liftName) {
   return `${sheetName}.${liftName}`.replaceAll(NAMED_RANGE_CLEAN_REGEX, "_");
 }
-
-export {
-  createNamedRange,
-  createNamedRanges,
-  deleteNamedRanges,
-  getLiftNamedRange,
-  getRangeName,
-  identifyLiftRanges,
-  validateNamedRanges,
-};

@@ -1,5 +1,5 @@
 // Test/demo functions moved from workout.ts
-import { createGrid } from "../core/workout";
+import { createGrid } from "../core/services/workout";
 import { clearDates, clearEntries } from "./clearData";
 import {
   MAIN_LIFT_NAMES,
@@ -13,7 +13,7 @@ import { createNamedRange, identifyLiftRanges } from "./namedRanges";
 import { updateName } from "./update";
 import { hideFilledColumns, updateColView, updateLiftView } from "./view";
 
-function testCreateGrid() {
+export function testCreateGrid() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var specSheet = ss.getSheetByName(RPT_SPEC_SHEET_NAME);
   var tmSheet = ss.getSheetByName(TM_SHEET_NAME);
@@ -27,7 +27,7 @@ function testCreateGrid() {
   console.log(`Cycle grid: \n\t${result.join("\n\t")}`);
 }
 
-function testApplyGrid() {
+export function testApplyGrid() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var specSheet = ss.getSheetByName(RPT_SPEC_SHEET_NAME);
   var tmSheet = ss.getSheetByName(TM_SHEET_NAME);
@@ -45,11 +45,11 @@ function testApplyGrid() {
   cropSheet(newSheet);
   formatSheet(newSheet);
 }
-function testUpdateToc() {
+export function testUpdateToc() {
   updateTOC();
 }
 
-function testRenameSheet() {
+export function testRenameSheet() {
   const testSheetName1 = "Cycle_2.2.0_Leader_FSL";
   const testSheetName2 = "Cycle_3.0.0_Leader_SSL";
   // const sheet1 = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(testSheetName1);
@@ -58,7 +58,7 @@ function testRenameSheet() {
     SpreadsheetApp.getActiveSpreadsheet().getSheetByName(testSheetName2);
   updateName(sheet2);
 }
-function testHideColumns() {
+export function testHideColumns() {
   const testSheetName1 = "Cycle_2.2.0_Leader_FSL";
   const testSheetName2 = "Cycle_3.0.0_Leader_SSL";
   const sheet1 =
@@ -69,7 +69,7 @@ function testHideColumns() {
   // hideFilledColumns(sheet2);
 }
 
-function testClearEntries() {
+export function testClearEntries() {
   const testSheetName2 = "Cycle_3.0.0_Leader_SSL";
   const sheet =
     SpreadsheetApp.getActiveSpreadsheet().getSheetByName(testSheetName2);
@@ -77,7 +77,7 @@ function testClearEntries() {
   clearEntries(sheet, range);
 }
 
-function testClearDates() {
+export function testClearDates() {
   const testSheetName2 = "Cycle_3.0.0_Leader_SSL";
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   try {
@@ -88,7 +88,7 @@ function testClearDates() {
   }
 }
 
-function testIdentfyLiftRanges() {
+export function testIdentfyLiftRanges() {
   const testSheetName1 = "Cycle_2.2.0_Leader_FSL";
   const testSheetName2 = "Cycle_3.0.0_Leader_SSL";
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -107,7 +107,7 @@ function testIdentfyLiftRanges() {
   }
 }
 
-function testCreateLiftRanges() {
+export function testCreateLiftRanges() {
   const testSheetName1 = "Cycle_2.2.0_Leader_FSL";
   const testSheetName2 = "Cycle_3.0.0_Leader_SSL";
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -134,7 +134,7 @@ function testCreateLiftRanges() {
   }
 }
 
-function testUpdateView() {
+export function testUpdateView() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const testSheetName2 = "Cycle_3.0.0_Leader_SSL";
   const testSheet = ss.getSheetByName(testSheetName2);
@@ -143,7 +143,7 @@ function testUpdateView() {
   updateLiftView(testSheet, "Bench Press");
 }
 
-function testRptUpdates() {
+export function testRptUpdates() {
   const sheetName = "Copy of RPT_Week_1_20221024";
   const sheet = SpreadsheetApp.getActive().getSheetByName(sheetName);
   // updateRptNumbers(sheet);
@@ -155,7 +155,7 @@ function testRptUpdates() {
 /**
  * A test helper function.
  */
-function testDeleteNamedRanges() {
+export function testDeleteNamedRanges() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   var namedRanges = ss.getNamedRanges();
   Logger.log(`Found ${namedRanges.length} named ranges.`);
@@ -165,18 +165,3 @@ function testDeleteNamedRanges() {
     // ss.removeNamedRange(namedRange.getName())
   });
 }
-
-export {
-  testApplyGrid,
-  testClearDates,
-  testClearEntries,
-  testCreateGrid,
-  testCreateLiftRanges,
-  testDeleteNamedRanges,
-  testHideColumns,
-  testIdentfyLiftRanges,
-  testRenameSheet,
-  testRptUpdates,
-  testUpdateToc,
-  testUpdateView,
-};

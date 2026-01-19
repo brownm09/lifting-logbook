@@ -2,7 +2,7 @@
  * Deletes all sheets matching the RPT_Week pattern from any previous year,
  * keeping only the single most recent sheet and renaming it to Week 00.
  */
-function cleanupAllPreviousYearSheets() {
+export function cleanupAllPreviousYearSheets() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheets = ss.getSheets();
   const currentYear = new Date().getFullYear();
@@ -89,5 +89,3 @@ function cleanupAllPreviousYearSheets() {
 
   Logger.log("--- Cleanup Process Finished ---");
 }
-
-export { cleanupAllPreviousYearSheets };

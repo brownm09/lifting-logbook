@@ -20,7 +20,7 @@ import {
  * @param {SpreadsheetApp.Sheet} currSheet
  * @param {any[][]} tmData
  */
-function updateCurrSheet(currSheet) {
+export function updateCurrSheet(currSheet) {
   // var tmRange = tmSheet.getRange(1, 1, tmData.length, tmData[0].length);
   // tmRange.setValues(tmData);
   var tmRange = currSheet.getRange(6, 1, 15, 2);
@@ -40,7 +40,7 @@ function updateCurrSheet(currSheet) {
   // var dateRange = currSheet.getRange(4, 17);
 }
 
-function getTrainingMax(liftName) {
+export function getTrainingMax(liftName) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const tmSheet = ss.getSheetByName(TM_SHEET_NAME);
   const tmData = tmSheet.getDataRange().getValues();
@@ -59,7 +59,7 @@ function getTrainingMax(liftName) {
  * @param {any[][]} tmData Training max data values
  * @param {any[][]} histData Historical lift records data values
  */
-function updateTrainingMaxesWithSpec(progSpecData, tmData, histData) {
+export function updateTrainingMaxesWithSpec(progSpecData, tmData, histData) {
   const TM_DATE_COL_NUM = tmData[0].indexOf("Date Updated");
   const TM_LIFT_COL_NUM = tmData[0].indexOf("Lift");
   const TM_WT_COL_NUM = tmData[0].indexOf("Weight");
@@ -116,7 +116,7 @@ function updateTrainingMaxesWithSpec(progSpecData, tmData, histData) {
   }
 }
 
-function testUpdateTrainingMaxesWithSpec() {
+export function testUpdateTrainingMaxesWithSpec() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var specSheet = ss.getSheetByName(RPT_SPEC_SHEET_NAME);
   var tmSheet = ss.getSheetByName(TM_SHEET_NAME);
@@ -131,10 +131,3 @@ function testUpdateTrainingMaxesWithSpec() {
   // var tmRange = tmSheet.getRange(1, 1, tmData.length, tmData[0].length);
   // tmRange.setValues(tmData);
 }
-
-export {
-  getTrainingMax,
-  testUpdateTrainingMaxesWithSpec,
-  updateCurrSheet,
-  updateTrainingMaxesWithSpec,
-};

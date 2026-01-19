@@ -5,7 +5,7 @@ import { getLiftNamedRange, getRangeName } from "./namedRanges";
  * Clear data, but preserve conditional formatting of modifiable fields.
  * @param {SpreadsheetApp.Sheet} sheet
  */
-function clearDates(sheet) {
+export function clearDates(sheet) {
   var textFinder = sheet.createTextFinder(DATE_FORMAT_REGEX);
   textFinder.useRegularExpression(true);
   textFinder.matchFormulaText(false);
@@ -22,7 +22,7 @@ function clearDates(sheet) {
  * @param {SpreadsheetApp.Sheet} sheet
  * @param {SpreadsheetApp.Range} range
  */
-function clearEntries(sheet, range) {
+export function clearEntries(sheet, range) {
   // Find "Set 3" row in range (can find dynamically, but it's usually fourth row in range)
   var cellR = range
     .createTextFinder("Set 3")
@@ -64,7 +64,7 @@ function clearEntries(sheet, range) {
  * Clear entered data from all editable ranges
  * @param {SpreadsheetApp.Sheet} sheet
  */
-function clearAllEntries(sheet) {
+export function clearAllEntries(sheet) {
   const sheetName = sheet.getSheetName();
   MAIN_LIFT_NAMES.forEach((liftName) => {
     var rangeName = getRangeName(sheetName, liftName);
@@ -83,5 +83,3 @@ function clearAllEntries(sheet) {
     }
   });
 }
-
-export { clearAllEntries, clearDates, clearEntries };

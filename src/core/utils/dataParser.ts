@@ -1,23 +1,19 @@
-import { RptProgramSpec } from "./RptProgramSpec";
+import {
+  RPT_PROGRAM_SPEC_HEADER_MAP,
+  TRAINING_MAX_HEADER_MAP,
+} from "../constants/schema";
+import { RptProgramSpec } from "../models/RptProgramSpec";
+import { TrainingMax } from "../models/TrainingMax";
+import { formatDateYYYYMMDD } from "./jsUtil";
 
 /**
  * Converts a 2D array to an array of RptProgramSpec objects.
  * @param {any[][]} data
  * @returns {RptProgramSpec[]}
  */
-function parseRptProgramSpec(data: any[][]): RptProgramSpec[] {
-  const headerMap: Record<string, { key: string; type: string }> = {
-    Offset: { key: "offset", type: "number" },
-    Lift: { key: "lift", type: "string" },
-    Increment: { key: "increment", type: "number" },
-    Order: { key: "order", type: "number" },
-    Sets: { key: "sets", type: "number" },
-    Reps: { key: "reps", type: "number" },
-    "AMRAP?": { key: "amrap", type: "boolean|string" },
-    "Warm-Up %": { key: "warmUpPct", type: "string" },
-    "WT Decrement %": { key: "wtDecrementPct", type: "number" },
-    Activation: { key: "activation", type: "string" },
-  };
+export function parseRptProgramSpec(data: any[][]): RptProgramSpec[] {
+  // Use header map from constants
+  const headerMap = RPT_PROGRAM_SPEC_HEADER_MAP;
   // Convert using tableToObjects, then cast/convert types
   const rawObjects = tableToObjects(data, undefined);
   return rawObjects.map((obj) => {
@@ -42,7 +38,7 @@ function parseRptProgramSpec(data: any[][]): RptProgramSpec[] {
  * @param {any[][]} data - 2D array with first row as headers
  * @returns {Record<string, any>[]}
  */
-function tableToObjects<T = Record<string, any>>(
+export function tableToObjects<T = Record<string, any>>(
   data: any[][],
   headerMap?: Record<string, string>,
 ): T[] {
@@ -63,14 +59,8 @@ function tableToObjects<T = Record<string, any>>(
  * @param {any[][]} data
  * @returns {TrainingMax[]}
  */
-import { formatDateYYYYMMDD } from "./jsUtil";
-
-function parseTrainingMaxes(data: any[][]): TrainingMax[] {
-  const headerMap: Record<string, { key: string; type: string }> = {
-    "Date Updated": { key: "dateUpdated", type: "string" },
-    Lift: { key: "lift", type: "string" },
-    Weight: { key: "weight", type: "number" },
-  };
+export function parseTrainingMaxes(data: any[][]): TrainingMax[] {
+  const headerMap = TRAINING_MAX_HEADER_MAP;
   const rawObjects = tableToObjects(data, undefined);
   return rawObjects.map((obj) => {
     const result: any = {};
@@ -88,7 +78,3 @@ function parseTrainingMaxes(data: any[][]): TrainingMax[] {
     return result as TrainingMax;
   });
 }
-
-import { TrainingMax } from "./TrainingMax";
-
-export { parseRptProgramSpec, parseTrainingMaxes, tableToObjects };

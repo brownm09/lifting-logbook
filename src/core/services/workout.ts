@@ -1,6 +1,6 @@
-import { WARMUP_BASE_REPS } from "../api/constants";
-import { addDaysUTC, formatDateYYYYMMDD } from "./jsUtil";
-import { LiftRecord } from "./LiftRecord";
+import { WARMUP_BASE_REPS } from "../constants/config";
+import { LiftRecord } from "../models/LiftRecord";
+import { addDaysUTC, formatDateYYYYMMDD } from "../utils/jsUtil";
 
 /**
  * Greate a cycle grid using training max data and a program spec (typed version).
@@ -9,7 +9,7 @@ import { LiftRecord } from "./LiftRecord";
  * @param {Date} startDate
  * @returns {any[][]}
  */
-function createGridV2(progSpecData, tmData, startDate) {
+export function createGridV2(progSpecData, tmData, startDate) {
   // Constants for headers and formatting
   const LIFT_DATE_HEADER = "Lift Date";
   const WORKOUT_SHEET_HEADERS = ["Program", "", "Cycle", "", "Weight", ""];
@@ -59,7 +59,7 @@ function createGridV2(progSpecData, tmData, startDate) {
  * @param {Date} startDate
  * @return {any[]}
  */
-function generateLiftSpec(tm, ps, startDate) {
+export function generateLiftSpec(tm, ps, startDate) {
   // console.log(`Offset for ${ps.lift}: ${ps.offset}`);
   let liftDate = addDaysUTC(startDate, ps.offset);
   // console.log(`Original start date: ${formatDateYYYYMMDD(startDate)}; offset date: ${formatDateYYYYMMDD(liftDate)}`);
@@ -80,7 +80,7 @@ function generateLiftSpec(tm, ps, startDate) {
  * @param {Date} startDate
  * @return {any[]}
  */
-function generateLiftPlan(tm, ps, startDate) {
+export function generateLiftPlan(tm, ps, startDate) {
   let workoutGrid: any[][] = [];
   const LIFT_DATE_HEADER = "Lift Date";
   const WARMUP_BASE_REPS = 5;
@@ -125,7 +125,7 @@ function generateLiftPlan(tm, ps, startDate) {
 /**
  *
  */
-function extractLiftRecords(data: any[][]): LiftRecord[] {
+export function extractLiftRecords(data: any[][]): LiftRecord[] {
   if (!data || data.length < 2) return [];
   // Find the header row for lift records
   const headerIdx = data.findIndex(
@@ -184,7 +184,7 @@ function extractLiftRecords(data: any[][]): LiftRecord[] {
  * @param {any[][]} tmData Training max data values
  * @param {Date} startDate Date of first workout in cycle
  */
-function createGrid(progSpecData, tmData, startDate) {
+export function createGrid(progSpecData, tmData, startDate) {
   // const TM_DATE_COL_NUM = tmData[0].indexOf("Date Updated");
   const TM_LIFT_COL_NUM = tmData[0].indexOf("Lift");
   const TM_WT_COL_NUM = tmData[0].indexOf("Weight");
@@ -296,12 +296,3 @@ function createGrid(progSpecData, tmData, startDate) {
   }
   return tmGrid.concat(MINI_WORKOUT_HEADERS, resultGrid);
 }
-
-// For Node.js/CommonJS compatibility in tests and local dev
-export {
-  createGrid,
-  createGridV2,
-  extractLiftRecords,
-  generateLiftPlan,
-  generateLiftSpec,
-};

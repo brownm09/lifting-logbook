@@ -14,7 +14,7 @@ import { flatten } from "./util";
  * Update sheet name based on data copied.
  * @param {SpreadsheetApp.Sheet} sheet
  */
-function updateView(sheet) {
+export function updateView(sheet) {
   var currWeekRange = sheet.getRange(CURRENT_WEEK_INDEX);
   var currLiftRange = sheet.getRange(CURRENT_LIFT_INDEX);
   currWeekRange.setValue("1");
@@ -28,7 +28,7 @@ function updateView(sheet) {
  * @param {SpreadsheetApp.Sheet} sheet
  * @param {String} colNum The column to view
  */
-function updateColView(sheet, colNum) {
+export function updateColView(sheet, colNum) {
   var colHideRange = sheet.getRange(COL_HIDE_RANGE);
   var colUnhideRange = sheet.getRange(1, parseInt(colNum) + WARMUP_COL_INDEX);
   sheet.hideColumn(colHideRange);
@@ -40,7 +40,7 @@ function updateColView(sheet, colNum) {
  * @param {SpreadsheetApp.Sheet} sheet
  * @param {String} liftName The section to view
  */
-function updateLiftView(sheet, liftName) {
+export function updateLiftView(sheet, liftName) {
   var rowHeaders = flatten(sheet.getRange("A1:A").getValues());
   var rangeStart = rowHeaders.indexOf(SECTION_HIDE_START_KEY) + 1;
   var hideRangeA1Notation = `A${rangeStart}:A`;
@@ -55,7 +55,7 @@ function updateLiftView(sheet, liftName) {
  * Hide columns for which dates have been filled all the way down
  * @param {SpreadsheetApp.Sheet} sheet
  */
-function hideFilledColumns(sheet) {
+export function hideFilledColumns(sheet) {
   const WEEK_SUMMARY_REGEX = "Week [0-9]";
   var textFinder = sheet.createTextFinder(WEEK_SUMMARY_REGEX);
   textFinder.useRegularExpression(true);
@@ -79,5 +79,3 @@ function hideFilledColumns(sheet) {
     }
   });
 }
-
-export { hideFilledColumns, updateColView, updateLiftView, updateView };

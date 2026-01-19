@@ -6,7 +6,7 @@ import { cropSheet, emptySheet } from "./format";
  *  Sort sheets
  *
  */
-function sortSheets() {
+export function sortSheets() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   // const INIT_SHEET = ss.getActiveSheet();
   const sheets = ss.getSheets();
@@ -38,7 +38,7 @@ function sortSheets() {
  *  Creates a TOC of sheets as formula based hyperlinks
  *
  */
-function updateTOC() {
+export function updateTOC() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheetList = ss.getSheets();
   const currSheet = ss.getActiveSheet();
@@ -77,7 +77,7 @@ function updateTOC() {
  *  @return {String[][]}
  *
  */
-function generateSheetIdTuples(sheets) {
+export function generateSheetIdTuples(sheets) {
   var tuples = [];
   var gid, name;
 
@@ -99,7 +99,7 @@ function generateSheetIdTuples(sheets) {
  *  @return {String[][]}
  *
  */
-function generateSheetLinks(tuples) {
+export function generateSheetLinks(tuples) {
   var data = [];
   var gid, name;
 
@@ -119,7 +119,7 @@ function generateSheetLinks(tuples) {
  *  @return {String[][]}
  *
  */
-function arrangeCellData(sheetLinks) {
+export function arrangeCellData(sheetLinks) {
   var data = [];
   var gid, name;
   const columnData531 = sheetLinks.filter((data) => data.includes('"Cycle_'));
@@ -145,11 +145,3 @@ function arrangeCellData(sheetLinks) {
   }
   return data;
 }
-
-export {
-  arrangeCellData,
-  generateSheetIdTuples,
-  generateSheetLinks,
-  sortSheets,
-  updateTOC,
-};

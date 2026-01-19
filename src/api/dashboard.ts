@@ -6,7 +6,7 @@ import { nextDate } from "./update";
  * Get current sheet name from dashboard data
  * @param {any[][]} dashData Dashboard data in 2D array
  */
-function getCurrSheetName(dashData) {
+export function getCurrSheetName(dashData) {
   var progAbbr = getProxyCellPivoted(dashData, "Program");
   var cycleUnit = getProxyCellPivoted(dashData, "Cycle Unit");
   var cycleNum = getProxyCellPivoted(dashData, "Cycle #");
@@ -18,7 +18,7 @@ function getCurrSheetName(dashData) {
  * Update sheet name based on dashboard data.
  * @param {any[][]} dashData Dashboard data in 2D array
  */
-function newCycle(dashData) {
+export function newCycle(dashData) {
   var progAbbr = getProxyCellPivoted(dashData, "Program");
   var cycleUnit = getProxyCellPivoted(dashData, "Cycle Unit");
   var cycleNum = getProxyCellPivoted(dashData, "Cycle #");
@@ -32,11 +32,11 @@ function newCycle(dashData) {
   updateProxyCellPivoted(dashData, "Sheet Link", sheetLink);
 }
 
-function testNextDate() {
+export function testNextDate() {
   Logger.log(`Next Monday: ${nextDate(1).toLocaleDateString()}`);
 }
 
-function testNewCycle() {
+export function testNewCycle() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var dashSheet = ss.getSheetByName(DASH_SHEET_NAME);
   var dashData = dashSheet.getDataRange().getValues();
@@ -55,7 +55,7 @@ function testNewCycle() {
  * @param {Date} cycleDate
  * @return {string} Resulting string
  */
-function worksheetName(progName, cycleUnit, cycleNum, cycleDate) {
+export function worksheetName(progName, cycleUnit, cycleNum, cycleDate) {
   var dateStr = cycleDate.toISOString().slice(0, 10).replace(/-/g, "");
   return `${progName}_${cycleUnit}_${cycleNum}_${dateStr}`;
 }
@@ -92,7 +92,7 @@ function worksheetName(progName, cycleUnit, cycleNum, cycleDate) {
 //   }
 // }
 
-function testUpdateDashboardData() {
+export function testUpdateDashboardData() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var dashSheet = ss.getSheetByName("DASHBOARD");
   var workSheet = ss.getSheetByName("RPT_Week_44_20240303");
@@ -113,7 +113,7 @@ function testUpdateDashboardData() {
  * @param {string} rowHeader Target row header
  * @param {any} val New value to write in "cell"
  */
-function getProxyCellPivoted(data, rowHeader) {
+export function getProxyCellPivoted(data, rowHeader) {
   for (var i = 0; i < data.length; i++) {
     if (data[i][0] === rowHeader) {
       return data[i][data[i].length - 1];
@@ -127,7 +127,7 @@ function getProxyCellPivoted(data, rowHeader) {
  * @param {string} rowHeader Target row header
  * @param {any} val New value to write in "cell"
  */
-function updateProxyCellPivoted(data, rowHeader, val) {
+export function updateProxyCellPivoted(data, rowHeader, val) {
   for (var i = 0; i < data.length; i++) {
     if (data[i][0] === rowHeader) {
       data[i][data[i].length - 1] = val;
@@ -141,7 +141,7 @@ function updateProxyCellPivoted(data, rowHeader, val) {
  * Build hyperlink formula using sheet name; creates sheet if no sheet with given name exists.
  * @param {string} rowHeader Target sheet name
  */
-function generateSheetLinkFormula(sheetName) {
+export function generateSheetLinkFormula(sheetName) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet;
   if ((sheet = ss.getSheetByName(sheetName) === null)) {
@@ -152,15 +152,3 @@ function generateSheetLinkFormula(sheetName) {
   var gid = sheet.getSheetId();
   return `=HYPERLINK("#gid=${gid}","${sheetName}")`;
 }
-
-export {
-  generateSheetLinkFormula,
-  getCurrSheetName,
-  getProxyCellPivoted,
-  newCycle,
-  testNewCycle,
-  testNextDate,
-  testUpdateDashboardData,
-  updateProxyCellPivoted,
-  worksheetName,
-};

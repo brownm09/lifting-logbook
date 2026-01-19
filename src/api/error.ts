@@ -5,7 +5,7 @@
  *  @param {String} msg
  *
  */
-function handleException(err, msg) {
+export function handleException(err, msg) {
   const range = err.range;
   var errStr, errLocation;
   if (range === undefined || range === null) {
@@ -21,5 +21,3 @@ function handleException(err, msg) {
     Logger.log(`Could not display error on UI: ${err}`);
   }
 }
-
-export { handleException };

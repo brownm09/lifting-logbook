@@ -1,74 +1,40 @@
-export {
-  COL_HIDE_RANGE,
-  COPIED_SHEET_NAME_REGEX,
-  COPIED_SHEET_PREFIX,
-  CURRENT_LIFT_INDEX,
-  CURRENT_PROGRAM_INDEX,
-  CURRENT_TM_INDEX,
-  CURRENT_WEEK_INDEX,
-  CYCLE_NAME_REGEX,
-  CYCLE_PHASES,
-  CYCLE_PROGRAMS,
-  CYCLE_SHEET_NAME_REGEX,
-  CYCLE_SHEET_PREFIX,
-  DASH_SHEET_NAME,
-  DATE_FORMAT_REGEX,
-  DATE_FORMAT_STR,
-  MAIN_LIFT_NAMES,
-  NAMED_RANGE_CLEAN_REGEX,
-  PREVIOUS_CYCLE_INDEX,
-  PRIOR_CYCLE_INDEX,
-  PROG_REF_ABBRV_COL_TITLE,
-  PROG_REF_SHEET_TITLE,
-  RPT_HISTORY_HEADERS,
-  RPT_HIST_SHEET_NAME,
-  RPT_NAME_REGEX,
-  RPT_SPEC_SHEET_NAME,
-  SECTION_HIDE_NEXT_KEY,
-  SECTION_HIDE_START_KEY,
-  SET_NAME_REGEX,
-  SET_REGEX,
-  SET_REP_SCHEME_REGEX,
-  TM_SHEET_NAME,
-  TOC_SHEET_NAME,
-  WARMUP_BASE_REPS,
-  WARMUP_COL_INDEX,
-};
-const CYCLE_NAME_REGEX =
+export const CYCLE_NAME_REGEX =
   "Cycle_(?<majorNum>[0-9])\\.(?<minorNum>[0-9])(?:\\.(?<patchNum>[0-9]))?_(?<program>[^_]+)(?:_(?<phase>[^_]+))?";
-const CYCLE_PHASES = ["Leader", "Anchor"];
-const CYCLE_PROGRAMS = ["SSL", "FSL", "531", "5x531", "Deload", "PRT"];
-const CYCLE_SHEET_NAME_REGEX = new RegExp(CYCLE_NAME_REGEX);
-const COPIED_SHEET_NAME_REGEX = new RegExp(`Copy of ${CYCLE_NAME_REGEX}`);
-const DASH_SHEET_NAME = "DASHBOARD";
-const TOC_SHEET_NAME = "TOC";
-const CYCLE_SHEET_PREFIX = "Cycle_";
-const COPIED_SHEET_PREFIX = "Copy of ";
-const PRIOR_CYCLE_INDEX = "D1";
-const CURRENT_TM_INDEX = "C7:C11";
-const CURRENT_PROGRAM_INDEX = "$B$1";
-const CURRENT_LIFT_INDEX = "$B$2";
-const CURRENT_WEEK_INDEX = "$B$3";
-const PREVIOUS_CYCLE_INDEX = "$B$4";
-const WARMUP_COL_INDEX = 2;
-const COL_HIDE_RANGE = "C1:1";
-const PROG_REF_SHEET_TITLE = "Program_Reference";
-const PROG_REF_ABBRV_COL_TITLE = "Abbreviation";
-const SECTION_HIDE_START_KEY = "Cycle #";
-const SECTION_HIDE_NEXT_KEY = "Percentages";
+export const CYCLE_PHASES = ["Leader", "Anchor"];
+export const CYCLE_PROGRAMS = ["SSL", "FSL", "531", "5x531", "Deload", "PRT"];
+export const CYCLE_SHEET_NAME_REGEX = new RegExp(CYCLE_NAME_REGEX);
+export const COPIED_SHEET_NAME_REGEX = new RegExp(
+  `Copy of ${CYCLE_NAME_REGEX}`,
+);
+export const DASH_SHEET_NAME = "DASHBOARD";
+export const TOC_SHEET_NAME = "TOC";
+export const CYCLE_SHEET_PREFIX = "Cycle_";
+export const COPIED_SHEET_PREFIX = "Copy of ";
+export const PRIOR_CYCLE_INDEX = "D1";
+export const CURRENT_TM_INDEX = "C7:C11";
+export const CURRENT_PROGRAM_INDEX = "$B$1";
+export const CURRENT_LIFT_INDEX = "$B$2";
+export const CURRENT_WEEK_INDEX = "$B$3";
+export const PREVIOUS_CYCLE_INDEX = "$B$4";
+export const WARMUP_COL_INDEX = 2;
+export const COL_HIDE_RANGE = "C1:1";
+export const PROG_REF_SHEET_TITLE = "Program_Reference";
+export const PROG_REF_ABBRV_COL_TITLE = "Abbreviation";
+export const SECTION_HIDE_START_KEY = "Cycle #";
+export const SECTION_HIDE_NEXT_KEY = "Percentages";
 // const DATE_FORMAT_REGEX = /^(0?[1-9]|1[012])[\/\-](0?[1-9]|[12][0-9]|3[01])[\/\-]\d{4}$/;
-const DATE_FORMAT_REGEX =
+export const DATE_FORMAT_REGEX =
   "^(0?[1-9]|1[012])[/-](0?[1-9]|[12][0-9]|3[01])[/-][0-9]{4}$";
-const NAMED_RANGE_CLEAN_REGEX = /[^A-Za-z0-9_]/g;
-const SET_REGEX = /Set [0-9]/g;
-const MAIN_LIFT_NAMES = [
+export const NAMED_RANGE_CLEAN_REGEX = /[^A-Za-z0-9_]/g;
+export const SET_REGEX = /Set [0-9]/g;
+export const MAIN_LIFT_NAMES = [
   "Squat",
   "Bench Press",
   "Chin-up",
   "Overhead Press",
   "Deadlift",
 ];
-const RPT_HISTORY_HEADERS = [
+export const RPT_HISTORY_HEADERS = [
   "Program",
   "Cycle #",
   "Workout #",
@@ -79,11 +45,10 @@ const RPT_HISTORY_HEADERS = [
   "Reps",
   "Notes",
 ];
-const RPT_NAME_REGEX = "RPT_Week_([0-9]+)_([0-9]+)";
-const SET_REP_SCHEME_REGEX = "([0-9]+)\\s*×\\s*([0-9]+)";
-const DATE_FORMAT_STR = "YYYYMMDD";
-const SET_NAME_REGEX = "^Set\\s*([0-9]+)";
-const TM_SHEET_NAME = "TRAINING_MAXES";
-const RPT_SPEC_SHEET_NAME = "RPT_PROGRAM_SPEC";
-const RPT_HIST_SHEET_NAME = "LIFT_RECORDS";
-const WARMUP_BASE_REPS = 5;
+export const RPT_NAME_REGEX = "RPT_Week_([0-9]+)_([0-9]+)";
+export const SET_REP_SCHEME_REGEX = "([0-9]+)\\s*×\\s*([0-9]+)";
+export const DATE_FORMAT_STR = "YYYYMMDD";
+export const SET_NAME_REGEX = "^Set\\s*([0-9]+)";
+export const TM_SHEET_NAME = "TRAINING_MAXES";
+export const RPT_SPEC_SHEET_NAME = "RPT_PROGRAM_SPEC";
+export const RPT_HIST_SHEET_NAME = "LIFT_RECORDS";

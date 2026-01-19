@@ -6,7 +6,7 @@ import {
 } from "./constants";
 import { cropSheet } from "./format";
 
-function recreateLiftHistory() {
+export function recreateLiftHistory() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   var histSheet;
   if (!(histSheet = ss.getSheetByName(RPT_HIST_SHEET_NAME))) {
@@ -38,7 +38,7 @@ function recreateLiftHistory() {
  * Update sheet name based on data copied.
  * @param {SpreadsheetApp.Sheet} cycleSheet
  */
-function updateRptHistory(cycleSheet, historySheet) {
+export function updateRptHistory(cycleSheet, historySheet) {
   const sheetName = cycleSheet.getName();
   const matches = sheetName.match(RPT_NAME_REGEX);
   const cycleNum = matches[1];
@@ -66,12 +66,17 @@ function updateRptHistory(cycleSheet, historySheet) {
     console.log(`Lift data: ${liftData}`);
     liftData.forEach((row) => {
       console.log(`Lift data: ${row}`);
-      appendLiftRecord(historySheet, "RPT", cycleNum, ...(row as [number, Date, string, string, string, number, string]));
+      appendLiftRecord(
+        historySheet,
+        "RPT",
+        cycleNum,
+        ...(row as [number, Date, string, string, string, number, string]),
+      );
     });
   }
 }
 
-function testUpdateRptHistory() {
+export function testUpdateRptHistory() {
   const WORK_SHEET_NAME = "RPT_Week_42_20240218";
   const HIST_SHEET_NAME = "Copy of LIFT_RECORDS";
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -80,7 +85,7 @@ function testUpdateRptHistory() {
   updateRptHistory(workSheet, histSheet);
 }
 
-function listCycleSheets() {
+export function listCycleSheets() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   return ss
     .getSheets()
@@ -92,7 +97,7 @@ function listCycleSheets() {
     });
 }
 
-function testListCycleSheets() {
+export function testListCycleSheets() {
   console.log(listCycleSheets());
 }
 
@@ -107,7 +112,7 @@ function testListCycleSheets() {
  * @param {number[]} rowIdxs List of row indices where set-rep schemes are specified
  * @return {any[][]} the number of reps performed for the specified set of the specified lift
  */
-function findWorkingSetReps(
+export function findWorkingSetReps(
   dataValues,
   nameColIdx,
   specColIdx,
@@ -194,7 +199,7 @@ function findWorkingSetReps(
  * @param {int} workoutNum Workout number within current cycle
  * @param {string} notes Notes taken for lift
  */
-function appendLiftRecord(
+export function appendLiftRecord(
   historySheet,
   progName,
   cycleNum,
@@ -221,13 +226,3 @@ function appendLiftRecord(
     historySheet.appendRow(ROW_VALUES);
   }
 }
-
-export {
-  appendLiftRecord,
-  findWorkingSetReps,
-  listCycleSheets,
-  recreateLiftHistory,
-  testListCycleSheets,
-  testUpdateRptHistory,
-  updateRptHistory,
-};

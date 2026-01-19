@@ -1,4 +1,7 @@
-import { parseTrainingMaxes, tableToObjects } from "../src/core/dataParser";
+import {
+  parseTrainingMaxes,
+  tableToObjects,
+} from "../src/core/utils/dataParser";
 import { loadCsvFixture } from "./testUtils";
 
 describe("dataParser", () => {

@@ -4,7 +4,7 @@ import { SET_REP_SCHEME_REGEX } from "./constants";
  * Formats a sheet with bold headers, row banding, and auto-resize.
  * @param {SpreadsheetApp.Sheet} sheet
  */
-function formatSheet(sheet) {
+export function formatSheet(sheet) {
   var colHeaders = sheet
     .getRange(1, 1, 2, sheet.getLastColumn())
     .setFontWeight("bold");
@@ -33,7 +33,7 @@ function formatSheet(sheet) {
  *  @param {SpreadsheetApp.Sheet} sheet
  *
  */
-function cropSheet(sheet) {
+export function cropSheet(sheet) {
   const lastCol = sheet.getLastColumn();
   const lastRow = sheet.getLastRow();
   const maxCols = sheet.getMaxColumns();
@@ -52,7 +52,7 @@ function cropSheet(sheet) {
  *  @param {SpreadsheetApp.Sheet} sheet
  *
  */
-function emptySheet(sheet) {
+export function emptySheet(sheet) {
   const lastCol = sheet.getLastColumn();
   const lastRow = sheet.getLastRow();
   const maxCols = sheet.getMaxColumns();
@@ -70,7 +70,7 @@ function emptySheet(sheet) {
  *  Creates a TOC of sheets as formula based hyperlinks
  *
  */
-function cropAllSheets() {
+export function cropAllSheets() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheets = ss.getSheets();
   for (var i = 0; i < sheets.length; i++) {
@@ -78,7 +78,7 @@ function cropAllSheets() {
   }
 }
 
-function highlightTodayRows() {
+export function highlightTodayRows() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getActiveSheet();
 
@@ -105,7 +105,7 @@ function highlightTodayRows() {
 /**
  * Creates a custom menu when the spreadsheet opens.
  */
-function onOpen() {
+export function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu("Sheet Tools")
     .addItem("Unhide All Rows", "unhideAllRows")
@@ -117,7 +117,7 @@ function onOpen() {
  * If Column D is "Set 1", it hides all "Warm-up" rows
  * sharing the same Column B and Date.
  */
-function hideRowOnEntry(e) {
+export function hideRowOnEntry(e) {
   Logger.log("hideRowOnEntry()");
   const range = e.range;
   const sheet = range.getSheet();
@@ -170,21 +170,10 @@ function hideRowOnEntry(e) {
 /**
  * Utility function to reveal all hidden rows.
  */
-function unhideAllRows() {
+export function unhideAllRows() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   const lastRow = sheet.getLastRow();
   if (lastRow > 0) {
     sheet.showRows(1, lastRow);
   }
 }
-
-export {
-  cropAllSheets,
-  cropSheet,
-  emptySheet,
-  formatSheet,
-  hideRowOnEntry,
-  highlightTodayRows,
-  onOpen,
-  unhideAllRows,
-};

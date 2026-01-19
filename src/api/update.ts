@@ -13,7 +13,7 @@ import { getColByIndex, getRowByIndex } from "./util";
  * @param {SpreadsheetApp.Sheet} sheet
  * @return {String} New program name
  */
-function updateProgram(sheet, programName) {
+export function updateProgram(sheet, programName) {
   // Lookup program abbreviation on other sheet and rename sheet accordingly
   var sheetName = sheet.getSheetName();
   var matches = sheetName.match(CYCLE_NAME_REGEX);
@@ -34,7 +34,7 @@ function updateProgram(sheet, programName) {
  * @param {SpreadsheetApp.Sheet} sheet
  * @return {String} New program name abbreviation
  */
-function getProgramAbbreviation(programName) {
+export function getProgramAbbreviation(programName) {
   var programRefSheet =
     SpreadsheetApp.getActiveSpreadsheet().getSheetByName(PROG_REF_SHEET_TITLE);
   // var sheetValues = programRefSheet.getSheetValues();
@@ -58,7 +58,7 @@ function getProgramAbbreviation(programName) {
  * @param {SpreadsheetApp.Sheet} sheet
  * @return {String} Previous sheet name
  */
-function updatePreviousSheetName(sheet) {
+export function updatePreviousSheetName(sheet) {
   var sheetName = sheet.getSheetName();
   sheetName = sheetName.replace(COPIED_SHEET_PREFIX, "");
   var previousCycleRange = sheet.getRange(PREVIOUS_CYCLE_INDEX);
@@ -71,7 +71,7 @@ function updatePreviousSheetName(sheet) {
  * Update sheet name based on data copied.
  * @param {SpreadsheetApp.Sheet} sheet
  */
-function updateName(sheet) {
+export function updateName(sheet) {
   // const CYCLE_MAJOR_VER_REGEX = /Cycle_[0-9]/;
   // const CYCLE_MINOR_VER_REGEX = "Cycle_([0-9])\.([0-9])\.?([0-9])?";
   var sheetName = sheet.getSheetName();
@@ -113,14 +113,14 @@ function updateName(sheet) {
 /**
  * Update Estimated 1RMs after cycle completion.
  */
-function updateEstimated1Rms() {}
+export function updateEstimated1Rms() {}
 
 /**
  * Update sheet name based on data copied.
  * @param {SpreadsheetApp.Sheet} sheet
  * @return boolean
  */
-function onDiet(sheet) {
+export function onDiet(sheet) {
   return sheet.getRange("B4").getValue().toString() === "Yes";
 }
 
@@ -128,7 +128,7 @@ function onDiet(sheet) {
  * Update sheet name based on data copied.
  * @param {SpreadsheetApp.Sheet} sheet
  */
-function updateRptNumbers(sheet) {
+export function updateRptNumbers(sheet) {
   // const coreLiftRange =
   const setRepSchemeRegex = "([0-9]+)\\s*×\\s*([0-9]+)";
   const dataRange = sheet.getDataRange();
@@ -205,7 +205,7 @@ function updateRptNumbers(sheet) {
  * @param {float} weight
  * @param {int} reps
  */
-function updateRecordsRpt(date, lift, weight, reps) {
+export function updateRecordsRpt(date, lift, weight, reps) {
   const RPT_HISTORY_SHEET_TITLE = "RPT_History";
   var historySheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(
     RPT_HISTORY_SHEET_TITLE,
@@ -218,14 +218,14 @@ function updateRecordsRpt(date, lift, weight, reps) {
  * @param {SpreadsheetApp.Sheet} sheet
  * @param {string} lift
  */
-function updateCurrSheetRef(sheet) {}
+export function updateCurrSheetRef(sheet) {}
 
 /**
  * Update sheet name based on data copied.
  * @param {SpreadsheetApp.Sheet} sheet
  * @param {string} lift
  */
-function updateTrainingMaxRpt(sheet, lift) {
+export function updateTrainingMaxRpt(sheet, lift) {
   // const V_SMALL_INC_LIFTS = ["Lat Raise"];
   // const SMALL_INC_LIFTS = ["OH Press", "Bench P.", "BB Row", "Chin-up", "CBL Curls", "Dip"];
   const rangeStartRow = sheet
@@ -265,7 +265,7 @@ function updateTrainingMaxRpt(sheet, lift) {
  * Clear entries from sheet
  * @param {SpreadsheetApp.Sheet} sheet
  */
-function clearRptEntries(sheet) {
+export function clearRptEntries(sheet) {
   const lastCol = sheet.getLastColumn();
   const range = sheet.getRange(1, lastCol, sheet.getLastRow(), 1);
   Logger.log(`Resulting range: ${range.getA1Notation()}`);
@@ -281,7 +281,7 @@ function clearRptEntries(sheet) {
  * Update sheet name based on data copied.
  * @param {SpreadsheetApp.Sheet} sheet
  */
-function incrementCycle(sheet) {
+export function incrementCycle(sheet) {
   var sheetName = sheet.getSheetName();
   sheetName = sheetName.replace(COPIED_SHEET_PREFIX, "");
   var matches = sheetName.match(RPT_NAME_REGEX);
@@ -304,7 +304,7 @@ function incrementCycle(sheet) {
  * dateStr {string} date string YYYYMMDD
  * return {String}
  */
-function nextDateStr(dateStr) {
+export function nextDateStr(dateStr) {
   var date = new Date(
     dateStr.substring(0, 4),
     parseInt(dateStr.substring(4, 6)) - 1,
@@ -319,7 +319,7 @@ function nextDateStr(dateStr) {
  * startDate {Date} date to start calculation from, default today
  * return {Date}
  */
-function nextDate(dayIndex, startDate = new Date()) {
+export function nextDate(dayIndex, startDate = new Date()) {
   var today = new Date();
   Logger.log(`Start date: ${startDate.toDateString()}`);
   Logger.log(`Today's date: ${today.toDateString()}`);
@@ -346,20 +346,3 @@ function nextDate(dayIndex, startDate = new Date()) {
   }
   return today;
 }
-
-export {
-  clearRptEntries,
-  getProgramAbbreviation,
-  incrementCycle,
-  nextDate,
-  nextDateStr,
-  onDiet,
-  updateCurrSheetRef,
-  updateEstimated1Rms,
-  updateName,
-  updatePreviousSheetName,
-  updateProgram,
-  updateRecordsRpt,
-  updateRptNumbers,
-  updateTrainingMaxRpt,
-};

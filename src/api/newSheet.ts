@@ -1,4 +1,4 @@
-import { createGrid } from "../core/workout";
+import { createGrid } from "../core/services/workout";
 import { clearAllEntries, clearDates } from "./clearData";
 import {
   DASH_SHEET_NAME,
@@ -18,7 +18,7 @@ import { updateView } from "./view";
  * Process completed RPT workout sheet.
  * @param {SpreadsheetApp.Sheet} currSheet Current sheet object
  */
-function processCompletedSheetRpt(currSheet) {
+export function processCompletedSheetRpt(currSheet) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var specSheet = ss.getSheetByName(RPT_SPEC_SHEET_NAME);
   var tmSheet = ss.getSheetByName(TM_SHEET_NAME);
@@ -61,7 +61,7 @@ function processCompletedSheetRpt(currSheet) {
  * @param {SpreadsheetApp.Sheet} currSheet Current sheet object
  * @param {SpreadsheetApp.Spreadsheet} currSpreadsheet Current sheet object
  */
-function processCompletedSheet531(currSheet, currSpreadsheet) {
+export function processCompletedSheet531(currSheet, currSpreadsheet) {
   clearDates(currSheet);
   var prevSheetName = updatePreviousSheetName(currSheet);
   updateName(currSheet);
@@ -76,5 +76,3 @@ function processCompletedSheet531(currSheet, currSpreadsheet) {
   // sortSheets();
   // updateTOC();
 }
-
-export { processCompletedSheet531, processCompletedSheetRpt };

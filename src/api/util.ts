@@ -4,7 +4,7 @@
  * @param {number} rowIndex The target row index (starts at 1).
  * @return {Object[]} The row values as a flattened array
  */
-function getRowByIndex(sheet, rowIndex) {
+export function getRowByIndex(sheet, rowIndex) {
   var lastCol = sheet.getLastColumn();
   return sheet.getRange(1, rowIndex, 1, lastCol).getValues()[0];
 }
@@ -15,7 +15,7 @@ function getRowByIndex(sheet, rowIndex) {
  * @param {number} colIndex The target column index (starts at 1).
  * @return {Object[]} The column values as a flattened array
  */
-function getColByIndex(sheet, colIndex) {
+export function getColByIndex(sheet, colIndex) {
   var lastRow = sheet.getLastRow();
   var column = sheet.getRange(1, colIndex, lastRow, 1);
   return column.getValues().flat();
@@ -26,7 +26,7 @@ function getColByIndex(sheet, colIndex) {
  * @param {[]} arr The array to flatten.
  * @return [] The flattened array
  */
-function flatten(arr) {
+export function flatten(arr) {
   return arr.reduce((acc, val) => acc.concat(val), []);
 }
 
@@ -35,7 +35,7 @@ function flatten(arr) {
  * @param {SpreadsheetApp.Range} range1
  * @param {SpreadsheetApp.Range} range2
  */
-function doesRangeIntersect(range1, range2) {
+export function doesRangeIntersect(range1, range2) {
   var lastRow1 = range1.getLastRow();
   var row2 = range2.getRow();
   if (lastRow1 < row2) return false;
@@ -65,5 +65,3 @@ if (typeof module !== "undefined" && module.exports) {
     doesRangeIntersect,
   };
 }
-
-export { doesRangeIntersect, flatten, getColByIndex, getRowByIndex };

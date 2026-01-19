@@ -1,13 +1,13 @@
 import {
-  parseRptProgramSpec,
-  parseTrainingMaxes,
-} from "../src/core/dataParser";
-import {
   createGridV2,
   extractLiftRecords,
   generateLiftPlan,
   generateLiftSpec,
-} from "../src/core/workout";
+} from "../src/core/services/workout";
+import {
+  parseRptProgramSpec,
+  parseTrainingMaxes,
+} from "../src/core/utils/dataParser";
 import { loadCsvFixture } from "./testUtils";
 
 describe("workout", () => {
