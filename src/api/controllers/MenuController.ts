@@ -62,13 +62,14 @@ export class MenuController {
       );
 
       liftRecordRepo.appendLiftRecords(newLiftRecords);
-      dashboardRepo.setCycleDashboard(newCycle);
       trainingMaxRepo.setTrainingMaxes(newTrainingMaxes);
 
       const newWorkoutSheet = sheetRepository.createTableSheet(
         newCycle.sheetName,
         newWorkout,
       );
+
+      dashboardRepo.setCycleDashboard(newCycle);
 
       const toastMsg =
         `New cycle sheet "${newCycle.sheetName}" created.` +
