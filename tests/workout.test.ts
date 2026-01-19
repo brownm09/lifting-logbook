@@ -87,6 +87,12 @@ describe("workout", () => {
   });
 
   describe("extractLiftRecords", () => {
+    it("throws an error when program or cycle number is missing", () => {
+      const data = loadCsvFixture("rpt_week_1_20260105_err.csv");
+      expect(() => extractLiftRecords(data)).toThrow(
+        "Missing required program or cycle number in lift records data.",
+      );
+    });
     it("extracts valid lift records from a 2D grid, skipping incomplete rows", () => {
       const data = loadCsvFixture("rpt_week_1_20260105.csv");
       const records = extractLiftRecords(data);
@@ -98,36 +104,45 @@ describe("workout", () => {
       expect(records).not.toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            Date: "1/5/2026",
-            Lift: "Bench P.",
-            Set: "Warm-up 1",
-            Weight: 72.5,
-            Reps: 5,
+            program: "RPT",
+            cycleNum: 1,
+            workoutNum: 1,
+            date: "1/5/2026",
+            lift: "Bench P.",
+            setNum: 1,
+            weight: 72.5,
+            reps: 5,
           }),
         ]),
       );
       expect(records).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            Date: "1/5/2026",
-            Lift: "Bench P.",
-            Set: "Set 1",
-            Weight: 182.5,
-            Reps: 6,
-            Notes: "Might consider a different activation exercise.",
+            program: "RPT",
+            cycleNum: 1,
+            workoutNum: 1,
+            date: "1/5/2026",
+            lift: "Bench P.",
+            setNum: 1,
+            weight: 182.5,
+            reps: 6,
+            notes: "Might consider a different activation exercise.",
           }),
           expect.objectContaining({
-            Date: "1/5/2026",
-            Lift: "Calf Raise",
-            Set: "Set 1",
-            Weight: 217.5,
-            Reps: 10,
+            program: "RPT",
+            cycleNum: 1,
+            workoutNum: 3,
+            date: "1/13/2026",
+            lift: "Deadlift",
+            setNum: 2,
+            weight: 237.5,
+            reps: 9,
           }),
         ]),
       );
       // Should skip rows missing required fields (e.g., OH Press-HV Set 1)
       expect(
-        records.find((r) => r.Lift === "OH Press-HV" && r.Set === "Set 1"),
+        records.find((r) => r.lift === "OH Press-HV" && r.setNum === 1),
       ).toBeUndefined();
     });
   });

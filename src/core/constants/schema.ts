@@ -1,3 +1,18 @@
+// LiftRecord header mapping for parsing
+export const LIFT_RECORD_HEADER_MAP: Record<
+  string,
+  { key: string; type: string }
+> = {
+  Program: { key: "program", type: "string" },
+  "Cycle #": { key: "cycleNum", type: "number" },
+  "Workout #": { key: "workoutNum", type: "number" },
+  Date: { key: "date", type: "string" },
+  Lift: { key: "lift", type: "string" },
+  "Set #": { key: "setNum", type: "number" },
+  Weight: { key: "weight", type: "number" },
+  Reps: { key: "reps", type: "number" },
+  Notes: { key: "notes", type: "string" },
+};
 // TrainingMax header mapping for parsing
 export const TRAINING_MAX_HEADER_MAP: Record<
   string,
