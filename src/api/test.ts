@@ -1,5 +1,5 @@
 // Test/demo functions moved from workout.ts
-import { createGrid } from "../core/services/workout";
+import { createGrid } from "../core/services/workout/createGrid";
 import { clearDates, clearEntries } from "./clearData";
 import {
   MAIN_LIFT_NAMES,

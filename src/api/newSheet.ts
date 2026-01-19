@@ -1,4 +1,4 @@
-import { createGrid } from "../core/services/workout";
+import { createGrid } from "../core/services/workout/createGrid";
 import { clearAllEntries, clearDates } from "./clearData";
 import {
   DASH_SHEET_NAME,
