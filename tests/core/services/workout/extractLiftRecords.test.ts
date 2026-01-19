@@ -1,12 +1,12 @@
 import { extractLiftRecords } from "../../../../src/core/services/workout/extractLiftRecords";
-import { parseRptProgramSpec } from "../../../../src/core/utils/parser/parseRptProgramSpec";
+import { parseLiftingProgramSpec } from "../../../../src/core/utils/parser/parseLiftingProgramSpec";
 import { parseTrainingMaxes } from "../../../../src/core/utils/parser/parseTrainingMaxes";
 import { loadCsvFixture } from "../../../testUtils";
 
 const trainingMaxesData = loadCsvFixture("training_maxes.csv");
 const rptProgramSpecData = loadCsvFixture("rpt_program_spec.csv");
 const trainingMaxes = parseTrainingMaxes(trainingMaxesData);
-const rptProgramSpec = parseRptProgramSpec(rptProgramSpecData);
+const rptProgramSpec = parseLiftingProgramSpec(rptProgramSpecData);
 
 describe("extractLiftRecords", () => {
   it("throws an error when program or cycle number is missing", () => {

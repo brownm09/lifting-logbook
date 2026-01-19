@@ -1,5 +1,5 @@
 // RptProgramSpec interface for RPT program specification objects
-export interface RptProgramSpec {
+export interface LiftingProgramSpec {
   offset: number;
   lift: string;
   increment: number;

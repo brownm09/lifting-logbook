@@ -22,8 +22,8 @@ export const TRAINING_MAX_HEADER_MAP: Record<
   Lift: { key: "lift", type: "string" },
   Weight: { key: "weight", type: "number" },
 };
-// RptProgramSpec header mapping for parsing
-export const RPT_PROGRAM_SPEC_HEADER_MAP: Record<
+// LiftingProgramSpec header mapping for parsing
+export const LIFTING_PROGRAM_SPEC_HEADER_MAP: Record<
   string,
   { key: string; type: string }
 > = {

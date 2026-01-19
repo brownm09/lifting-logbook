@@ -1,6 +1,6 @@
 import {
+  parseLiftingProgramSpec,
   parseLiftRecords,
-  parseRptProgramSpec,
   parseTrainingMaxes,
 } from "../../../../src/core";
 import { updateMaxes } from "../../../../src/core/services/maxes/updateMaxes";
@@ -12,9 +12,9 @@ describe("updateMaxes", () => {
     const specData = loadCsvFixture("rpt_program_spec.csv");
     const liftData = loadCsvFixture("lift_records_week_1_20260105.csv");
     const trainingMaxes = parseTrainingMaxes(tmData);
-    const programSpec = parseRptProgramSpec(specData);
+    const programSpec = parseLiftingProgramSpec(specData);
     const liftRecords = parseLiftRecords(liftData);
-    const updatedMaxes = updateMaxes(trainingMaxes, liftRecords, programSpec);
+    const updatedMaxes = updateMaxes(programSpec, trainingMaxes, liftRecords);
     expect(Array.isArray(updatedMaxes)).toBe(true);
     expect(updatedMaxes.length).toBe(trainingMaxes.length);
 
@@ -24,7 +24,7 @@ describe("updateMaxes", () => {
     const changed = updatedMaxes.some(
       (um, i) =>
         um.weight !== trainingMaxes[i].weight ||
-        um.date !== trainingMaxes[i].date,
+        um.dateUpdated !== trainingMaxes[i].dateUpdated,
     );
     expect(changed).toBe(true);
 

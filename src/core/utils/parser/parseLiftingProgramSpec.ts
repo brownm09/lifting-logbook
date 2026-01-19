@@ -1,16 +1,16 @@
-import { RPT_PROGRAM_SPEC_HEADER_MAP } from "../../constants/schema";
-import { RptProgramSpec } from "../../models/RptProgramSpec";
+import { LIFTING_PROGRAM_SPEC_HEADER_MAP } from "../../constants/schema";
+import { LiftingProgramSpec } from "../../models/LiftingProgramSpec";
 import { tableToObjects } from "./tableToObjects";
 
 /**
- * Converts a 2D array to an array of RptProgramSpec objects.
+ * Converts a 2D array to an array of LiftingProgramSpec objects.
  * @param {any[][]} data
- * @returns {RptProgramSpec[]}
+ * @returns {LiftingProgramSpec[]}
  */
 
-export function parseRptProgramSpec(data: any[][]): RptProgramSpec[] {
+export function parseLiftingProgramSpec(data: any[][]): LiftingProgramSpec[] {
   // Use header map from constants
-  const headerMap = RPT_PROGRAM_SPEC_HEADER_MAP;
+  const headerMap = LIFTING_PROGRAM_SPEC_HEADER_MAP;
   // Convert using tableToObjects, then cast/convert types
   const rawObjects = tableToObjects(data, undefined);
   return rawObjects.map((obj) => {
@@ -27,6 +27,6 @@ export function parseRptProgramSpec(data: any[][]): RptProgramSpec[] {
       }
       result[key] = value;
     }
-    return result as RptProgramSpec;
+    return result as LiftingProgramSpec;
   });
 }

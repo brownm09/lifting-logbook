@@ -1,5 +1,5 @@
+import { parseLiftingProgramSpec } from "../../../../src/core";
 import { createGridV2 } from "../../../../src/core/services/workout/createGridV2";
-import { parseRptProgramSpec } from "../../../../src/core/utils/parser/parseRptProgramSpec";
 import { parseTrainingMaxes } from "../../../../src/core/utils/parser/parseTrainingMaxes";
 import { loadCsvFixture } from "../../../testUtils";
 
@@ -7,7 +7,7 @@ describe("createGridV2", () => {
   const trainingMaxesData = loadCsvFixture("training_maxes.csv");
   const rptProgramSpecData = loadCsvFixture("rpt_program_spec.csv");
   const trainingMaxes = parseTrainingMaxes(trainingMaxesData);
-  const rptProgramSpec = parseRptProgramSpec(rptProgramSpecData);
+  const rptProgramSpec = parseLiftingProgramSpec(rptProgramSpecData);
 
   it("creates a grid with the new training values", () => {
     // console.log('Training Maxes:', trainingMaxesData);

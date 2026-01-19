@@ -1,10 +1,10 @@
-import { parseRptProgramSpec } from "../../../../src/core";
+import { parseLiftingProgramSpec } from "../../../../src/core";
 import { loadCsvFixture } from "../../../testUtils";
 
-describe("parseRptProgramSpec", () => {
-  it("parses rpt_program_spec.csv to array of RptProgramSpec objects", () => {
+describe("parseLiftingProgramSpec", () => {
+  it("parses rpt_program_spec.csv to array of LiftingProgramSpec objects", () => {
     const data = loadCsvFixture("rpt_program_spec.csv");
-    const result = parseRptProgramSpec(data);
+    const result = parseLiftingProgramSpec(data);
     expect(Array.isArray(result)).toBe(true);
     expect(result.length).toBeGreaterThan(0);
     expect(result[0]).toHaveProperty("offset");

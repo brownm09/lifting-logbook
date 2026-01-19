@@ -1,6 +1,5 @@
-import { formatDateYYYYMMDD } from "../..";
+import { formatDateYYYYMMDD, LiftingProgramSpec } from "../..";
 import { LiftRecord } from "../../models/LiftRecord";
-import { RptProgramSpec } from "../../models/RptProgramSpec";
 import { TrainingMax } from "../../models/TrainingMax";
 /**
  * Updates training maxes based on lift records and program spec.
@@ -15,9 +14,9 @@ import { TrainingMax } from "../../models/TrainingMax";
  * @param programSpec - Program specifications including reps and increments
  */
 export function updateMaxes(
+  programSpec: LiftingProgramSpec[],
   trainingMaxes: TrainingMax[],
   liftRecords: LiftRecord[],
-  programSpec: RptProgramSpec[],
 ): TrainingMax[] {
   // Clone the training maxes to avoid mutating input
   let newMaxes: TrainingMax[] = trainingMaxes.map((tm) => ({ ...tm }));
