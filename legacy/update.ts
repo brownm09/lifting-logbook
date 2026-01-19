@@ -1,3 +1,4 @@
+import { getColByIndex, getRowByIndex } from "../src/api/util";
 import {
   COPIED_SHEET_PREFIX,
   CYCLE_NAME_REGEX,
@@ -5,8 +6,7 @@ import {
   PROG_REF_ABBRV_COL_TITLE,
   PROG_REF_SHEET_TITLE,
   RPT_NAME_REGEX,
-} from "../../legacy/constants";
-import { getColByIndex, getRowByIndex } from "./util";
+} from "./constants";
 
 /**
  * Update sheet name based on data copied.

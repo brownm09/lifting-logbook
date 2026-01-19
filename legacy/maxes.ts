@@ -13,7 +13,7 @@ import {
   RPT_HISTORY_HEADERS,
   RPT_SPEC_SHEET_NAME,
   TM_SHEET_NAME,
-} from "../../legacy/constants";
+} from "./constants";
 
 /**
  * Update sheet name based on data copied.

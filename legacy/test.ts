@@ -1,17 +1,21 @@
 // Test/demo functions moved from workout.ts
-import { clearDates, clearEntries } from "../../legacy/clearData";
+import { updateName } from "../src/api/update";
+import {
+  hideFilledColumns,
+  updateColView,
+  updateLiftView,
+} from "../src/api/view";
+import { createGrid } from "../src/core/services/workout/createGrid";
+import { clearDates, clearEntries } from "./clearData";
 import {
   MAIN_LIFT_NAMES,
   RPT_SPEC_SHEET_NAME,
   TM_SHEET_NAME,
-} from "../../legacy/constants";
-import { createGrid } from "../core/services/workout/createGrid";
+} from "./constants";
 import { updateTOC } from "./contents";
 import { handleException } from "./error";
 import { cropSheet, formatSheet } from "./format";
 import { createNamedRange, identifyLiftRanges } from "./namedRanges";
-import { updateName } from "./update";
-import { hideFilledColumns, updateColView, updateLiftView } from "./view";
 
 export function testCreateGrid() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();

@@ -6,7 +6,7 @@ import {
   MAIN_LIFT_NAMES,
   SECTION_HIDE_START_KEY,
   WARMUP_COL_INDEX,
-} from "../../legacy/constants";
+} from "./constants";
 import { getLiftNamedRange } from "./namedRanges";
 import { flatten } from "./util";
 

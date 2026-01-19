@@ -1,18 +1,22 @@
-import { clearAllEntries, clearDates } from "../../legacy/clearData";
+import {
+  nextDate,
+  updateName,
+  updatePreviousSheetName,
+} from "../src/api/update";
+import { updateView } from "../src/api/view";
+import { createGrid } from "../src/core/services/workout/createGrid";
+import { clearAllEntries, clearDates } from "./clearData";
 import {
   DASH_SHEET_NAME,
   RPT_HIST_SHEET_NAME,
   RPT_SPEC_SHEET_NAME,
   TM_SHEET_NAME,
-} from "../../legacy/constants";
-import { createGrid } from "../core/services/workout/createGrid";
+} from "./constants";
 import { getCurrSheetName, getProxyCellPivoted, newCycle } from "./dashboard";
 import { cropSheet, formatSheet } from "./format";
 import { updateRptHistory } from "./history";
 import { updateTrainingMaxesWithSpec } from "./maxes";
 import { createNamedRanges, validateNamedRanges } from "./namedRanges";
-import { nextDate, updateName, updatePreviousSheetName } from "./update";
-import { updateView } from "./view";
 
 /**
  * Process completed RPT workout sheet.

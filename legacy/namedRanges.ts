@@ -1,10 +1,10 @@
+import { getColByIndex } from "../src/api/util";
 import {
   MAIN_LIFT_NAMES,
   NAMED_RANGE_CLEAN_REGEX,
   SET_REGEX,
-} from "../../legacy/constants";
+} from "./constants";
 import { handleException } from "./error";
-import { getColByIndex } from "./util";
 
 /**
  * Create named ranges

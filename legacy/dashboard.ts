@@ -1,6 +1,6 @@
-import { DASH_SHEET_NAME } from "../../legacy/constants";
-import { cropSheet } from "./format";
-import { nextDate } from "./update";
+import { cropSheet } from "../src/api/format";
+import { nextDate } from "../src/api/update";
+import { DASH_SHEET_NAME } from "./constants";
 
 /**
  * Get current sheet name from dashboard data

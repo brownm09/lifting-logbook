@@ -6,15 +6,18 @@ import {
   CURRENT_PROGRAM_INDEX,
   CURRENT_WEEK_INDEX,
   CYCLE_SHEET_NAME_REGEX,
-} from "./constants";
-import { sortSheets, updateTOC } from "./contents";
-import { handleException } from "./error";
-import { hideRowOnEntry } from "./format";
-import { validateNamedRanges } from "./namedRanges";
-import { processCompletedSheet531, processCompletedSheetRpt } from "./newSheet";
-import { updateProgram } from "./update";
-import { doesRangeIntersect } from "./util";
-import { updateColView, updateLiftView } from "./view";
+} from "../src/api/constants";
+import { sortSheets, updateTOC } from "../src/api/contents";
+import { handleException } from "../src/api/error";
+import { hideRowOnEntry } from "../src/api/format";
+import { validateNamedRanges } from "../src/api/namedRanges";
+import {
+  processCompletedSheet531,
+  processCompletedSheetRpt,
+} from "../src/api/newSheet";
+import { updateProgram } from "../src/api/update";
+import { doesRangeIntersect } from "../src/api/util";
+import { updateColView, updateLiftView } from "../src/api/view";
 
 export function onEditHandler(e) {
   var currSpreadsheet = e.source;

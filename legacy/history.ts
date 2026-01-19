@@ -3,7 +3,7 @@ import {
   RPT_HISTORY_HEADERS,
   RPT_NAME_REGEX,
   SET_NAME_REGEX,
-} from "../../legacy/constants";
+} from "./constants";
 import { cropSheet } from "./format";
 
 export function recreateLiftHistory() {

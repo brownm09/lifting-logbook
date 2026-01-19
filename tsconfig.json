@@ -1,23 +1,11 @@
 {
   "compilerOptions": {
     "target": "ESNext",
-    "lib": [
-      "ESNext"
-    ],
+    "lib": ["ESNext"],
     "module": "commonjs",
-    "typeRoots": [
-      "./node_modules/@types"
-    ],
-    "types": [
-      "google-apps-script",
-      "jest",
-      "node"
-    ],
+    "typeRoots": ["./node_modules/@types"],
+    "types": ["google-apps-script", "jest", "node"],
     "esModuleInterop": true
   },
-  "include": [
-    "src/**/*.ts",
-    "tests/**/*.ts"
-  ],
-  
+  "include": ["src/**/*.ts", "tests/**/*.ts", "legacy/**/*.ts"]
 }

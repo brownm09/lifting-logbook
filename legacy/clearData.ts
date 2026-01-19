@@ -1,5 +1,5 @@
+import { getLiftNamedRange, getRangeName } from "../src/api/namedRanges";
 import { DATE_FORMAT_REGEX, MAIN_LIFT_NAMES } from "./constants";
-import { getLiftNamedRange, getRangeName } from "./namedRanges";
 
 /**
  * Clear data, but preserve conditional formatting of modifiable fields.

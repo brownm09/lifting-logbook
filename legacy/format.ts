@@ -1,4 +1,4 @@
-import { SET_REP_SCHEME_REGEX } from "../../legacy/constants";
+import { SET_REP_SCHEME_REGEX } from "./constants";
 
 /**
  * Formats a sheet with bold headers, row banding, and auto-resize.

@@ -1,6 +1,6 @@
-import { CYCLE_SHEET_PREFIX, TOC_SHEET_NAME } from "../../legacy/constants";
-import { handleException } from "./error";
-import { cropSheet, emptySheet } from "./format";
+import { handleException } from "../src/api/error";
+import { cropSheet, emptySheet } from "../src/api/format";
+import { CYCLE_SHEET_PREFIX, TOC_SHEET_NAME } from "./constants";
 
 /**
  *  Sort sheets
