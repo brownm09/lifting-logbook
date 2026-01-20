@@ -17,6 +17,17 @@ export class WorkoutRepository {
   }
 
   /**
+   * Hides the row
+   * @param row The 0-based index of the row to hide
+   */
+  public hideRows(rowsToHide: number[]): void {
+    this.sheet.hideRows(
+      rowsToHide.toSorted((a, b) => a - b)[0] + 1,
+      rowsToHide.length,
+    );
+  }
+
+  /**
    * Fetches workout data including header row
    * @return 2D array of workout data
    */
@@ -33,7 +44,7 @@ export class WorkoutRepository {
   public setWorkout(data: any[][]): void {
     // Write starting at row 1 to include header
     this.sheet.getRange(1, 1, data.length, data[0].length).setValues(data);
-    this.addTodayHighlightConditionalFormat();
+    this.highlightTodayRows();
     // Trim extra rows and columns
     cropSheet(this.sheet);
   }
@@ -42,7 +53,7 @@ export class WorkoutRepository {
    * Adds conditional formatting: if the date column matches today, highlight the row.
    * @param dateCol The 1-based index of the date column (e.g., 2 for column B)
    */
-  public addTodayHighlightConditionalFormat(dateCol: number = 1): void {
+  public highlightTodayRows(dateCol: number = 1): void {
     const rules = this.sheet.getConditionalFormatRules();
     const lastRow = this.sheet.getLastRow();
     if (lastRow < 2) return; // No data to format

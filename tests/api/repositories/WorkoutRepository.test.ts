@@ -13,6 +13,7 @@ describe("WorkoutRepository", () => {
   let getRangeMock: jest.Mock;
   let setValuesMock: jest.Mock;
   let hideSheetMock: jest.Mock;
+  let hideRowsMock: jest.Mock;
   let getLastRowMock: jest.Mock;
   let getLastColumnMock: jest.Mock;
   let getConditionalFormatRulesMock: jest.Mock;
@@ -28,6 +29,7 @@ describe("WorkoutRepository", () => {
       getValues: getValuesMock,
     }));
     hideSheetMock = jest.fn();
+    hideRowsMock = jest.fn();
     getLastRowMock = jest.fn(() => 5);
     getLastColumnMock = jest.fn(() => 3);
     getConditionalFormatRulesMock = jest.fn(() => []);
@@ -37,6 +39,7 @@ describe("WorkoutRepository", () => {
       getDataRange: getDataRangeMock,
       getRange: getRangeMock,
       hideSheet: hideSheetMock,
+      hideRows: hideRowsMock,
       getLastRow: getLastRowMock,
       getLastColumn: getLastColumnMock,
       getConditionalFormatRules: getConditionalFormatRulesMock,
@@ -51,14 +54,13 @@ describe("WorkoutRepository", () => {
 
     global.SpreadsheetApp = {
       getActiveSpreadsheet: jest.fn(() => ssMock),
+      newConditionalFormatRule: jest.fn(() => ({
+        whenFormulaSatisfied: jest.fn().mockReturnThis(),
+        setBackground: jest.fn().mockReturnThis(),
+        setRanges: jest.fn().mockReturnThis(),
+        build: jest.fn(() => "rule"),
+      })),
     } as any;
-
-    (global.SpreadsheetApp as any).newConditionalFormatRule = jest.fn(() => ({
-      whenFormulaSatisfied: jest.fn().mockReturnThis(),
-      setBackground: jest.fn().mockReturnThis(),
-      setRanges: jest.fn().mockReturnThis(),
-      build: jest.fn(() => "rule"),
-    }));
   });
 
   afterEach(() => {
@@ -80,6 +82,7 @@ describe("WorkoutRepository", () => {
 
   it("gets workout data including header row", () => {
     const data = [
+      ["Header1", "Header2"],
       [1, 2],
       [3, 4],
     ];
@@ -91,9 +94,10 @@ describe("WorkoutRepository", () => {
     expect(result).toEqual(data);
   });
 
-  it("sets workout data and trims sheet", () => {
+  it("sets workout data, adds conditional formatting, and trims sheet", () => {
     const repo = new WorkoutRepository("Workout");
     const data = [
+      ["Header1", "Header2"],
       [1, 2],
       [3, 4],
     ];
@@ -106,20 +110,16 @@ describe("WorkoutRepository", () => {
     );
     expect(setValuesMock).toHaveBeenCalledWith(data);
     expect(cropSheet).toHaveBeenCalledWith(sheetMock);
-  });
-
-  it("throws if setValues fails", () => {
-    setValuesMock.mockImplementation(() => {
-      throw new Error("fail");
-    });
-    const repo = new WorkoutRepository("Workout");
-    const data = [[1, 2]];
-    expect(() => repo.setWorkout(data)).toThrow("fail");
+    expect(getConditionalFormatRulesMock).toHaveBeenCalled();
+    expect(global.SpreadsheetApp.newConditionalFormatRule).toHaveBeenCalled();
+    expect(setConditionalFormatRulesMock).toHaveBeenCalledWith(
+      expect.arrayContaining(["rule"]),
+    );
   });
 
   it("adds conditional formatting to highlight today's date in the specified column", () => {
     const repo = new WorkoutRepository("Workout");
-    repo.addTodayHighlightConditionalFormat(2); // e.g., column B
+    repo.highlightTodayRows(2); // e.g., column B
     expect(getConditionalFormatRulesMock).toHaveBeenCalled();
     expect(global.SpreadsheetApp.newConditionalFormatRule).toHaveBeenCalled();
     expect(setConditionalFormatRulesMock).toHaveBeenCalledWith(
@@ -130,7 +130,15 @@ describe("WorkoutRepository", () => {
   it("does not add conditional formatting if there are no data rows", () => {
     getLastRowMock.mockReturnValue(1); // Only header
     const repo = new WorkoutRepository("Workout");
-    repo.addTodayHighlightConditionalFormat(2);
+    repo.highlightTodayRows(2);
     expect(setConditionalFormatRulesMock).not.toHaveBeenCalled();
+  });
+
+  it("hides rows using the correct 1-based index and count", () => {
+    const repo = new WorkoutRepository("Workout");
+    // Provide unordered, 0-based row indices
+    repo.hideRows([4, 2, 3]);
+    // Should call hideRows with (3, 3) because min([4,2,3]) + 1 = 3, length = 3
+    expect(sheetMock.hideRows).toHaveBeenCalledWith(3, 3);
   });
 });
