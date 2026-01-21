@@ -106,7 +106,7 @@ describe("CycleDashboardRepository", () => {
 
     // Mock getSheetByName and getSheetId for hyperlink formula
     const workoutSheetMock = { getSheetId: jest.fn(() => 123456) };
-    ssMock.getSheetByName.mockImplementation((name) =>
+    ssMock.getSheetByName.mockImplementation((name: string) =>
       name === "DASHBOARD"
         ? sheetMock
         : name === "WorkoutSheet"
@@ -148,7 +148,7 @@ describe("CycleDashboardRepository", () => {
         throw new Error("Sheet not found");
       }),
     };
-    ssMock.getSheetByName.mockImplementation((name) =>
+    ssMock.getSheetByName.mockImplementation((name: string) =>
       name === "DASHBOARD"
         ? sheetMock
         : name === "WorkoutSheet"

@@ -8,7 +8,8 @@
     "pull": "clasp pull",
     "watch": "clasp push --watch",
     "lint": "eslint src/**/*.ts",
-    "build": "mkdir -p dist && tsc && node build.js",
+    "prebuild": "node scripts/mkdir-dist.js",
+    "build": "tsc && node build.js",
     "deploy": "npm run build && clasp push && git add . && git commit -m 'Deploy update' && git push",
     "test": "jest"
   },

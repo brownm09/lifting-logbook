@@ -21,10 +21,8 @@ export class WorkoutRepository {
    * @param row The 0-based index of the row to hide
    */
   public hideRows(rowsToHide: number[]): void {
-    this.sheet.hideRows(
-      rowsToHide.toSorted((a, b) => a - b)[0] + 1,
-      rowsToHide.length,
-    );
+    const sortedRows = [...rowsToHide].sort((a, b) => a - b);
+    this.sheet.hideRows(sortedRows[0] + 1, sortedRows.length);
   }
 
   /**

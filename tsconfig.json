@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "outDir": "dist",
-    "rootDir": "src",
+    "rootDir": ".",
     "target": "es5",
     "lib": ["es2015"],
     "module": "commonjs",
@@ -11,6 +11,6 @@
     "noEmitOnError": true,
     "sourceMap": false
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "tests/**/*.ts"],
   "exclude": ["node_modules", "dist", "legacy"]
 }
