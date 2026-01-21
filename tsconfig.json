@@ -12,5 +12,11 @@
     "sourceMap": false
   },
   "include": ["src/**/*.ts", "tests/**/*.ts"],
-  "exclude": ["node_modules", "dist", "legacy"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "legacy",
+    "src/**/index.ts",
+    "tests/**/index.ts"
+  ]
 }
