@@ -7,5 +7,5 @@
     "types": ["google-apps-script", "jest", "node"],
     "esModuleInterop": true
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts", "legacy/**/*.ts"]
+  "include": ["src/**/*.ts", "tests/**/*.ts"]
 }
