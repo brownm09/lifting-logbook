@@ -1,11 +1,16 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
-    "lib": ["ESNext"],
+    "outDir": "dist",
+    "rootDir": "src",
+    "target": "es5",
+    "lib": ["es2015"],
     "module": "commonjs",
     "typeRoots": ["./node_modules/@types"],
     "types": ["google-apps-script", "jest", "node"],
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "noEmitOnError": true,
+    "sourceMap": false
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts"]
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "legacy"]
 }
