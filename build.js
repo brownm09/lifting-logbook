@@ -1,6 +1,39 @@
-// build.js: Remove all 'export' statements from transpiled JS for Apps Script compatibility
+const esbuild = require("esbuild");
+const { globSync } = require("glob");
 const fs = require("fs");
 const path = require("path");
+
+const entryPoints = globSync("src/{core,api}/index.ts");
+// console.log("Building entry points:", entryPoints);
+
+entryPoints.forEach((entry) => {
+  const folderName = path.basename(path.dirname(entry));
+
+  esbuild.build({
+    entryPoints: [entry],
+    bundle: true,
+    outfile: `dist/${folderName}.js`,
+    format: "iife",
+    globalName: folderName.replace(/-/g, "_"),
+    banner: { js: "var exports = {};" },
+  });
+});
+
+// Copy appsscript.json from src to dist
+const manifestSrc = path.join(__dirname, "src", "appsscript.json");
+const manifestDest = path.join(__dirname, "dist", "appsscript.json");
+if (fs.existsSync(manifestSrc)) {
+  fs.copyFileSync(manifestSrc, manifestDest);
+}
+
+const mainSrc = path.join(__dirname, "src", "main.js");
+const mainDest = path.join(__dirname, "dist", "main.js");
+if (fs.existsSync(mainSrc)) {
+  fs.copyFileSync(mainSrc, mainDest);
+}
+
+/*
+// build.js: Remove all 'export' statements from transpiled JS for Apps Script compatibility
 
 const SRC_DIR = path.join(__dirname, "dist");
 
@@ -25,9 +58,4 @@ function processDir(dir) {
 
 processDir(SRC_DIR);
 
-// Copy appsscript.json from src to dist
-const manifestSrc = path.join(__dirname, "src", "appsscript.json");
-const manifestDest = path.join(__dirname, "dist", "appsscript.json");
-if (fs.existsSync(manifestSrc)) {
-  fs.copyFileSync(manifestSrc, manifestDest);
-}
+*/
