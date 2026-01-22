@@ -3,7 +3,7 @@ export interface LiftRecord {
   program: string;
   cycleNum: number;
   workoutNum: number;
-  date: string;
+  date: Date;
   lift: string;
   setNum: number;
   weight: number;

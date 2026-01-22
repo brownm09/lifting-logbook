@@ -2,6 +2,7 @@ import {
   parseLiftingProgramSpec,
   parseLiftRecords,
   parseTrainingMaxes,
+  TrainingMax,
 } from "../../../../src/core";
 import { updateMaxes } from "../../../../src/core/services/maxes/updateMaxes";
 import { loadCsvFixture } from "../../../testUtils";
@@ -24,30 +25,42 @@ describe("updateMaxes", () => {
     const changed = updatedMaxes.some(
       (um, i) =>
         um.weight !== trainingMaxes[i].weight ||
-        um.dateUpdated !== trainingMaxes[i].dateUpdated,
+        um.dateUpdated.getTime() !== trainingMaxes[i].dateUpdated.getTime(),
     );
     expect(changed).toBe(true);
 
     // Lifts expected to be updated, with their new values
-    const expectedUpdates = {
-      "BB Row": { dateUpdated: "2026-01-05", weight: 180 },
-      "Calf Raise": { dateUpdated: "2026-01-05", weight: 220 },
-      "C. Lat Raise": { dateUpdated: "2026-01-05", weight: 13.75 },
-      "Chin-up": { dateUpdated: "2026-01-07", weight: 227.5 },
-      Dip: { dateUpdated: "2026-01-07", weight: 227.5 },
-      Deadlift: { dateUpdated: "2026-01-13", weight: 267.5 },
-    };
+    const expectedUpdates: TrainingMax[] = [
+      { lift: "BB Row", dateUpdated: new Date("2026-01-05"), weight: 180 },
+      { lift: "Calf Raise", dateUpdated: new Date("2026-01-05"), weight: 220 },
+      {
+        lift: "C. Lat Raise",
+        dateUpdated: new Date("2026-01-05"),
+        weight: 13.75,
+      },
+      { lift: "Chin-up", dateUpdated: new Date("2026-01-07"), weight: 227.5 },
+      { lift: "Dip", dateUpdated: new Date("2026-01-07"), weight: 227.5 },
+      { lift: "Deadlift", dateUpdated: new Date("2026-01-13"), weight: 267.5 },
+    ];
 
     // Check each lift
     trainingMaxes.forEach((orig, i) => {
       const updated = updatedMaxes[i];
       const lift = orig.lift;
-      if (expectedUpdates[lift]) {
-        expect(updated.dateUpdated).toBe(expectedUpdates[lift].dateUpdated);
-        expect(updated.weight).toBeCloseTo(expectedUpdates[lift].weight);
+      const updatedLiftIdx = expectedUpdates.findIndex(
+        (eu) => eu.lift === lift,
+      );
+      if (updatedLiftIdx !== -1) {
+        // Compare only the date part in UTC to avoid timezone issues
+        expect(updated.dateUpdated.toISOString().slice(0, 10)).toBe(
+          expectedUpdates[updatedLiftIdx].dateUpdated
+            .toISOString()
+            .slice(0, 10),
+        );
+        expect(updated.weight).toBe(expectedUpdates[updatedLiftIdx].weight);
       } else {
         // Should remain unchanged
-        expect(updated.dateUpdated).toBe(orig.dateUpdated);
+        expect(updated.dateUpdated).toEqual(orig.dateUpdated);
         expect(updated.weight).toBe(orig.weight);
       }
     });

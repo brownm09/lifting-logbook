@@ -7,7 +7,7 @@ describe("mapCycleDashboard", () => {
       program: "5/3/1",
       cycleUnit: "Week",
       cycleNum: 1,
-      cycleDate: "2026-01-01",
+      cycleDate: new Date("2026-01-01"),
       sheetName: "Week 1",
     };
     const result = mapCycleDashboard(obj);
@@ -15,7 +15,7 @@ describe("mapCycleDashboard", () => {
       ["Program", "5/3/1"],
       ["Cycle Unit", "Week"],
       ["Cycle #", 1],
-      ["Cycle Date", "2026-01-01"],
+      ["Cycle Date", new Date("2026-01-01")],
       ["Sheet Name", "Week 1"],
     ]);
   });

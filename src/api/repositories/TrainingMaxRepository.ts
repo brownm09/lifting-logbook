@@ -9,9 +9,8 @@ export class TrainingMaxRepository {
    * Fetches and maps all rows to the CycleDashboard model
    */
   public getTrainingMaxes(): TrainingMax[] {
-    const data = this.sheet.getDataRange().getValues();
-    // Remove header row
-    data.shift();
+    const data = this.sheet.getDataRange().getDisplayValues();
+    console.log(`Fetched training maxes data: ${JSON.stringify(data)}.`);
     return parseTrainingMaxes(data);
   }
 

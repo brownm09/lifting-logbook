@@ -5,7 +5,8 @@ import * as core from "../../../src/core";
 jest.mock("../../../src/core", () => ({
   mapLiftRecords: jest.fn((records) => records.map(() => [1, 2])),
   parseLiftRecords: jest.fn((data) =>
-    data.map(() => ({ lift: "Deadlift", reps: 5 })),
+    // Simulate parsing only the data rows (excluding header)
+    data.slice(1).map((row: any[]) => ({ lift: row[0], reps: row[1] })),
   ),
 }));
 jest.mock("../../../src/api/utils/cropSheet", () => ({
@@ -56,7 +57,7 @@ describe("LiftRecordRepository", () => {
     jest.clearAllMocks();
   });
 
-  it("gets and parses lift records, removing header row", () => {
+  it("gets and parses lift records", () => {
     const rawData = [
       ["Header1", "Header2"],
       ["Deadlift", 5],
@@ -69,12 +70,13 @@ describe("LiftRecordRepository", () => {
     expect(getValuesMock).toHaveBeenCalled();
     // Should remove header row before parsing
     expect(core.parseLiftRecords).toHaveBeenCalledWith([
+      ["Header1", "Header2"],
       ["Deadlift", 5],
       ["Bench", 3],
     ]);
     expect(result).toEqual([
       { lift: "Deadlift", reps: 5 },
-      { lift: "Deadlift", reps: 5 },
+      { lift: "Bench", reps: 3 },
     ]);
   });
 

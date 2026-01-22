@@ -1,6 +1,10 @@
 import {
   createGridV2,
+  CycleDashboard,
   extractLiftRecords,
+  LiftingProgramSpec,
+  LiftRecord,
+  TrainingMax,
   updateCycle,
   updateMaxes,
 } from "../../core";
@@ -40,16 +44,18 @@ export class MenuController {
       const programRepo = new LiftingProgramSpecRepository();
       const trainingMaxRepo = new TrainingMaxRepository();
 
-      const dashboard = dashboardRepo.getCycleDashboard();
-      const programSpec = programRepo.getLiftingProgramSpec();
-      const trainingMaxes = trainingMaxRepo.getTrainingMaxes();
+      const dashboard: CycleDashboard = dashboardRepo.getCycleDashboard();
+      const programSpec: LiftingProgramSpec[] =
+        programRepo.getLiftingProgramSpec();
+      const trainingMaxes: TrainingMax[] = trainingMaxRepo.getTrainingMaxes();
       const liftRecordRepo = new LiftRecordRepository();
 
       const workoutRepo = new WorkoutRepository(dashboard.sheetName);
       const workoutData = workoutRepo.getWorkout();
-      const newLiftRecords = extractLiftRecords(workoutData);
+      const newLiftRecords: LiftRecord[] = extractLiftRecords(workoutData);
 
-      const newCycle = updateCycle(dashboard);
+      const newCycle: CycleDashboard = updateCycle(dashboard);
+      console.log(`New cycle generated: ${JSON.stringify(newCycle)}.`);
       const newTrainingMaxes = updateMaxes(
         programSpec,
         trainingMaxes,
@@ -58,7 +64,7 @@ export class MenuController {
       const newWorkout = createGridV2(
         programSpec,
         newTrainingMaxes,
-        newCycle.cycleStartDate,
+        newCycle.cycleDate,
       );
 
       liftRecordRepo.appendLiftRecords(newLiftRecords);
@@ -77,6 +83,7 @@ export class MenuController {
         `\nTraining maxes updated.` +
         `\nDashboard updated.`;
 
+      console.log(toastMsg);
       SpreadsheetApp.getActiveSpreadsheet().toast(toastMsg, "Success");
       SpreadsheetApp.setActiveSheet(newWorkoutSheet);
       workoutRepo.hideSheet();
@@ -89,13 +96,11 @@ export class MenuController {
   static handleFormatSheet() {
     runWithErrorHandling(() => {
       const sheet = SpreadsheetApp.getActiveSheet();
-      // You could call a utility here
       sheet.autoResizeColumns(1, sheet.getLastColumn());
       cropSheet(sheet);
-      SpreadsheetApp.getActiveSpreadsheet().toast(
-        `Sheet "${sheet.getName()}" formatted successfully.`,
-        "Success",
-      );
+      const toastMsg = `Sheet "${sheet.getName()}" formatted successfully.`;
+      console.log(toastMsg);
+      SpreadsheetApp.getActiveSpreadsheet().toast(toastMsg, "Success");
     });
   }
 }

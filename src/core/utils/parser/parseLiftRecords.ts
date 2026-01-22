@@ -19,6 +19,9 @@ export function parseLiftRecords(data: any[][]): LiftRecord[] {
       if (type === "number") {
         value = Number(value);
       }
+      if (key === "date") {
+        value = new Date(value);
+      }
       result[key] = value;
     }
     return result as LiftRecord;

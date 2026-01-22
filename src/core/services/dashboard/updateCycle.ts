@@ -1,5 +1,5 @@
 import { CycleDashboard } from "../../models/CycleDashboard";
-import { getNextDate } from "../../utils/jsUtil";
+import { formatDateYYYYMMDD, getNextDate } from "../../utils/jsUtil";
 
 /**
  * Updates the dashboard cycle: increments cycleNum, updates cycleDate to the next Monday (at least 7 days after previous), and updates sheetLink.
@@ -34,14 +34,12 @@ export function updateCycle(
   // If today matches the target weekday and is at least 7 days after prevDate, use today
   // let cycleDate: Date;
   const cycleDate = getNextDate(prevDate, targetWeekdayNum, today);
-  // Format date as M/D/YYYY
-  const formattedDate = `${cycleDate.getUTCMonth() + 1}/${cycleDate.getUTCDate()}/${cycleDate.getUTCFullYear()}`;
   // Update sheet link
-  const newSheetName = `${prevCycle.program}_Cycle_${prevNum + 1}_${cycleDate.getUTCFullYear()}${String(cycleDate.getUTCMonth() + 1).padStart(2, "0")}${String(cycleDate.getUTCDate()).padStart(2, "0")}`;
+  const newSheetName = `${prevCycle.program}_Cycle_${prevNum + 1}_${formatDateYYYYMMDD(cycleDate)}`;
   return {
     ...prevCycle,
     cycleNum: prevNum + 1,
-    cycleDate: formattedDate,
+    cycleDate: cycleDate,
     sheetName: newSheetName,
   };
 }

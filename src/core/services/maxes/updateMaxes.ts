@@ -1,4 +1,4 @@
-import { formatDateYYYYMMDD, LiftingProgramSpec } from "../..";
+import { LiftingProgramSpec } from "../..";
 import { LiftRecord } from "../../models/LiftRecord";
 import { TrainingMax } from "../../models/TrainingMax";
 /**
@@ -45,7 +45,7 @@ export function updateMaxes(
       `Program spec for ${liftName}: reps=${spec.reps}, increment=${spec.increment}`,
     );
     console.log(
-      `Lift record for ${liftName}: reps=${record.reps}, date=${record.date}, weight=${record.weight}`,
+      `Lift record for ${liftName}: set=${record.setNum} reps=${record.reps}, date=${record.date}, weight=${record.weight}`,
     );
 
     // Check reps and date conditions
@@ -56,7 +56,7 @@ export function updateMaxes(
     ) {
       // Update training max
       newMaxes[tmIndex].weight = record.weight + spec.increment;
-      newMaxes[tmIndex].dateUpdated = formatDateYYYYMMDD(record.date);
+      newMaxes[tmIndex].dateUpdated = record.date;
     }
   });
 

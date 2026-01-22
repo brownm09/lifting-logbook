@@ -10,6 +10,7 @@ export function tableToObjects<T = Record<string, any>>(
 ): T[] {
   if (!data || data.length < 2) return [];
   const headers = data[0].map((h: any) => String(h));
+  // console.log(`Headers: ${JSON.stringify(headers)}`);
   return data.slice(1).map((row) => {
     const obj: Record<string, any> = {};
     headers.forEach((header, i) => {

@@ -6,8 +6,8 @@
  */
 export function getNextDate(
   prevDate: Date,
-  targetWeekday?: number,
-  today?: Date,
+  targetWeekday: number = prevDate.getUTCDay(),
+  today: Date = null,
 ): Date {
   const prevDay = prevDate.getUTCDay();
   const weekday = typeof targetWeekday === "number" ? targetWeekday : prevDay;
@@ -61,12 +61,12 @@ export function formatDateYYYYMMDD(date: string | Date): string {
         yyyy = Number(parts[2]);
       }
       const d = new Date(Date.UTC(yyyy, mm - 1, dd));
-      return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+      return `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, "0")}${String(d.getUTCDate()).padStart(2, "0")}`;
     }
   }
   // If already a Date object
   if (date instanceof Date) {
-    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+    return `${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, "0")}${String(date.getUTCDate()).padStart(2, "0")}`;
   }
   return String(date);
 }

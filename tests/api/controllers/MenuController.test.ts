@@ -232,7 +232,7 @@ describe("MenuController", () => {
       () =>
         ({
           sheetName: "Sheet2",
-          cycleStartDate: "2026-01-08",
+          cycleDate: "2026-01-08",
         }) as any,
     );
     jest.spyOn(core, "updateMaxes").mockImplementation(() => ["max"] as any);

@@ -1,6 +1,5 @@
 import { TRAINING_MAX_HEADER_MAP } from "../../constants/schema";
 import { TrainingMax } from "../../models/TrainingMax";
-import { formatDateYYYYMMDD } from "../jsUtil";
 import { tableToObjects } from "./tableToObjects";
 
 /**
@@ -12,6 +11,7 @@ import { tableToObjects } from "./tableToObjects";
 export function parseTrainingMaxes(data: any[][]): TrainingMax[] {
   const headerMap = TRAINING_MAX_HEADER_MAP;
   const rawObjects = tableToObjects(data, undefined);
+  console.log(`Raw training max objects: ${JSON.stringify(rawObjects)}.`);
   return rawObjects.map((obj) => {
     const result: any = {};
     for (const header in headerMap) {
@@ -21,9 +21,28 @@ export function parseTrainingMaxes(data: any[][]): TrainingMax[] {
         value = Number(value);
       }
       if (key === "dateUpdated") {
-        value = formatDateYYYYMMDD(value);
+        value = new Date(value);
       }
       result[key] = value;
+    }
+    console.log(`Parsed training max object: ${JSON.stringify(result)}.`);
+    const isDateValid =
+      result.dateUpdated instanceof Date &&
+      !isNaN(result.dateUpdated.getTime());
+    const isWeightValid =
+      typeof result.weight === "number" && !isNaN(result.weight);
+    const isLiftValid =
+      typeof result.lift === "string" && result.lift.length > 0;
+    if (!isLiftValid) {
+      throw new Error(
+        `Invalid lift value: ${result.lift} (${JSON.stringify(result)})`,
+      );
+    }
+    if (!isWeightValid) {
+      throw new Error(`Invalid weight value: ${result.weight}`);
+    }
+    if (!isDateValid) {
+      throw new Error(`Invalid dateUpdated value: ${result.dateUpdated}`);
     }
     return result as TrainingMax;
   });

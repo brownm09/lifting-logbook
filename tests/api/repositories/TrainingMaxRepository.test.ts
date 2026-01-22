@@ -1,8 +1,9 @@
 jest.mock("../../../src/core", () => ({
   mapTrainingMaxes: jest.fn((maxes) => maxes.map(() => [1, 2])),
-  parseTrainingMaxes: jest.fn((data) =>
-    data.map(() => ({ lift: "Squat", max: 100 })),
-  ),
+  parseTrainingMaxes: jest.fn((data) => [
+    { lift: "Squat", max: 100 },
+    { lift: "Bench", max: 80 },
+  ]),
 }));
 jest.mock("../../../src/api/utils/cropSheet", () => ({
   cropSheet: jest.fn(),
@@ -27,7 +28,7 @@ describe("TrainingMaxRepository", () => {
     }));
     getValuesMock = jest.fn();
     getDataRangeMock = jest.fn(() => ({
-      getValues: getValuesMock,
+      getDisplayValues: getValuesMock,
     }));
 
     sheetMock = {
@@ -50,7 +51,7 @@ describe("TrainingMaxRepository", () => {
     jest.clearAllMocks();
   });
 
-  it("gets and parses training maxes, removing header row", () => {
+  it("gets and parses training maxes", () => {
     const rawData = [
       ["Header1", "Header2"],
       ["Squat", 100],
@@ -61,14 +62,14 @@ describe("TrainingMaxRepository", () => {
     const result = repo.getTrainingMaxes();
     expect(getDataRangeMock).toHaveBeenCalled();
     expect(getValuesMock).toHaveBeenCalled();
-    // Should remove header row before parsing
     expect(core.parseTrainingMaxes).toHaveBeenCalledWith([
+      ["Header1", "Header2"],
       ["Squat", 100],
       ["Bench", 80],
     ]);
     expect(result).toEqual([
       { lift: "Squat", max: 100 },
-      { lift: "Squat", max: 100 },
+      { lift: "Bench", max: 80 },
     ]);
   });
 

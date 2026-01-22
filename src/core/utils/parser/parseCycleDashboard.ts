@@ -14,7 +14,7 @@ export function parseCycleDashboard(data: any[][]): CycleDashboard {
     program: map["Program"],
     cycleUnit: map["Cycle Unit"],
     cycleNum: Number(map["Cycle #"]),
-    cycleDate: map["Cycle Date"],
+    cycleDate: new Date(map["Cycle Date"]),
     sheetName: map["Sheet Name"],
   };
 }

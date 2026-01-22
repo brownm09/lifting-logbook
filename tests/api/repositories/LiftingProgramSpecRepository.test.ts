@@ -5,7 +5,12 @@ import * as core from "../../../src/core";
 jest.mock("../../../src/core", () => ({
   mapLiftingProgramSpec: jest.fn((specs) => specs.map(() => [1, 2, 3])),
   parseLiftingProgramSpec: jest.fn((data) =>
-    data.map(() => ({ name: "RPT", weeks: 12, lifts: ["Squat", "Bench"] })),
+    // Only parse if the first row is not a header
+    data[0] && data[0][0] === "Header1"
+      ? data
+          .slice(1)
+          .map(() => ({ name: "RPT", weeks: 12, lifts: ["Squat", "Bench"] }))
+      : data.map(() => ({ name: "RPT", weeks: 12, lifts: ["Squat", "Bench"] })),
   ),
 }));
 jest.mock("../../../src/api/utils/cropSheet", () => ({
@@ -50,7 +55,7 @@ describe("LiftingProgramSpecRepository", () => {
     jest.clearAllMocks();
   });
 
-  it("gets and parses lifting program specs, removing header row", () => {
+  it("gets and parses lifting program specs", () => {
     const rawData = [
       ["Header1", "Header2", "Header3"],
       ["RPT", 12, ["Squat", "Bench"]],
@@ -62,6 +67,7 @@ describe("LiftingProgramSpecRepository", () => {
     expect(getValuesMock).toHaveBeenCalled();
     // Should remove header row before parsing
     expect(core.parseLiftingProgramSpec).toHaveBeenCalledWith([
+      ["Header1", "Header2", "Header3"],
       ["RPT", 12, ["Squat", "Bench"]],
     ]);
     expect(result).toEqual([

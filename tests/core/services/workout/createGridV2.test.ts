@@ -10,21 +10,84 @@ describe("createGridV2", () => {
   const rptProgramSpec = parseLiftingProgramSpec(rptProgramSpecData);
 
   it("creates a grid with the new training values", () => {
-    // console.log('Training Maxes:', trainingMaxesData);
-    // console.log('RPT Program Spec:', rptProgramSpecData);
-    // Use these fixtures as needed in your test
     const result = createGridV2(
       rptProgramSpec,
       trainingMaxes,
       new Date("2026-01-01"),
     );
     expect(result.length).toBe(77);
-    // console.log(result);
-    // expect(Array.isArray(trainingMaxesData)).toBe(true);
-    // expect(Array.isArray(rptProgramSpecData)).toBe(true);
-    // expect(Array.isArray(trainingMaxes)).toBe(true);
-    // expect(Array.isArray(rptProgramSpec)).toBe(true);
-    // Example usage:
-    // expect(createGridV2(rptProgramSpec, trainingMaxes, ...)).toEqual(...);
+    expect(Array.isArray(result)).toBe(true);
+    expect(result[0]).toEqual(["Program", "", "Cycle", "", "Weight", ""]);
+    expect(result[1]).toEqual([
+      "Core Lift",
+      "Scheme",
+      "TM",
+      "Inc. Amt.",
+      "Lift Date",
+      "Activ. Ex.",
+    ]);
+    expect(result.findIndex((row) => row[0] === "Date")).toBe(15); // Workout grid header
+  });
+
+  it("returns an empty grid if no training maxes are provided", () => {
+    const result = createGridV2(rptProgramSpec, [], new Date("2026-01-01"));
+    expect(result.length).toBe(3); // Only headers
+    expect(result[0]).toEqual(["Program", "", "Cycle", "", "Weight", ""]);
+    expect(result[1]).toEqual([
+      "Core Lift",
+      "Scheme",
+      "TM",
+      "Inc. Amt.",
+      "Lift Date",
+      "Activ. Ex.",
+    ]);
+  });
+
+  it("returns an empty grid if no program spec is provided", () => {
+    const result = createGridV2([], trainingMaxes, new Date("2026-01-01"));
+    expect(result.length).toBe(3); // Only headers
+    expect(result[0]).toEqual(["Program", "", "Cycle", "", "Weight", ""]);
+    expect(result[1]).toEqual([
+      "Core Lift",
+      "Scheme",
+      "TM",
+      "Inc. Amt.",
+      "Lift Date",
+      "Activ. Ex.",
+    ]);
+    expect(result[2]).toEqual([
+      "Date",
+      "Lift",
+      "Set",
+      "Weight",
+      "Reps",
+      "Notes",
+    ]);
+  });
+
+  it("generates correct lift spec and plan for a known lift", () => {
+    const singleSpec = [rptProgramSpec[0]];
+    const singleMax = [trainingMaxes[0]];
+    const result = createGridV2(singleSpec, singleMax, new Date("2026-01-01"));
+    expect(result.length).toBeGreaterThan(2);
+    expect(result[1][0]).toBe("Core Lift");
+    expect(result[2][0]).toBe(singleMax[0].lift);
+    expect(result[result.length - 1][1]).toBe(singleMax[0].lift);
+  });
+
+  it("uses the correct start date in generated lift specs", () => {
+    const result = createGridV2(
+      rptProgramSpec,
+      trainingMaxes,
+      new Date("2026-01-01"),
+    );
+    // Find a row with a date and check it matches the start date or expected offset
+    const dateRows = result.filter(
+      // Match on equals sign b/c dates are generated as formulas
+      (row) => typeof row[0] === "string" && /^=/.test(row[0]),
+    );
+    expect(dateRows.length).toBeGreaterThan(0);
+    // Optionally check the first workout date
+    // expect(dateRows[0][0]).toContain("2026-01-01");
   });
 });

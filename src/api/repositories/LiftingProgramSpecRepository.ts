@@ -15,7 +15,7 @@ export class LiftingProgramSpecRepository {
   public getLiftingProgramSpec(): LiftingProgramSpec[] {
     const data = this.sheet.getDataRange().getValues();
     // Remove header row
-    data.shift();
+    // data.shift();
     return parseLiftingProgramSpec(data);
   }
 

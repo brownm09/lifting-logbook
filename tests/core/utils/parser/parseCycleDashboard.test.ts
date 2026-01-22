@@ -9,7 +9,7 @@ describe("parseCycleDashboard", () => {
       program: "RPT",
       cycleUnit: "Week",
       cycleNum: 1,
-      cycleDate: "1/5/2026",
+      cycleDate: new Date("1/5/2026"),
       sheetName: "RPT_Cycle_1_20260105",
     });
   });

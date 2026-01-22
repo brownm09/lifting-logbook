@@ -4,8 +4,8 @@ describe("tableToObjects", () => {
   it("tableToObjects returns correct keys with headerMap", () => {
     const data = [
       ["Date Updated", "Lift", "Weight"],
-      ["2026-01-01", "Squat", "100"],
-      ["2026-01-01", "Bench", "80"],
+      [new Date("2026-01-01"), "Squat", "100"],
+      [new Date("2026-01-01"), "Bench", "80"],
     ];
     const headerMap = {
       "Date Updated": "dateUpdated",
@@ -14,8 +14,8 @@ describe("tableToObjects", () => {
     };
     const result = tableToObjects(data, headerMap);
     expect(result).toEqual([
-      { dateUpdated: "2026-01-01", lift: "Squat", weight: "100" },
-      { dateUpdated: "2026-01-01", lift: "Bench", weight: "80" },
+      { dateUpdated: new Date("2026-01-01"), lift: "Squat", weight: "100" },
+      { dateUpdated: new Date("2026-01-01"), lift: "Bench", weight: "80" },
     ]);
   });
 });

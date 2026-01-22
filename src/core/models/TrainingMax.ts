@@ -1,7 +1,7 @@
 // TrainingMax interface for training max records
 export interface TrainingMax {
-  dateUpdated: string;
+  dateUpdated: Date;
   lift: string;
   weight: number;
-  [key: string]: any;
+  // [key: string]: any;
 }

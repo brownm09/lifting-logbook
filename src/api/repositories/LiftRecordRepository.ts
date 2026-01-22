@@ -11,7 +11,7 @@ export class LiftRecordRepository {
   public getLiftRecords(): LiftRecord[] {
     const data = this.sheet.getDataRange().getValues();
     // Remove header row
-    data.shift();
+    // data.shift();
     return parseLiftRecords(data);
   }
 

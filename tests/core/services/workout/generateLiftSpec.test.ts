@@ -18,7 +18,7 @@ describe("generateLiftSpec", () => {
     expect(result[1]).toBe("3 × 8"); // sets × reps
     expect(result[2]).toBe(182.5); // weight
     expect(result[3]).toBe(2.5); // increment
-    expect(result[4]).toBe("2026-01-01"); // offset 0
+    expect(result[4]).toEqual(new Date("2026-01-01")); // offset 0
     expect(result[5]).toBe("Band Flye"); // activation
   });
   it("generates correct lift spec for Deadlift", () => {
@@ -30,7 +30,7 @@ describe("generateLiftSpec", () => {
     expect(result[1]).toBe("2 × 6"); // sets × reps
     expect(result[2]).toBe(275); // weight
     expect(result[3]).toBe(2.5); // increment
-    expect(result[4]).toBe("2026-01-05"); // offset 4
+    expect(result[4]).toEqual(new Date("2026-01-05")); // offset 4
     expect(result[5]).toBe("KB Swing"); // activation
   });
 });

@@ -1,15 +1,23 @@
+import { LiftingProgramSpec, TrainingMax } from "../../models";
 import { generateLiftPlan } from "./generateLiftPlan";
 import { generateLiftSpec } from "./generateLiftSpec";
 
 /**
  * Greate a cycle grid using training max data and a program spec (typed version).
- * @param {RptProgramSpec[]} progSpecData
+ * @param {LiftingProgramSpec[]} progSpecData
  * @param {TrainingMax[]} tmData
  * @param {Date} startDate
  * @returns {any[][]}
  */
 
-export function createGridV2(progSpecData, tmData, startDate) {
+export function createGridV2(
+  progSpecData: LiftingProgramSpec[],
+  tmData: TrainingMax[],
+  startDate: Date,
+) {
+  console.log(
+    `Creating grid with ${progSpecData.length} lift specs and ${tmData.length} training maxes starting from ${startDate.toISOString()}.`,
+  );
   // Constants for headers and formatting
   const LIFT_DATE_HEADER = "Lift Date";
   const WORKOUT_SHEET_HEADERS = ["Program", "", "Cycle", "", "Weight", ""];
@@ -18,8 +26,8 @@ export function createGridV2(progSpecData, tmData, startDate) {
     "Scheme",
     "TM",
     "Inc. Amt.",
-    "Activ. Ex.",
     LIFT_DATE_HEADER,
+    "Activ. Ex.",
   ];
   const LIFT_PLAN_HEADERS = ["Date", "Lift", "Set", "Weight", "Reps", "Notes"];
   let resultGrid: any[][] = [];

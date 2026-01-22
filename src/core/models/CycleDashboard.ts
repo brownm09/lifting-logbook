@@ -3,7 +3,7 @@ export interface CycleDashboard {
   program: string;
   cycleUnit: string;
   cycleNum: number;
-  cycleDate: string;
+  cycleDate: Date;
   sheetName: string;
   [key: string]: any;
 }
