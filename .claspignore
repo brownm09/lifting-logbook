@@ -1,3 +1,8 @@
 **/**
-!dist/**
-!src/appsscript.json
+# !dist/**
+# !src/appsscript.json
+
+# Un-ignore the files INSIDE the rootDir (dist)
+!*.js
+!*.html
+!appsscript.json
