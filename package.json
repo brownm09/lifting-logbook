@@ -5,6 +5,8 @@
   "main": "index.js",
   "scripts": {
     "clean": "rimraf dist",
+    "clean-index": "node scripts/clean-index.js",
+    "flatten-dist": "node scripts/flatten-dist.js",
     "push": "clasp push",
     "pull": "clasp pull",
     "watch": "clasp push --watch",
@@ -12,7 +14,7 @@
     "prebuild": "node scripts/mkdir-dist.js",
     "build": "tsc && node build.js",
     "clean-build": "npm run clean && npm run build",
-    "postbuild": "node scripts/clean-index.js",
+    "postbuild": "npm run flatten-dist && npm run clean-index",
     "deploy": "npm run build && clasp push && git add . && git commit -m 'Deploy update' && git push",
     "test": "jest"
   },
