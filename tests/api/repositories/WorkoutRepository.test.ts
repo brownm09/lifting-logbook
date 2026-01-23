@@ -8,7 +8,7 @@ describe("WorkoutRepository", () => {
   let sheetMock: any;
   let ssMock: any;
   let getDataRangeMock: jest.Mock;
-  let getValuesMock: jest.Mock;
+  let getDisplayValuesMock: jest.Mock;
   let getRangeMock: jest.Mock;
   let setValuesMock: jest.Mock;
   let hideSheetMock: jest.Mock;
@@ -23,9 +23,9 @@ describe("WorkoutRepository", () => {
     getRangeMock = jest.fn(() => ({
       setValues: setValuesMock,
     }));
-    getValuesMock = jest.fn();
+    getDisplayValuesMock = jest.fn();
     getDataRangeMock = jest.fn(() => ({
-      getValues: getValuesMock,
+      getDisplayValues: getDisplayValuesMock,
     }));
     hideSheetMock = jest.fn();
     hideRowsMock = jest.fn();
@@ -85,11 +85,11 @@ describe("WorkoutRepository", () => {
       [1, 2],
       [3, 4],
     ];
-    getValuesMock.mockReturnValue(data);
+    getDisplayValuesMock.mockReturnValue(data);
     const repo = new WorkoutRepository("Workout");
     const result = repo.getWorkout();
     expect(getDataRangeMock).toHaveBeenCalled();
-    expect(getValuesMock).toHaveBeenCalled();
+    expect(getDisplayValuesMock).toHaveBeenCalled();
     expect(result).toEqual(data);
   });
 

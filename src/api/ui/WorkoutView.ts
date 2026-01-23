@@ -14,6 +14,8 @@ export class WorkoutView {
     data.findIndex((row) => row[0] === "Date"); // Ensure data is present
     // Find all indices of header rows (any row containing "Lift" in any column)
     const headerRowIndices: number[] = [];
+    let notesHeaderRow: number = -1;
+    let notesHeaderCol: number = -1;
     data.forEach((row, idx) => {
       if (
         row.findIndex(
@@ -21,6 +23,10 @@ export class WorkoutView {
         ) !== -1
       ) {
         headerRowIndices.push(idx);
+        if (row.includes("Notes")) {
+          notesHeaderRow = idx;
+          notesHeaderCol = row.indexOf("Notes");
+        }
       }
     });
     // Apply header formatting to each header row
@@ -29,11 +35,27 @@ export class WorkoutView {
     });
     // Freeze the first two rows (main headers)
     sheet.setFrozenRows(2);
-
+    // Auto resize columns to fit content
     sheet.autoResizeColumns(1, data[0].length);
     cropSheet(sheet);
-    // workoutRepo.formatWorkoutSheet();
+    // Highlight today's rows based on date in column 1
     WorkoutView.highlightTodayRows(sheet, 1);
+    // Center align all cells
+    sheet
+      .getRange(1, 1, sheet.getLastRow(), sheet.getLastColumn())
+      .setHorizontalAlignment("center");
+
+    // Left align the Notes column if found
+    if (notesHeaderRow !== -1 && notesHeaderCol !== -1) {
+      sheet
+        .getRange(
+          notesHeaderRow + 2,
+          notesHeaderCol + 1,
+          sheet.getLastRow() - notesHeaderRow - 1,
+          1,
+        )
+        .setHorizontalAlignment("left");
+    }
   }
 
   /**

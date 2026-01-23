@@ -115,6 +115,8 @@ describe("MenuController", () => {
   });
 
   beforeEach(() => {
+    jest.resetModules();
+    jest.clearAllMocks();
     addItemMock = jest.fn().mockReturnThis();
     addSeparatorMock = jest.fn().mockReturnThis();
     addToUiMock = jest.fn();
@@ -138,7 +140,7 @@ describe("MenuController", () => {
     getNameMock = jest.fn(() => "Sheet1");
     setFrozenRowsMock = jest.fn();
 
-    sheetMock = jest.fn(() => ({
+    sheetMock = {
       autoResizeColumns: autoResizeColumnsMock,
       getLastColumn: getLastColumnMock,
       getName: getNameMock,
@@ -151,11 +153,9 @@ describe("MenuController", () => {
       getMaxRows: jest.fn(),
       hideSheet: jest.fn(),
       setFrozenRows: setFrozenRowsMock,
-    }));
+    } as any;
 
-    getActiveSheetMock = jest.fn(() => ({
-      sheetMock,
-    }));
+    getActiveSheetMock = jest.fn(() => sheetMock);
     setActiveSheetMock = jest.fn();
 
     global.SpreadsheetApp = {
@@ -163,18 +163,11 @@ describe("MenuController", () => {
       getActiveSpreadsheet: jest.fn(() => ({
         toast: toastMock,
         setActiveSheet: setActiveSheetMock,
-        getSheetByName: jest.fn(() => ({
-          sheetMock,
-        })),
+        getSheetByName: jest.fn(() => sheetMock),
       })),
-      getActiveSheet: jest.fn(() => ({
-        sheetMock,
-      })),
+      getActiveSheet: getActiveSheetMock,
       setActiveSheet: setActiveSheetMock,
     } as any;
-
-    jest.resetModules();
-    jest.clearAllMocks();
   });
 
   it("should create the menu with correct items", () => {
@@ -209,12 +202,7 @@ describe("MenuController", () => {
   });
 
   it("should format the current sheet and show a toast", () => {
-    (runWithErrorHandling as jest.Mock).mockImplementation((fn) => {
-      const { runWithErrorHandling: realRunWithErrorHandling } =
-        jest.requireActual("../../../src/api/ui/uiUtils");
-      return realRunWithErrorHandling(fn);
-    });
-    (SpreadsheetApp.getActiveSheet as jest.Mock).mockReturnValue(sheetMock());
+    setupRunWithErrorHandling(true);
     MenuController.handleFormatSheet();
     expect(autoResizeColumnsMock).toHaveBeenCalledWith(1, 5);
     expect(cropSheet).toHaveBeenCalledWith(
@@ -233,12 +221,7 @@ describe("MenuController", () => {
   });
 
   it("should show an alert with error if cropSheet throws in handleFormatSheet", () => {
-    (runWithErrorHandling as jest.Mock).mockImplementation((fn) => {
-      const { runWithErrorHandling: realRunWithErrorHandling } =
-        jest.requireActual("../../../src/api/ui/uiUtils");
-      return realRunWithErrorHandling(fn);
-    });
-    (SpreadsheetApp.getActiveSheet as jest.Mock).mockReturnValue(sheetMock());
+    setupRunWithErrorHandling(false);
     (cropSheet as jest.Mock).mockImplementation(() => {
       throw new Error("fail");
     });
@@ -252,11 +235,8 @@ describe("MenuController", () => {
   });
 
   it("should format the current workout sheet and show a toast", () => {
-    (runWithErrorHandling as jest.Mock).mockImplementation((fn) => {
-      fn();
-    });
-    (SpreadsheetApp.getActiveSheet as jest.Mock).mockReturnValue(sheetMock());
-    (getNameMock as jest.Mock).mockReturnValue("RPT_2026_Cycle_1_20260101");
+    setupRunWithErrorHandling(true);
+    getNameMock.mockReturnValue("RPT_2026_Cycle_1_20260101");
 
     MenuController.handleFormatWorkoutSheet();
     expect(WorkoutView.formatWorkoutSheet).toHaveBeenCalledWith(
@@ -272,12 +252,7 @@ describe("MenuController", () => {
   });
 
   it("should show an alert with error if the current sheet is not a workout sheet", () => {
-    (runWithErrorHandling as jest.Mock).mockImplementation((fn) => {
-      const { runWithErrorHandling: realRunWithErrorHandling } =
-        jest.requireActual("../../../src/api/ui/uiUtils");
-      return realRunWithErrorHandling(fn);
-    });
-    (SpreadsheetApp.getActiveSheet as jest.Mock).mockReturnValue(sheetMock());
+    setupRunWithErrorHandling(false);
     MenuController.handleFormatWorkoutSheet();
     expect(alertMock).toHaveBeenCalledWith(
       expect.any(String),
@@ -321,11 +296,7 @@ describe("MenuController", () => {
   });
 
   it("should call alert with error if SheetRepository throws in startNewCycle", () => {
-    (runWithErrorHandling as jest.Mock).mockImplementation((fn) => {
-      const { runWithErrorHandling: realRunWithErrorHandling } =
-        jest.requireActual("../../../src/api/ui/uiUtils");
-      return realRunWithErrorHandling(fn);
-    });
+    setupRunWithErrorHandling(false);
     (SheetRepository as jest.Mock).mockImplementation(() => ({
       createTableSheet: jest.fn((fn) => {
         throw new Error("fail");
@@ -338,3 +309,13 @@ describe("MenuController", () => {
     }
   });
 });
+
+function setupRunWithErrorHandling(execCallback: boolean) {
+  (runWithErrorHandling as jest.Mock).mockImplementation((fn) => {
+    if (execCallback) return fn();
+    // Optionally, call the real implementation if needed
+    const { runWithErrorHandling: realRunWithErrorHandling } =
+      jest.requireActual("../../../src/api/ui/uiUtils");
+    return realRunWithErrorHandling(fn);
+  });
+}

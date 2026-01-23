@@ -28,7 +28,7 @@ export class WorkoutRepository {
    * @return 2D array of workout data
    */
   public getWorkout(): any[][] {
-    const data = this.sheet.getDataRange().getValues();
+    const data = this.sheet.getDataRange().getDisplayValues();
     // Keep header row
     return data;
   }
