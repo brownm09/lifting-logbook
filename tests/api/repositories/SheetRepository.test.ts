@@ -5,29 +5,17 @@ describe("SheetRepository", () => {
   let insertSheetMock: jest.Mock;
   let getRangeMock: jest.Mock;
   let setValuesMock: jest.Mock;
-  let setHorizontalAlignmentMock: jest.Mock;
-  let setFontWeightMock: jest.Mock;
-  let setFrozenRowsMock: jest.Mock;
-  let autoResizeColumnsMock: jest.Mock;
   let sheetMock: any;
   let ssMock: any;
 
   beforeEach(() => {
-    setHorizontalAlignmentMock = jest.fn().mockReturnThis();
-    setFontWeightMock = jest.fn().mockReturnThis();
     setValuesMock = jest.fn().mockReturnThis();
     getRangeMock = jest.fn(() => ({
       setValues: setValuesMock,
-      setHorizontalAlignment: setHorizontalAlignmentMock,
-      setFontWeight: setFontWeightMock,
     }));
-    setFrozenRowsMock = jest.fn();
-    autoResizeColumnsMock = jest.fn();
 
     sheetMock = {
       getRange: getRangeMock,
-      setFrozenRows: setFrozenRowsMock,
-      autoResizeColumns: autoResizeColumnsMock,
       getName: jest.fn(() => "Sheet1"),
     };
 
@@ -77,10 +65,6 @@ describe("SheetRepository", () => {
       data[0].length,
     );
     expect(setValuesMock).toHaveBeenCalledWith(data);
-    expect(setHorizontalAlignmentMock).toHaveBeenCalledWith("center");
-    expect(setFontWeightMock).toHaveBeenCalledWith("bold");
-    expect(setFrozenRowsMock).toHaveBeenCalledWith(1);
-    expect(autoResizeColumnsMock).toHaveBeenCalledWith(1, data[0].length);
     expect(result).toBe(sheetMock);
   });
 

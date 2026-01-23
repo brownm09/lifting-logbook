@@ -15,3 +15,7 @@ function startNewCycle() {
 function handleFormatSheet() {
   api.MenuController.handleFormatSheet();
 }
+
+function handleFormatWorkoutSheet() {
+  api.MenuController.handleFormatWorkoutSheet();
+}

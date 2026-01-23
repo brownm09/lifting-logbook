@@ -26,16 +26,6 @@ export class SheetRepository {
     sheet = this.ss.insertSheet(name);
     sheet.getRange(1, 1, data.length, data[0].length).setValues(data);
 
-    // 2. Set Headers
-    const headerRange = sheet.getRange(1, 1, 1, data[0].length);
-    headerRange.setHorizontalAlignment("center").setFontWeight("bold");
-
-    // 3. Freeze the header row
-    sheet.setFrozenRows(1);
-
-    // 4. Basic UX: Auto-resize columns
-    sheet.autoResizeColumns(1, data[0].length);
-
     return sheet;
   }
 }

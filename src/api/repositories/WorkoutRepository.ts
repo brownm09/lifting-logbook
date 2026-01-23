@@ -1,5 +1,3 @@
-import { cropSheet } from "../utils/cropSheet";
-
 export class WorkoutRepository {
   private sheet: GoogleAppsScript.Spreadsheet.Sheet;
 
@@ -42,36 +40,5 @@ export class WorkoutRepository {
   public setWorkout(data: any[][]): void {
     // Write starting at row 1 to include header
     this.sheet.getRange(1, 1, data.length, data[0].length).setValues(data);
-    this.highlightTodayRows();
-    // Trim extra rows and columns
-    cropSheet(this.sheet);
-  }
-
-  /**
-   * Adds conditional formatting: if the date column matches today, highlight the row.
-   * @param dateCol The 1-based index of the date column (e.g., 2 for column B)
-   */
-  public highlightTodayRows(dateCol: number = 1): void {
-    const rules = this.sheet.getConditionalFormatRules();
-    const lastRow = this.sheet.getLastRow();
-    if (lastRow < 2) return; // No data to format
-
-    // Google Sheets default highlight color (light yellow)
-    const highlightColor = "#1e7d3c";
-
-    // Format: highlight entire row if date in dateCol equals today
-    const formula = `=$${String.fromCharCode(64 + dateCol)}2=TODAY()`;
-
-    const rule = SpreadsheetApp.newConditionalFormatRule()
-      .whenFormulaSatisfied(formula)
-      .setBackground(highlightColor)
-      .setRanges([
-        this.sheet.getRange(2, 1, lastRow - 1, this.sheet.getLastColumn()),
-      ])
-      .build();
-
-    // Remove previous similar rules (optional, or just add)
-    rules.push(rule);
-    this.sheet.setConditionalFormatRules(rules);
   }
 }

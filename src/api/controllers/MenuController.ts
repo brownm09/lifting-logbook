@@ -17,6 +17,7 @@ import {
   WorkoutRepository,
 } from "../repositories";
 import { runWithErrorHandling } from "../ui";
+import { WorkoutView } from "../ui/WorkoutView";
 import { cropSheet } from "../utils";
 
 export class MenuController {
@@ -29,6 +30,7 @@ export class MenuController {
       // .addItem("Start New Year", "handleAnnualCutover") // currently a stub
       // .addSeparator()
       .addItem("Format Current Sheet", "handleFormatSheet")
+      .addItem("Format Current Workout Sheet", "handleFormatWorkoutSheet")
       .addSeparator()
       .addItem("Start New Cycle", "startNewCycle")
       .addToUi();
@@ -74,7 +76,7 @@ export class MenuController {
         newCycle.sheetName,
         newWorkout,
       );
-
+      // const newWorkoutRepo = new WorkoutRepository(newCycle.sheetName);
       dashboardRepo.setCycleDashboard(newCycle);
 
       const toastMsg =
@@ -86,6 +88,7 @@ export class MenuController {
       console.log(toastMsg);
       SpreadsheetApp.getActiveSpreadsheet().toast(toastMsg, "Success");
       SpreadsheetApp.setActiveSheet(newWorkoutSheet);
+      WorkoutView.formatWorkoutSheet(newWorkout, newWorkoutSheet);
       workoutRepo.hideSheet();
     });
   }
@@ -99,6 +102,28 @@ export class MenuController {
       sheet.autoResizeColumns(1, sheet.getLastColumn());
       cropSheet(sheet);
       const toastMsg = `Sheet "${sheet.getName()}" formatted successfully.`;
+      console.log(toastMsg);
+      SpreadsheetApp.getActiveSpreadsheet().toast(toastMsg, "Success");
+    });
+  }
+
+  // For formatting workout sheets
+  static handleFormatWorkoutSheet() {
+    runWithErrorHandling(() => {
+      const sheet = SpreadsheetApp.getActiveSheet();
+      // check if it's a workout sheet by checking the sheet name pattern (date)
+      const sheetName = sheet.getName();
+      if (!/\d+_\d{4}\d{2}\d{2}$/.test(sheetName)) {
+        throw new Error(
+          `Sheet "${sheetName}" does not appear to be a workout sheet.`,
+        );
+      }
+      const workoutRepository: WorkoutRepository = new WorkoutRepository(
+        sheetName,
+      );
+      const data = workoutRepository.getWorkout();
+      WorkoutView.formatWorkoutSheet(data, sheet);
+      const toastMsg = `Workout sheet "${sheet.getName()}" formatted successfully.`;
       console.log(toastMsg);
       SpreadsheetApp.getActiveSpreadsheet().toast(toastMsg, "Success");
     });

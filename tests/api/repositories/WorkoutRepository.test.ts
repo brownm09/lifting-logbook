@@ -1,5 +1,4 @@
 import { WorkoutRepository } from "../../../src/api/repositories/WorkoutRepository";
-import { cropSheet } from "../../../src/api/utils/cropSheet";
 
 jest.mock("../../../src/api/utils/cropSheet", () => ({
   cropSheet: jest.fn(),
@@ -94,7 +93,7 @@ describe("WorkoutRepository", () => {
     expect(result).toEqual(data);
   });
 
-  it("sets workout data, adds conditional formatting, and trims sheet", () => {
+  it("sets workout data", () => {
     const repo = new WorkoutRepository("Workout");
     const data = [
       ["Header1", "Header2"],
@@ -109,29 +108,6 @@ describe("WorkoutRepository", () => {
       data[0].length,
     );
     expect(setValuesMock).toHaveBeenCalledWith(data);
-    expect(cropSheet).toHaveBeenCalledWith(sheetMock);
-    expect(getConditionalFormatRulesMock).toHaveBeenCalled();
-    expect(global.SpreadsheetApp.newConditionalFormatRule).toHaveBeenCalled();
-    expect(setConditionalFormatRulesMock).toHaveBeenCalledWith(
-      expect.arrayContaining(["rule"]),
-    );
-  });
-
-  it("adds conditional formatting to highlight today's date in the specified column", () => {
-    const repo = new WorkoutRepository("Workout");
-    repo.highlightTodayRows(2); // e.g., column B
-    expect(getConditionalFormatRulesMock).toHaveBeenCalled();
-    expect(global.SpreadsheetApp.newConditionalFormatRule).toHaveBeenCalled();
-    expect(setConditionalFormatRulesMock).toHaveBeenCalledWith(
-      expect.arrayContaining(["rule"]),
-    );
-  });
-
-  it("does not add conditional formatting if there are no data rows", () => {
-    getLastRowMock.mockReturnValue(1); // Only header
-    const repo = new WorkoutRepository("Workout");
-    repo.highlightTodayRows(2);
-    expect(setConditionalFormatRulesMock).not.toHaveBeenCalled();
   });
 
   it("hides rows using the correct 1-based index and count", () => {

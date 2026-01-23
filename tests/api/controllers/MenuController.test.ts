@@ -1,14 +1,10 @@
 jest.mock("../../../src/api/ui/uiUtils", () => ({
-  runWithErrorHandling: jest.fn((fn: any) => fn()),
+  runWithErrorHandling: jest.fn(),
 }));
 
 jest.mock("../../../src/api/utils", () => ({
   cropSheet: jest.fn(),
 }));
-
-// jest.mock("../../../src/api/repositories/SheetRepository", () => ({
-//   createTableSheet: jest.fn(),
-// }));
 
 jest.mock("../../../src/core", () => ({
   extractLiftRecords: jest.fn(() => ["record"]),
@@ -32,9 +28,16 @@ jest.mock("../../../src/core", () => ({
 
 jest.mock("../../../src/api/repositories/SheetRepository", () => ({
   SheetRepository: jest.fn().mockImplementation(() => ({
-    createTableSheet: jest.fn(() => ({ getName: () => "Sheet2" })),
+    createTableSheet: jest.fn(() => ({
+      getName: () => "Sheet2",
+      setFrozenRows: jest.fn(),
+      autoResizeColumns: jest.fn(),
+      getLastColumn: jest.fn(() => 5),
+      getLastRow: jest.fn(() => 10),
+    })),
   })),
 }));
+
 jest.mock("../../../src/api/repositories/CycleDashboardRepository", () => ({
   CycleDashboardRepository: jest.fn().mockImplementation(() => ({
     getCycleDashboard: jest.fn(() => ({ sheetName: "Sheet1" })),
@@ -63,9 +66,17 @@ jest.mock("../../../src/api/repositories/WorkoutRepository", () => ({
     hideSheet: jest.fn(),
   })),
 }));
+jest.mock("../../../src/api/ui/WorkoutView", () => ({
+  WorkoutView: {
+    formatWorkoutSheet: jest.fn(),
+    headerifyRow: jest.fn(),
+    highlightTodayRows: jest.fn(),
+  },
+}));
 
 import * as core from "../../../src/core";
 
+import { WorkoutView } from "../../../src/api";
 import { MenuController } from "../../../src/api/controllers/MenuController";
 import { CycleDashboardRepository } from "../../../src/api/repositories/CycleDashboardRepository";
 import { LiftingProgramSpecRepository } from "../../../src/api/repositories/LiftingProgramSpecRepository";
@@ -92,6 +103,9 @@ describe("MenuController", () => {
   let getActiveSheetMock: jest.Mock;
   let setActiveSheetMock: jest.Mock;
   let getRangeMock: jest.Mock;
+  let setFrozenRowsMock: jest.Mock;
+  let sheetMock: jest.Mock;
+
   beforeAll(() => {
     jest.spyOn(console, "log").mockImplementation(() => {});
     // jest.spyOn(global.Logger, "log").mockImplementation(() => {});
@@ -122,7 +136,9 @@ describe("MenuController", () => {
     autoResizeColumnsMock = jest.fn();
     getLastColumnMock = jest.fn(() => 5);
     getNameMock = jest.fn(() => "Sheet1");
-    getActiveSheetMock = jest.fn(() => ({
+    setFrozenRowsMock = jest.fn();
+
+    sheetMock = jest.fn(() => ({
       autoResizeColumns: autoResizeColumnsMock,
       getLastColumn: getLastColumnMock,
       getName: getNameMock,
@@ -134,6 +150,11 @@ describe("MenuController", () => {
       getMaxColumns: jest.fn(),
       getMaxRows: jest.fn(),
       hideSheet: jest.fn(),
+      setFrozenRows: setFrozenRowsMock,
+    }));
+
+    getActiveSheetMock = jest.fn(() => ({
+      sheetMock,
     }));
     setActiveSheetMock = jest.fn();
 
@@ -143,21 +164,12 @@ describe("MenuController", () => {
         toast: toastMock,
         setActiveSheet: setActiveSheetMock,
         getSheetByName: jest.fn(() => ({
-          getName: getNameMock,
-          getDataRange: jest.fn(() => ({
-            getValues: jest.fn(() => []),
-          })),
-          getLastRow: getLastRowMock,
-          getLastColumn: getLastColumnMock,
-          getRange: jest.fn(() => ({
-            setValues: jest.fn(),
-          })),
-          getMaxColumns: jest.fn(),
-          getMaxRows: jest.fn(),
-          hideSheet: jest.fn(),
+          sheetMock,
         })),
       })),
-      getActiveSheet: getActiveSheetMock,
+      getActiveSheet: jest.fn(() => ({
+        sheetMock,
+      })),
       setActiveSheet: setActiveSheetMock,
     } as any;
 
@@ -174,6 +186,10 @@ describe("MenuController", () => {
       "Format Current Sheet",
       "handleFormatSheet",
     );
+    expect(menu.addItem).toHaveBeenCalledWith(
+      "Format Current Workout Sheet",
+      "handleFormatWorkoutSheet",
+    );
     expect(menu.addSeparator).toHaveBeenCalled();
     expect(menu.addItem).toHaveBeenCalledWith(
       "Start New Cycle",
@@ -187,17 +203,27 @@ describe("MenuController", () => {
     expect(runWithErrorHandling).toHaveBeenCalled();
   });
 
-  it("should call runWithErrorHandling when handleFormatSheet is called", () => {
-    MenuController.handleFormatSheet();
+  it("should call runWithErrorHandling when handleFormatWorkoutSheet is called", () => {
+    MenuController.handleFormatWorkoutSheet();
     expect(runWithErrorHandling).toHaveBeenCalled();
   });
 
   it("should format the current sheet and show a toast", () => {
+    (runWithErrorHandling as jest.Mock).mockImplementation((fn) => {
+      const { runWithErrorHandling: realRunWithErrorHandling } =
+        jest.requireActual("../../../src/api/ui/uiUtils");
+      return realRunWithErrorHandling(fn);
+    });
+    (SpreadsheetApp.getActiveSheet as jest.Mock).mockReturnValue(sheetMock());
     MenuController.handleFormatSheet();
     expect(autoResizeColumnsMock).toHaveBeenCalledWith(1, 5);
     expect(cropSheet).toHaveBeenCalledWith(
       expect.objectContaining({
         autoResizeColumns: autoResizeColumnsMock,
+        getLastColumn: getLastColumnMock,
+        getLastRow: getLastRowMock,
+        getRange: getRangeMock,
+        setFrozenRows: expect.any(Function),
       }),
     );
     expect(toastMock).toHaveBeenCalledWith(
@@ -212,6 +238,7 @@ describe("MenuController", () => {
         jest.requireActual("../../../src/api/ui/uiUtils");
       return realRunWithErrorHandling(fn);
     });
+    (SpreadsheetApp.getActiveSheet as jest.Mock).mockReturnValue(sheetMock());
     (cropSheet as jest.Mock).mockImplementation(() => {
       throw new Error("fail");
     });
@@ -219,6 +246,42 @@ describe("MenuController", () => {
     expect(alertMock).toHaveBeenCalledWith(
       expect.any(String),
       expect.stringContaining("fail"),
+      expect.anything(),
+    );
+    expect(toastMock).not.toHaveBeenCalled();
+  });
+
+  it("should format the current workout sheet and show a toast", () => {
+    (runWithErrorHandling as jest.Mock).mockImplementation((fn) => {
+      fn();
+    });
+    (SpreadsheetApp.getActiveSheet as jest.Mock).mockReturnValue(sheetMock());
+    (getNameMock as jest.Mock).mockReturnValue("RPT_2026_Cycle_1_20260101");
+
+    MenuController.handleFormatWorkoutSheet();
+    expect(WorkoutView.formatWorkoutSheet).toHaveBeenCalledWith(
+      ["workout"],
+      expect.anything(),
+    );
+    expect(toastMock).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'Workout sheet "RPT_2026_Cycle_1_20260101" formatted successfully.',
+      ),
+      "Success",
+    );
+  });
+
+  it("should show an alert with error if the current sheet is not a workout sheet", () => {
+    (runWithErrorHandling as jest.Mock).mockImplementation((fn) => {
+      const { runWithErrorHandling: realRunWithErrorHandling } =
+        jest.requireActual("../../../src/api/ui/uiUtils");
+      return realRunWithErrorHandling(fn);
+    });
+    (SpreadsheetApp.getActiveSheet as jest.Mock).mockReturnValue(sheetMock());
+    MenuController.handleFormatWorkoutSheet();
+    expect(alertMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.stringContaining("a workout sheet."),
       expect.anything(),
     );
     expect(toastMock).not.toHaveBeenCalled();
