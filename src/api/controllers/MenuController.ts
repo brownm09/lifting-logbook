@@ -32,6 +32,9 @@ export class MenuController {
       .addItem("Format Current Sheet", "handleFormatSheet")
       .addItem("Format Current Workout Sheet", "handleFormatWorkoutSheet")
       .addSeparator()
+      .addItem("Update Training Maxes", "handleUpdateTrainingMaxes")
+      // .addItem("Refresh Workout Grid", "handleRefreshWorkoutGrid")
+      .addSeparator()
       .addItem("Start New Cycle", "startNewCycle")
       .addToUi();
   }
@@ -90,6 +93,35 @@ export class MenuController {
       SpreadsheetApp.setActiveSheet(newWorkoutSheet);
       WorkoutView.formatWorkoutSheet(newWorkout, newWorkoutSheet);
       workoutRepo.hideSheet();
+    });
+  }
+
+  // For formatting workout sheets
+  static handleUpdateTrainingMaxes() {
+    runWithErrorHandling(() => {
+      const dashboardRepo = new CycleDashboardRepository();
+      const programRepo = new LiftingProgramSpecRepository();
+      const trainingMaxRepo = new TrainingMaxRepository();
+
+      const dashboard: CycleDashboard = dashboardRepo.getCycleDashboard();
+      const programSpec: LiftingProgramSpec[] =
+        programRepo.getLiftingProgramSpec();
+      const trainingMaxes: TrainingMax[] = trainingMaxRepo.getTrainingMaxes();
+      const liftRecordRepo = new LiftRecordRepository();
+
+      const workoutRepo = new WorkoutRepository(dashboard.sheetName);
+      const workoutData = workoutRepo.getWorkout();
+      const newLiftRecords: LiftRecord[] = extractLiftRecords(workoutData);
+
+      const newTrainingMaxes = updateMaxes(
+        programSpec,
+        trainingMaxes,
+        newLiftRecords,
+      );
+      trainingMaxRepo.setTrainingMaxes(newTrainingMaxes);
+      const toastMsg = `Training maxes updated successfully.`;
+      console.log(toastMsg);
+      SpreadsheetApp.getActiveSpreadsheet().toast(toastMsg, "Success");
     });
   }
 

@@ -12,6 +12,14 @@ function startNewCycle() {
   api.MenuController.startNewCycle();
 }
 
+function handleUpdateTrainingMaxes() {
+  api.MenuController.handleUpdateTrainingMaxes();
+}
+
+// function handleRefreshWorkoutGrid() {
+//   api.MenuController.handleRefreshWorkoutGrid();
+// }
+
 function handleFormatSheet() {
   api.MenuController.handleFormatSheet();
 }

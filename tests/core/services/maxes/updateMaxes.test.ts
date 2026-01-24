@@ -12,7 +12,9 @@ describe("updateMaxes", () => {
     const tmData = loadCsvFixture("training_maxes.csv");
     const specData = loadCsvFixture("rpt_program_spec.csv");
     const liftData = loadCsvFixture("lift_records_week_1_20260105.csv");
+    const newTmData = loadCsvFixture("training_maxes_20260105.csv");
     const trainingMaxes = parseTrainingMaxes(tmData);
+    const expectedMaxes = parseTrainingMaxes(newTmData);
     const programSpec = parseLiftingProgramSpec(specData);
     const liftRecords = parseLiftRecords(liftData);
     const updatedMaxes = updateMaxes(programSpec, trainingMaxes, liftRecords);
@@ -64,5 +66,10 @@ describe("updateMaxes", () => {
         expect(updated.weight).toBe(orig.weight);
       }
     });
+    expect(updatedMaxes).toEqual(expectedMaxes);
+    // Test for idempotency by re-running with updated maxes
+    expect(updateMaxes(programSpec, updatedMaxes, liftRecords)).toEqual(
+      expectedMaxes,
+    );
   });
 });
