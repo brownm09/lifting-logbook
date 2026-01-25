@@ -1,8 +1,3 @@
-import { SHEET_NAME_LIFT_RECORDS } from "@src/api/constants/constants";
-import { LiftRecordRepository } from "@src/api/repositories";
-import { cropSheet } from "@src/api/ui";
-import * as coreUtils from "@src/core/utils";
-
 jest.mock("@src/core/utils", () => ({
   mapLiftRecords: jest.fn((records) => records.map(() => [1, 2])),
   parseLiftRecords: jest.fn((data) =>
@@ -12,7 +7,15 @@ jest.mock("@src/core/utils", () => ({
 }));
 jest.mock("@src/api/ui", () => ({
   cropSheet: jest.fn(),
+  LiftRecordsView: {
+    formatLiftRecordsSheet: jest.fn(),
+  },
 }));
+
+import { SHEET_NAME_LIFT_RECORDS } from "@src/api/constants/constants";
+import { LiftRecordRepository } from "@src/api/repositories";
+import { cropSheet, LiftRecordsView } from "@src/api/ui";
+import * as coreUtils from "@src/core/utils";
 
 describe("LiftRecordRepository", () => {
   let sheetMock: any;
@@ -89,6 +92,9 @@ describe("LiftRecordRepository", () => {
       { lift: "Deadlift", reps: 5 },
       { lift: "Bench", reps: 3 },
     ];
+    jest
+      .spyOn(LiftRecordsView, "formatLiftRecordsSheet")
+      .mockImplementation(jest.fn());
     repo.appendLiftRecords(liftRecords as any);
     expect(coreUtils.mapLiftRecords).toHaveBeenCalledWith(liftRecords);
     expect(getLastRowMock).toHaveBeenCalled();
@@ -101,6 +107,10 @@ describe("LiftRecordRepository", () => {
     );
     expect(setValuesMock).toHaveBeenCalledWith(rawData.slice(1));
     expect(cropSheet).toHaveBeenCalledWith(sheetMock);
+    expect(LiftRecordsView.formatLiftRecordsSheet).toHaveBeenCalledWith(
+      rawData,
+      sheetMock,
+    );
   });
 
   it("throws if setValues fails", () => {

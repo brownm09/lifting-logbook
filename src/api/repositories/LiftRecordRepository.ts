@@ -1,5 +1,5 @@
 import { SHEET_NAME_LIFT_RECORDS } from "@src/api/constants/constants";
-import { cropSheet } from "@src/api/ui";
+import { cropSheet, LiftRecordsView } from "@src/api/ui";
 import { LiftRecord } from "@src/core/models";
 import { mapLiftRecords, parseLiftRecords } from "@src/core/utils";
 export class LiftRecordRepository {
@@ -28,5 +28,6 @@ export class LiftRecordRepository {
       .getRange(lastRow + 1, 1, data.length - 1, data[0].length)
       .setValues(data.slice(1)); // Skip header row
     cropSheet(this.sheet);
+    LiftRecordsView.formatLiftRecordsSheet(data, this.sheet);
   }
 }
