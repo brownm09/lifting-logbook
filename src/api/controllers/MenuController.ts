@@ -22,6 +22,7 @@ export class MenuController {
       .addItem("Cycle Dashboard", "handleNavToDashboard")
       .addItem("Training Maxes", "handleNavToMaxes")
       .addItem("Program Spec", "handleNavToProgramSpec")
+      .addItem("Lift Records", "handleNavToLiftRecords")
       .addItem("Current Workout", "handleNavToCurrentWorkout")
       .addToUi();
   }
@@ -35,6 +36,7 @@ export class MenuController {
       .addItem("Cycle Dashboard", "handleNavToDashboard")
       .addItem("Training Maxes", "handleNavToMaxes")
       .addItem("Program Spec", "handleNavToProgramSpec")
+      .addItem("Lift Records", "handleNavToLiftRecords")
       .addItem("Current Workout", "handleNavToCurrentWorkout")
       .addToUi();
   }

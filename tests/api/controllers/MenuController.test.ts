@@ -188,6 +188,10 @@ describe("MenuController", () => {
         "handleNavToProgramSpec",
       );
       expect(menu.addItem).toHaveBeenCalledWith(
+        "Lift Records",
+        "handleNavToLiftRecords",
+      );
+      expect(menu.addItem).toHaveBeenCalledWith(
         "Current Workout",
         "handleNavToCurrentWorkout",
       );

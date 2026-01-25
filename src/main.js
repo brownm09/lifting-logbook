@@ -32,15 +32,18 @@ function handleNavToCurrentWorkout() {
   new api.NavToCurrentWorkoutAction().run();
 }
 
-import { SHEET_NAME_DASHBOARD, SHEET_NAME_TRAINING_MAXES, SHEET_NAME_PROGRAM_SPEC } from "./api/constants/constants";
 function handleNavToDashboard() {
-  new api.NavigationAction().run(SHEET_NAME_DASHBOARD);
+  new api.NavigationAction().run(api.SHEET_NAME_DASHBOARD);
 }
 
 function handleNavToMaxes() {
-  new api.NavigationAction().run(SHEET_NAME_TRAINING_MAXES);
+  new api.NavigationAction().run(api.SHEET_NAME_TRAINING_MAXES);
 }
 
 function handleNavToProgramSpec() {
-  new api.NavigationAction().run(SHEET_NAME_PROGRAM_SPEC);
+  new api.NavigationAction().run(api.SHEET_NAME_PROGRAM_SPEC);
+}
+
+function handleNavToLiftRecords() {
+  new api.NavigationAction().run(api.SHEET_NAME_LIFT_RECORDS);
 }
