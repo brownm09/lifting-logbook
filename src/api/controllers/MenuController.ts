@@ -14,6 +14,11 @@ export class MenuController {
       // .addItem("Refresh Workout Grid", "handleRefreshWorkoutGrid")
       .addSeparator()
       .addItem("Start New Cycle", "startNewCycle")
+      .addSeparator()
+      .addItem("Cycle Dashboard", "handleNavToDashboard")
+      .addItem("Training Maxes", "handleNavToMaxes")
+      .addItem("Program Spec", "handleNavToProgramSpec")
+      .addItem("Current Workout", "handleNavToCurrentWorkout")
       .addToUi();
   }
 

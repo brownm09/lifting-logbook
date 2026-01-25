@@ -9,11 +9,11 @@ function onEdit(e) {
 }
 
 function startNewCycle() {
-  api.MenuController.startNewCycle();
+  new api.StartNewCycleAction().run();
 }
 
 function handleUpdateTrainingMaxes() {
-  api.MenuController.handleUpdateTrainingMaxes();
+  new api.UpdateTrainingMaxesAction().run();
 }
 
 // function handleRefreshWorkoutGrid() {
@@ -21,9 +21,25 @@ function handleUpdateTrainingMaxes() {
 // }
 
 function handleFormatSheet() {
-  api.MenuController.handleFormatSheet();
+  new api.FormatSheetAction().run();
 }
 
 function handleFormatWorkoutSheet() {
-  api.MenuController.handleFormatWorkoutSheet();
+  new api.FormatWorkoutSheetAction().run();
+}
+/* Navigation Handlers */
+function handleNavToCurrentWorkout() {
+  new api.NavToCurrentWorkoutAction().run();
+}
+
+function handleNavToDashboard() {
+  new api.NavigationAction().run("DASHBOARD");
+}
+
+function handleNavToMaxes() {
+  new api.NavigationAction().run("TRAINING_MAXES");
+}
+
+function handleNavToProgramSpec() {
+  new api.NavigationAction().run("RPT_PROGRAM_SPEC");
 }

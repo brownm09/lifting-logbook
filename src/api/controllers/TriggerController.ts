@@ -12,7 +12,7 @@ import { findWorkoutRowsToHideOnEdit } from "@src/core";
  */
 export function onOpen(e?: GoogleAppsScript.Events.SheetsOnOpen) {
   MenuController.createToolsMenu();
-  MenuController.createNavMenu();
+  // MenuController.createNavMenu();
 }
 
 /**
