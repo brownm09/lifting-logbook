@@ -1,10 +1,12 @@
+import { MSG_ERROR_SHEET_NOT_FOUND } from "@src/api/constants/constants";
+
 export class WorkoutRepository {
   private sheet: GoogleAppsScript.Spreadsheet.Sheet;
 
   constructor(sheetName: string) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     this.sheet = ss.getSheetByName(sheetName);
-    if (!this.sheet) throw new Error(`Sheet ${sheetName} not found`);
+    if (!this.sheet) throw new Error(MSG_ERROR_SHEET_NOT_FOUND(sheetName));
   }
 
   /**

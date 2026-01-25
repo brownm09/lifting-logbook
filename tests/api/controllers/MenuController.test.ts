@@ -60,6 +60,7 @@ jest.mock("@src/api/repositories", () => ({
   })),
 }));
 
+import { MENU_NAME_NAVIGATION as MENU_NAME_NAV } from "@src/api";
 import { MenuController } from "@src/api/controllers";
 // import { createTableSheet } from "@src/api";
 
@@ -172,7 +173,7 @@ describe("MenuController", () => {
     it("should create the menu with correct items", () => {
       MenuController.createNavMenu();
       const ui = global.SpreadsheetApp.getUi();
-      expect(ui.createMenu).toHaveBeenCalledWith("Logbook Navigation");
+      expect(ui.createMenu).toHaveBeenCalledWith(MENU_NAME_NAV);
       const menu = (ui.createMenu as jest.Mock).mock.results[0].value;
       expect(menu.addItem).toHaveBeenCalledWith(
         "Cycle Dashboard",

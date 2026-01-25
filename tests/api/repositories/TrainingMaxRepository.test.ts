@@ -3,6 +3,10 @@ jest.mock("@src/core/utils", () => ({
   mapTrainingMaxes: jest.fn(() => []),
 }));
 
+import {
+  MSG_ERROR_SHEET_NOT_FOUND,
+  SHEET_NAME_TRAINING_MAXES,
+} from "@src/api/constants/constants";
 import { TrainingMaxRepository } from "@src/api/repositories";
 import * as coreUtils from "@src/core/utils";
 import { gasMock } from "@tests/testUtils";
@@ -25,7 +29,7 @@ describe("TrainingMaxRepository", () => {
   beforeEach(() => {
     (ssMock.getSheetByName as jest.Mock).mockImplementation(() => sheetMock);
     (ssMock.getActiveSheet as jest.Mock).mockReturnValue(sheetMock);
-    (sheetMock.getName as jest.Mock).mockReturnValue("TRAINING_MAXES");
+    (sheetMock.getName as jest.Mock).mockReturnValue(SHEET_NAME_TRAINING_MAXES);
     (sheetMock.getDataRange as jest.Mock).mockReturnValue(rangeMock);
     (rangeMock.getDisplayValues as jest.Mock).mockReturnValue(rawData);
   });
@@ -37,20 +41,24 @@ describe("TrainingMaxRepository", () => {
   describe("constructor", () => {
     beforeEach(() => {
       (ssMock.getSheetByName as jest.Mock).mockImplementation((name) => {
-        return name === "TRAINING_MAXES" ? sheetMock : undefined;
+        return name === SHEET_NAME_TRAINING_MAXES ? sheetMock : undefined;
       });
     });
     it("sets the sheet if available", () => {
       (ssMock.getSheetByName as jest.Mock).mockReturnValue(sheetMock);
       expect(() => new TrainingMaxRepository()).not.toThrow();
-      expect(ssMock.getSheetByName).toHaveBeenCalledWith("TRAINING_MAXES");
+      expect(ssMock.getSheetByName).toHaveBeenCalledWith(
+        SHEET_NAME_TRAINING_MAXES,
+      );
     });
     it("throws if TRAINING_MAXES sheet is missing", () => {
       (ssMock.getSheetByName as jest.Mock).mockReturnValue(undefined);
       expect(() => new TrainingMaxRepository()).toThrow(
-        "TRAINING_MAXES sheet not found",
+        MSG_ERROR_SHEET_NOT_FOUND(SHEET_NAME_TRAINING_MAXES),
       );
-      expect(ssMock.getSheetByName).toHaveBeenCalledWith("TRAINING_MAXES");
+      expect(ssMock.getSheetByName).toHaveBeenCalledWith(
+        SHEET_NAME_TRAINING_MAXES,
+      );
     });
   });
 

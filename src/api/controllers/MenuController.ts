@@ -1,10 +1,14 @@
+import {
+  MENU_NAME_APP,
+  MENU_NAME_NAVIGATION,
+} from "@src/api/constants/constants";
 export class MenuController {
   /**
    * Creates the custom menu in the Spreadsheet UI
    */
   static createToolsMenu() {
     const ui = SpreadsheetApp.getUi();
-    ui.createMenu("Logbook Tools")
+    ui.createMenu(MENU_NAME_APP)
       // .addItem("Start New Year", "handleAnnualCutover") // currently a stub
       // .addSeparator()
       .addItem("Format Current Sheet", "handleFormatSheet")
@@ -27,7 +31,7 @@ export class MenuController {
    */
   static createNavMenu() {
     const ui = SpreadsheetApp.getUi();
-    ui.createMenu("Logbook Navigation")
+    ui.createMenu(MENU_NAME_NAVIGATION) // Consider making this a constant if reused
       .addItem("Cycle Dashboard", "handleNavToDashboard")
       .addItem("Training Maxes", "handleNavToMaxes")
       .addItem("Program Spec", "handleNavToProgramSpec")

@@ -1,3 +1,4 @@
+import { MSG_ERROR_NAV_TO_WORKOUT, MSG_ERROR_SHEET_NOT_FOUND } from "@src/api/constants/constants";
 import {
   NavigationAction,
   NavToCurrentWorkoutAction,
@@ -48,7 +49,7 @@ describe("NavigationAction", () => {
     getSheetByNameMock.mockReturnValue(undefined);
     const action = new NavigationAction();
     expect(() => action.run("MissingSheet")).toThrow(
-      'Sheet "MissingSheet" not found.',
+      MSG_ERROR_SHEET_NOT_FOUND("MissingSheet"),
     );
     expect(getSheetByNameMock).toHaveBeenCalledWith("MissingSheet");
     expect(runWithErrorHandlingMock).toHaveBeenCalled();
@@ -88,7 +89,7 @@ describe("NavToCurrentWorkoutAction", () => {
     });
     const action = new NavToCurrentWorkoutAction();
     expect(() => action.run()).toThrow(
-      'Failed to navigate to Current Workout sheet "CurrentSheet": Error: fail',
+      MSG_ERROR_NAV_TO_WORKOUT("CurrentSheet", "fail"),
     );
   });
 });

@@ -1,3 +1,4 @@
+import { MSG_ERROR_SHEET_NOT_FOUND } from "@src/api/constants/constants";
 import { WorkoutRepository } from "@src/api/repositories";
 
 jest.mock("@src/api/ui", () => ({
@@ -69,7 +70,7 @@ describe("WorkoutRepository", () => {
   it("throws if sheet does not exist", () => {
     ssMock.getSheetByName.mockReturnValue(undefined);
     expect(() => new WorkoutRepository("MissingSheet")).toThrow(
-      "Sheet MissingSheet not found",
+      MSG_ERROR_SHEET_NOT_FOUND("MissingSheet"),
     );
   });
 

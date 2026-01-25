@@ -1,13 +1,18 @@
+import {
+  MSG_ERROR_SHEET_NOT_FOUND,
+  SHEET_NAME_TRAINING_MAXES,
+} from "@src/api/constants/constants";
 import { TrainingMax } from "@src/core/models";
 import { mapTrainingMaxes, parseTrainingMaxes } from "@src/core/utils";
 
 export class TrainingMaxRepository {
   private sheet;
   constructor() {
-    this.sheet =
-      SpreadsheetApp.getActiveSpreadsheet().getSheetByName("TRAINING_MAXES");
+    this.sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(
+      SHEET_NAME_TRAINING_MAXES,
+    );
     if (!this.sheet) {
-      throw new Error("TRAINING_MAXES sheet not found");
+      throw new Error(MSG_ERROR_SHEET_NOT_FOUND(SHEET_NAME_TRAINING_MAXES));
     }
   }
 

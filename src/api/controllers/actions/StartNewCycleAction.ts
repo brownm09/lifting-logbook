@@ -1,3 +1,4 @@
+import { MSG_SUCCESS_TOAST_NEW_CYCLE } from "@src/api/constants/constants";
 import {
   CycleDashboardRepository,
   LiftRecordRepository,
@@ -64,11 +65,7 @@ export class StartNewCycleAction {
       // const newWorkoutRepo = new WorkoutRepository(newCycle.sheetName);
       dashboardRepo.setCycleDashboard(newCycle);
 
-      const toastMsg =
-        `New cycle sheet "${newCycle.sheetName}" created.` +
-        `\nSuccessfully recorded ${newLiftRecords.length} lift records.` +
-        `\nTraining maxes updated.` +
-        `\nDashboard updated.`;
+      const toastMsg = MSG_SUCCESS_TOAST_NEW_CYCLE(newCycle.sheetName, newLiftRecords.length);
 
       console.log(toastMsg);
       SpreadsheetApp.getActiveSpreadsheet().toast(toastMsg, "Success");

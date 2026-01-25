@@ -1,9 +1,11 @@
+import { SHEET_NAME_LIFT_RECORDS } from "@src/api/constants/constants";
 import { cropSheet } from "@src/api/ui";
 import { LiftRecord } from "@src/core/models";
 import { mapLiftRecords, parseLiftRecords } from "@src/core/utils";
 export class LiftRecordRepository {
-  private sheet =
-    SpreadsheetApp.getActiveSpreadsheet().getSheetByName("LIFT_RECORDS");
+  private sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(
+    SHEET_NAME_LIFT_RECORDS,
+  );
 
   /**
    * Fetches and maps all rows to the LiftRecord model

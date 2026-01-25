@@ -6,6 +6,7 @@ import {
   WorkoutRepository,
   runWithErrorHandling,
 } from "@src/api";
+import { MSG_SUCCESS_TOAST_UPDATED_MAXES } from "@src/api/constants/constants";
 import {
   CycleDashboard,
   LiftRecord,
@@ -37,7 +38,7 @@ export class UpdateTrainingMaxesAction {
         newLiftRecords,
       );
       trainingMaxRepo.setTrainingMaxes(newTrainingMaxes);
-      const toastMsg = `Training maxes updated successfully.`;
+      const toastMsg = MSG_SUCCESS_TOAST_UPDATED_MAXES;
       console.log(toastMsg);
       SpreadsheetApp.getActiveSpreadsheet().toast(toastMsg, "Success");
     });

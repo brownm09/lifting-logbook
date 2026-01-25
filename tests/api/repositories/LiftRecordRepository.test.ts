@@ -1,3 +1,4 @@
+import { SHEET_NAME_LIFT_RECORDS } from "@src/api/constants/constants";
 import { LiftRecordRepository } from "@src/api/repositories";
 import { cropSheet } from "@src/api/ui";
 import * as core from "@src/core";
@@ -44,7 +45,7 @@ describe("LiftRecordRepository", () => {
 
     ssMock = {
       getSheetByName: jest.fn((name) =>
-        name === "LIFT_RECORDS" ? sheetMock : undefined,
+        name === SHEET_NAME_LIFT_RECORDS ? sheetMock : undefined,
       ),
     };
 

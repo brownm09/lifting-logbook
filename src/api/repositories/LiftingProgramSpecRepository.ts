@@ -1,3 +1,7 @@
+import {
+  MSG_ERROR_SHEET_NOT_FOUND,
+  SHEET_NAME_PROGRAM_SPEC,
+} from "@src/api/constants/constants";
 import { cropSheet } from "@src/api/ui";
 import { LiftingProgramSpec } from "@src/core/models";
 import {
@@ -6,8 +10,16 @@ import {
 } from "@src/core/utils";
 
 export class LiftingProgramSpecRepository {
-  private sheet =
-    SpreadsheetApp.getActiveSpreadsheet().getSheetByName("RPT_PROGRAM_SPEC");
+  private sheet: GoogleAppsScript.Spreadsheet.Sheet;
+
+  constructor() {
+    this.sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(
+      SHEET_NAME_PROGRAM_SPEC,
+    );
+    if (!this.sheet) {
+      throw new Error(MSG_ERROR_SHEET_NOT_FOUND(SHEET_NAME_PROGRAM_SPEC));
+    }
+  }
 
   /**
    * Fetches and maps all rows to the RptProgramSpec model

@@ -1,10 +1,14 @@
+import {
+  FORMULA_HYPERLINK_SHEET,
+  SHEET_NAME_DASHBOARD,
+} from "@src/api/constants/constants";
 import { cropSheet } from "@src/api/ui";
 import { CycleDashboard } from "@src/core/models";
 import { mapCycleDashboard, parseCycleDashboard } from "@src/core/utils";
 
 export class CycleDashboardRepository {
   private sheet =
-    SpreadsheetApp.getActiveSpreadsheet().getSheetByName("DASHBOARD");
+    SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME_DASHBOARD);
 
   /**
    * Fetches and maps all rows to the CycleDashboard model
@@ -30,7 +34,11 @@ export class CycleDashboardRepository {
         cycleDashboard.sheetName,
       );
       const workoutSheetId = workoutSheet ? workoutSheet.getSheetId() : null;
-      const link = `=HYPERLINK("${url}#gid=${workoutSheetId}", "${cycleDashboard.sheetName}")`;
+      const link = FORMULA_HYPERLINK_SHEET(
+        url,
+        workoutSheetId,
+        cycleDashboard.sheetName,
+      );
       cycleDashboard.sheetName = link;
     }
 

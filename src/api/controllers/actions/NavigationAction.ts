@@ -1,3 +1,7 @@
+import {
+  MSG_ERROR_NAV_TO_WORKOUT,
+  MSG_ERROR_SHEET_NOT_FOUND,
+} from "@src/api/constants/constants";
 import { CycleDashboardRepository } from "@src/api/repositories";
 import { runWithErrorHandling } from "@src/api/ui";
 
@@ -10,7 +14,7 @@ export class NavigationAction {
       const ss = SpreadsheetApp.getActiveSpreadsheet();
       const sheet = ss.getSheetByName(sheetName);
       if (!sheet) {
-        throw new Error(`Sheet "${sheetName}" not found.`);
+        throw new Error(MSG_ERROR_SHEET_NOT_FOUND(sheetName));
       }
       sheet.activate();
     });
@@ -27,7 +31,7 @@ export class NavToCurrentWorkoutAction {
         new NavigationAction().run(sheetName);
       } catch (e) {
         throw new Error(
-          `Failed to navigate to Current Workout sheet "${sheetName}": ${e}`,
+          MSG_ERROR_NAV_TO_WORKOUT(dashboard.sheetName, e.message),
         );
       }
     });

@@ -1,3 +1,4 @@
+import { SHEET_NAME_PROGRAM_SPEC } from "@src/api/constants/constants";
 import { LiftingProgramSpecRepository } from "@src/api/repositories";
 import { cropSheet } from "@src/api/ui";
 import * as core from "@src/core";
@@ -42,7 +43,7 @@ describe("LiftingProgramSpecRepository", () => {
 
     ssMock = {
       getSheetByName: jest.fn((name) =>
-        name === "RPT_PROGRAM_SPEC" ? sheetMock : undefined,
+        name === SHEET_NAME_PROGRAM_SPEC ? sheetMock : undefined,
       ),
     };
 

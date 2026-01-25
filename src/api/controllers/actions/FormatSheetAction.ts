@@ -1,3 +1,4 @@
+import { MSG_SUCCESS_TOAST } from "@src/api/constants/constants";
 import { cropSheet, runWithErrorHandling } from "@src/api/ui";
 
 export class FormatSheetAction {
@@ -9,7 +10,7 @@ export class FormatSheetAction {
       const sheet = SpreadsheetApp.getActiveSheet();
       sheet.autoResizeColumns(1, sheet.getLastColumn());
       cropSheet(sheet);
-      const toastMsg = `Sheet "${sheet.getName()}" formatted successfully.`;
+      const toastMsg = MSG_SUCCESS_TOAST(sheet.getName());
       console.log(toastMsg);
       SpreadsheetApp.getActiveSpreadsheet().toast(toastMsg, "Success");
     });

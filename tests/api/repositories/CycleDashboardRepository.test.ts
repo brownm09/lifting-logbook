@@ -1,3 +1,4 @@
+import { SHEET_NAME_DASHBOARD } from "@src/api/constants";
 import { CycleDashboardRepository } from "@src/api/repositories";
 import { cropSheet } from "@src/api/ui";
 import * as core from "@src/core";
@@ -42,7 +43,7 @@ describe("CycleDashboardRepository", () => {
 
     ssMock = {
       getSheetByName: jest.fn((name) =>
-        name === "DASHBOARD" ? sheetMock : undefined,
+        name === SHEET_NAME_DASHBOARD ? sheetMock : undefined,
       ),
     };
 

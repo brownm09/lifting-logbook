@@ -1,6 +1,7 @@
 export const SHEET_NAME_DASHBOARD = "DASHBOARD";
 export const SHEET_NAME_TRAINING_MAXES = "TRAINING_MAXES";
 export const SHEET_NAME_PROGRAM_SPEC = "RPT_PROGRAM_SPEC";
+export const SHEET_NAME_LIFT_RECORDS = "LIFT_RECORDS";
 
 export const MENU_NAME_APP = "Logbook Tools";
 export const MENU_NAME_NAVIGATION = "Navigate";
@@ -19,6 +20,11 @@ export const MSG_ERROR_LOG = (message: string, stack?: string) =>
   `Error: ${message} \nStack: ${stack}`;
 export const MSG_ERROR_TOAST =
   "An error occurred. Check the console for details.";
+export const MSG_ERROR_NAV_TO_WORKOUT = (sheetName: string, error: string) =>
+  `Failed to navigate to Current Workout sheet "${sheetName}": ${error}`;
+export const MSG_ERROR_NOT_WORKOUT_SHEET = (sheetName: string) =>
+  `Sheet "${sheetName}" does not appear to be a workout sheet.`;
+
 export const MSG_SUCCESS_TOAST = (sheetName: string) =>
   `Sheet "${sheetName}" formatted successfully.`;
 export const MSG_SUCCESS_TOAST_WORKOUT = (sheetName: string) =>
@@ -32,3 +38,9 @@ export const MSG_SUCCESS_TOAST_NEW_CYCLE = (
   `\nSuccessfully recorded ${newRecCt} lift records.` +
   `\nTraining maxes updated.` +
   `\nDashboard updated.`;
+
+export const FORMULA_HYPERLINK_SHEET = (
+  url: string,
+  workoutSheetId: number,
+  sheetName: string,
+) => `=HYPERLINK("${url}#gid=${workoutSheetId}", "${sheetName}")`;
