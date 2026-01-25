@@ -22,18 +22,15 @@ jest.mock("@src/api/ui", () => ({
 }));
 
 // import * as cropSheet from "@src/api/ui";
-import { WorkoutView } from "@src/api/ui";
+import { LiftRecordsView } from "@src/api/ui";
 import {
   createSheetMock,
   createSpreadsheetAppMock,
   createSpreadsheetMock,
 } from "@tests/gasMocks";
 
-describe("WorkoutView", () => {
+describe("LiftRecordsView", () => {
   const data = [
-    ["Program", "", "Cycle", "", "Weight", ""],
-    ["Core Lift", "Scheme", "TM", "Inc. Amt.", "Lift Date", "Activ. Ex."],
-    ["Bench", "5x5", 100, 2.5, "2026-01-01", ""],
     ["Date", "Lift", "Set", "Weight", "Reps", "Notes"],
     ["=2026-01-01", "Bench", 1, 100, 5, ""],
     ["=2026-01-01", "Bench", 2, 95, 5, ""],
@@ -70,61 +67,103 @@ describe("WorkoutView", () => {
     jest.clearAllMocks();
   });
 
-  describe("formatWorkoutSheet", () => {
-    it("formats header rows and freezes top rows", () => {
-      let autoResizeColumnsMock: jest.Mock = jest.fn();
-      let setFrozenRowsMock: jest.Mock = jest.fn();
-      let getRangeMock = {
-        ...mockSheet.getRange,
-        setHorizontalAlignment: setHorizontalAlignmentMock,
-        setFontWeight: setFontWeightMock,
-      };
-      mockSheet.getRange = jest.fn(() => getRangeMock as any);
-      const sheet = {
-        ...mockSheet,
-        autoResizeColumns: autoResizeColumnsMock,
-        setFrozenRows: setFrozenRowsMock,
-      };
-      // Spy on highlightTodayRows
-      const highlightTodayRowsSpy = jest
-        .spyOn(WorkoutView, "highlightTodayRows")
-        .mockImplementation(jest.fn());
+  describe("formatLiftRecordsSheet", () => {
+    let getConditionalFormatRulesMock: jest.Mock;
+    // getLastRowMock = jest.fn(() => 10);
+    mockSheet.getLastRow = getLastRowMock;
 
-      getLastRowMock = jest.fn(() => data.length);
-      sheet.getLastRow = getLastRowMock;
-      getLastColumnMock = jest.fn(() => data[0].length);
-      sheet.getLastColumn = getLastColumnMock;
+    let autoResizeColumnsMock: jest.Mock = jest.fn();
+    let setFrozenRowsMock: jest.Mock = jest.fn();
+    let getRangeMock = {
+      ...mockSheet.getRange,
+      setHorizontalAlignment: setHorizontalAlignmentMock,
+      setFontWeight: setFontWeightMock,
+    };
+    mockSheet.getRange = jest.fn(() => getRangeMock as any);
+    const sheet = {
+      ...mockSheet,
+      getLastRow: getLastRowMock,
+      autoResizeColumns: autoResizeColumnsMock,
+      setFrozenRows: setFrozenRowsMock,
+      getConditionalFormatRules: getConditionalFormatRulesMock,
+      setConditionalFormatRules: setConditionalFormatRulesMock,
+    };
+    // Spy on stripeRows
+    const stripeRowsSpy = jest
+      .spyOn(LiftRecordsView, "stripeRows")
+      .mockImplementation(jest.fn());
 
-      WorkoutView.formatWorkoutSheet(data, sheet as any);
+    getLastRowMock = jest.fn(() => data.length);
+    sheet.getLastRow = getLastRowMock;
+    getLastColumnMock = jest.fn(() => data[0].length);
+    sheet.getLastColumn = getLastColumnMock;
+
+    it("stripes rows, formats header rows, and freezes top rows", () => {
+      getConditionalFormatRulesMock = jest.fn().mockReturnValue([]);
+      sheet.getConditionalFormatRules = getConditionalFormatRulesMock;
+      LiftRecordsView.formatLiftRecordsSheet(data, sheet as any);
 
       // Should freeze first two rows
-      expect(setFrozenRowsMock).toHaveBeenCalledWith(2);
+      expect(setFrozenRowsMock).toHaveBeenCalledWith(1);
       // Should auto resize columns
       expect(autoResizeColumnsMock).toHaveBeenCalledWith(1, 6);
       // Should call cropSheet
       // expect(cropSheet).toHaveBeenCalledWith(sheet);
       // Should format header rows (rows with "Lift")
-      expect(sheet.getRange).toHaveBeenCalledWith(2, 1, 1, 6);
-      expect(sheet.getRange).toHaveBeenCalledWith(4, 1, 1, 6);
-      // Should highlight today's rows based on date in column 1
-      expect(highlightTodayRowsSpy).toHaveBeenCalledWith(sheet, 1);
+      // expect(sheet.getRange).toHaveBeenCalledWith(1, 1, 3, 6);
+      // Should stripe rows
+      expect(stripeRowsSpy).toHaveBeenCalledWith(sheet);
+      // Implemented is mocked, so no getRange() call
+      // expect(sheet.getRange).toHaveBeenCalledWith(2, 1, 3, 6);
       // Should center align all cells
-      expect(sheet.getRange).toHaveBeenCalledWith(1, 1, 6, 6);
+      expect(sheet.getRange).toHaveBeenCalledWith(1, 1, 3, 6);
       expect(setHorizontalAlignmentMock).toHaveBeenCalledWith("center");
       // Should left align Notes column
-      expect(sheet.getRange).toHaveBeenCalledWith(5, 6, 2, 1);
+      expect(sheet.getRange).toHaveBeenCalledWith(2, 6, 3, 1);
       expect(setHorizontalAlignmentMock).toHaveBeenCalledWith("left");
-      highlightTodayRowsSpy.mockRestore();
+      expect(sheet.getRange).toHaveBeenCalledTimes(2);
+      stripeRowsSpy.mockRestore();
     });
 
-    it("does not throw if no header rows found", () => {
+    it("does not call stripeRows if striped rule already exists", () => {
+      // Mock a rule with ISEVEN(ROW()) formula
+      const mockRule = {
+        getBooleanCondition: jest.fn(() => ({
+          getCriteriaValues: jest.fn(() => ["=ISEVEN(ROW())"]),
+        })),
+      };
+      getConditionalFormatRulesMock = jest.fn().mockReturnValue([mockRule]);
+      sheet.getConditionalFormatRules = getConditionalFormatRulesMock;
+      // Reset spy
+      stripeRowsSpy.mockClear();
+      LiftRecordsView.formatLiftRecordsSheet(data, sheet as any);
+      expect(sheet.getRange).toHaveBeenCalledWith(1, 1, 3, 6);
+      expect(setHorizontalAlignmentMock).toHaveBeenCalledWith("center");
+      // Should left align Notes column
+      expect(sheet.getRange).toHaveBeenCalledWith(2, 6, 3, 1);
+      expect(setHorizontalAlignmentMock).toHaveBeenCalledWith("left");
+      expect(sheet.getRange).toHaveBeenCalledTimes(2);
+      expect(stripeRowsSpy).not.toHaveBeenCalled();
+    });
+
+    it("does throw if no date header rows found", () => {
       const data = [
-        ["A", "B", "C"],
+        ["A", "B", "Notes"],
         ["1", "2", "3"],
       ];
       expect(() =>
-        WorkoutView.formatWorkoutSheet(data, mockSheet as any),
-      ).not.toThrow();
+        LiftRecordsView.formatLiftRecordsSheet(data, mockSheet as any),
+      ).toThrow();
+    });
+
+    it("does throw if no notes header rows found", () => {
+      const data = [
+        ["Date", "B", "C"],
+        ["1", "2", "3"],
+      ];
+      expect(() =>
+        LiftRecordsView.formatLiftRecordsSheet(data, mockSheet as any),
+      ).toThrow();
     });
   });
 
@@ -139,15 +178,15 @@ describe("WorkoutView", () => {
         setFontWeight: setFontWeightMock,
       };
       sheet.getRange = jest.fn(() => range as any);
-      WorkoutView.headerifyRow(sheet as any, 3);
+      LiftRecordsView.headerifyRow(sheet as any, 3);
       expect(sheet.getRange).toHaveBeenCalledWith(3, 1, 1, 6);
       expect(setHorizontalAlignmentMock).toHaveBeenCalledWith("center");
       expect(setFontWeightMock).toHaveBeenCalledWith("bold");
     });
   });
 
-  describe("highlightTodayRows", () => {
-    it("adds a conditional format rule for today", () => {
+  describe("stripeRows", () => {
+    it("adds a conditional format rule to stripe rows", () => {
       let getConditionalFormatRulesMock: jest.Mock = jest
         .fn()
         .mockReturnValue([]);
@@ -165,17 +204,17 @@ describe("WorkoutView", () => {
       };
       mockSheet.getLastRow = getLastRowMock;
 
-      WorkoutView.highlightTodayRows(sheet as any, 1);
+      LiftRecordsView.stripeRows(sheet as any);
 
-      expect(getConditionalFormatRulesMock).toHaveBeenCalled();
+      // expect(getConditionalFormatRulesMock).toHaveBeenCalled();
       expect(newConditionalFormatRuleMock).toHaveBeenCalled();
-      expect(whenFormulaSatisfiedMock).toHaveBeenCalledWith("=$A2=TODAY()");
+      expect(whenFormulaSatisfiedMock).toHaveBeenCalledWith("=ISEVEN(ROW())");
       expect(setConditionalFormatRulesMock).toHaveBeenCalled();
     });
 
     it("does nothing if lastRow < 2", () => {
       const sheet = { ...mockSheet, getLastRow: jest.fn(() => 1) };
-      WorkoutView.highlightTodayRows(sheet as any, 1);
+      LiftRecordsView.stripeRows(sheet as any);
       expect(setConditionalFormatRulesMock).not.toHaveBeenCalled();
     });
   });

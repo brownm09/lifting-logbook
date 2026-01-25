@@ -84,13 +84,13 @@ describe("CycleDashboardRepository", () => {
   });
 
   it("maps and sets cycle dashboard, then trims sheet", () => {
+    (core.mapCycleDashboard as jest.Mock).mockReturnValue([[1, 2, 3]]);
     const repo = new CycleDashboardRepository();
     const cycleDashboard = { cycle: 1, startDate: "2026-01-19", notes: "Test" };
     repo.setCycleDashboard(cycleDashboard as any);
     expect(core.mapCycleDashboard).toHaveBeenCalledWith(cycleDashboard);
-    expect(getRangeMock).toHaveBeenCalledWith(2, 1, 1, 3);
+    expect(getRangeMock).toHaveBeenCalledWith(1, 1, 1, 3);
     expect(setValuesMock).toHaveBeenCalledWith([[1, 2, 3]]);
-    expect(cropSheet).toHaveBeenCalledWith(sheetMock);
   });
 
   it("throws if setValues fails", () => {
@@ -103,6 +103,7 @@ describe("CycleDashboardRepository", () => {
   });
 
   it("maps and sets cycle dashboard, replaces sheetName with hyperlink formula, then trims sheet", () => {
+    (core.mapCycleDashboard as jest.Mock).mockReturnValue([[1, 2, 3]]);
     const repo = new CycleDashboardRepository();
 
     // Mock getSheetByName and getSheetId for hyperlink formula
@@ -135,9 +136,8 @@ describe("CycleDashboardRepository", () => {
     expect(core.mapCycleDashboard).toHaveBeenCalledWith(
       expect.objectContaining({ sheetName: expectedLink }),
     );
-    expect(getRangeMock).toHaveBeenCalledWith(2, 1, 1, 3);
+    expect(getRangeMock).toHaveBeenCalledWith(1, 1, 1, 3);
     expect(setValuesMock).toHaveBeenCalledWith([[1, 2, 3]]);
-    expect(cropSheet).toHaveBeenCalledWith(sheetMock);
   });
 
   it("throws an error when the sheet is not found", () => {

@@ -1,7 +1,7 @@
 import { SHEET_NAME_LIFT_RECORDS } from "@src/api/constants/constants";
 import { LiftRecordRepository } from "@src/api/repositories";
 import { cropSheet } from "@src/api/ui";
-import * as core from "@src/core";
+import * as coreUtils from "@src/core/utils";
 
 jest.mock("@src/core/utils", () => ({
   mapLiftRecords: jest.fn((records) => records.map(() => [1, 2])),
@@ -23,6 +23,12 @@ describe("LiftRecordRepository", () => {
   let setValuesMock: jest.Mock;
   let getLastRowMock: jest.Mock;
   let getLastColumnMock: jest.Mock;
+
+  const rawData = [
+    ["Header1", "Header2"],
+    ["Deadlift", 5],
+    ["Bench", 3],
+  ];
 
   beforeEach(() => {
     setValuesMock = jest.fn();
@@ -59,18 +65,13 @@ describe("LiftRecordRepository", () => {
   });
 
   it("gets and parses lift records", () => {
-    const rawData = [
-      ["Header1", "Header2"],
-      ["Deadlift", 5],
-      ["Bench", 3],
-    ];
     getValuesMock.mockReturnValue([...rawData]);
     const repo = new LiftRecordRepository();
     const result = repo.getLiftRecords();
     expect(getDataRangeMock).toHaveBeenCalled();
     expect(getValuesMock).toHaveBeenCalled();
     // Should remove header row before parsing
-    expect(core.parseLiftRecords).toHaveBeenCalledWith([
+    expect(coreUtils.parseLiftRecords).toHaveBeenCalledWith([
       ["Header1", "Header2"],
       ["Deadlift", 5],
       ["Bench", 3],
@@ -82,20 +83,23 @@ describe("LiftRecordRepository", () => {
   });
 
   it("maps and appends lift records, then trims sheet", () => {
+    (coreUtils.mapLiftRecords as jest.Mock).mockReturnValue(rawData);
     const repo = new LiftRecordRepository();
     const liftRecords = [
       { lift: "Deadlift", reps: 5 },
       { lift: "Bench", reps: 3 },
     ];
     repo.appendLiftRecords(liftRecords as any);
-    expect(core.mapLiftRecords).toHaveBeenCalledWith(liftRecords);
+    expect(coreUtils.mapLiftRecords).toHaveBeenCalledWith(liftRecords);
     expect(getLastRowMock).toHaveBeenCalled();
     expect(getLastColumnMock).toHaveBeenCalled();
-    expect(getRangeMock).toHaveBeenCalledWith(11, 1, liftRecords.length, 2);
-    expect(setValuesMock).toHaveBeenCalledWith([
-      [1, 2],
-      [1, 2],
-    ]);
+    expect(getRangeMock).toHaveBeenCalledWith(
+      11,
+      1,
+      rawData.length - 1,
+      rawData[0].length,
+    );
+    expect(setValuesMock).toHaveBeenCalledWith(rawData.slice(1));
     expect(cropSheet).toHaveBeenCalledWith(sheetMock);
   });
 

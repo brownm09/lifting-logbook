@@ -30,8 +30,7 @@ export class TrainingMaxRepository {
    */
   public setTrainingMaxes(trainingMaxes: TrainingMax[]): void {
     const data = mapTrainingMaxes(trainingMaxes);
-    // Write starting at row 2 to preserve header
-    this.sheet.getRange(2, 1, data.length, data[0].length).setValues(data);
-    // Trim extra rows and columns
+    // Write starting at row 1, as mapTrainingMaxes includes header
+    this.sheet.getRange(1, 1, data.length, data[0].length).setValues(data);
   }
 }

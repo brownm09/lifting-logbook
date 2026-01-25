@@ -2,7 +2,6 @@ import {
   FORMULA_HYPERLINK_SHEET,
   SHEET_NAME_DASHBOARD,
 } from "@src/api/constants/constants";
-import { cropSheet } from "@src/api/ui";
 import { CycleDashboard } from "@src/core/models";
 import { mapCycleDashboard, parseCycleDashboard } from "@src/core/utils";
 
@@ -43,9 +42,7 @@ export class CycleDashboardRepository {
     }
 
     const data = mapCycleDashboard(cycleDashboard);
-    // Write starting at row 2 to preserve header
-    this.sheet.getRange(2, 1, data.length, data[0].length).setValues(data);
-    // Trim extra rows and columns
-    cropSheet(this.sheet);
+    // Write starting at row 1 as mapCycleDashboard includes header
+    this.sheet.getRange(1, 1, data.length, data[0].length).setValues(data);
   }
 }

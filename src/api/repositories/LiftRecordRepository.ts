@@ -25,8 +25,8 @@ export class LiftRecordRepository {
     const lastRow = this.sheet.getLastRow();
     const lastCol = this.sheet.getLastColumn();
     this.sheet
-      .getRange(lastRow + 1, 1, data.length, data[0].length)
-      .setValues(data);
+      .getRange(lastRow + 1, 1, data.length - 1, data[0].length)
+      .setValues(data.slice(1)); // Skip header row
     cropSheet(this.sheet);
   }
 }

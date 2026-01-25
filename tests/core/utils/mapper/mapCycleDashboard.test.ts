@@ -11,6 +11,7 @@ describe("mapCycleDashboard", () => {
     };
     const result = mapCycleDashboard(obj);
     expect(result).toEqual([
+      ["Key", "Value"],
       ["Program", "5/3/1"],
       ["Cycle Unit", "Week"],
       ["Cycle #", 1],

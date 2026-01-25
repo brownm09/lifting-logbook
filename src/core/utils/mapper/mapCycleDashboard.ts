@@ -6,6 +6,7 @@ import { CycleDashboard } from "@src/core";
  */
 export function mapCycleDashboard(obj: CycleDashboard): any[][] {
   return [
+    ["Key", "Value"],
     ["Program", obj.program],
     ["Cycle Unit", obj.cycleUnit],
     ["Cycle #", obj.cycleNum],

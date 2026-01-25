@@ -83,16 +83,12 @@ describe("TrainingMaxRepository", () => {
     });
 
     it("maps and sets training maxes, then trims sheet", () => {
+      (coreUtils.mapTrainingMaxes as jest.Mock).mockReturnValue(rawData);
       const repo = new TrainingMaxRepository();
       repo.setTrainingMaxes(trainingMaxes);
       expect(coreUtils.mapTrainingMaxes).toHaveBeenCalledWith(trainingMaxes);
-      expect(sheetMock.getRange).toHaveBeenCalledWith(
-        2,
-        1,
-        trainingMaxes.length,
-        2,
-      );
-      expect(rangeMock.setValues).toHaveBeenCalledWith(rawData.slice(1));
+      expect(sheetMock.getRange).toHaveBeenCalledWith(1, 1, rawData.length, 2);
+      expect(rangeMock.setValues).toHaveBeenCalledWith(rawData);
     });
 
     it("throws if setValues fails", () => {
