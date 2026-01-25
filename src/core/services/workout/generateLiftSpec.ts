@@ -1,5 +1,4 @@
-import { LiftingProgramSpec, TrainingMax } from "../../models";
-import { addDaysUTC } from "../../utils/jsUtil";
+import { addDaysUTC, LiftingProgramSpec, TrainingMax } from "@src/core";
 
 /**
  * Creates a lift specification from a training max and program spec.

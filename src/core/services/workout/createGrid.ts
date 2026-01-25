@@ -1,4 +1,4 @@
-import { WARMUP_BASE_REPS } from "../../constants/config";
+import { WARMUP_BASE_REPS } from "@src/core";
 
 /**
  * Greate a cycle grid using training max data and a program spec.

@@ -1,4 +1,4 @@
-import { addDaysUTC, formatDateYYYYMMDD, getNextDate } from "../../../src/core";
+import { addDaysUTC, formatDateYYYYMMDD, getNextDate } from "@src/core";
 
 describe("jsUtil", () => {
   describe("formatDateYYYYMMDD", () => {

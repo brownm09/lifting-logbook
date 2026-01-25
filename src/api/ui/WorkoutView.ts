@@ -1,4 +1,4 @@
-import { cropSheet } from "../utils";
+import { cropSheet } from "@src/api/ui";
 
 export class WorkoutView {
   /**

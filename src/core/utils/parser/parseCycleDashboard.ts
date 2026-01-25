@@ -1,4 +1,4 @@
-import { CycleDashboard } from "../../models/CycleDashboard";
+import { CycleDashboard } from "@src/core";
 
 /**
  * Parses a 2D array (from CSV or sheet) into a CycleDashboard object.

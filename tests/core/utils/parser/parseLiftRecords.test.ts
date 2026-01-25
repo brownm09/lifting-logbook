@@ -1,4 +1,4 @@
-import { parseLiftRecords } from "../../../../src/core";
+import { parseLiftRecords } from "@src/core";
 import { loadCsvFixture } from "../../../testUtils";
 
 describe("parseLiftRecords", () => {

@@ -1,4 +1,4 @@
-import { LiftRecord } from "../../models/LiftRecord";
+import { LiftRecord } from "@src/core";
 
 /**
  * Extract lift records from a 2D grid of data.

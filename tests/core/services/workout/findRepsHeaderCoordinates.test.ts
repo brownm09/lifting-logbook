@@ -1,4 +1,4 @@
-import { findRepsHeaderCoordinates } from "../../../../src/core/services/workout/findRepsHeaderCoordinates";
+import { findRepsHeaderCoordinates } from "@src/core";
 
 describe("findRepsHeaderCoordinates", () => {
   it("returns correct coordinates when 'Reps' is found", () => {

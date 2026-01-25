@@ -1,5 +1,4 @@
-import { LIFT_RECORD_HEADER_MAP } from "../../constants/schema";
-import { LiftRecord } from "../../models/LiftRecord";
+import { LIFT_RECORD_HEADER_MAP, LiftRecord } from "@src/core";
 /**
  * Converts an array of LiftRecord objects to a 2D array (for writing to a sheet)
  * @param {LiftRecord[]} records

@@ -1,5 +1,4 @@
-import { LIFT_RECORD_HEADER_MAP } from "../../constants/schema";
-import { LiftRecord } from "../../models/LiftRecord";
+import { LIFT_RECORD_HEADER_MAP, LiftRecord } from "@src/core";
 import { tableToObjects } from "./tableToObjects";
 
 /**

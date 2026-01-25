@@ -1,5 +1,4 @@
-import { CycleDashboard } from "../../models/CycleDashboard";
-import { formatDateYYYYMMDD, getNextDate } from "../../utils/jsUtil";
+import { CycleDashboard, formatDateYYYYMMDD, getNextDate } from "@src/core";
 
 /**
  * Updates the dashboard cycle: increments cycleNum, updates cycleDate to the next Monday (at least 7 days after previous), and updates sheetLink.

@@ -1,6 +1,6 @@
-import { LiftRecord, mapLiftRecords, parseLiftRecords } from "../../core";
-import { cropSheet } from "../utils/cropSheet";
-
+import { cropSheet } from "@src/api/ui";
+import { LiftRecord } from "@src/core/models";
+import { mapLiftRecords, parseLiftRecords } from "@src/core/utils";
 export class LiftRecordRepository {
   private sheet =
     SpreadsheetApp.getActiveSpreadsheet().getSheetByName("LIFT_RECORDS");

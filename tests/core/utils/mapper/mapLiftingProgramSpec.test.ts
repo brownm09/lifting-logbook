@@ -1,8 +1,8 @@
 import {
   LIFTING_PROGRAM_SPEC_HEADER_MAP,
   LiftingProgramSpec,
-} from "../../../../src/core";
-import { mapLiftingProgramSpec } from "../../../../src/core/utils/mapper/mapLiftingProgramSpec";
+  mapLiftingProgramSpec,
+} from "@src/core";
 
 describe("mapLiftingProgramSpec", () => {
   it("should map LiftingProgramSpec[] to 2D array with all columns and headers", () => {

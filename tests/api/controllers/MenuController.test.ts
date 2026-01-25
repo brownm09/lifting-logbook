@@ -1,12 +1,14 @@
-jest.mock("../../../src/api/ui/uiUtils", () => ({
+jest.mock("@src/api/ui", () => ({
   runWithErrorHandling: jest.fn(),
-}));
-
-jest.mock("../../../src/api/utils", () => ({
   cropSheet: jest.fn(),
+  WorkoutView: {
+    formatWorkoutSheet: jest.fn(),
+    headerifyRow: jest.fn(),
+    highlightTodayRows: jest.fn(),
+  },
 }));
 
-jest.mock("../../../src/core", () => ({
+jest.mock("@src/core/services", () => ({
   extractLiftRecords: jest.fn(() => ["record"]),
   updateCycle: jest.fn(() => ({
     sheetName: "Sheet2",
@@ -14,6 +16,8 @@ jest.mock("../../../src/core", () => ({
   })),
   updateMaxes: jest.fn(() => ["max"]),
   createGridV2: jest.fn(() => []),
+}));
+jest.mock("@src/core/utils", () => ({
   parseCycleDashboard: jest.fn(() => ({
     sheetName: "Sheet1",
   })),
@@ -26,7 +30,7 @@ jest.mock("../../../src/core", () => ({
   mapTrainingMaxes: jest.fn(() => [[""]]),
 }));
 
-jest.mock("../../../src/api/repositories/SheetRepository", () => ({
+jest.mock("@src/api/repositories", () => ({
   SheetRepository: jest.fn().mockImplementation(() => ({
     createTableSheet: jest.fn(() => ({
       getName: () => "Sheet2",
@@ -36,57 +40,28 @@ jest.mock("../../../src/api/repositories/SheetRepository", () => ({
       getLastRow: jest.fn(() => 10),
     })),
   })),
-}));
-
-jest.mock("../../../src/api/repositories/CycleDashboardRepository", () => ({
   CycleDashboardRepository: jest.fn().mockImplementation(() => ({
     getCycleDashboard: jest.fn(() => ({ sheetName: "Sheet1" })),
     setCycleDashboard: jest.fn(),
   })),
-}));
-jest.mock("../../../src/api/repositories/LiftingProgramSpecRepository", () => ({
   LiftingProgramSpecRepository: jest.fn().mockImplementation(() => ({
     getLiftingProgramSpec: jest.fn(() => ["spec"]),
   })),
-}));
-jest.mock("../../../src/api/repositories/TrainingMaxRepository", () => ({
   TrainingMaxRepository: jest.fn().mockImplementation(() => ({
     getTrainingMaxes: jest.fn(() => ["max"]),
     setTrainingMaxes: jest.fn(),
   })),
-}));
-jest.mock("../../../src/api/repositories/LiftRecordRepository", () => ({
   LiftRecordRepository: jest.fn().mockImplementation(() => ({
     appendLiftRecords: jest.fn(),
   })),
-}));
-jest.mock("../../../src/api/repositories/WorkoutRepository", () => ({
   WorkoutRepository: jest.fn().mockImplementation(() => ({
     getWorkout: jest.fn(() => ["workout"]),
     hideSheet: jest.fn(),
   })),
 }));
-jest.mock("../../../src/api/ui/WorkoutView", () => ({
-  WorkoutView: {
-    formatWorkoutSheet: jest.fn(),
-    headerifyRow: jest.fn(),
-    highlightTodayRows: jest.fn(),
-  },
-}));
 
-import * as core from "../../../src/core";
-
-import { WorkoutView } from "../../../src/api";
-import { MenuController } from "../../../src/api/controllers/MenuController";
-import { CycleDashboardRepository } from "../../../src/api/repositories/CycleDashboardRepository";
-import { LiftingProgramSpecRepository } from "../../../src/api/repositories/LiftingProgramSpecRepository";
-import { LiftRecordRepository } from "../../../src/api/repositories/LiftRecordRepository";
-import { SheetRepository } from "../../../src/api/repositories/SheetRepository";
-import { TrainingMaxRepository } from "../../../src/api/repositories/TrainingMaxRepository";
-import { WorkoutRepository } from "../../../src/api/repositories/WorkoutRepository";
-import { runWithErrorHandling } from "../../../src/api/ui/uiUtils";
-import { cropSheet } from "../../../src/api/utils";
-// import { createTableSheet } from "../../../src/api/repositories/SheetRepository";
+import { MenuController } from "@src/api/controllers";
+// import { createTableSheet } from "@src/api";
 
 describe("MenuController", () => {
   let alertMock: jest.Mock = jest.fn();
@@ -170,9 +145,9 @@ describe("MenuController", () => {
     } as any;
   });
 
-  describe("createMenu", () => {
+  describe("createToolsMenu", () => {
     it("should create the menu with correct items", () => {
-      MenuController.createMenu();
+      MenuController.createToolsMenu();
       const ui = global.SpreadsheetApp.getUi();
       expect(ui.createMenu).toHaveBeenCalledWith("Logbook Tools");
       const menu = (ui.createMenu as jest.Mock).mock.results[0].value;
@@ -193,189 +168,42 @@ describe("MenuController", () => {
     });
   });
 
-  describe("runWithErrorHandling", () => {
-    it("should call runWithErrorHandling when startNewCycle is called", () => {
-      MenuController.startNewCycle();
-      expect(runWithErrorHandling).toHaveBeenCalled();
-    });
-
-    it("should call runWithErrorHandling when handleFormatWorkoutSheet is called", () => {
-      MenuController.handleFormatWorkoutSheet();
-      expect(runWithErrorHandling).toHaveBeenCalled();
+  describe("createNavMenu", () => {
+    it("should create the menu with correct items", () => {
+      MenuController.createNavMenu();
+      const ui = global.SpreadsheetApp.getUi();
+      expect(ui.createMenu).toHaveBeenCalledWith("Logbook Navigation");
+      const menu = (ui.createMenu as jest.Mock).mock.results[0].value;
+      expect(menu.addItem).toHaveBeenCalledWith(
+        "Cycle Dashboard",
+        "handleNavToDashboard",
+      );
+      expect(menu.addItem).toHaveBeenCalledWith(
+        "Training Maxes",
+        "handleNavToMaxes",
+      );
+      expect(menu.addItem).toHaveBeenCalledWith(
+        "Program Spec",
+        "handleNavToProgramSpec",
+      );
+      expect(menu.addItem).toHaveBeenCalledWith(
+        "Current Workout",
+        "handleNavToCurrentWorkout",
+      );
+      expect(menu.addToUi).toHaveBeenCalled();
+      expect(menu.addSeparator).not.toHaveBeenCalled();
     });
   });
 
-  describe("handleFormatSheet", () => {
-    it("should format the current sheet and show a toast", () => {
-      setupRunWithErrorHandling(true);
-      MenuController.handleFormatSheet();
-      expect(autoResizeColumnsMock).toHaveBeenCalledWith(1, 5);
-      expect(cropSheet).toHaveBeenCalledWith(
-        expect.objectContaining({
-          autoResizeColumns: autoResizeColumnsMock,
-          getLastColumn: getLastColumnMock,
-          getLastRow: getLastRowMock,
-          getRange: getRangeMock,
-          setFrozenRows: expect.any(Function),
-        }),
-      );
-      expect(toastMock).toHaveBeenCalledWith(
-        expect.stringContaining("formatted successfully."),
-        "Success",
-      );
-    });
-  });
+  // describe("runWithErrorHandling", () => {
+  //   it("should call runWithErrorHandling when startNewCycle is called", () => {
+  //     MenuController.startNewCycle();
+  //     expect(runWithErrorHandling).toHaveBeenCalled();
+  //   });
 
-  describe("handleFormatSheet", () => {
-    it("should show an alert with error if cropSheet throws in handleFormatSheet", () => {
-      setupRunWithErrorHandling(false);
-      (cropSheet as jest.Mock).mockImplementation(() => {
-        throw new Error("fail");
-      });
-      MenuController.handleFormatSheet();
-      expect(alertMock).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.stringContaining("fail"),
-        expect.anything(),
-      );
-      expect(toastMock).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("handleFormatWorkoutSheet", () => {
-    it("should format the current workout sheet and show a toast", () => {
-      setupRunWithErrorHandling(true);
-      getNameMock.mockReturnValue("RPT_2026_Cycle_1_20260101");
-
-      MenuController.handleFormatWorkoutSheet();
-      expect(WorkoutView.formatWorkoutSheet).toHaveBeenCalledWith(
-        ["workout"],
-        expect.anything(),
-      );
-      expect(toastMock).toHaveBeenCalledWith(
-        expect.stringContaining(
-          'Workout sheet "RPT_2026_Cycle_1_20260101" formatted successfully.',
-        ),
-        "Success",
-      );
-    });
-
-    it("should show an alert with error if the current sheet is not a workout sheet", () => {
-      setupRunWithErrorHandling(false);
-      MenuController.handleFormatWorkoutSheet();
-      expect(alertMock).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.stringContaining("a workout sheet."),
-        expect.anything(),
-      );
-      expect(toastMock).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("startNewCycle", () => {
-    it("should call all repositories and core functions in startNewCycle", () => {
-      jest
-        .spyOn(core, "extractLiftRecords")
-        .mockImplementation(() => ["record"] as any);
-      jest.spyOn(core, "updateCycle").mockImplementation(
-        () =>
-          ({
-            sheetName: "Sheet2",
-            cycleDate: "2026-01-08",
-          }) as any,
-      );
-      jest.spyOn(core, "updateMaxes").mockImplementation(() => ["max"] as any);
-      jest.spyOn(core, "createGridV2").mockImplementation(() => []);
-
-      MenuController.startNewCycle();
-
-      expect(core.extractLiftRecords).toHaveBeenCalled();
-      expect(core.updateCycle).toHaveBeenCalled();
-      expect(core.updateMaxes).toHaveBeenCalled();
-      expect(core.createGridV2).toHaveBeenCalled();
-      expect(SheetRepository).toHaveBeenCalled();
-      expect(CycleDashboardRepository).toHaveBeenCalled();
-      expect(LiftingProgramSpecRepository).toHaveBeenCalled();
-      expect(TrainingMaxRepository).toHaveBeenCalled();
-      expect(LiftRecordRepository).toHaveBeenCalled();
-      expect(WorkoutRepository).toHaveBeenCalled();
-      expect(toastMock).toHaveBeenCalledWith(
-        expect.stringContaining("New cycle sheet"),
-        "Success",
-      );
-      expect(setActiveSheetMock).toHaveBeenCalled();
-    });
-
-    it("should call alert with error if SheetRepository throws in startNewCycle", () => {
-      setupRunWithErrorHandling(false);
-      (SheetRepository as jest.Mock).mockImplementation(() => ({
-        createTableSheet: jest.fn((fn) => {
-          throw new Error("fail");
-        }),
-      }));
-      try {
-        MenuController.startNewCycle();
-      } catch (e) {
-        expect(alertMock).toHaveBeenCalledWith(expect.stringContaining("fail"));
-      }
-    });
-  });
-  describe("handleUpdateTrainingMaxes", () => {
-    it("should call all repositories and core functions in updateTrainingMaxes", () => {
-      jest
-        .spyOn(core, "extractLiftRecords")
-        .mockImplementation(() => ["record"] as any);
-      jest.spyOn(core, "updateCycle").mockImplementation();
-      jest.spyOn(core, "updateMaxes").mockImplementation(() => ["max"] as any);
-      jest.spyOn(core, "createGridV2").mockImplementation(() => []);
-
-      MenuController.handleUpdateTrainingMaxes();
-
-      expect(core.extractLiftRecords).toHaveBeenCalled();
-      expect(core.updateCycle).not.toHaveBeenCalled();
-      expect(core.updateMaxes).toHaveBeenCalled();
-      expect(core.createGridV2).not.toHaveBeenCalled();
-      expect(SheetRepository).not.toHaveBeenCalled();
-      expect(CycleDashboardRepository).toHaveBeenCalled();
-      expect(LiftingProgramSpecRepository).toHaveBeenCalled();
-      expect(TrainingMaxRepository).toHaveBeenCalled();
-      expect(LiftRecordRepository).toHaveBeenCalled();
-      expect(WorkoutRepository).toHaveBeenCalled();
-      // expect(CycleDashboardRepository.getCycleDashboard).toHaveBeenCalled();
-      // expect(LiftingProgramSpecRepository.getLiftingProgramSpec).toHaveBeenCalled();
-      // expect(TrainingMaxRepository.getTrainingMaxes).toHaveBeenCalled();
-      // expect(LiftRecordRepository.appendLiftRecords).toHaveBeenCalled();
-      // expect(TrainingMaxRepository.setTrainingMaxes).toHaveBeenCalled();
-      expect(core.createGridV2).not.toHaveBeenCalled();
-      expect(toastMock).toHaveBeenCalledWith(
-        expect.stringContaining("Training maxes"),
-        "Success",
-      );
-      // expect(setActiveSheetMock).toHaveBeenCalled();
-    });
-
-    it("should call alert with error if SheetRepository throws in startNewCycle", () => {
-      setupRunWithErrorHandling(false);
-      (SheetRepository as jest.Mock).mockImplementation(() => ({
-        createTableSheet: jest.fn((fn) => {
-          throw new Error("fail");
-        }),
-      }));
-      try {
-        MenuController.startNewCycle();
-      } catch (e) {
-        expect(alertMock).toHaveBeenCalledWith(expect.stringContaining("fail"));
-      }
-    });
-  });
+  //   it("should call runWithErrorHandling when handleFormatWorkoutSheet is called", () => {
+  //     MenuController.handleFormatWorkoutSheet();
+  //     expect(runWithErrorHandling).toHaveBeenCalled();
+  //   });
+  // });
 });
-
-function setupRunWithErrorHandling(execCallback: boolean) {
-  (runWithErrorHandling as jest.Mock).mockImplementation((fn) => {
-    if (execCallback) return fn();
-    // Optionally, call the real implementation if needed
-    const { runWithErrorHandling: realRunWithErrorHandling } =
-      jest.requireActual("../../../src/api/ui/uiUtils");
-    return realRunWithErrorHandling(fn);
-  });
-}

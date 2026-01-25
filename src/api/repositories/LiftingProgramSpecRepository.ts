@@ -1,9 +1,9 @@
+import { cropSheet } from "@src/api/ui";
+import { LiftingProgramSpec } from "@src/core/models";
 import {
-  LiftingProgramSpec,
   mapLiftingProgramSpec,
   parseLiftingProgramSpec,
-} from "../../core";
-import { cropSheet } from "../utils/cropSheet";
+} from "@src/core/utils";
 
 export class LiftingProgramSpecRepository {
   private sheet =

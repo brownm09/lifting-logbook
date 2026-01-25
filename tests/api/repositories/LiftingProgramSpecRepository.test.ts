@@ -1,8 +1,8 @@
-import { LiftingProgramSpecRepository } from "../../../src/api/repositories/LiftingProgramSpecRepository";
-import { cropSheet } from "../../../src/api/utils/cropSheet";
-import * as core from "../../../src/core";
+import { LiftingProgramSpecRepository } from "@src/api/repositories";
+import { cropSheet } from "@src/api/ui";
+import * as core from "@src/core";
 
-jest.mock("../../../src/core", () => ({
+jest.mock("@src/core/utils", () => ({
   mapLiftingProgramSpec: jest.fn((specs) => specs.map(() => [1, 2, 3])),
   parseLiftingProgramSpec: jest.fn((data) =>
     // Only parse if the first row is not a header
@@ -13,7 +13,7 @@ jest.mock("../../../src/core", () => ({
       : data.map(() => ({ name: "RPT", weeks: 12, lifts: ["Squat", "Bench"] })),
   ),
 }));
-jest.mock("../../../src/api/utils/cropSheet", () => ({
+jest.mock("@src/api/ui", () => ({
   cropSheet: jest.fn(),
 }));
 

@@ -1,5 +1,4 @@
-import { LIFT_RECORD_HEADER_MAP, LiftRecord } from "../../../../src/core";
-import { mapLiftRecords } from "../../../../src/core/utils/mapper/mapLiftRecords";
+import { LIFT_RECORD_HEADER_MAP, LiftRecord, mapLiftRecords } from "@src/core";
 
 describe("mapLiftRecords", () => {
   it("should map LiftRecord[] to 2D array with all columns and headers", () => {

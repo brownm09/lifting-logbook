@@ -1,5 +1,8 @@
-import { TRAINING_MAX_HEADER_MAP, TrainingMax } from "../../../../src/core";
-import { mapTrainingMaxes } from "../../../../src/core/utils/mapper/mapTrainingMaxes";
+import {
+  mapTrainingMaxes,
+  TRAINING_MAX_HEADER_MAP,
+  TrainingMax,
+} from "@src/core";
 
 describe("mapTrainingMaxes", () => {
   it("should map TrainingMax[] to 2D array with all columns and headers", () => {

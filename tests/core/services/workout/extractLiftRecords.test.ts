@@ -1,6 +1,8 @@
-import { extractLiftRecords } from "../../../../src/core/services/workout/extractLiftRecords";
-import { parseLiftingProgramSpec } from "../../../../src/core/utils/parser/parseLiftingProgramSpec";
-import { parseTrainingMaxes } from "../../../../src/core/utils/parser/parseTrainingMaxes";
+import {
+  extractLiftRecords,
+  parseLiftingProgramSpec,
+  parseTrainingMaxes,
+} from "@src/core";
 import { loadCsvFixture } from "../../../testUtils";
 
 const trainingMaxesData = loadCsvFixture("training_maxes.csv");

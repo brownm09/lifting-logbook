@@ -1,5 +1,4 @@
-import { LIFTING_PROGRAM_SPEC_HEADER_MAP } from "../../constants/schema";
-import { LiftingProgramSpec } from "../../models/LiftingProgramSpec";
+import { LIFTING_PROGRAM_SPEC_HEADER_MAP, LiftingProgramSpec } from "@src/core";
 import { tableToObjects } from "./tableToObjects";
 
 /**

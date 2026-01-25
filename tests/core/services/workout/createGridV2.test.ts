@@ -1,6 +1,8 @@
-import { parseLiftingProgramSpec } from "../../../../src/core";
-import { createGridV2 } from "../../../../src/core/services/workout/createGridV2";
-import { parseTrainingMaxes } from "../../../../src/core/utils/parser/parseTrainingMaxes";
+import {
+  createGridV2,
+  parseLiftingProgramSpec,
+  parseTrainingMaxes,
+} from "@src/core";
 import { loadCsvFixture } from "../../../testUtils";
 
 describe("createGridV2", () => {

@@ -1,7 +1,7 @@
-import { onEdit, onOpen } from "./api";
+import { onEdit, onOpen } from "@src/api";
 
-export * from "./api";
-export * from "./core";
+export * from "@src/api";
+export * from "@src/core";
 
 (global as any).onOpen = onOpen;
 (global as any).onEdit = onEdit;

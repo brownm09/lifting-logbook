@@ -1,9 +1,6 @@
-import {
-  CycleDashboard,
-  mapCycleDashboard,
-  parseCycleDashboard,
-} from "../../core";
-import { cropSheet } from "../utils/cropSheet";
+import { cropSheet } from "@src/api/ui";
+import { CycleDashboard } from "@src/core/models";
+import { mapCycleDashboard, parseCycleDashboard } from "@src/core/utils";
 
 export class CycleDashboardRepository {
   private sheet =

@@ -1,4 +1,4 @@
-import { findWorkoutRowsToHideOnEdit } from "../../../../src/core/services/workout/findWorkoutRowsToHideOnEdit";
+import { findWorkoutRowsToHideOnEdit } from "@src/core";
 
 describe("findWorkoutRowsToHideOnEdit", () => {
   const workoutData = [

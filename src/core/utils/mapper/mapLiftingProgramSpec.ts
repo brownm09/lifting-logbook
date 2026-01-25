@@ -1,5 +1,4 @@
-import { LIFTING_PROGRAM_SPEC_HEADER_MAP } from "../../constants/schema";
-import { LiftingProgramSpec } from "../../models/LiftingProgramSpec";
+import { LIFTING_PROGRAM_SPEC_HEADER_MAP, LiftingProgramSpec } from "@src/core";
 /**
  * Converts an array of LiftingProgramSpec objects to a 2D array (for writing to a sheet)
  * @param {LiftingProgramSpec[]} specs

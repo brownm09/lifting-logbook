@@ -1,4 +1,4 @@
-import { runWithErrorHandling } from "../../../src/api/ui/uiUtils";
+import { runWithErrorHandling } from "@src/api";
 
 describe("runWithErrorHandling", () => {
   let alertMock: jest.Mock = jest.fn();

@@ -3,8 +3,8 @@ import {
   parseLiftRecords,
   parseTrainingMaxes,
   TrainingMax,
-} from "../../../../src/core";
-import { updateMaxes } from "../../../../src/core/services/maxes/updateMaxes";
+  updateMaxes,
+} from "@src/core";
 import { loadCsvFixture } from "../../../testUtils";
 
 describe("updateMaxes", () => {

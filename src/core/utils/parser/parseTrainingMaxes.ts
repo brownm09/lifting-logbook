@@ -1,5 +1,4 @@
-import { TRAINING_MAX_HEADER_MAP } from "../../constants/schema";
-import { TrainingMax } from "../../models/TrainingMax";
+import { TRAINING_MAX_HEADER_MAP, TrainingMax } from "@src/core";
 import { tableToObjects } from "./tableToObjects";
 
 /**
@@ -11,7 +10,7 @@ import { tableToObjects } from "./tableToObjects";
 export function parseTrainingMaxes(data: any[][]): TrainingMax[] {
   const headerMap = TRAINING_MAX_HEADER_MAP;
   const rawObjects = tableToObjects(data, undefined);
-  console.log(`Raw training max objects: ${JSON.stringify(rawObjects)}.`);
+  // console.log(`Raw training max objects: ${JSON.stringify(rawObjects)}.`);
   return rawObjects.map((obj) => {
     const result: any = {};
     for (const header in headerMap) {
@@ -25,7 +24,7 @@ export function parseTrainingMaxes(data: any[][]): TrainingMax[] {
       }
       result[key] = value;
     }
-    console.log(`Parsed training max object: ${JSON.stringify(result)}.`);
+    // console.log(`Parsed training max object: ${JSON.stringify(result)}.`);
     const isDateValid =
       result.dateUpdated instanceof Date &&
       !isNaN(result.dateUpdated.getTime());

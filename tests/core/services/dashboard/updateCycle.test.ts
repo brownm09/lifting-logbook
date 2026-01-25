@@ -1,5 +1,4 @@
-import { CycleDashboard } from "../../../../src/core/models/CycleDashboard";
-import { updateCycle } from "../../../../src/core/services/dashboard/updateCycle";
+import { CycleDashboard, updateCycle } from "@src/core";
 
 describe("updateCycle", () => {
   it("increments cycleNum, updates cycleDate and sheetName for next Monday", () => {

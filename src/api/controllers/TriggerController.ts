@@ -1,15 +1,18 @@
 // Stubs for Google Sheets triggers
 
-import { findWorkoutRowsToHideOnEdit } from "../../core";
-import { WorkoutRepository } from "../repositories";
-import { CycleDashboardRepository } from "../repositories/CycleDashboardRepository";
-import { MenuController } from "./MenuController";
+import { MenuController } from "@src/api/controllers";
+import {
+  CycleDashboardRepository,
+  WorkoutRepository,
+} from "@src/api/repositories";
+import { findWorkoutRowsToHideOnEdit } from "@src/core";
 
 /**
  * Triggered when the spreadsheet is opened.
  */
 export function onOpen(e?: GoogleAppsScript.Events.SheetsOnOpen) {
-  MenuController.createMenu();
+  MenuController.createToolsMenu();
+  MenuController.createNavMenu();
 }
 
 /**

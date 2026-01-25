@@ -1,6 +1,4 @@
-import { LiftingProgramSpec } from "../..";
-import { LiftRecord } from "../../models/LiftRecord";
-import { TrainingMax } from "../../models/TrainingMax";
+import { LiftingProgramSpec, LiftRecord, TrainingMax } from "@src/core";
 /**
  * Updates training maxes based on lift records and program spec.
  * For any lift record:
@@ -20,33 +18,33 @@ export function updateMaxes(
 ): TrainingMax[] {
   // Clone the training maxes to avoid mutating input
   let newMaxes: TrainingMax[] = trainingMaxes.map((tm) => ({ ...tm }));
-  console.log(`New maxes initialized: ${JSON.stringify(newMaxes)}.`);
+  // console.log(`New maxes initialized: ${JSON.stringify(newMaxes)}.`);
 
   liftRecords.forEach((record) => {
     const liftName = record.lift;
     const tmIndex = newMaxes.findIndex((tm) => tm.lift === liftName);
     if (record.setNum !== 1) {
-      console.log(
-        `Skipping lift record for ${liftName} set ${record.setNum} (not set 1).`,
-      );
+      // console.log(
+      //   `Skipping lift record for ${liftName} set ${record.setNum} (not set 1).`,
+      // );
       return;
     }
-    console.log(`Processing lift record for ${liftName} set 1.`);
+    // console.log(`Processing lift record for ${liftName} set 1.`);
     if (tmIndex === -1)
       throw new Error(`Training max for lift ${liftName} not found.`);
 
     const spec = programSpec.find((ps) => ps.lift === liftName);
     if (!spec) throw new Error(`Program spec for lift ${liftName} not found.`);
 
-    console.log(
-      `Current training max for ${liftName}: weight=${newMaxes[tmIndex].weight}, date=${newMaxes[tmIndex].dateUpdated}`,
-    );
-    console.log(
-      `Program spec for ${liftName}: reps=${spec.reps}, increment=${spec.increment}`,
-    );
-    console.log(
-      `Lift record for ${liftName}: set=${record.setNum} reps=${record.reps}, date=${record.date}, weight=${record.weight}`,
-    );
+    // console.log(
+    //   `Current training max for ${liftName}: weight=${newMaxes[tmIndex].weight}, date=${newMaxes[tmIndex].dateUpdated}`,
+    // );
+    // console.log(
+    //   `Program spec for ${liftName}: reps=${spec.reps}, increment=${spec.increment}`,
+    // );
+    // console.log(
+    //   `Lift record for ${liftName}: set=${record.setNum} reps=${record.reps}, date=${record.date}, weight=${record.weight}`,
+    // );
 
     // Check reps and date conditions
     if (

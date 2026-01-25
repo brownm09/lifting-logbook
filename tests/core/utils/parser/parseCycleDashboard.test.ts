@@ -1,4 +1,4 @@
-import { parseCycleDashboard } from "../../../../src/core/utils/parser/parseCycleDashboard";
+import { parseCycleDashboard } from "@src/core";
 import { loadCsvFixture } from "../../../testUtils";
 
 describe("parseCycleDashboard", () => {

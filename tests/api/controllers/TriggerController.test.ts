@@ -1,11 +1,13 @@
-import { onEdit } from "../../../src/api/controllers/TriggerController";
-import { CycleDashboardRepository } from "../../../src/api/repositories/CycleDashboardRepository";
-import { WorkoutRepository } from "../../../src/api/repositories/WorkoutRepository";
-import { findWorkoutRowsToHideOnEdit } from "../../../src/core";
+import { onEdit } from "@src/api/controllers";
+import {
+  CycleDashboardRepository,
+  WorkoutRepository,
+} from "@src/api/repositories";
+import { findWorkoutRowsToHideOnEdit } from "@src/core";
 
-jest.mock("../../../src/api/repositories/WorkoutRepository");
-jest.mock("../../../src/api/repositories/CycleDashboardRepository");
-jest.mock("../../../src/core", () => ({
+jest.mock("@src/api/repositories/WorkoutRepository");
+jest.mock("@src/api/repositories/CycleDashboardRepository");
+jest.mock("@src/core", () => ({
   findWorkoutRowsToHideOnEdit: jest.fn(),
 }));
 

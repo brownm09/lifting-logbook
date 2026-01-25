@@ -1,5 +1,4 @@
-import { CycleDashboard } from "../../../../src/core";
-import { mapCycleDashboard } from "../../../../src/core/utils/mapper/mapCycleDashboard";
+import { CycleDashboard, mapCycleDashboard } from "@src/core";
 
 describe("mapCycleDashboard", () => {
   it("should map CycleDashboard object to 2D array with all keys", () => {

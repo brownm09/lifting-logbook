@@ -1,15 +1,15 @@
-import { LiftRecordRepository } from "../../../src/api/repositories/LiftRecordRepository";
-import { cropSheet } from "../../../src/api/utils/cropSheet";
-import * as core from "../../../src/core";
+import { LiftRecordRepository } from "@src/api/repositories";
+import { cropSheet } from "@src/api/ui";
+import * as core from "@src/core";
 
-jest.mock("../../../src/core", () => ({
+jest.mock("@src/core/utils", () => ({
   mapLiftRecords: jest.fn((records) => records.map(() => [1, 2])),
   parseLiftRecords: jest.fn((data) =>
     // Simulate parsing only the data rows (excluding header)
     data.slice(1).map((row: any[]) => ({ lift: row[0], reps: row[1] })),
   ),
 }));
-jest.mock("../../../src/api/utils/cropSheet", () => ({
+jest.mock("@src/api/ui", () => ({
   cropSheet: jest.fn(),
 }));
 

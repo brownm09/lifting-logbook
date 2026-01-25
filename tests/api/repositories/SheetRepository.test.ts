@@ -1,4 +1,4 @@
-import { SheetRepository } from "../../../src/api/repositories/SheetRepository";
+import { SheetRepository } from "@src/api/repositories";
 
 describe("SheetRepository", () => {
   let getSheetByNameMock: jest.Mock;

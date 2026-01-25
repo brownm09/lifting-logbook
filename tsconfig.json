@@ -9,9 +9,14 @@
     "types": ["google-apps-script", "jest", "node"],
     "esModuleInterop": true,
     "noEmitOnError": true,
-    "sourceMap": false
+    "sourceMap": false,
+    "baseUrl": ".",
+    "paths": {
+      "@src/*": ["src/*"],
+      "@tests/*": ["tests/*"]
+    }
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "tests/**/*.ts"],
   "exclude": [
     "node_modules",
     "dist",

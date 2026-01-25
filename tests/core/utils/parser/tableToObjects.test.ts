@@ -1,4 +1,4 @@
-import { tableToObjects } from "../../../../src/core";
+import { tableToObjects } from "@src/core";
 
 describe("tableToObjects", () => {
   it("tableToObjects returns correct keys with headerMap", () => {

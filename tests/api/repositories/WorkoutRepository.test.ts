@@ -1,6 +1,6 @@
-import { WorkoutRepository } from "../../../src/api/repositories/WorkoutRepository";
+import { WorkoutRepository } from "@src/api/repositories";
 
-jest.mock("../../../src/api/utils/cropSheet", () => ({
+jest.mock("@src/api/ui", () => ({
   cropSheet: jest.fn(),
 }));
 

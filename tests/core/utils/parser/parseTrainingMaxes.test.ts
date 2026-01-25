@@ -1,4 +1,4 @@
-import { parseTrainingMaxes } from "../../../../src/core";
+import { parseTrainingMaxes } from "@src/core";
 import { loadCsvFixture } from "../../../testUtils";
 
 describe("parseTrainingMaxes", () => {

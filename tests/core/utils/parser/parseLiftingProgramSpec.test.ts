@@ -1,4 +1,4 @@
-import { parseLiftingProgramSpec } from "../../../../src/core";
+import { parseLiftingProgramSpec } from "@src/core";
 import { loadCsvFixture } from "../../../testUtils";
 
 describe("parseLiftingProgramSpec", () => {

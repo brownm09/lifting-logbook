@@ -1,4 +1,4 @@
-import { getNextDate } from "../../../../src/core/utils/jsUtil";
+import { getNextDate } from "@src/core";
 
 describe("getNextDate", () => {
   it("returns today if today matches previous weekday and is at least 7 days after prevDate", () => {

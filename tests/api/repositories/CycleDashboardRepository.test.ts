@@ -1,8 +1,8 @@
-import { CycleDashboardRepository } from "../../../src/api/repositories/CycleDashboardRepository";
-import { cropSheet } from "../../../src/api/utils/cropSheet";
-import * as core from "../../../src/core";
+import { CycleDashboardRepository } from "@src/api/repositories";
+import { cropSheet } from "@src/api/ui";
+import * as core from "@src/core";
 
-jest.mock("../../../src/core", () => ({
+jest.mock("@src/core/utils", () => ({
   mapCycleDashboard: jest.fn((dashboard) => [[1, 2, 3]]),
   parseCycleDashboard: jest.fn((data) => ({
     cycle: 1,
@@ -10,7 +10,7 @@ jest.mock("../../../src/core", () => ({
     notes: "Test",
   })),
 }));
-jest.mock("../../../src/api/utils/cropSheet", () => ({
+jest.mock("@src/api/ui", () => ({
   cropSheet: jest.fn(),
 }));
 
