@@ -1,4 +1,12 @@
 import { CycleDashboard, Weekday } from "@src/core";
+import {
+  CYCLE_DATE_KEY,
+  CYCLE_NUM_KEY,
+  CYCLE_START_WEEKDAY_KEY,
+  CYCLE_UNIT_KEY,
+  PROGRAM_KEY,
+  SHEET_NAME_KEY,
+} from "@src/core/constants";
 
 /**
  * Parses a 2D array (from CSV or sheet) into a CycleDashboard object.
@@ -15,11 +23,11 @@ export function parseCycleDashboard(data: any[][]): CycleDashboard {
     map[key] = value;
   });
   return {
-    program: map["Program"],
-    cycleUnit: map["Cycle Unit"],
-    cycleNum: Number(map["Cycle #"]),
-    cycleDate: new Date(map["Cycle Date"]),
-    sheetName: map["Sheet Name"],
-    cycleStartWeekday: toTitleCase(map["Cycle Start Weekday"]) as Weekday,
+    program: map[PROGRAM_KEY],
+    cycleUnit: map[CYCLE_UNIT_KEY],
+    cycleNum: Number(map[CYCLE_NUM_KEY]),
+    cycleDate: new Date(map[CYCLE_DATE_KEY]),
+    sheetName: map[SHEET_NAME_KEY],
+    cycleStartWeekday: toTitleCase(map[CYCLE_START_WEEKDAY_KEY]) as Weekday,
   };
 }

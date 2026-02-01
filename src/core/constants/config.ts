@@ -1,3 +1,10 @@
+// Dashboard CSV/Sheet property keys
+export const PROGRAM_KEY = "Program";
+export const CYCLE_UNIT_KEY = "Cycle Unit";
+export const CYCLE_NUM_KEY = "Cycle #";
+export const CYCLE_DATE_KEY = "Cycle Date";
+export const SHEET_NAME_KEY = "Sheet Name";
+export const CYCLE_START_WEEKDAY_KEY = "Start Weekday";
 // Configuration constants for core logic
 
 export const WARMUP_BASE_REPS = 5;
