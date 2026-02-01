@@ -6,10 +6,10 @@
  * @return {any[]}
  */
 
+import { LIFT_DATE_HEADER, WARMUP_BASE_REPS } from "@src/core/constants";
+
 export function generateLiftPlan(tm, ps, startDate) {
   let workoutGrid: any[][] = [];
-  const LIFT_DATE_HEADER = "Lift Date";
-  const WARMUP_BASE_REPS = 5;
   const progSpecLiftName = ps.lift;
   const progSpecNumSets = ps.sets;
   const progSpecIncrement = ps.increment;

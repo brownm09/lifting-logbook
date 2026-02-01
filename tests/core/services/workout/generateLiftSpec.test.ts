@@ -1,5 +1,6 @@
 import {
   generateLiftSpec,
+  LIFT_SPEC_HEADERS,
   parseLiftingProgramSpec,
   parseTrainingMaxes,
 } from "@src/core";
@@ -16,23 +17,27 @@ describe("generateLiftSpec", () => {
     const ps = rptProgramSpec.find((p) => p.lift === "Bench P.");
     const startDate = new Date("2026-01-01");
     const result = generateLiftSpec(tm, ps, startDate);
-    expect(result[0]).toBe("Bench P."); // lift
-    expect(result[1]).toBe("3 × 8"); // sets × reps
-    expect(result[2]).toBe(182.5); // weight
-    expect(result[3]).toBe(2.5); // increment
-    expect(result[4]).toEqual(new Date("2026-01-01")); // offset 0
-    expect(result[5]).toBe("Band Flye"); // activation
+    expect(result[LIFT_SPEC_HEADERS.indexOf("Core Lift")]).toBe("Bench P."); // lift
+    expect(result[LIFT_SPEC_HEADERS.indexOf("Scheme")]).toBe("3 × 8"); // sets × reps
+    expect(result[LIFT_SPEC_HEADERS.indexOf("Inc. Amt.")]).toBe(2.5); // increment
+    expect(result[LIFT_SPEC_HEADERS.indexOf("TM")]).toBe(182.5); // weight
+    expect(result[LIFT_SPEC_HEADERS.indexOf("Lift Date")]).toEqual(
+      new Date("2026-01-01"),
+    ); // offset 0
+    expect(result[LIFT_SPEC_HEADERS.indexOf("Activ. Ex.")]).toBe("Band Flye"); // activation
   });
   it("generates correct lift spec for Deadlift", () => {
     const tm = trainingMaxes.find((t) => t.lift === "Deadlift");
     const ps = rptProgramSpec.find((p) => p.lift === "Deadlift");
     const startDate = new Date("2026-01-01");
     const result = generateLiftSpec(tm, ps, startDate);
-    expect(result[0]).toBe("Deadlift"); // lift
-    expect(result[1]).toBe("2 × 6"); // sets × reps
-    expect(result[2]).toBe(275); // weight
-    expect(result[3]).toBe(2.5); // increment
-    expect(result[4]).toEqual(new Date("2026-01-05")); // offset 4
-    expect(result[5]).toBe("KB Swing"); // activation
+    expect(result[LIFT_SPEC_HEADERS.indexOf("Core Lift")]).toBe("Deadlift"); // lift
+    expect(result[LIFT_SPEC_HEADERS.indexOf("Scheme")]).toBe("2 × 6"); // sets × reps
+    expect(result[LIFT_SPEC_HEADERS.indexOf("Inc. Amt.")]).toBe(2.5); // increment
+    expect(result[LIFT_SPEC_HEADERS.indexOf("TM")]).toBe(275); // weight
+    expect(result[LIFT_SPEC_HEADERS.indexOf("Lift Date")]).toEqual(
+      new Date("2026-01-05"),
+    ); // offset 4
+    expect(result[LIFT_SPEC_HEADERS.indexOf("Activ. Ex.")]).toBe("KB Swing"); // activation
   });
 });

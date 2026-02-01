@@ -1,4 +1,4 @@
-import { parseCycleDashboard } from "@src/core";
+import { parseCycleDashboard, Weekday } from "@src/core";
 import { loadCsvFixture } from "../../../testUtils";
 
 describe("parseCycleDashboard", () => {
@@ -11,6 +11,7 @@ describe("parseCycleDashboard", () => {
       cycleNum: 1,
       cycleDate: new Date("1/5/2026"),
       sheetName: "RPT_Cycle_1_20260105",
+      cycleStartWeekday: Weekday.Monday,
     });
   });
 });

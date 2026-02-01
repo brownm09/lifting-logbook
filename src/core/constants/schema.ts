@@ -38,3 +38,13 @@ export const LIFTING_PROGRAM_SPEC_HEADER_MAP: Record<
   "WT Decrement %": { key: "wtDecrementPct", type: "number" },
   Activation: { key: "activation", type: "string" },
 };
+
+export const WEEKDAY_MAP: Record<string, number> = {
+  sunday: 0,
+  monday: 1,
+  tuesday: 2,
+  wednesday: 3,
+  thursday: 4,
+  friday: 5,
+  saturday: 6,
+};

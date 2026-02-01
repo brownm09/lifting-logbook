@@ -1,4 +1,4 @@
-import { CycleDashboard, updateCycle } from "@src/core";
+import { CycleDashboard, updateCycle, Weekday } from "@src/core";
 
 describe("updateCycle", () => {
   it("increments cycleNum, updates cycleDate and sheetName for next Monday", () => {
@@ -6,10 +6,15 @@ describe("updateCycle", () => {
       program: "RPT",
       cycleUnit: "Week",
       cycleNum: 1,
-      cycleDate: new Date("1/5/2026"),
+      cycleDate: new Date(Date.UTC(2026, 0, 5, 0, 0, 0, 0)),
       sheetName: "RPT_Cycle_1_20260105",
+      cycleStartWeekday: Weekday.Monday,
     };
-    const updated = updateCycle(prev, "Monday", new Date("2026-01-20"));
+    const overrides = {
+      targetWeekday: "Monday" as Weekday,
+      today: new Date(Date.UTC(2026, 0, 20, 0, 0, 0, 0)),
+    };
+    const updated = updateCycle(prev, overrides);
     expect(updated.cycleNum).toBe(2);
     expect(updated.sheetName).toBe("RPT_Cycle_2_20260119");
     expect(updated.cycleDate).toEqual(
@@ -22,15 +27,15 @@ describe("updateCycle", () => {
       program: "RPT",
       cycleUnit: "Week",
       cycleNum: 1,
-      cycleDate: new Date("1/5/2026"),
+      cycleDate: new Date(Date.UTC(2026, 0, 5, 0, 0, 0, 0)),
       sheetName: "RPT_Cycle_1_20260105",
+      cycleStartWeekday: Weekday.Monday,
     };
-    // Simulate update to Friday (5)
-    const updated = updateCycle(
-      prev,
-      "Friday",
-      new Date(Date.UTC(2026, 0, 16, 0, 0, 0, 0)),
-    );
+    const overrides = {
+      targetWeekday: "Friday" as Weekday,
+      today: new Date(Date.UTC(2026, 0, 16, 0, 0, 0, 0)),
+    };
+    const updated = updateCycle(prev, overrides);
     expect(updated.cycleNum).toBe(2);
     expect(updated.sheetName).toBe("RPT_Cycle_2_20260116");
     expect(updated.cycleDate).toEqual(
@@ -48,12 +53,12 @@ describe("updateCycle", () => {
       cycleNum: 2,
       cycleDate: new Date(Date.UTC(2026, 0, 12, 0, 0, 0, 0)), // Monday
       sheetName: "RPT_Cycle_2_20260112",
+      cycleStartWeekday: Weekday.Monday,
     };
-    const updated = updateCycle(
-      prev,
-      undefined,
-      new Date(Date.UTC(2026, 0, 19, 0, 0, 0, 0)),
-    );
+    const overrides = {
+      today: new Date(Date.UTC(2026, 0, 19, 0, 0, 0, 0)),
+    };
+    const updated = updateCycle(prev, overrides);
     expect(updated.cycleNum).toBe(3);
     expect(updated.sheetName).toBe("RPT_Cycle_3_20260119");
     expect(updated.cycleDate).toEqual(
@@ -69,12 +74,13 @@ describe("updateCycle", () => {
       cycleNum: 3,
       cycleDate: new Date(Date.UTC(2026, 0, 19, 0, 0, 0, 0)), // Monday
       sheetName: "RPT_Cycle_3_20260119",
+      cycleStartWeekday: Weekday.Monday,
     };
-    const updated = updateCycle(
-      prev,
-      "friday",
-      new Date(Date.UTC(2026, 0, 23, 0, 0, 0, 0)),
-    );
+    const overrides = {
+      targetWeekday: "friday" as Weekday,
+      today: new Date(Date.UTC(2026, 0, 23, 0, 0, 0, 0)),
+    };
+    const updated = updateCycle(prev, overrides);
     expect(updated.cycleNum).toBe(4);
     expect(updated.sheetName).toBe("RPT_Cycle_4_20260130");
     expect(updated.cycleDate).toEqual(
@@ -90,13 +96,14 @@ describe("updateCycle", () => {
       cycleNum: 4,
       cycleDate: new Date(Date.UTC(2026, 0, 23, 0, 0, 0, 0)), // Friday
       sheetName: "RPT_Cycle_4_20260123",
+      cycleStartWeekday: Weekday.Friday,
     };
     // Today is before the next Friday
-    const updated = updateCycle(
-      prev,
-      "Friday",
-      new Date(Date.UTC(2026, 0, 24, 0, 0, 0, 0)),
-    );
+    const overrides = {
+      targetWeekday: "Friday" as Weekday,
+      today: new Date(Date.UTC(2026, 0, 24, 0, 0, 0, 0)),
+    };
+    const updated = updateCycle(prev, overrides);
     expect(updated.cycleNum).toBe(5);
     expect(updated.sheetName).toBe("RPT_Cycle_5_20260130");
     expect(updated.cycleDate).toEqual(
@@ -112,12 +119,13 @@ describe("updateCycle", () => {
       cycleNum: 5,
       cycleDate: new Date(Date.UTC(2026, 0, 25, 0, 0, 0, 0)), // Sunday
       sheetName: "RPT_Cycle_5_20260125",
+      cycleStartWeekday: Weekday.Sunday,
     };
-    const updated = updateCycle(
-      prev,
-      "Sunday",
-      new Date(Date.UTC(2026, 1, 1, 0, 0, 0, 0)),
-    );
+    const overrides = {
+      targetWeekday: "Sunday" as Weekday,
+      today: new Date(Date.UTC(2026, 1, 1, 0, 0, 0, 0)),
+    };
+    const updated = updateCycle(prev, overrides);
     expect(updated.cycleNum).toBe(6);
     expect(updated.sheetName).toBe("RPT_Cycle_6_20260201");
     expect(updated.cycleDate).toEqual(

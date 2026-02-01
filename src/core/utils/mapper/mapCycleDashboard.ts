@@ -12,5 +12,6 @@ export function mapCycleDashboard(obj: CycleDashboard): any[][] {
     ["Cycle #", obj.cycleNum],
     ["Cycle Date", obj.cycleDate],
     ["Sheet Name", obj.sheetName],
+    ["Cycle Start Weekday", obj.cycleStartWeekday],
   ];
 }

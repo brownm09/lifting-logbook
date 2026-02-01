@@ -1,38 +1,41 @@
-import { CycleDashboard, formatDateYYYYMMDD, getNextDate } from "@src/core";
+import {
+  CycleDashboard,
+  formatDateYYYYMMDD,
+  getNextDate,
+  Weekday,
+  WEEKDAY_MAP,
+} from "@src/core";
+import { UpdateCycleOverrides } from "../../models/UpdateCycleOverrides";
 
-/**
- * Updates the dashboard cycle: increments cycleNum, updates cycleDate to the next Monday (at least 7 days after previous), and updates sheetLink.
- * @param prevCycle CycleDashboard
- * @param targetWeekday Optional override for current date (for testing)
- * @returns Updated CycleDashboard
- */
 export function updateCycle(
   prevCycle: CycleDashboard,
-  targetWeekday?: string,
-  today?: Date,
+  overrides: UpdateCycleOverrides = {},
 ): CycleDashboard {
   const prevNum = prevCycle.cycleNum;
   const prevDate = new Date(prevCycle.cycleDate);
+  const { targetWeekday, today, overrideDate } = overrides;
   const now = today ? new Date(today) : new Date();
+  let targetWeekdayNum: number;
+  if (!overrideDate) {
+    targetWeekdayNum = prevDate.getUTCDay();
 
-  // Map weekday string to number
-  const weekdayMap: Record<string, number> = {
-    sunday: 0,
-    monday: 1,
-    tuesday: 2,
-    wednesday: 3,
-    thursday: 4,
-    friday: 5,
-    saturday: 6,
-  };
-  // Determine target weekday: if not specified, use previous cycle's weekday
-  let targetWeekdayNum: number = prevDate.getUTCDay();
-  if (targetWeekday) {
-    targetWeekdayNum = weekdayMap[targetWeekday.toLowerCase()];
+    // Determine target weekday: if not specified, use previous cycle's weekday
+    if (targetWeekday) {
+      targetWeekdayNum = WEEKDAY_MAP[targetWeekday.toLowerCase()];
+      console.log(
+        `Target weekday overridden to ${targetWeekday} (${targetWeekdayNum}).`,
+      );
+    } else {
+      targetWeekdayNum = WEEKDAY_MAP[prevCycle.cycleStartWeekday.toLowerCase()];
+      console.log(
+        `Target weekday set to previous cycle's weekday: ${prevCycle.cycleStartWeekday} (${targetWeekdayNum}).`,
+      );
+    }
   }
   // If today matches the target weekday and is at least 7 days after prevDate, use today
   // let cycleDate: Date;
-  const cycleDate = getNextDate(prevDate, targetWeekdayNum, today);
+  const cycleDate =
+    overrideDate ?? getNextDate(prevDate, targetWeekdayNum, today);
   // Update sheet link
   const newSheetName = `${prevCycle.program}_Cycle_${prevNum + 1}_${formatDateYYYYMMDD(cycleDate)}`;
   return {
@@ -40,5 +43,10 @@ export function updateCycle(
     cycleNum: prevNum + 1,
     cycleDate: cycleDate,
     sheetName: newSheetName,
+    cycleStartWeekday: overrides.updateStartWeekday
+      ? (Object.keys(WEEKDAY_MAP).find(
+          (key) => WEEKDAY_MAP[key] === cycleDate.getUTCDay(),
+        ) as Weekday)
+      : prevCycle.cycleStartWeekday,
   };
 }

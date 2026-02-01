@@ -1,5 +1,7 @@
 import {
   createGridV2,
+  LIFT_PLAN_HEADERS,
+  LIFT_SPEC_HEADERS,
   parseLiftingProgramSpec,
   parseTrainingMaxes,
 } from "@src/core";
@@ -20,14 +22,7 @@ describe("createGridV2", () => {
     expect(result.length).toBe(77);
     expect(Array.isArray(result)).toBe(true);
     expect(result[0]).toEqual(["Program", "", "Cycle", "", "Weight", ""]);
-    expect(result[1]).toEqual([
-      "Core Lift",
-      "Scheme",
-      "TM",
-      "Inc. Amt.",
-      "Lift Date",
-      "Activ. Ex.",
-    ]);
+    expect(result[1]).toEqual(LIFT_SPEC_HEADERS);
     expect(result.findIndex((row) => row[0] === "Date")).toBe(15); // Workout grid header
   });
 
@@ -35,36 +30,15 @@ describe("createGridV2", () => {
     const result = createGridV2(rptProgramSpec, [], new Date("2026-01-01"));
     expect(result.length).toBe(3); // Only headers
     expect(result[0]).toEqual(["Program", "", "Cycle", "", "Weight", ""]);
-    expect(result[1]).toEqual([
-      "Core Lift",
-      "Scheme",
-      "TM",
-      "Inc. Amt.",
-      "Lift Date",
-      "Activ. Ex.",
-    ]);
+    expect(result[1]).toEqual(LIFT_SPEC_HEADERS);
   });
 
   it("returns an empty grid if no program spec is provided", () => {
     const result = createGridV2([], trainingMaxes, new Date("2026-01-01"));
     expect(result.length).toBe(3); // Only headers
     expect(result[0]).toEqual(["Program", "", "Cycle", "", "Weight", ""]);
-    expect(result[1]).toEqual([
-      "Core Lift",
-      "Scheme",
-      "TM",
-      "Inc. Amt.",
-      "Lift Date",
-      "Activ. Ex.",
-    ]);
-    expect(result[2]).toEqual([
-      "Date",
-      "Lift",
-      "Set",
-      "Weight",
-      "Reps",
-      "Notes",
-    ]);
+    expect(result[1]).toEqual(LIFT_SPEC_HEADERS);
+    expect(result[2]).toEqual(LIFT_PLAN_HEADERS);
   });
 
   it("generates correct lift spec and plan for a known lift", () => {

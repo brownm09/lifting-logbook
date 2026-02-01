@@ -1,4 +1,10 @@
-import { LiftingProgramSpec, TrainingMax } from "@src/core";
+import {
+  LIFT_PLAN_HEADERS,
+  LIFT_SPEC_HEADERS,
+  LiftingProgramSpec,
+  TrainingMax,
+  WORKOUT_SHEET_HEADERS,
+} from "@src/core";
 import { generateLiftPlan } from "./generateLiftPlan";
 import { generateLiftSpec } from "./generateLiftSpec";
 
@@ -18,18 +24,7 @@ export function createGridV2(
   // console.log(
   //   `Creating grid with ${progSpecData.length} lift specs and ${tmData.length} training maxes starting from ${startDate.toISOString()}.`,
   // );
-  // Constants for headers and formatting
-  const LIFT_DATE_HEADER = "Lift Date";
-  const WORKOUT_SHEET_HEADERS = ["Program", "", "Cycle", "", "Weight", ""];
-  const LIFT_SPEC_HEADERS = [
-    "Core Lift",
-    "Scheme",
-    "TM",
-    "Inc. Amt.",
-    LIFT_DATE_HEADER,
-    "Activ. Ex.",
-  ];
-  const LIFT_PLAN_HEADERS = ["Date", "Lift", "Set", "Weight", "Reps", "Notes"];
+
   let resultGrid: any[][] = [];
 
   resultGrid.push(WORKOUT_SHEET_HEADERS);
