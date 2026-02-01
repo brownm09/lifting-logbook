@@ -49,11 +49,7 @@ export class StartNewCycleAction {
         trainingMaxes,
         newLiftRecords,
       );
-      const newWorkout = createGridV2(
-        programSpec,
-        newTrainingMaxes,
-        newCycle.cycleDate,
-      );
+      const newWorkout = createGridV2(newCycle, programSpec, newTrainingMaxes);
 
       liftRecordRepo.appendLiftRecords(newLiftRecords);
       trainingMaxRepo.setTrainingMaxes(newTrainingMaxes);
@@ -65,7 +61,10 @@ export class StartNewCycleAction {
       // const newWorkoutRepo = new WorkoutRepository(newCycle.sheetName);
       dashboardRepo.setCycleDashboard(newCycle);
 
-      const toastMsg = MSG_SUCCESS_TOAST_NEW_CYCLE(newCycle.sheetName, newLiftRecords.length);
+      const toastMsg = MSG_SUCCESS_TOAST_NEW_CYCLE(
+        newCycle.sheetName,
+        newLiftRecords.length,
+      );
 
       console.log(toastMsg);
       SpreadsheetApp.getActiveSpreadsheet().toast(toastMsg, "Success");

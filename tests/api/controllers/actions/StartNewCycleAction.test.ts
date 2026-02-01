@@ -1,22 +1,25 @@
 jest.mock("@src/api/repositories", () => ({
   ...jest.requireActual("@src/api/repositories"),
   CycleDashboardRepository: jest.fn().mockImplementation(() => ({
-    getCycleDashboard: jest.fn().mockReturnValue({ sheetName: "Sheet1" }),
+    getCycleDashboard: jest.fn().mockReturnValue({
+      sheetName: "Sheet1",
+      cycleDate: new Date("2026-01-01"),
+    }),
     setCycleDashboard: jest.fn(),
   })),
   LiftingProgramSpecRepository: jest.fn().mockImplementation(() => ({
-    getLiftingProgramSpec: jest.fn(),
+    getLiftingProgramSpec: jest.fn().mockReturnValue([]),
     setLiftingProgramSpec: jest.fn(),
   })),
   TrainingMaxRepository: jest.fn().mockImplementation(() => ({
-    getTrainingMaxes: jest.fn(),
+    getTrainingMaxes: jest.fn().mockReturnValue([]),
     setTrainingMaxes: jest.fn(),
   })),
   LiftRecordRepository: jest.fn().mockImplementation(() => ({
     appendLiftRecords: jest.fn(),
   })),
   WorkoutRepository: jest.fn().mockImplementation(() => ({
-    getWorkout: jest.fn(),
+    getWorkout: jest.fn().mockReturnValue([]),
     hideSheet: jest.fn(),
   })),
   SheetRepository: jest.fn().mockImplementation(() => ({
@@ -37,10 +40,10 @@ jest.mock("@src/api/ui", () => ({
 jest.mock("@src/core/services", () => ({
   ...jest.requireActual("@src/core/services"),
   extractLiftRecords: jest.fn().mockReturnValue([]),
-  updateCycle: jest.fn().mockReturnValue(() => ({
+  updateCycle: jest.fn().mockReturnValue({
     sheetName: "Sheet1",
     cycleDate: new Date("2026-01-01"),
-  })),
+  }),
   updateMaxes: jest.fn().mockReturnValue([]),
   createGridV2: jest.fn().mockReturnValue([]),
 }));
@@ -91,7 +94,11 @@ describe("StartNewCycleAction", () => {
       expect(coreServices.extractLiftRecords).toHaveBeenCalled();
       expect(coreServices.updateCycle).toHaveBeenCalled();
       expect(coreServices.updateMaxes).toHaveBeenCalled();
-      expect(coreServices.createGridV2).toHaveBeenCalled();
+      expect(coreServices.createGridV2).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.any(Array),
+        expect.any(Array),
+      );
       expect(repositories.SheetRepository).toHaveBeenCalled();
       expect(repositories.CycleDashboardRepository).toHaveBeenCalled();
       expect(repositories.LiftingProgramSpecRepository).toHaveBeenCalled();

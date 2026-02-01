@@ -1,4 +1,5 @@
 import {
+  CycleDashboard,
   LIFT_PLAN_HEADERS,
   LIFT_SPEC_HEADERS,
   LiftingProgramSpec,
@@ -10,16 +11,16 @@ import { generateLiftSpec } from "./generateLiftSpec";
 
 /**
  * Greate a cycle grid using training max data and a program spec (typed version).
+ * @param {CycleDashboard} cycleDashboard
  * @param {LiftingProgramSpec[]} progSpecData
  * @param {TrainingMax[]} tmData
- * @param {Date} startDate
  * @returns {any[][]}
  */
 
 export function createGridV2(
+  cycleDashboard: CycleDashboard,
   progSpecData: LiftingProgramSpec[],
   tmData: TrainingMax[],
-  startDate: Date,
 ) {
   // console.log(
   //   `Creating grid with ${progSpecData.length} lift specs and ${tmData.length} training maxes starting from ${startDate.toISOString()}.`,
@@ -28,6 +29,9 @@ export function createGridV2(
   let resultGrid: any[][] = [];
 
   resultGrid.push(WORKOUT_SHEET_HEADERS);
+  resultGrid[0][1] = cycleDashboard.program;
+  resultGrid[0][3] = cycleDashboard.cycleNum;
+  // resultGrid[0][5] = cycleDashboard.weight;
   let progSpecGrid: any[][] = [];
   progSpecGrid.push(LIFT_SPEC_HEADERS);
   let workoutGrid: any[][] = [];
@@ -42,9 +46,9 @@ export function createGridV2(
       const ps = progSpecData[j];
       // console.log(`Program spec: ${ps.lift}, ${ps.offset}, ${ps.sets}, ${ps.reps}, ${ps.warmUpPct}, ${ps.wtDecrementPct}`);
       if (ps.lift === tm.lift && ps.offset >= 0) {
-        const liftSpec = generateLiftSpec(tm, ps, startDate);
+        const liftSpec = generateLiftSpec(tm, ps, cycleDashboard.cycleDate);
         progSpecGrid.push(liftSpec);
-        const liftPlan = generateLiftPlan(tm, ps, startDate);
+        const liftPlan = generateLiftPlan(tm, ps, cycleDashboard.cycleDate);
         workoutGrid.push(...liftPlan);
       }
     }

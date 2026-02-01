@@ -1,4 +1,14 @@
-import { CycleDashboard, mapCycleDashboard, Weekday } from "@src/core";
+import {
+  CYCLE_DATE_KEY,
+  CYCLE_NUM_KEY,
+  CYCLE_START_WEEKDAY_KEY,
+  CYCLE_UNIT_KEY,
+  CycleDashboard,
+  mapCycleDashboard,
+  PROGRAM_KEY,
+  SHEET_NAME_KEY,
+  Weekday,
+} from "@src/core";
 
 describe("mapCycleDashboard", () => {
   it("should map CycleDashboard object to 2D array with all keys", () => {
@@ -13,12 +23,12 @@ describe("mapCycleDashboard", () => {
     const result = mapCycleDashboard(obj);
     expect(result).toEqual([
       ["Key", "Value"],
-      ["Program", "5/3/1"],
-      ["Cycle Unit", "Week"],
-      ["Cycle #", 1],
-      ["Cycle Date", new Date("2026-01-01")],
-      ["Sheet Name", "Week 1"],
-      ["Cycle Start Weekday", Weekday.Friday],
+      [PROGRAM_KEY, "5/3/1"],
+      [CYCLE_UNIT_KEY, "Week"],
+      [CYCLE_NUM_KEY, 1],
+      [CYCLE_DATE_KEY, new Date("2026-01-01")],
+      [SHEET_NAME_KEY, "Week 1"],
+      [CYCLE_START_WEEKDAY_KEY, Weekday.Friday],
     ]);
   });
 });
