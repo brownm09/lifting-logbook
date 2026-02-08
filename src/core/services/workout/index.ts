@@ -5,3 +5,4 @@ export * from "./findRepsHeaderCoordinates";
 export * from "./findWorkoutRowsToHideOnEdit";
 export * from "./generateLiftPlan";
 export * from "./generateLiftSpec";
+export * from "./updateLiftDates";

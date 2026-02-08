@@ -12,7 +12,7 @@ export function parseLiftingProgramSpec(data: any[][]): LiftingProgramSpec[] {
   const headerMap = LIFTING_PROGRAM_SPEC_HEADER_MAP;
   // Convert using tableToObjects, then cast/convert types
   const rawObjects = tableToObjects(data, undefined);
-  return rawObjects.map((obj) => {
+  const parsed = rawObjects.map((obj) => {
     const result: any = {};
     for (const header in headerMap) {
       const { key, type } = headerMap[header];
@@ -28,4 +28,14 @@ export function parseLiftingProgramSpec(data: any[][]): LiftingProgramSpec[] {
     }
     return result as LiftingProgramSpec;
   });
+
+  // Sort by offset, then order
+  parsed.sort((a, b) => {
+    if (a.offset !== b.offset) {
+      return a.offset - b.offset;
+    }
+    return (a.order ?? 0) - (b.order ?? 0);
+  });
+
+  return parsed;
 }

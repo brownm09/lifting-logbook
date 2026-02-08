@@ -15,6 +15,7 @@ let setBackgroundMock: jest.Mock = jest.fn().mockReturnThis();
 let setRangesMock: jest.Mock = jest.fn().mockReturnThis();
 let getLastRowMock: jest.Mock;
 let getLastColumnMock: jest.Mock;
+let hideColumnMock: jest.Mock = jest.fn();
 
 jest.mock("@src/api/ui", () => ({
   ...jest.requireActual("@src/api/ui"),
@@ -44,6 +45,7 @@ describe("WorkoutView", () => {
     setFrozenRows: jest.fn().mockReturnThis(),
     getConditionalFormatRules: jest.fn().mockReturnValue([]),
     setConditionalFormatRules: setConditionalFormatRulesMock,
+    hideColumn: hideColumnMock,
   };
   const mockRange = {
     ...mockSheet.getRange(),
@@ -114,6 +116,8 @@ describe("WorkoutView", () => {
       // Should left align Notes column
       expect(sheet.getRange).toHaveBeenCalledWith(5, 6, 2, 1);
       expect(setHorizontalAlignmentMock).toHaveBeenCalledWith("left");
+      expect(hideColumnMock).toHaveBeenCalledWith(sheet.getRange(1, 1));
+      expect(hideColumnMock).toHaveBeenCalledWith(sheet.getRange(1, 3));
       highlightTodayRowsSpy.mockRestore();
     });
 

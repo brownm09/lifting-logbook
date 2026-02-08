@@ -44,3 +44,6 @@ export const FORMULA_HYPERLINK_SHEET = (
   workoutSheetId: number,
   sheetName: string,
 ) => `=HYPERLINK("${url}#gid=${workoutSheetId}", "${sheetName}")`;
+
+// Google Sheets default highlight color (light yellow)
+export const WORKOUT_HIGHLIGHT_COLOR = "#82ee88";

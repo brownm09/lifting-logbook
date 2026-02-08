@@ -3,9 +3,10 @@
 import { MenuController } from "@src/api/controllers";
 import {
   CycleDashboardRepository,
+  LiftingProgramSpecRepository,
   WorkoutRepository,
 } from "@src/api/repositories";
-import { findWorkoutRowsToHideOnEdit } from "@src/core";
+import { findWorkoutRowsToHideOnEdit, updateLiftDates } from "@src/core";
 
 /**
  * Triggered when the spreadsheet is opened.
@@ -42,9 +43,18 @@ export function onEdit(e: GoogleAppsScript.Events.SheetsOnEdit) {
       row,
       col,
     );
-
     // Hide the identified rows
     // rowsToHide.forEach(r => workoutRepo.hideRow(r + 1));
-    workoutRepo.hideRows(rowsToHide);
+    if (rowsToHide.length > 0) {
+      workoutRepo.hideRows(rowsToHide);
+    }
+
+    // Check if the edited cell is a date
+    if (e.range.getValue() && !isNaN(Date.parse(e.range.getValue()))) {
+      const programSpecRepo = new LiftingProgramSpecRepository();
+      const programSpec = programSpecRepo.getLiftingProgramSpec();
+      const updatedWorkoutData = updateLiftDates(workoutData, programSpec, row);
+      workoutRepo.setWorkout(updatedWorkoutData);
+    }
   }
 }

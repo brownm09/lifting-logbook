@@ -10,10 +10,11 @@ export const CYCLE_START_WEEKDAY_KEY = "Start Weekday";
 export const WARMUP_BASE_REPS = 5;
 
 // Constants for headers and formatting
+export const CORE_LIFT_HEADER = "Core Lift";
 export const LIFT_DATE_HEADER = "Lift Date";
 export const WORKOUT_SHEET_HEADERS = ["Program", "", "Cycle", "", "Weight", ""];
 export const LIFT_SPEC_HEADERS = [
-  "Core Lift",
+  CORE_LIFT_HEADER,
   "Scheme",
   "Inc. Amt.",
   "TM",

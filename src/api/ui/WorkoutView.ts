@@ -1,4 +1,5 @@
 import { cropSheet } from "@src/api/ui";
+import { WORKOUT_HIGHLIGHT_COLOR } from "../constants";
 
 export class WorkoutView {
   /**
@@ -56,6 +57,7 @@ export class WorkoutView {
         )
         .setHorizontalAlignment("left");
     }
+    [1, 3].forEach((col) => sheet.hideColumn(sheet.getRange(1, col)));
   }
 
   /**
@@ -86,15 +88,12 @@ export class WorkoutView {
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return; // No data to format
 
-    // Google Sheets default highlight color (light yellow)
-    const highlightColor = "#1e7d3c";
-
     // Format: highlight entire row if date in dateCol equals today
     const formula = `=$${String.fromCharCode(64 + dateCol)}2=TODAY()`;
 
     const rule = SpreadsheetApp.newConditionalFormatRule()
       .whenFormulaSatisfied(formula)
-      .setBackground(highlightColor)
+      .setBackground(WORKOUT_HIGHLIGHT_COLOR)
       .setRanges([sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn())])
       .build();
 

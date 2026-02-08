@@ -6,23 +6,23 @@
  */
 export function getNextDate(
   prevDate: Date,
-  targetWeekday: number = prevDate.getUTCDay(),
+  targetWeekday: number = prevDate.getDay(),
   today: Date = null,
 ): Date {
-  const prevDay = prevDate.getUTCDay();
+  const prevDay = prevDate.getDay();
   const weekday = typeof targetWeekday === "number" ? targetWeekday : prevDay;
   const now = today ? new Date(today) : new Date();
   // 1. Use today if it matches the target weekday and is at least 7 days after prevDate
   if (
-    now.getUTCDay() === weekday &&
+    now.getDay() === weekday &&
     now.getTime() - prevDate.getTime() >= 7 * 24 * 60 * 60 * 1000
   ) {
     return now;
   }
   // 2. Use the most recent occurrence of the target weekday if at least 7 days after prevDate
-  const offset = (now.getUTCDay() - weekday + 7) % 7;
+  const offset = (now.getDay() - weekday + 7) % 7;
   const mostRecent = new Date(now);
-  mostRecent.setUTCDate(now.getUTCDate() - offset);
+  mostRecent.setDate(now.getDate() - offset);
   if (mostRecent.getTime() - prevDate.getTime() >= 7 * 24 * 60 * 60 * 1000) {
     return mostRecent;
   }
@@ -30,9 +30,9 @@ export function getNextDate(
   let cycleDate = new Date(prevDate);
   // Find the next occurrence of the target weekday after prevDate
   const daysToNext = (weekday - prevDay + 7) % 7 || 7;
-  cycleDate.setUTCDate(prevDate.getUTCDate() + daysToNext);
+  cycleDate.setDate(prevDate.getDate() + daysToNext);
   while (cycleDate.getTime() - prevDate.getTime() < 7 * 24 * 60 * 60 * 1000) {
-    cycleDate.setUTCDate(cycleDate.getUTCDate() + 7);
+    cycleDate.setDate(cycleDate.getDate() + 7);
   }
   return cycleDate;
 }
@@ -43,6 +43,17 @@ export function addDaysUTC(date: Date, days: number): Date {
   );
   utcDate.setUTCDate(utcDate.getUTCDate() + days);
   return utcDate;
+}
+
+// Adds days using local time (keeps date in local timezone)
+export function addDaysLocal(date: Date, days: number): Date {
+  const localDate = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+  );
+  localDate.setDate(localDate.getDate() + days);
+  return localDate;
 }
 // Utility for consistent UTC date formatting
 export function formatDateYYYYMMDD(date: string | Date): string {
