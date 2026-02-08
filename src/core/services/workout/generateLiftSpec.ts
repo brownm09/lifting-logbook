@@ -1,5 +1,6 @@
 import {
-  addDaysUTC,
+  addDaysLocal,
+  CORE_LIFT_HEADER,
   LIFT_SPEC_HEADERS,
   LiftingProgramSpec,
   TrainingMax,
@@ -8,7 +9,7 @@ import {
 /**
  * Creates a lift specification from a training max and program spec.
  * @param {TrainingMax} tm
- * @param {RptProgramSpec} ps
+ * @param {LiftingProgramSpec} ps
  * @param {Date} startDate
  * @return {any[]}
  */
@@ -16,15 +17,15 @@ import {
 export function generateLiftSpec(
   tm: TrainingMax,
   ps: LiftingProgramSpec,
-  startDate,
+  startDate: Date,
 ) {
   // console.log(`Offset for ${ps.lift}: ${ps.offset}`);
-  let liftDate = addDaysUTC(startDate, ps.offset);
+  let liftDate = addDaysLocal(startDate, ps.offset);
   // console.log(`Original start date: ${formatDateYYYYMMDD(startDate)}; offset date: ${formatDateYYYYMMDD(liftDate)}`);
 
   // Build a mapping from header to value
   const specMap: Record<string, any> = {
-    "Core Lift": ps.lift,
+    [CORE_LIFT_HEADER]: ps.lift,
     Scheme: `${ps.sets} × ${ps.reps}`,
     "Inc. Amt.": ps.increment,
     TM: tm.weight,
