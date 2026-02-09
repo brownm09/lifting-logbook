@@ -9,9 +9,11 @@ describe("updateLiftDates", () => {
   const workoutData = loadCsvFixture("rpt_week_1_20260105.csv");
   const rptProgramSpecData = loadCsvFixture("rpt_program_spec.csv");
   const rptProgramSpec = parseLiftingProgramSpec(rptProgramSpecData);
-  const liftDateIdx = workoutData
-    .find((row) => row.includes(LIFT_DATE_HEADER))
-    .indexOf(LIFT_DATE_HEADER);
+  const liftDateRow = workoutData.find((row) => row.includes(LIFT_DATE_HEADER));
+  if (!liftDateRow) {
+    throw new Error(`Header row with "${LIFT_DATE_HEADER}" not found.`);
+  }
+  const liftDateIdx = liftDateRow.indexOf(LIFT_DATE_HEADER);
   const editedRowIdx = 10; // Row index of the edited lift date
   const newLiftDate = new Date("2026-01-15");
 

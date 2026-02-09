@@ -49,17 +49,6 @@ export function updateLiftDates(
       `Updating lift ${liftName} at row ${rowIdx} from ${data[rowIdx][liftDateIdx]} to date ${editedLiftDate}.`,
     );
     data[rowIdx][liftDateIdx] = new Date(editedLiftDate);
-    // // Find the row for this lift and update its date
-    // for (
-    //   let i = workoutMetaHeaderRowIdx + 1;
-    //   i < workoutMetaHeaderRowIdx + programSpecs.length;
-    //   i++
-    // ) {
-    //   if (data[i][coreLiftIdx] === liftName) {
-    //     data[i][liftDateIdx] = editedLiftDate;
-    //     break;
-    //   }
-    // }
   });
   return data;
 }

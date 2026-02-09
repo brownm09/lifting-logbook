@@ -86,8 +86,8 @@ describe("onEdit", () => {
     expect(getWorkoutMock).toHaveBeenCalled();
     expect(findWorkoutRowsToHideOnEdit).toHaveBeenCalledWith(
       expect.any(Array),
-      5,
-      3,
+      4,
+      2,
     );
     expect(hideRowsMock).toHaveBeenCalledWith([2, 3]);
   });
@@ -106,6 +106,11 @@ describe("onEdit", () => {
       ["Squat", "Warm-up", 5, 100],
     ]);
     expect(() => onEdit({ range } as any)).not.toThrow();
+    expect(findWorkoutRowsToHideOnEdit).toHaveBeenCalledWith(
+      expect.any(Array),
+      1,
+      1,
+    );
     expect(hideRowsMock).not.toHaveBeenCalled();
   });
 
@@ -115,7 +120,7 @@ describe("onEdit", () => {
       getSheet: getSheetMock,
       getRow: () => 5,
       getColumn: () => 3,
-      getValue: () => new Date("2024-06-01"),
+      getValue: () => new Date("2024-06-03"),
     };
     getWorkoutMock.mockReturnValue([
       ["Lift", "Set", "Reps", "Lift Date"],
@@ -128,14 +133,14 @@ describe("onEdit", () => {
     expect(getWorkoutMock).toHaveBeenCalled();
     expect(findWorkoutRowsToHideOnEdit).toHaveBeenCalledWith(
       expect.any(Array),
-      5,
-      3,
+      4,
+      2,
     );
     expect(hideRowsMock).not.toHaveBeenCalled();
     expect(updateLiftDates).toHaveBeenCalledWith(
       expect.any(Array),
       expect.any(Array),
-      5,
+      4,
     );
     expect(setWorkoutMock).toHaveBeenCalledWith(expect.any(Array));
   });

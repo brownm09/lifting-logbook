@@ -21,17 +21,17 @@ export function findWorkoutRowsToHideOnEdit(
   const repsRow = repsCoord.row;
   const repsCol = repsCoord.col;
 
-  // If edited row is above reps header, return empty array
-  if (editedRow - 1 <= repsRow) return [];
   // If edited column is not the "Reps" column, return empty array
-  if (editedCol - 1 !== repsCol) return [];
+  if (editedCol !== repsCol) return [];
+  // If edited row is above reps header, return empty array
+  if (editedRow <= repsRow) return [];
 
   // Find column indices for "Set" and "Lift" in the reps header row
   const SET_COL = workoutData[repsRow].indexOf("Set");
   const LIFT_COL = workoutData[repsRow].indexOf("Lift");
-  const currLift = workoutData[editedRow - 1][LIFT_COL];
+  const currLift = workoutData[editedRow][LIFT_COL];
 
-  for (let r = editedRow - 1; r > repsRow; r--) {
+  for (let r = editedRow; r > repsRow; r--) {
     if (workoutData[r][LIFT_COL] === currLift) {
       // workoutRepo.hideRow(r + 1);
       rowsToHide.push(r);

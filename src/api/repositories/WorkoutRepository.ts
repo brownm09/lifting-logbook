@@ -5,8 +5,9 @@ export class WorkoutRepository {
 
   constructor(sheetName: string) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    this.sheet = ss.getSheetByName(sheetName);
-    if (!this.sheet) throw new Error(MSG_ERROR_SHEET_NOT_FOUND(sheetName));
+    const sheet = ss.getSheetByName(sheetName);
+    if (!sheet) throw new Error(MSG_ERROR_SHEET_NOT_FOUND(sheetName));
+    this.sheet = sheet;
   }
 
   /**

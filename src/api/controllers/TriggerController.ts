@@ -40,8 +40,8 @@ export function onEdit(e: GoogleAppsScript.Events.SheetsOnEdit) {
     const workoutData = workoutRepo.getWorkout();
     const rowsToHide: number[] = findWorkoutRowsToHideOnEdit(
       workoutData,
-      row,
-      col,
+      row - 1,
+      col - 1,
     );
     // Hide the identified rows
     // rowsToHide.forEach(r => workoutRepo.hideRow(r + 1));
@@ -53,7 +53,11 @@ export function onEdit(e: GoogleAppsScript.Events.SheetsOnEdit) {
     if (e.range.getValue() && !isNaN(Date.parse(e.range.getValue()))) {
       const programSpecRepo = new LiftingProgramSpecRepository();
       const programSpec = programSpecRepo.getLiftingProgramSpec();
-      const updatedWorkoutData = updateLiftDates(workoutData, programSpec, row);
+      const updatedWorkoutData = updateLiftDates(
+        workoutData,
+        programSpec,
+        row - 1,
+      );
       workoutRepo.setWorkout(updatedWorkoutData);
     }
   }
