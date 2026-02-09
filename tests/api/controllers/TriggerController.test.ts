@@ -89,7 +89,7 @@ describe("onEdit", () => {
       4,
       2,
     );
-    expect(hideRowsMock).toHaveBeenCalledWith([2, 3]);
+    expect(hideRowsMock).toHaveBeenCalledWith([3, 4]);
   });
 
   it("does not throw if findWorkoutRowsToHideOnEdit returns empty array", () => {

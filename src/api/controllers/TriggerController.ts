@@ -46,7 +46,7 @@ export function onEdit(e: GoogleAppsScript.Events.SheetsOnEdit) {
     // Hide the identified rows
     // rowsToHide.forEach(r => workoutRepo.hideRow(r + 1));
     if (rowsToHide.length > 0) {
-      workoutRepo.hideRows(rowsToHide);
+      workoutRepo.hideRows(rowsToHide.map((r) => r + 1));
     }
 
     // Check if the edited cell is a date
