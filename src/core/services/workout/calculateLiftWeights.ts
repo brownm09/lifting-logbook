@@ -2,13 +2,14 @@ import {
   CORE_LIFT_HEADER,
   LIFT_DATE_HEADER,
   LIFT_HEADER,
+  LIFT_WEIGHT_HEADER,
   LiftingProgramSpec,
   MROUND,
   NOTES_HEADER,
   PROG_SPEC_WARMUP_PCTS,
   PROG_SPEC_WORK_PCTS,
   SET_HEADER,
-  WEIGHT_HEADER,
+  SPEC_WEIGHT_HEADER,
 } from "@src/core";
 
 /**
@@ -33,10 +34,10 @@ export function calculateLiftWeights(
   );
   const entryLiftIdx = data[workoutEntryHeaderRowIdx].indexOf(LIFT_HEADER);
   const entrySetIdx = data[workoutEntryHeaderRowIdx].indexOf(SET_HEADER);
-  const entryWeightIdx = data[workoutEntryHeaderRowIdx].indexOf(WEIGHT_HEADER);
+  const entryWeightIdx =
+    data[workoutEntryHeaderRowIdx].indexOf(LIFT_WEIGHT_HEADER);
   const coreLiftIdx = workoutMetaHeaderRow.indexOf(CORE_LIFT_HEADER);
-  const metaWeightIdx = workoutMetaHeaderRow.indexOf(WEIGHT_HEADER);
-  const liftDateIdx = workoutMetaHeaderRow.indexOf(LIFT_DATE_HEADER);
+  const metaWeightIdx = workoutMetaHeaderRow.indexOf(SPEC_WEIGHT_HEADER);
   const editedLiftData = data[editedCellRow];
   const editedLiftName = editedLiftData[coreLiftIdx];
   const currLiftSpec = programSpecs.find(

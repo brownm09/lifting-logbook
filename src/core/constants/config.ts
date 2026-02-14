@@ -11,8 +11,9 @@ export const WARMUP_BASE_REPS = 5;
 
 // Constants for headers and formatting
 export const CORE_LIFT_HEADER = "Core Lift";
-export const WEIGHT_HEADER = "Weight";
+export const SPEC_WEIGHT_HEADER = "TM";
 export const LIFT_DATE_HEADER = "Lift Date";
+export const LIFT_WEIGHT_HEADER = "Weight";
 export const DATE_HEADER = "Date";
 export const LIFT_HEADER = "Lift";
 export const SET_HEADER = "Set";
@@ -31,7 +32,7 @@ export const LIFT_PLAN_HEADERS = [
   DATE_HEADER,
   LIFT_HEADER,
   SET_HEADER,
-  WEIGHT_HEADER,
+  SPEC_WEIGHT_HEADER,
   REPS_HEADER,
   NOTES_HEADER,
 ];

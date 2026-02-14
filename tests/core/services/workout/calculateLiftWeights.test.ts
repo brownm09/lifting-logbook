@@ -1,7 +1,9 @@
 import {
   calculateLiftWeights,
   LIFT_DATE_HEADER,
+  LIFT_WEIGHT_HEADER,
   parseLiftingProgramSpec,
+  SPEC_WEIGHT_HEADER,
 } from "@src/core";
 import { loadCsvFixture } from "../../../testUtils";
 
@@ -16,12 +18,12 @@ describe("calculateLiftWeights", () => {
   const entryHeaderRowIdx = workoutData.findIndex((row) =>
     row.includes("Notes"),
   );
-  const liftTmIdx = workoutData[metaHeaderRowIdx].indexOf("Weight");
-  const entryWeightIdx = workoutData[entryHeaderRowIdx].indexOf("Weight");
+  const liftTmIdx = workoutData[metaHeaderRowIdx].indexOf(SPEC_WEIGHT_HEADER);
+  const entryWeightIdx =
+    workoutData[entryHeaderRowIdx].indexOf(LIFT_WEIGHT_HEADER);
   const liftSpecRowIdx = workoutData.findIndex(
     (row) => row.includes("Squat") && row.includes("KB Swing"),
   );
-  const liftSpecColIdx = workoutData[liftSpecRowIdx].indexOf("Weight");
 
   it("throws an error if edited column is not the Weight column", () => {
     workoutData[liftSpecRowIdx][liftTmIdx] = 105; // Set a known TM value for testing
@@ -30,7 +32,7 @@ describe("calculateLiftWeights", () => {
         workoutData,
         rptProgramSpec,
         liftSpecRowIdx,
-        liftSpecColIdx + 1,
+        liftTmIdx + 1,
       ),
     ).toThrow();
   });
@@ -38,7 +40,7 @@ describe("calculateLiftWeights", () => {
   it("throws an error if edited row is not the Weight row", () => {
     workoutData[liftSpecRowIdx][liftTmIdx] = 105; // Set a known TM value for testing
     expect(() =>
-      calculateLiftWeights(workoutData, rptProgramSpec, -1, liftSpecColIdx),
+      calculateLiftWeights(workoutData, rptProgramSpec, -1, liftTmIdx),
     ).toThrow();
   });
 
@@ -48,7 +50,7 @@ describe("calculateLiftWeights", () => {
       workoutData,
       rptProgramSpec,
       liftSpecRowIdx,
-      liftSpecColIdx,
+      liftTmIdx,
     );
     const expectedWeights = [42.5, 62.5, 85, 105, 95, 85];
     const actualWeights = Array.from(

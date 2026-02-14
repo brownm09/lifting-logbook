@@ -12,8 +12,8 @@ import {
   LIFT_DATE_HEADER,
   NOTES_HEADER,
   REPS_HEADER,
+  SPEC_WEIGHT_HEADER,
   updateLiftDates,
-  WEIGHT_HEADER,
 } from "@src/core";
 
 /**
@@ -73,6 +73,8 @@ export function onEdit(e: GoogleAppsScript.Events.SheetsOnEdit) {
     console.log(
       `Meta header row index: ${metaHeaderRowIdx}, Entry header row index: ${entryHeaderRowIdx}.`,
     );
+    console.log(`Edited cell row: ${rowIdx}, Edited cell column: ${colIdx}.`);
+    console.log(`Edited cell value: ${e.range.getValue()}.`);
     if (rowIdx - 1 > entryHeaderRowIdx) {
       if (workoutData[entryHeaderRowIdx][colIdx - 1] === REPS_HEADER) {
         const rowsToHide: number[] = findWorkoutRowsToHideOnEdit(
@@ -99,7 +101,7 @@ export function onEdit(e: GoogleAppsScript.Events.SheetsOnEdit) {
           workoutRepo.setWorkout(updatedWorkoutData);
         }
       }
-      if (workoutData[metaHeaderRowIdx][colIdx - 1] === WEIGHT_HEADER) {
+      if (workoutData[metaHeaderRowIdx][colIdx - 1] === SPEC_WEIGHT_HEADER) {
         if (e.range.getValue() && !isNaN(parseInt(e.range.getValue()))) {
           // If the edited cell is a number, recalculate lift weights
           const updatedWorkoutData = calculateLiftWeights(
