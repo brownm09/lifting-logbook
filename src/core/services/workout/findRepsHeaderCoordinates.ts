@@ -1,6 +1,6 @@
 /**
  * Finds the coordinates of the first cell containing "Reps" in a 2D array.
- * Returns 1-based row and column indices.
+ * Returns 0-based row and column indices.
  * @param data 2D array representing the sheet values
  * @param sheetName Optional, for error messages
  */

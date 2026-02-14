@@ -1,3 +1,4 @@
+export * from "./calculateLiftWeights";
 export * from "./createGrid";
 export * from "./createGridV2";
 export * from "./extractLiftRecords";

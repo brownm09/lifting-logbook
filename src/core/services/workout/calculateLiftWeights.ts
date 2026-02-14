@@ -1,0 +1,82 @@
+import {
+  CORE_LIFT_HEADER,
+  LIFT_DATE_HEADER,
+  LIFT_HEADER,
+  LiftingProgramSpec,
+  MROUND,
+  NOTES_HEADER,
+  PROG_SPEC_WARMUP_PCTS,
+  PROG_SPEC_WORK_PCTS,
+  SET_HEADER,
+  WEIGHT_HEADER,
+} from "@src/core";
+
+/**
+ * Updates lift dates for lifts with the same offset as the edited lift.
+ * @param data 2D array of workout sheet values.
+ * @param programSpec Program specification object.
+ * @param editedCellRow Row index of the edited cell.
+ * @returns Updated 2D array with lift dates synchronized.
+ */
+export function calculateLiftWeights(
+  data: any[][],
+  programSpecs: LiftingProgramSpec[],
+  editedCellRow: number,
+  // editedCellCol: number,
+): any[][] {
+  const workoutMetaHeaderRowIdx = data.findIndex((row) =>
+    row.includes(LIFT_DATE_HEADER),
+  );
+  const workoutMetaHeaderRow = data[workoutMetaHeaderRowIdx];
+  const workoutEntryHeaderRowIdx = data.findIndex((row) =>
+    row.includes(NOTES_HEADER),
+  );
+  const entryLiftIdx = data[workoutEntryHeaderRowIdx].indexOf(LIFT_HEADER);
+  const entrySetIdx = data[workoutEntryHeaderRowIdx].indexOf(SET_HEADER);
+  const entryWeightIdx = data[workoutEntryHeaderRowIdx].indexOf(WEIGHT_HEADER);
+  const coreLiftIdx = workoutMetaHeaderRow.indexOf(CORE_LIFT_HEADER);
+  const metaWeightIdx = workoutMetaHeaderRow.indexOf(WEIGHT_HEADER);
+  const liftDateIdx = workoutMetaHeaderRow.indexOf(LIFT_DATE_HEADER);
+  const editedLiftData = data[editedCellRow];
+  const editedLiftName = editedLiftData[coreLiftIdx];
+  const currLiftSpec = programSpecs.find(
+    (spec) => spec.lift === editedLiftName,
+  );
+  const editedOffset = currLiftSpec?.offset;
+  const currLiftTm = data[editedCellRow][metaWeightIdx];
+  const currLiftIncrement = currLiftSpec?.increment || 1;
+  console.log(
+    `Edited lift: ${editedLiftName}, Weight: ${currLiftTm}, Offset: ${editedOffset}.`,
+  );
+
+  const liftWeights = [];
+
+  const progSpecWarmPcts: number[] = PROG_SPEC_WARMUP_PCTS(
+    currLiftSpec?.warmUpPct || "",
+  );
+  progSpecWarmPcts.forEach((pct, idx) => {
+    console.log(`Warmup pct ${idx + 1}: ${pct}`);
+    const dataRow = data.find(
+      (row) =>
+        row[entryLiftIdx] === editedLiftName &&
+        row[entrySetIdx] === `Warm-up ${idx + 1}`,
+    );
+    dataRow[entryWeightIdx] = MROUND(currLiftTm * pct, currLiftIncrement);
+  });
+
+  const progSpecWorkPcts: number[] = PROG_SPEC_WORK_PCTS(
+    currLiftSpec?.sets || 0,
+    currLiftSpec?.wtDecrementPct || 0,
+  );
+  progSpecWorkPcts.forEach((pct, idx) => {
+    console.log(`Workset pct ${idx + 1}: ${pct}`);
+    const dataRow = data.find(
+      (row) =>
+        row[entryLiftIdx] === editedLiftName &&
+        row[entrySetIdx] === `Set ${idx + 1}`,
+    );
+    dataRow[entryWeightIdx] = MROUND(currLiftTm * pct, currLiftIncrement);
+  });
+
+  return data;
+}

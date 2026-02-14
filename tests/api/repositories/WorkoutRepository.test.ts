@@ -116,6 +116,8 @@ describe("WorkoutRepository", () => {
     // Provide unordered, 0-based row indices
     repo.hideRows([4, 2, 3]);
     // Should call hideRows with (3, 3) because min([4,2,3]) + 1 = 3, length = 3
-    expect(sheetMock.hideRows).toHaveBeenCalledWith(3, 3);
+    expect(sheetMock.hideRows).toHaveBeenCalledWith(2);
+    expect(sheetMock.hideRows).toHaveBeenCalledWith(3);
+    expect(sheetMock.hideRows).toHaveBeenCalledWith(4);
   });
 });

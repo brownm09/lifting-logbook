@@ -1,30 +1,34 @@
+import {
+  LIFT_DATE_HEADER,
+  PROG_SPEC_WARMUP_PCTS,
+  PROG_SPEC_WORK_PCTS,
+  WARMUP_BASE_REPS,
+} from "@src/core/constants";
+import { LiftingProgramSpec, TrainingMax } from "@src/core/models";
+
 /**
  * Creates a lift plan from a training max and program spec.
  * @param {TrainingMax} tm
- * @param {RptProgramSpec} ps
+ * @param {LiftingProgramSpec} ps
  * @param {Date} startDate
  * @return {any[]}
  */
 
-import { LIFT_DATE_HEADER, WARMUP_BASE_REPS } from "@src/core/constants";
-
-export function generateLiftPlan(tm, ps, startDate) {
+export function generateLiftPlan(
+  tm: TrainingMax,
+  ps: LiftingProgramSpec,
+  startDate: Date,
+) {
   let workoutGrid: any[][] = [];
   const progSpecLiftName = ps.lift;
   const progSpecNumSets = ps.sets;
   const progSpecIncrement = ps.increment;
   const progSpecWtDec = ps.wtDecrementPct;
   // Warm-up percentages
-  const progSpecWarmPcts = `${ps.warmUpPct}`
-    .split(",")
-    .map((pct) => parseFloat(pct));
+  const progSpecWarmPcts = PROG_SPEC_WARMUP_PCTS(ps.warmUpPct);
   // Work set percentages
-  const progSpecWorkPcts = Array(progSpecNumSets)
-    .fill(1)
-    .reduce((acc, num) => {
-      acc.push(num - acc.length * progSpecWtDec);
-      return acc;
-    }, [] as number[]);
+  const progSpecWorkPcts = PROG_SPEC_WORK_PCTS(progSpecNumSets, progSpecWtDec);
+
   for (let k = 0; k < progSpecWarmPcts.length; k++) {
     workoutGrid.push([
       `=INDEX(A1:F, MATCH("${progSpecLiftName}", A1:A, 0), MATCH("${LIFT_DATE_HEADER}", A2:2, 0))`,

@@ -23,7 +23,10 @@ export class WorkoutRepository {
    */
   public hideRows(rowsToHide: number[]): void {
     const sortedRows = [...rowsToHide].sort((a, b) => a - b);
-    this.sheet.hideRows(sortedRows[0] + 1, sortedRows.length);
+    sortedRows.forEach((r) => {
+      this.sheet.hideRows(r);
+    });
+    // this.sheet.hideRows(sortedRows[0] + 1, sortedRows.length);
   }
 
   /**

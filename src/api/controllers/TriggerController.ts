@@ -6,7 +6,11 @@ import {
   LiftingProgramSpecRepository,
   WorkoutRepository,
 } from "@src/api/repositories";
-import { findWorkoutRowsToHideOnEdit, updateLiftDates } from "@src/core";
+import {
+  calculateLiftWeights,
+  findWorkoutRowsToHideOnEdit,
+  updateLiftDates,
+} from "@src/core";
 
 /**
  * Triggered when the spreadsheet is opened.
@@ -31,34 +35,47 @@ export function onEdit(e: GoogleAppsScript.Events.SheetsOnEdit) {
   const dashboard = dashboardRepo.getCycleDashboard();
   const cycleSheetName = dashboard.sheetName;
 
+  const row = e.range.getRow();
+  const col = e.range.getColumn();
+
+  console.log(`Edited sheet: ${editedSheet}, row: ${row}, col: ${col}`);
+
   if (editedSheet === cycleSheetName) {
     const workoutRepo = new WorkoutRepository(editedSheet);
-    const row = e.range.getRow();
-    const col = e.range.getColumn();
-
-    // Scan the entire sheet for the first cell with "Reps"
+    const programSpecRepo = new LiftingProgramSpecRepository();
+    const programSpec = programSpecRepo.getLiftingProgramSpec();
     const workoutData = workoutRepo.getWorkout();
-    const rowsToHide: number[] = findWorkoutRowsToHideOnEdit(
-      workoutData,
-      row - 1,
-      col - 1,
-    );
-    // Hide the identified rows
-    // rowsToHide.forEach(r => workoutRepo.hideRow(r + 1));
-    if (rowsToHide.length > 0) {
-      workoutRepo.hideRows(rowsToHide.map((r) => r + 1));
-    }
 
-    // Check if the edited cell is a date
-    if (e.range.getValue() && !isNaN(Date.parse(e.range.getValue()))) {
-      const programSpecRepo = new LiftingProgramSpecRepository();
-      const programSpec = programSpecRepo.getLiftingProgramSpec();
-      const updatedWorkoutData = updateLiftDates(
+    if (row > programSpec.length + 2) {
+      // Scan the entire sheet for the first cell with "Reps"
+      const rowsToHide: number[] = findWorkoutRowsToHideOnEdit(
         workoutData,
-        programSpec,
         row - 1,
+        col - 1,
       );
-      workoutRepo.setWorkout(updatedWorkoutData);
+      // Hide the identified rows
+      // rowsToHide.forEach(r => workoutRepo.hideRow(r + 1));
+      if (rowsToHide.length > 0) {
+        workoutRepo.hideRows(rowsToHide.map((r) => r + 1));
+      }
+    } else {
+      if (e.range.getValue() && !isNaN(Date.parse(e.range.getValue()))) {
+        // If the edited cell is a date, update lift dates for lifts with the same offset
+        const updatedWorkoutData = updateLiftDates(
+          workoutData,
+          programSpec,
+          row - 1,
+        );
+        workoutRepo.setWorkout(updatedWorkoutData);
+      } else if (e.range.getValue() && !isNaN(parseFloat(e.range.getValue()))) {
+        // If the edited cell is a number, recalculate lift weights
+        const updatedWorkoutData = calculateLiftWeights(
+          workoutData,
+          programSpec,
+          row - 1,
+        );
+        workoutRepo.setWorkout(updatedWorkoutData);
+      }
     }
   }
 }

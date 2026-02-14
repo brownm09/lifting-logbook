@@ -11,7 +11,12 @@ export const WARMUP_BASE_REPS = 5;
 
 // Constants for headers and formatting
 export const CORE_LIFT_HEADER = "Core Lift";
+export const WEIGHT_HEADER = "Weight";
 export const LIFT_DATE_HEADER = "Lift Date";
+export const DATE_HEADER = "Date";
+export const LIFT_HEADER = "Lift";
+export const SET_HEADER = "Set";
+export const NOTES_HEADER = "Notes";
 export const WORKOUT_SHEET_HEADERS = ["Program", "", "Cycle", "", "Weight", ""];
 export const LIFT_SPEC_HEADERS = [
   CORE_LIFT_HEADER,
@@ -22,10 +27,31 @@ export const LIFT_SPEC_HEADERS = [
   "Activ. Ex.",
 ];
 export const LIFT_PLAN_HEADERS = [
-  "Date",
-  "Lift",
-  "Set",
-  "Weight",
+  DATE_HEADER,
+  LIFT_HEADER,
+  SET_HEADER,
+  WEIGHT_HEADER,
   "Reps",
-  "Notes",
+  NOTES_HEADER,
 ];
+
+export const PROG_SPEC_WARMUP_PCTS = (
+  warmUpPcts: string,
+  delimiter: string = ",",
+) => `${warmUpPcts.trim()}`.split(delimiter).map((pct) => parseFloat(pct));
+
+export const MROUND = (number: number, multiple: number) => {
+  return Math.round(number / multiple) * multiple;
+};
+
+export const PROG_SPEC_WORK_PCTS = (
+  numSets: number,
+  wtDecrementPct: number,
+) => {
+  return Array(numSets)
+    .fill(1)
+    .reduce((acc, num) => {
+      acc.push(num - acc.length * wtDecrementPct);
+      return acc;
+    }, []);
+};
