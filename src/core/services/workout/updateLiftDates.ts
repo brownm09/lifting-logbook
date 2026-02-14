@@ -18,7 +18,7 @@ export function updateLiftDates(
   data: any[][],
   programSpecs: LiftingProgramSpec[],
   editedCellRow: number,
-  // editedCellCol: number,
+  editedCellCol: number,
 ): any[][] {
   const workoutMetaHeaderRowIdx = data.findIndex((row) =>
     row.includes(LIFT_DATE_HEADER),
@@ -37,6 +37,14 @@ export function updateLiftDates(
   const editedOffset = programSpecs.find(
     (spec) => spec.lift === editedLiftName,
   )?.offset;
+
+  // If edited column is not the "Lift Date" column, return empty array
+  if (editedCellCol !== liftDateIdx)
+    throw new Error("Edited column is not the Lift Date column.");
+  // If edited row is above reps header, return empty array
+  if (editedCellRow >= workoutEntryHeaderRowIdx)
+    throw new Error("Edited row is not in the metadata section.");
+
   console.log(
     `Edited lift: ${editedLiftName}, Date: ${editedLiftDate}, Offset: ${editedOffset}.`,
   );

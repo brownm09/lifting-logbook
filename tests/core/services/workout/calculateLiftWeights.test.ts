@@ -21,6 +21,26 @@ describe("calculateLiftWeights", () => {
   const liftSpecRowIdx = workoutData.findIndex(
     (row) => row.includes("Squat") && row.includes("KB Swing"),
   );
+  const liftSpecColIdx = workoutData[liftSpecRowIdx].indexOf("Weight");
+
+  it("throws an error if edited column is not the Weight column", () => {
+    workoutData[liftSpecRowIdx][liftTmIdx] = 105; // Set a known TM value for testing
+    expect(() =>
+      calculateLiftWeights(
+        workoutData,
+        rptProgramSpec,
+        liftSpecRowIdx,
+        liftSpecColIdx + 1,
+      ),
+    ).toThrow();
+  });
+
+  it("throws an error if edited row is not the Weight row", () => {
+    workoutData[liftSpecRowIdx][liftTmIdx] = 105; // Set a known TM value for testing
+    expect(() =>
+      calculateLiftWeights(workoutData, rptProgramSpec, -1, liftSpecColIdx),
+    ).toThrow();
+  });
 
   it("modifies all lift weights of core lift with matching offset", () => {
     workoutData[liftSpecRowIdx][liftTmIdx] = 105; // Set a known TM value for testing
@@ -28,6 +48,7 @@ describe("calculateLiftWeights", () => {
       workoutData,
       rptProgramSpec,
       liftSpecRowIdx,
+      liftSpecColIdx,
     );
     const expectedWeights = [42.5, 62.5, 85, 105, 95, 85];
     const actualWeights = Array.from(

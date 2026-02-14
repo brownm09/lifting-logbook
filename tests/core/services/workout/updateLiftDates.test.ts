@@ -13,7 +13,8 @@ describe("updateLiftDates", () => {
   const metaHeaderRowIdx = workoutData.findIndex((row) =>
     row.includes(LIFT_DATE_HEADER),
   );
-  const liftDateIdx = workoutData[metaHeaderRowIdx].indexOf(LIFT_DATE_HEADER);
+  const liftSpecColIdx =
+    workoutData[metaHeaderRowIdx].indexOf(LIFT_DATE_HEADER);
   const entryHeaderRowIdx = workoutData.findIndex((row) =>
     row.includes("Notes"),
   );
@@ -23,13 +24,30 @@ describe("updateLiftDates", () => {
   );
   const newLiftDate = new Date(2026, 0, 15); // Jan 15, 2026
 
+  it("throws an error if edited row is not a lift spec row", () => {
+    expect(() =>
+      updateLiftDates(workoutData, rptProgramSpec, -1, liftSpecColIdx),
+    ).toThrow();
+  });
+
+  it("throws an error if edited column is not the lift date column", () => {
+    expect(() =>
+      updateLiftDates(workoutData, rptProgramSpec, liftSpecRowIdx, -1),
+    ).toThrow();
+  });
+
   it("modifies all lift dates of core lifts with matching offset", () => {
-    workoutData[liftSpecRowIdx][liftDateIdx] = newLiftDate;
-    const result = updateLiftDates(workoutData, rptProgramSpec, liftSpecRowIdx);
+    workoutData[liftSpecRowIdx][liftSpecColIdx] = newLiftDate;
+    const result = updateLiftDates(
+      workoutData,
+      rptProgramSpec,
+      liftSpecRowIdx,
+      liftSpecColIdx,
+    );
     expect(result.length).toBe(77);
     expect(Array.isArray(result)).toBe(true);
     Array.from({ length: 4 }, (_, i) => 7 + i).forEach((rowIdx) => {
-      expect(result[rowIdx][liftDateIdx]).toEqual(newLiftDate);
+      expect(result[rowIdx][liftSpecColIdx]).toEqual(newLiftDate);
     });
     Array.from({ length: 18 }, (_, i) => 42 + i).forEach((rowIdx) => {
       expect(result[rowIdx][entryLiftDateIdx]).toEqual(newLiftDate);

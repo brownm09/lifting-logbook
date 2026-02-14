@@ -1,7 +1,7 @@
-import { findRepsHeaderCoordinates } from "./findRepsHeaderCoordinates";
+import { REPS_HEADER } from "@src/core/constants";
 
 /**
- * Given the sheet data, reps header coordinates, and the edited row,
+ * Given the sheet data and the edited row,
  * returns the rows to hide when a working set's reps cell is edited.
  * Hides the working set row and any warm-up rows for the same lift above it.
  *
@@ -16,15 +16,15 @@ export function findWorkoutRowsToHideOnEdit(
   editedCol: number,
 ): number[] {
   const rowsToHide: number[] = [];
-  // Find coordinates of "Reps" header
-  const repsCoord = findRepsHeaderCoordinates(workoutData);
-  const repsRow = repsCoord.row;
-  const repsCol = repsCoord.col;
+  const repsRow = workoutData.findIndex((row) => row.includes(REPS_HEADER));
+  const repsCol = workoutData[repsRow].indexOf(REPS_HEADER);
 
   // If edited column is not the "Reps" column, return empty array
-  if (editedCol !== repsCol) return [];
+  if (editedCol !== repsCol)
+    throw new Error("Edited column is not the Reps column.");
   // If edited row is above reps header, return empty array
-  if (editedRow <= repsRow) return [];
+  if (editedRow <= repsRow)
+    throw new Error("Edited row is above the data entry section.");
 
   // Find column indices for "Set" and "Lift" in the reps header row
   const SET_COL = workoutData[repsRow].indexOf("Set");

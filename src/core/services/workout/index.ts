@@ -2,7 +2,6 @@ export * from "./calculateLiftWeights";
 export * from "./createGrid";
 export * from "./createGridV2";
 export * from "./extractLiftRecords";
-export * from "./findRepsHeaderCoordinates";
 export * from "./findWorkoutRowsToHideOnEdit";
 export * from "./generateLiftPlan";
 export * from "./generateLiftSpec";

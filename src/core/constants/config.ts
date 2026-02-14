@@ -16,6 +16,7 @@ export const LIFT_DATE_HEADER = "Lift Date";
 export const DATE_HEADER = "Date";
 export const LIFT_HEADER = "Lift";
 export const SET_HEADER = "Set";
+export const REPS_HEADER = "Reps";
 export const NOTES_HEADER = "Notes";
 export const WORKOUT_SHEET_HEADERS = ["Program", "", "Cycle", "", "Weight", ""];
 export const LIFT_SPEC_HEADERS = [
@@ -31,7 +32,7 @@ export const LIFT_PLAN_HEADERS = [
   LIFT_HEADER,
   SET_HEADER,
   WEIGHT_HEADER,
-  "Reps",
+  REPS_HEADER,
   NOTES_HEADER,
 ];
 

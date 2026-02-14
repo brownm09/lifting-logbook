@@ -12,6 +12,11 @@ jest.mock("@src/api/repositories/CycleDashboardRepository");
 jest.mock("@src/core", () => ({
   findWorkoutRowsToHideOnEdit: jest.fn(),
   updateLiftDates: jest.fn().mockReturnValue([]),
+  calculateLiftWeights: jest.fn().mockReturnValue([]),
+  LIFT_DATE_HEADER: "Lift Date",
+  NOTES_HEADER: "Notes",
+  REPS_HEADER: "Reps",
+  WEIGHT_HEADER: "Weight",
 }));
 
 describe("onEdit", () => {
@@ -46,6 +51,14 @@ describe("onEdit", () => {
     }));
 
     (findWorkoutRowsToHideOnEdit as jest.Mock).mockReturnValue([2, 3]);
+
+    getWorkoutMock.mockReturnValue([
+      ["Core Lift", "Scheme", "Lift Date", "Weight"],
+      ["Squat", "3 × 10", new Date("2024-06-01"), 120],
+      ["Lift", "Set", "Reps", "Weight", "Notes"],
+      ["Squat", "Warm-up", 5, 100, ""],
+      ["Squat", "Set 1", 3, 120, ""],
+    ]);
   });
 
   afterEach(() => {
@@ -68,19 +81,15 @@ describe("onEdit", () => {
     expect(WorkoutRepository).not.toHaveBeenCalled();
   });
 
-  it("calls hideRows with rows from findWorkoutRowsToHideOnEdit if edited sheet is the cycle sheet", () => {
+  it("calls findWorkoutRowsToHideOnEdit", () => {
     getNameMock.mockReturnValue("CycleSheet");
     const range = {
       getSheet: getSheetMock,
       getRow: () => 5,
       getColumn: () => 3,
-      getValue: () => "Not a date",
+      getValue: () => 0,
     };
-    getWorkoutMock.mockReturnValue([
-      ["Lift", "Set", "Reps", "Weight"],
-      ["Squat", "Warm-up", 5, 100],
-      ["Squat", "Working", 3, 120],
-    ]);
+
     onEdit({ range } as any);
     expect(WorkoutRepository).toHaveBeenCalledWith("CycleSheet");
     expect(getWorkoutMock).toHaveBeenCalled();
@@ -92,56 +101,24 @@ describe("onEdit", () => {
     expect(hideRowsMock).toHaveBeenCalledWith([3, 4]);
   });
 
-  it("does not throw if findWorkoutRowsToHideOnEdit returns empty array", () => {
-    getNameMock.mockReturnValue("CycleSheet");
-    (findWorkoutRowsToHideOnEdit as jest.Mock).mockReturnValue([]);
-    const range = {
-      getSheet: getSheetMock,
-      getRow: () => 3,
-      getColumn: () => 2,
-      getValue: () => "Not a date",
-    };
-    getWorkoutMock.mockReturnValue([
-      ["Lift", "Set", "Reps", "Weight"],
-      ["Squat", "Warm-up", 5, 40],
-      ["Squat", "Warm-up", 4, 60],
-    ]);
-    expect(() => onEdit({ range } as any)).not.toThrow();
-    expect(findWorkoutRowsToHideOnEdit).toHaveBeenCalledWith(
-      expect.any(Array),
-      2,
-      1,
-    );
-    expect(hideRowsMock).not.toHaveBeenCalled();
-  });
-
   it("calls updateLiftDates if edited cell is a date", () => {
     getNameMock.mockReturnValue("CycleSheet");
     const range = {
       getSheet: getSheetMock,
       getRow: () => 2,
       getColumn: () => 3,
-      getValue: () => new Date("2024-06-03"),
+      getValue: () => new Date(2024, 5, 3),
     };
-    getWorkoutMock.mockReturnValue([
-      ["Lift", "Set", "Reps", "Lift Date"],
-      ["Squat", "Warm-up", 5, new Date("2024-06-01")],
-      ["Squat", "Working", 3, new Date("2024-06-01")],
-    ]);
     (findWorkoutRowsToHideOnEdit as jest.Mock).mockReturnValue([]);
     onEdit({ range } as any);
     expect(WorkoutRepository).toHaveBeenCalledWith("CycleSheet");
     expect(getWorkoutMock).toHaveBeenCalled();
-    // expect(findWorkoutRowsToHideOnEdit).toHaveBeenCalledWith(
-    //   expect.any(Array),
-    //   1,
-    //   2,
-    // );
     expect(hideRowsMock).not.toHaveBeenCalled();
     expect(updateLiftDates).toHaveBeenCalledWith(
       expect.any(Array),
       expect.any(Array),
       1,
+      2,
     );
     expect(setWorkoutMock).toHaveBeenCalledWith(expect.any(Array));
   });

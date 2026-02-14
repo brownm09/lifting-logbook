@@ -7,7 +7,7 @@
 export function getNextDate(
   prevDate: Date,
   targetWeekday: number = prevDate.getDay(),
-  today: Date = null,
+  today: Date | null = null,
 ): Date {
   const prevDay = prevDate.getDay();
   const weekday = typeof targetWeekday === "number" ? targetWeekday : prevDay;

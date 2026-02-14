@@ -22,7 +22,7 @@ export function calculateLiftWeights(
   data: any[][],
   programSpecs: LiftingProgramSpec[],
   editedCellRow: number,
-  // editedCellCol: number,
+  editedCellCol: number,
 ): any[][] {
   const workoutMetaHeaderRowIdx = data.findIndex((row) =>
     row.includes(LIFT_DATE_HEADER),
@@ -45,11 +45,17 @@ export function calculateLiftWeights(
   const editedOffset = currLiftSpec?.offset;
   const currLiftTm = data[editedCellRow][metaWeightIdx];
   const currLiftIncrement = currLiftSpec?.increment || 1;
+
+  // If edited column is not the "Reps" column, return empty array
+  if (editedCellCol !== metaWeightIdx)
+    throw new Error("Edited column is not the Weight column.");
+  // If edited row is above reps header, return empty array
+  if (editedCellRow >= workoutEntryHeaderRowIdx)
+    throw new Error("Edited row is not in the metadata section.");
+
   console.log(
     `Edited lift: ${editedLiftName}, Weight: ${currLiftTm}, Offset: ${editedOffset}.`,
   );
-
-  const liftWeights = [];
 
   const progSpecWarmPcts: number[] = PROG_SPEC_WARMUP_PCTS(
     currLiftSpec?.warmUpPct || "",
