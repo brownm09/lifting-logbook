@@ -22,9 +22,9 @@ export function createGridV2(
   progSpecData: LiftingProgramSpec[],
   tmData: TrainingMax[],
 ) {
-  // console.log(
-  //   `Creating grid with ${progSpecData.length} lift specs and ${tmData.length} training maxes starting from ${startDate.toISOString()}.`,
-  // );
+  console.log(
+    `Creating grid with ${progSpecData.length} lift specs and ${tmData.length} training maxes starting from ${cycleDashboard.cycleDate.toISOString()}.`,
+  );
 
   let resultGrid: any[][] = [];
 
@@ -39,20 +39,21 @@ export function createGridV2(
 
   // console.log(`Program spec data: \n\t${progSpecData.join('\n\t')}`)
   // console.log(`Training max data: \n\t${tmData.join('\n\t')}`)
-  for (let i = 0; i < tmData.length; i++) {
-    const tm = tmData[i];
-    // console.log(`Training max: ${tm.lift}, ${tm.weight}`);
-    for (let j = 0; j < progSpecData.length; j++) {
-      const ps = progSpecData[j];
-      // console.log(`Program spec: ${ps.lift}, ${ps.offset}, ${ps.sets}, ${ps.reps}, ${ps.warmUpPct}, ${ps.wtDecrementPct}`);
-      if (ps.lift === tm.lift && ps.offset >= 0) {
+  progSpecData.forEach((ps) => {
+    console.log(
+      `Program spec: ${ps.lift}, ${ps.offset}, ${ps.sets}, ${ps.reps}, ${ps.warmUpPct}, ${ps.wtDecrementPct}`,
+    );
+    if (ps.offset >= 0) {
+      const tm = tmData.find((t) => t.lift === ps.lift);
+      if (tm) {
+        console.log(`Training max: ${tm.lift}, ${tm.weight}`);
         const liftSpec = generateLiftSpec(tm, ps, cycleDashboard.cycleDate);
         progSpecGrid.push(liftSpec);
         const liftPlan = generateLiftPlan(tm, ps, cycleDashboard.cycleDate);
         workoutGrid.push(...liftPlan);
       }
     }
-  }
+  });
 
   resultGrid.push(...progSpecGrid, ...workoutGrid);
   return resultGrid;

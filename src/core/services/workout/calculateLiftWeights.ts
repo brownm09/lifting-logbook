@@ -68,7 +68,9 @@ export function calculateLiftWeights(
         row[entryLiftIdx] === editedLiftName &&
         row[entrySetIdx] === `Warm-up ${idx + 1}`,
     );
-    dataRow[entryWeightIdx] = MROUND(currLiftTm * pct, currLiftIncrement);
+    if (dataRow) {
+      dataRow[entryWeightIdx] = MROUND(currLiftTm * pct, currLiftIncrement);
+    }
   });
 
   const progSpecWorkPcts: number[] = PROG_SPEC_WORK_PCTS(
@@ -82,7 +84,9 @@ export function calculateLiftWeights(
         row[entryLiftIdx] === editedLiftName &&
         row[entrySetIdx] === `Set ${idx + 1}`,
     );
-    dataRow[entryWeightIdx] = MROUND(currLiftTm * pct, currLiftIncrement);
+    if (dataRow) {
+      dataRow[entryWeightIdx] = MROUND(currLiftTm * pct, currLiftIncrement);
+    }
   });
 
   return data;
