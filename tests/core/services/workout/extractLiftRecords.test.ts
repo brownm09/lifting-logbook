@@ -17,6 +17,12 @@ describe("extractLiftRecords", () => {
       "Missing required program or cycle number in lift records data.",
     );
   });
+  it("throws an error when a header is missing", () => {
+    const data = loadCsvFixture("rpt_week_1_20260105_err_2.csv");
+    expect(() => extractLiftRecords(data)).toThrow(
+      "Unexpected column header 'TM' at row 16, column 4.",
+    );
+  });
   it("extracts valid lift records from a 2D grid, skipping incomplete rows", () => {
     const data = loadCsvFixture("rpt_week_1_20260105.csv");
     const records = extractLiftRecords(data);

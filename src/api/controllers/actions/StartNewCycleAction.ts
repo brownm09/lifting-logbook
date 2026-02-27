@@ -41,13 +41,18 @@ export class StartNewCycleAction {
       const workoutRepo = new WorkoutRepository(dashboard.sheetName);
       const workoutData = workoutRepo.getWorkout();
       const newLiftRecords: LiftRecord[] = extractLiftRecords(workoutData);
-
+      console.log(
+        `Extracted ${newLiftRecords.length} lift records from current workout sheet: ${JSON.stringify(newLiftRecords)}.`,
+      );
       const newCycle: CycleDashboard = updateCycle(dashboard);
       console.log(`New cycle generated: ${JSON.stringify(newCycle)}.`);
       const newTrainingMaxes = updateMaxes(
         programSpec,
         trainingMaxes,
         newLiftRecords,
+      );
+      console.log(
+        `Updated training maxes for new cycle: ${JSON.stringify(newTrainingMaxes)}.`,
       );
       const newWorkout = createGridV2(newCycle, programSpec, newTrainingMaxes);
 

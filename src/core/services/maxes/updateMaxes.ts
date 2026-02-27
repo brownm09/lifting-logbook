@@ -36,15 +36,15 @@ export function updateMaxes(
     const spec = programSpec.find((ps) => ps.lift === liftName);
     if (!spec) throw new Error(`Program spec for lift ${liftName} not found.`);
 
-    // console.log(
-    //   `Current training max for ${liftName}: weight=${newMaxes[tmIndex].weight}, date=${newMaxes[tmIndex].dateUpdated}`,
-    // );
-    // console.log(
-    //   `Program spec for ${liftName}: reps=${spec.reps}, increment=${spec.increment}`,
-    // );
-    // console.log(
-    //   `Lift record for ${liftName}: set=${record.setNum} reps=${record.reps}, date=${record.date}, weight=${record.weight}`,
-    // );
+    console.log(
+      `Current training max for ${liftName}: weight=${newMaxes[tmIndex].weight}, date=${newMaxes[tmIndex].dateUpdated}`,
+    );
+    console.log(
+      `Program spec for ${liftName}: reps=${spec.reps}, increment=${spec.increment}`,
+    );
+    console.log(
+      `Lift record for ${liftName}: set=${record.setNum} reps=${record.reps}, date=${record.date}, weight=${record.weight}`,
+    );
 
     // Check reps and date conditions
     if (
@@ -53,7 +53,16 @@ export function updateMaxes(
         new Date(newMaxes[tmIndex].dateUpdated).getTime()
     ) {
       // Update training max
-      newMaxes[tmIndex].weight = record.weight + spec.increment;
+      const updatedWeight = record.weight + spec.increment;
+      console.log(
+        `Updating training max for ${liftName} from weight=${newMaxes[tmIndex].weight} to weight=${updatedWeight} based on lift record.`,
+      );
+      if (typeof updatedWeight !== "number" || isNaN(updatedWeight)) {
+        throw new Error(
+          `Updated weight for ${liftName} is not a valid number: ${updatedWeight}`,
+        );
+      }
+      newMaxes[tmIndex].weight = updatedWeight;
       newMaxes[tmIndex].dateUpdated = record.date;
     }
   });

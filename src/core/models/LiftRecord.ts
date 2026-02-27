@@ -8,5 +8,17 @@ export interface LiftRecord {
   setNum: number;
   weight: number;
   reps: number;
-  notes?: string;
+  notes: string;
 }
+
+export const LiftRecordRequiredKeys: Array<keyof LiftRecord> = [
+  "program",
+  "cycleNum",
+  "workoutNum",
+  "date",
+  "lift",
+  "setNum",
+  "weight",
+  "reps",
+  "notes",
+];

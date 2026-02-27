@@ -1,4 +1,4 @@
-import { LiftRecord } from "@src/core";
+import { LiftRecord, LiftRecordRequiredKeys, REPS_HEADER } from "@src/core";
 
 /**
  * Extract lift records from a 2D grid of data.
@@ -35,14 +35,8 @@ export function extractLiftRecords(data: any[][]): LiftRecord[] {
     );
   }
   // Find the header row for lift records
-  const headerIdx = data.findIndex(
-    (row) =>
-      Array.isArray(row) &&
-      row.length >= 6 &&
-      row[0] === "Date" &&
-      row[1] === "Lift" &&
-      row[2] === "Set",
-  );
+  const headerIdx = data.findIndex((row) => row.includes(REPS_HEADER));
+
   if (headerIdx === -1) throw new Error("Lift records header row not found.");
   const headers = data[headerIdx];
   const records: LiftRecord[] = [];
@@ -108,6 +102,15 @@ export function extractLiftRecords(data: any[][]): LiftRecord[] {
           rec[key.trim().toLowerCase()] = Number(value);
           break;
         default:
+          if (
+            !LiftRecordRequiredKeys.includes(
+              key.toLowerCase().trim() as keyof LiftRecord,
+            )
+          ) {
+            throw new Error(
+              `Unexpected column header '${key}' at row ${headerIdx + 1}, column ${j + 1}.`,
+            );
+          }
           rec[key.trim().toLowerCase()] = value;
           break;
       }
@@ -117,7 +120,18 @@ export function extractLiftRecords(data: any[][]): LiftRecord[] {
     rec.program = program;
     rec.cycleNum = cycleNum;
     rec.workoutNum = workoutNum;
-    records.push(rec as LiftRecord);
+
+    // Validate all LiftRecord keys (including notes)
+    const recTyped = rec as LiftRecord;
+    const missingKeys = LiftRecordRequiredKeys.filter(
+      (key) => recTyped[key] === undefined || recTyped[key] === null,
+    );
+    if (missingKeys.length > 0) {
+      throw new Error(
+        `LiftRecord is missing required values for keys: ${missingKeys.join(", ")} at row ${headerIdx + i + 1}`,
+      );
+    }
+    records.push(recTyped);
   }
   return records;
 }
