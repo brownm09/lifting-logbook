@@ -1,5 +1,4 @@
 node_modules/
-.clasp.json
 .clasptoken*
 .DS_Store
 dist/

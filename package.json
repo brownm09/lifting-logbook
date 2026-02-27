@@ -7,8 +7,9 @@
     "clean": "rimraf dist",
     "clean-index": "node scripts/clean-index.js",
     "flatten-dist": "node scripts/flatten-dist.js",
-    "push": "clasp push",
-    "pull": "clasp pull",
+    "clasp-login": "node scripts/check-clasp-login.js",
+    "push": "npm run clasp-login && clasp push",
+    "pull": "npm run clasp-login && clasp pull",
     "watch": "node scripts/watch.js",
     "lint": "eslint src/**/*.ts",
     "prebuild": "node scripts/mkdir-dist.js",
@@ -16,7 +17,8 @@
     "build": "tsc --noEmit && node build.js",
     "clean-build": "npm run clean && npm run build",
     "postbuild-deprecated": "npm run flatten-dist && npm run clean-index",
-    "deploy": "npm run build && clasp push && git add . && git commit -m 'Deploy update' && git push",
+    "deploy": "npm run clasp-login && npm run clean-build && clasp push && git add . && git commit -m 'Deploy update' && git push",
+    "deploy-silent": "npm run clasp-login && npm run clean-build && clasp push",
     "test": "jest"
   },
   "repository": {
@@ -32,7 +34,7 @@
   },
   "homepage": "https://github.com/brownm09/gas-lifting-logbook#readme",
   "devDependencies": {
-    "@google/clasp": "^3.1.3",
+    "@google/clasp": "^3.2.0",
     "@types/csv-parse": "^1.1.12",
     "@types/google-apps-script": "^2.0.8",
     "@types/jest": "^30.0.0",
@@ -50,6 +52,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "clasp": "^1.0.0",
     "glob": "^13.0.0"
   }
 }

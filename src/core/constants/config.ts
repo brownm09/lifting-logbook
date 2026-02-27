@@ -24,7 +24,7 @@ export const LIFT_SPEC_HEADERS = [
   CORE_LIFT_HEADER,
   "Scheme",
   "Inc. Amt.",
-  "TM",
+  SPEC_WEIGHT_HEADER,
   LIFT_DATE_HEADER,
   "Activ. Ex.",
 ];
@@ -32,7 +32,7 @@ export const LIFT_PLAN_HEADERS = [
   DATE_HEADER,
   LIFT_HEADER,
   SET_HEADER,
-  SPEC_WEIGHT_HEADER,
+  LIFT_WEIGHT_HEADER,
   REPS_HEADER,
   NOTES_HEADER,
 ];
@@ -40,7 +40,11 @@ export const LIFT_PLAN_HEADERS = [
 export const PROG_SPEC_WARMUP_PCTS = (
   warmUpPcts: string,
   delimiter: string = ",",
-) => `${warmUpPcts.trim()}`.split(delimiter).map((pct) => parseFloat(pct));
+) =>
+  `${warmUpPcts}`
+    .trim()
+    .split(delimiter)
+    .map((pct) => parseFloat(pct));
 
 export const MROUND = (number: number, multiple: number) => {
   return Math.round(number / multiple) * multiple;
