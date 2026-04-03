@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": ".",
+    "target": "es5",
+    "lib": ["es2015"],
+    "module": "commonjs",
+    "typeRoots": ["./node_modules/@types"],
+    "types": ["google-apps-script", "jest", "node"],
+    "esModuleInterop": true,
+    "noEmitOnError": true,
+    "sourceMap": false,
+    "baseUrl": ".",
+    "paths": {
+      "@src/*": ["src/*"],
+      "@tests/*": ["tests/*"]
+    }
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "legacy",
+    "src/**/index.ts",
+    "tests/**/index.ts"
+  ]
+}

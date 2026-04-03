@@ -1,0 +1,171 @@
+// Test/demo functions moved from workout.ts
+import { updateName } from "../src/api/update";
+import {
+  hideFilledColumns,
+  updateColView,
+  updateLiftView,
+} from "../src/api/view";
+import { createGrid } from "../src/core/services/workout/createGrid";
+import { clearDates, clearEntries } from "./clearData";
+import {
+  MAIN_LIFT_NAMES,
+  RPT_SPEC_SHEET_NAME,
+  TM_SHEET_NAME,
+} from "./constants";
+import { updateTOC } from "./contents";
+import { handleException } from "./error";
+import { cropSheet, formatSheet } from "./format";
+import { createNamedRange, identifyLiftRanges } from "./namedRanges";
+
+export function testCreateGrid() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var specSheet = ss.getSheetByName(RPT_SPEC_SHEET_NAME);
+  var tmSheet = ss.getSheetByName(TM_SHEET_NAME);
+  // var histSheet = ss.getSheetByName(RPT_HIST_SHEET_NAME);
+  var specData = specSheet.getDataRange().getValues();
+  var tmData = tmSheet.getDataRange().getValues();
+  // var histData = histSheet.getDataRange().getValues();
+  console.log(`Program spec data: \n\t${specData.join("\n\t")}`);
+  console.log(`Training max data: \n\t${tmData.join("\n\t")}`);
+  const result = createGrid(specData, tmData, new Date());
+  console.log(`Cycle grid: \n\t${result.join("\n\t")}`);
+}
+
+export function testApplyGrid() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var specSheet = ss.getSheetByName(RPT_SPEC_SHEET_NAME);
+  var tmSheet = ss.getSheetByName(TM_SHEET_NAME);
+  // var histSheet = ss.getSheetByName(RPT_HIST_SHEET_NAME);
+  var specData = specSheet.getDataRange().getValues();
+  var tmData = tmSheet.getDataRange().getValues();
+  // var histData = histSheet.getDataRange().getValues();
+  console.log(`Program spec data: \n\t${specData.join("\n\t")}`);
+  console.log(`Training max data: \n\t${tmData.join("\n\t")}`);
+  const result = createGrid(specData, tmData, new Date());
+  console.log(`Cycle grid: \n\t${result.join("\n\t")}`);
+  ss.insertSheet();
+  var newSheet = ss.getActiveSheet();
+  newSheet.getRange(1, 1, result.length, result[0].length).setValues(result);
+  cropSheet(newSheet);
+  formatSheet(newSheet);
+}
+export function testUpdateToc() {
+  updateTOC();
+}
+
+export function testRenameSheet() {
+  const testSheetName1 = "Cycle_2.2.0_Leader_FSL";
+  const testSheetName2 = "Cycle_3.0.0_Leader_SSL";
+  // const sheet1 = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(testSheetName1);
+  // hideFilledColumns(sheet1);
+  const sheet2 =
+    SpreadsheetApp.getActiveSpreadsheet().getSheetByName(testSheetName2);
+  updateName(sheet2);
+}
+export function testHideColumns() {
+  const testSheetName1 = "Cycle_2.2.0_Leader_FSL";
+  const testSheetName2 = "Cycle_3.0.0_Leader_SSL";
+  const sheet1 =
+    SpreadsheetApp.getActiveSpreadsheet().getSheetByName(testSheetName1);
+  hideFilledColumns(sheet1);
+  const sheet2 =
+    SpreadsheetApp.getActiveSpreadsheet().getSheetByName(testSheetName2);
+  // hideFilledColumns(sheet2);
+}
+
+export function testClearEntries() {
+  const testSheetName2 = "Cycle_3.0.0_Leader_SSL";
+  const sheet =
+    SpreadsheetApp.getActiveSpreadsheet().getSheetByName(testSheetName2);
+  const range = sheet.getRange("A37:E42");
+  clearEntries(sheet, range);
+}
+
+export function testClearDates() {
+  const testSheetName2 = "Cycle_3.0.0_Leader_SSL";
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  try {
+    var testSheet = ss.getSheetByName(testSheetName2);
+    var result = clearDates(testSheet);
+  } catch (err) {
+    handleException(err, "Exception found while clearing dates from sheet");
+  }
+}
+
+export function testIdentfyLiftRanges() {
+  const testSheetName1 = "Cycle_2.2.0_Leader_FSL";
+  const testSheetName2 = "Cycle_3.0.0_Leader_SSL";
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  var testSheet = null;
+  var result = null;
+  try {
+    testSheet = ss.getSheetByName(testSheetName2);
+    result = identifyLiftRanges(testSheet);
+    if (result != null) {
+      Logger.log(result);
+    } else {
+      Logger.log("Result = null");
+    }
+  } catch (err) {
+    handleException(err, "Exception found while identifying named ranges");
+  }
+}
+
+export function testCreateLiftRanges() {
+  const testSheetName1 = "Cycle_2.2.0_Leader_FSL";
+  const testSheetName2 = "Cycle_3.0.0_Leader_SSL";
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  var testSheet = null;
+  var result = null;
+  try {
+    testSheet = ss.getSheetByName(testSheetName2);
+    ss.setActiveSheet(testSheet);
+    result = identifyLiftRanges(testSheet);
+    if (result != null) {
+      Logger.log(result);
+      MAIN_LIFT_NAMES.forEach((liftName) => {
+        createNamedRange(testSheetName2, liftName, result[liftName]);
+      });
+      // ss.getNamedRanges().forEach(namedRange => {
+      //   Logger.log("Removing named range '%s'", namedRange.getName());
+      //   ss.removeNamedRange(namedRange.getName())
+      // });
+    } else {
+      Logger.log("Result = null");
+    }
+  } catch (err) {
+    handleException(err, "Exception found while identifying named ranges");
+  }
+}
+
+export function testUpdateView() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const testSheetName2 = "Cycle_3.0.0_Leader_SSL";
+  const testSheet = ss.getSheetByName(testSheetName2);
+  ss.setActiveSheet(testSheet);
+  updateColView(testSheet, 3);
+  updateLiftView(testSheet, "Bench Press");
+}
+
+export function testRptUpdates() {
+  const sheetName = "Copy of RPT_Week_1_20221024";
+  const sheet = SpreadsheetApp.getActive().getSheetByName(sheetName);
+  // updateRptNumbers(sheet);
+  // clearRptEntries(sheet);
+  // clearDates(sheet);
+  // updateNameRpt(sheet);
+}
+
+/**
+ * A test helper function.
+ */
+export function testDeleteNamedRanges() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  var namedRanges = ss.getNamedRanges();
+  Logger.log(`Found ${namedRanges.length} named ranges.`);
+  namedRanges.forEach((namedRange) => {
+    Logger.log("Removing named range '%s'", namedRange.getName());
+    namedRange.remove();
+    // ss.removeNamedRange(namedRange.getName())
+  });
+}

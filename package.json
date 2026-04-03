@@ -1,0 +1,58 @@
+{
+  "name": "gas-lifting-logbook",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "clean": "rimraf dist",
+    "clean-index": "node scripts/clean-index.js",
+    "flatten-dist": "node scripts/flatten-dist.js",
+    "clasp-login": "node scripts/check-clasp-login.js",
+    "push": "npm run clasp-login && clasp push",
+    "pull": "npm run clasp-login && clasp pull",
+    "watch": "node scripts/watch.js",
+    "lint": "eslint src/**/*.ts",
+    "prebuild": "node scripts/mkdir-dist.js",
+    "build-deprecated": "tsc && node build.js",
+    "build": "tsc --noEmit && node build.js",
+    "clean-build": "npm run clean && npm run build",
+    "postbuild-deprecated": "npm run flatten-dist && npm run clean-index",
+    "deploy": "npm run clasp-login && npm run clean-build && clasp push && git add . && git commit -m 'Deploy update' && git push",
+    "deploy-silent": "npm run clasp-login && npm run clean-build && clasp push",
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/brownm09/gas-lifting-logbook.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/brownm09/gas-lifting-logbook/issues"
+  },
+  "homepage": "https://github.com/brownm09/gas-lifting-logbook#readme",
+  "devDependencies": {
+    "@google/clasp": "^3.2.0",
+    "@types/csv-parse": "^1.1.12",
+    "@types/google-apps-script": "^2.0.8",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^25.0.9",
+    "@typescript-eslint/eslint-plugin": "^8.53.0",
+    "@typescript-eslint/parser": "^8.53.0",
+    "csv-parse": "^6.1.0",
+    "esbuild": "^0.27.2",
+    "eslint": "^9.39.2",
+    "eslint-plugin-googleappsscript": "^1.0.5",
+    "husky": "^9.1.7",
+    "jest": "^30.2.0",
+    "rimraf": "^6.1.2",
+    "ts-jest": "^29.4.6",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "clasp": "^1.0.0",
+    "glob": "^13.0.0"
+  }
+}

@@ -1,0 +1,23 @@
+Program,Cycle #,Workout #,Date,Lift,Set #,Weight,Reps,Notes
+RPT,1,1,1/5/2026,Bench P.,1,182.5,6,Might consider a different activation exercise.
+RPT,1,1,1/5/2026,Bench P.,2,172.5,6,
+RPT,1,1,1/5/2026,Bench P.,3,165,6,
+RPT,1,1,1/5/2026,BB Row,1,177.5,8,
+RPT,1,1,1/5/2026,BB Row,2,167.5,8,
+RPT,1,1,1/5/2026,BB Row,3,160,8,
+RPT,1,1,1/5/2026,Calf Raise,1,217.5,10,
+RPT,1,1,1/5/2026,Calf Raise,2,195,12,
+RPT,1,1,1/5/2026,C. Lat Raise,1,12.5,12,"L:12, R:10"
+RPT,1,1,1/5/2026,C. Lat Raise,2,11.25,11,"L:11, R:10"
+RPT,1,1,1/5/2026,C. Lat Raise,3,10,11,"L:11, R:10"
+RPT,1,2,1/7/2026,Squat,1,225,5,
+RPT,1,2,1/7/2026,Chin-up,1,225,9,
+RPT,1,2,1/7/2026,Chin-up,2,215,8,
+RPT,1,2,1/7/2026,Chin-up,3,202.5,5,
+RPT,1,2,1/7/2026,Dip,1,225,10,
+RPT,1,2,1/7/2026,Dip,2,202.5,10,
+RPT,1,3,1/13/2026,Deadlift,1,265,6,
+RPT,1,3,1/13/2026,Deadlift,2,237.5,9,
+RPT,1,3,1/13/2026,OH Press,1,105,7,
+RPT,1,3,1/13/2026,OH Press,3,95,6,
+RPT,1,3,1/13/2026,CBL Curls,1,70,8,
