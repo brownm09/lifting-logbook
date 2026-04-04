@@ -1,0 +1,77 @@
+# ADR-007: Next.js App Router for Web Frontend
+
+**Status:** Accepted
+**Date:** 2026-04-03
+
+---
+
+## Context
+
+The web frontend must replace the spreadsheet UI entirely, providing workout logging, training
+max management, cycle dashboard visualization, and lift record history. The frontend must work
+against the backend API defined in [ADR-006](ADR-006-rest-and-graphql-dual-transport.md) and
+authenticate via the provider chosen in [ADR-005](ADR-005-authentication-strategy.md).
+
+The choice is between **Next.js (App Router)** and **bare React (e.g., Vite + React Router)**.
+Note: Next.js is a framework built on React — this is not a choice between React and something
+else, but between a bare React SPA setup and a full-stack React framework.
+
+---
+
+## Decision
+
+Use **Next.js with the App Router** (Next.js 14+).
+
+- React Server Components (RSC) for data-fetching pages that do not require interactivity
+- Client Components (`"use client"`) for interactive workout logging UI
+- Clerk's Next.js SDK for authentication (`@clerk/nextjs`)
+- The Next.js app calls the backend API (`apps/api`) — it does not use Next.js API routes as a
+  backend, keeping the API independently deployable and usable by the mobile client
+
+---
+
+## Rationale
+
+**Next.js vs. bare React (Vite):**
+- **React Server Components** are the current frontier of React development (2025–2026). The
+  App Router's server/client component model is the direction the React core team has committed
+  to. Demonstrating fluency with RSC shows currency with the ecosystem.
+- **File-based routing** reduces boilerplate. App Router's nested layouts are well-suited to
+  the dashboard-style UI this application needs (e.g., a persistent nav with per-page content).
+- **Streaming and Suspense** enable progressive rendering of data-heavy pages (e.g., a cycle
+  dashboard with multiple data fetches) without client-side loading spinners.
+- **Image optimization, font loading, and bundle splitting** come for free.
+- **Portfolio signal:** Next.js App Router is the standard choice for production React
+  applications as of 2025. Demonstrating it shows alignment with industry practice.
+
+**Why not use Next.js API routes as the backend:**
+- The backend must be independently deployable (Kubernetes / Cloud Run — [ADR-009](ADR-009-infrastructure-kubernetes-cloud-run.md)) and consumed
+  by both web and mobile clients. Tying the API to the Next.js server would couple the web
+  deployment to the API lifecycle and exclude mobile clients from using the same endpoints.
+
+---
+
+## Consequences
+
+- The server/client component boundary requires deliberate attention. Data fetching happens in
+  Server Components; event handlers and stateful UI happen in Client Components.
+- Clerk's Next.js SDK provides middleware-based auth that works cleanly with the App Router.
+- The Next.js app is deployed as a separate container from the API server. In Kubernetes, this
+  is a separate Deployment; on Cloud Run, a separate service.
+- Testing strategy: Server Components are tested with integration tests (next/jest); Client
+  Components are tested with React Testing Library.
+
+---
+
+## Alternatives Considered
+
+**Vite + React + React Router:** Simpler setup, pure SPA, no server/client boundary to reason
+about. Appropriate for teams not yet investing in RSC. Ruled out because the App Router's
+patterns are more representative of where the ecosystem is heading, which serves the portfolio
+goal.
+
+**Remix:** Another full-stack React framework with strong data loading patterns. Excellent
+choice, but smaller ecosystem than Next.js. Ruled out on portfolio visibility grounds.
+
+**Vue or Svelte:** Viable frontend frameworks. Ruled out because the codebase is TypeScript-
+native and the team (and portfolio) is React-focused.
