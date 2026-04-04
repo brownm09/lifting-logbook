@@ -1,3 +1,9 @@
+## Origin
+
+This repository is a duplicate of [brownm09/gas-lifting-logbook](https://github.com/brownm09/gas-lifting-logbook), from which it was forked as a starting point for further development.
+
+---
+
 # Gas Lifting Logbook
 
 This project is a Google Apps Script (GAS) application for managing and automating a strength training logbook in Google Sheets. It supports advanced features for tracking cycles, updating training maxes, and automating sheet management for RPT ~~and 5/3/1~~ workout programs.
