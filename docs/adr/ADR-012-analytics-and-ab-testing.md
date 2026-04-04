@@ -1,0 +1,174 @@
+# ADR-012: Analytics and A/B Testing — Firebase Analytics and Optimizely
+
+**Status:** Accepted
+**Date:** 2026-04-03
+
+---
+
+## Context
+
+The application conducts two instrumented comparisons:
+
+1. **React Native vs. Native Kotlin** ([ADR-008](ADR-008-mobile-strategy.md)): Client technology A/B test
+2. **GKE Autopilot vs. Cloud Run** ([ADR-009](ADR-009-infrastructure-kubernetes-cloud-run.md)): Infrastructure A/B test
+
+For the client comparison to produce valid results, both clients must emit identical, comparable
+telemetry. This requires a shared event taxonomy, consistent instrumentation, and analytics
+tooling that supports both React Native and native Android SDKs.
+
+For the infrastructure comparison, server-side metrics from Cloud Monitoring are sufficient
+([ADR-009](ADR-009-infrastructure-kubernetes-cloud-run.md)). This ADR focuses on client-side analytics.
+
+---
+
+## Decision
+
+Use **Firebase Analytics** for behavioral analytics and **Optimizely Feature Experimentation**
+for controlled A/B experiments. Define a **shared event taxonomy** in `packages/types` and
+import it in both mobile clients.
+
+### SDK Availability
+
+| Tool | React Native | Native Kotlin (Android) |
+|---|---|---|
+| Firebase Analytics | `@react-native-firebase/analytics` | `com.google.firebase:firebase-analytics` |
+| Firebase Crashlytics | `@react-native-firebase/crashlytics` | `com.google.firebase:firebase-crashlytics` |
+| Firebase Performance | `@react-native-firebase/perf` | `com.google.firebase:firebase-perf` |
+| Optimizely | `@optimizely/react-sdk` | `com.optimizely.sdk:android-sdk` |
+
+Both SDKs for each tool are fully supported and actively maintained.
+
+### Shared Event Taxonomy
+
+Defined in `packages/types/src/analytics.ts` and imported by both clients:
+
+```typescript
+// packages/types/src/analytics.ts
+
+export const AnalyticsEvent = {
+  // Workout logging
+  WORKOUT_STARTED:        'workout_started',
+  WORKOUT_COMPLETED:      'workout_completed',
+  WORKOUT_ABANDONED:      'workout_abandoned',
+  SET_LOGGED:             'set_logged',
+
+  // Navigation
+  SCREEN_VIEWED:          'screen_viewed',
+
+  // Training maxes
+  TRAINING_MAXES_UPDATED: 'training_maxes_updated',
+
+  // Cycle management
+  CYCLE_STARTED:          'cycle_started',
+  CYCLE_DASHBOARD_VIEWED: 'cycle_dashboard_viewed',
+} as const;
+
+export type AnalyticsEventName = typeof AnalyticsEvent[keyof typeof AnalyticsEvent];
+
+// Event properties — each event name maps to its expected property shape
+export interface EventProperties {
+  workout_started:        { lift: string; week: number; cycle: number; client: ClientType };
+  workout_completed:      { lift: string; week: number; cycle: number; duration_seconds: number; client: ClientType };
+  workout_abandoned:      { lift: string; week: number; cycle: number; client: ClientType };
+  set_logged:             { lift: string; reps: number; weight: number; unit: 'lbs' | 'kg'; client: ClientType };
+  screen_viewed:          { screen_name: string; client: ClientType };
+  training_maxes_updated: { lift_count: number; client: ClientType };
+  cycle_started:          { cycle: number; client: ClientType };
+  cycle_dashboard_viewed: { cycle: number; client: ClientType };
+}
+
+export type ClientType = 'react_native' | 'kotlin_compose' | 'web';
+```
+
+The `client` property on every event is what enables segmentation in Firebase Analytics to
+compare React Native vs. Kotlin behavior.
+
+### Optimizely Usage
+
+Optimizely Feature Experimentation is used for controlled experiments where a specific feature
+or UI variant is being tested, beyond the broad client-technology comparison. Example:
+
+- **Experiment:** Single-screen workout logging vs. multi-step wizard
+- **Metric:** `workout_completed` rate per `workout_started`
+- **Split:** 50/50, applied independently within each client cohort
+
+Both the React Native and Kotlin clients integrate with Optimizely's respective SDKs. The
+experiment key, variation keys, and attribute names are also defined in `packages/types` to
+ensure consistency.
+
+---
+
+## Rationale
+
+**Why Firebase Analytics:**
+- Native support for both React Native and Android (Kotlin) via official SDKs.
+- Free tier is generous (no event volume cap for standard events).
+- Integrates with Firebase Crashlytics and Performance Monitoring, providing a unified
+  observability view per client.
+- Since GCP is already the infrastructure platform ([ADR-009](ADR-009-infrastructure-kubernetes-cloud-run.md)), Firebase (also GCP) fits the
+  ecosystem without additional vendor relationships.
+
+**Why Optimizely:**
+- Optimizely Feature Experimentation (formerly Optimizely Full Stack) has both a React Native
+  SDK and an Android SDK that operate client-side, without requiring backend changes to run
+  experiments.
+- Well-recognized in enterprise contexts — a meaningful portfolio signal for a director of
+  engineering role.
+- Supports the same experiment definition across multiple client types, enabling cross-client
+  experiment analysis.
+
+**Why a shared event taxonomy in `packages/types`:**
+- Without a shared, imported taxonomy, event names drift between clients (e.g., React Native
+  logs `'workoutCompleted'`, Kotlin logs `'workout_complete'`). The resulting data is
+  un-segmentable and the comparison is invalid.
+- TypeScript-enforced event names (the `AnalyticsEvent` const object) make typos a compile
+  error in the React Native client. The Kotlin client references a separate but identical
+  constant object generated from the shared type definitions (or maintained manually and
+  validated in CI via a lint rule comparing the two).
+- The `client: ClientType` property on every event is the primary segmentation dimension for
+  the React Native vs. Kotlin comparison.
+
+---
+
+## Consequences
+
+- Both mobile clients must import or replicate the event taxonomy. For the Kotlin client (which
+  cannot import TypeScript packages), a companion `AnalyticsConstants.kt` file is maintained
+  and validated against `packages/types/src/analytics.ts` in CI.
+- Optimizely requires an account and project. The free Developer plan supports the experimentation
+  needs of this application.
+- Firebase Analytics data is available in the Firebase Console and can be exported to BigQuery
+  for deeper analysis. BigQuery export is recommended for the A/B comparison documentation.
+
+---
+
+## Metrics for the React Native vs. Kotlin A/B Comparison
+
+| Metric | Source | Segmented by `client` |
+|---|---|---|
+| Session length | Firebase Analytics | Yes |
+| Screens per session | Firebase Analytics | Yes |
+| `workout_completed` / `workout_started` ratio | Firebase Analytics | Yes |
+| Crash-free session rate | Firebase Crashlytics | Yes |
+| Screen render time (p50, p95) | Firebase Performance | Yes |
+| App startup time | Firebase Performance | Yes |
+| Install size | Play Console | N/A (separate APKs) |
+| Experiment conversion rates | Optimizely | Yes |
+
+Results and methodology are documented in `docs/mobile-ab-test-results.md`.
+
+---
+
+## Alternatives Considered
+
+**Amplitude:** Excellent product analytics tool. More opinionated around funnel analysis.
+Does not have as clean a native Android SDK story as Firebase. Ruled out in favor of Firebase's
+ecosystem fit.
+
+**Mixpanel:** Strong event analytics. Viable alternative to Firebase Analytics. Ruled out
+because Firebase's integration with the broader GCP/Firebase ecosystem (Crashlytics, Performance,
+Cloud Messaging) reduces the number of SDK dependencies.
+
+**Custom analytics:** Logging events to the backend API and building analytics in BigQuery.
+Maximum flexibility, zero vendor dependency. Significantly more engineering effort. Ruled out
+for this project — the goal is demonstrated analytics integration, not a custom analytics stack.
