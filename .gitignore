@@ -1,4 +1,9 @@
 node_modules/
-.clasptoken*
 .DS_Store
 dist/
+
+# Turborepo
+.turbo/
+
+# GAS / clasp (retained from source repo — remove when GAS migration is complete)
+.clasptoken*
