@@ -1,5 +1,11 @@
 # Lifting Logbook
 
+> **Origin:** This repository is a cloud-native evolution of
+> [brownm09/gas-lifting-logbook](https://github.com/brownm09/gas-lifting-logbook),
+> a Google Apps Script application backed by Google Sheets. The domain logic in
+> `packages/core` is migrated directly from that codebase; the GAS-specific API
+> layer is replaced by the apps in this monorepo.
+
 A cloud-native strength training tracker built as a Turborepo monorepo.
 
 For full architecture context, decision records, and project goals see **[docs/README.md](docs/README.md)**.
@@ -11,12 +17,20 @@ For full architecture context, decision records, and project goals see **[docs/R
 ```
 lifting-logbook/
   packages/
-    core/          # Pure domain logic — services, models, parsers, mappers
-    types/         # Shared TypeScript interfaces and API contracts
+    core/
+      src/         # Pure domain logic — services, models, parsers, mappers
+      tests/       # Unit tests co-located with the package
+    types/
+      src/         # Shared TypeScript interfaces and API contracts
   apps/
-    api/           # NestJS API server (primary)
-    api-legacy/    # Express API server (legacy comparison)
-    web/           # Next.js App Router frontend
+    api/
+      src/         # NestJS API server (primary)
+      tests/       # Integration and unit tests co-located with the app
+    api-legacy/
+      src/         # Express API server (legacy comparison)
+      tests/
+    web/
+      app/         # Next.js App Router frontend
     mobile/        # React Native (Expo) mobile client
   infra/
     kubernetes/    # GKE Autopilot manifests and Helm charts
@@ -28,14 +42,18 @@ lifting-logbook/
   scripts/         # Repository automation scripts
 ```
 
+Tests are co-located with each package and app rather than in a top-level `tests/`
+directory. This keeps each workspace self-contained — `turbo run test --filter=@logbook/core`
+runs only core's tests, with no knowledge of the rest of the monorepo.
+
 ---
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js >= 18
-- npm >= 8 (workspaces support)
+- Node.js >= 20.11.1 (use `.nvmrc`: `nvm use`)
+- npm >= 10 (bundled with Node 20)
 
 ### Install
 
