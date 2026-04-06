@@ -148,9 +148,13 @@ After each session (or at natural breakpoints for long sessions), create or upda
 9. Next Session Context (paste-ready paragraph for the next session opening brief)
 10. Reflection (gaps, risks, strategic questions — written last)
 
-**Journal update triggers:**
+**Project journal update triggers** (`sessions/lifting-logbook/`):
 - When a PR is merged (close out that issue's section)
 - When a strategic decision is made that doesn't belong in an ADR
 - At session end
+
+**Meta journal update triggers** (`sessions/meta/`):
+- When `CLAUDE.md` is modified — record what changed, why, and which session prompted it
+- When a new platform constraint is discovered — record the symptom, root cause, and fix pattern
 
 **Full journal conventions:** See [`brownm09/engineering-journal`](https://github.com/brownm09/engineering-journal) → `sessions/meta/2026-04-05-workflow-and-journal-setup.md`
