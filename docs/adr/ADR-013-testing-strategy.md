@@ -185,3 +185,16 @@ failure is in the REST serialization path, the GraphQL schema, or the shared ser
 **Vitest instead of Jest:** Faster native ESM support. Deferred — the monorepo already has Jest
 configured; switching at this stage would require coordinated config changes across all
 workspaces. Can be revisited in v0.3 once the test suite has real coverage to validate against.
+
+---
+
+## References
+
+- [Martin Fowler — The Practical Test Pyramid](https://martinfowler.com/articles/practical-test-pyramid.html) — The authoritative modern treatment of the test pyramid: what belongs at each layer, why lower layers should dominate by count, and when to break the rules. The unit/integration/e2e split and the principle of keeping business-logic assertions at the lowest viable layer come from here.
+- [Martin Fowler — Mocks Aren't Stubs](https://martinfowler.com/articles/mocksArentStubs.html) — Distinguishes test doubles (dummies, stubs, fakes, mocks, spies) and explains why classical (state-based) testing with real or in-memory collaborators is preferred over mockist (interaction-based) testing for repository adapters. The "no mocks for adapter tests" decision maps directly to the classical school described here.
+- [Martin Fowler — TestPyramid](https://martinfowler.com/bliki/TestPyramid.html) — The original bliki entry coining the pyramid shape and naming the anti-pattern ("ice-cream cone") that results from inverting it with too many E2E tests.
+- [Testcontainers for Node.js](https://node.testcontainers.org/) — The library used to spin up ephemeral Postgres instances for adapter integration tests. Each test run gets a clean container; no shared state between runs.
+- [Jest](https://jestjs.io/) — The test runner used across all workspaces. Chosen for its first-class TypeScript support (via `ts-jest` or native transform), snapshot testing, and compatibility with the Turborepo `test` pipeline task.
+- [Playwright](https://playwright.dev/) — The E2E test framework used in `apps/e2e/`. Chosen over Cypress for its multi-browser support, network interception capabilities, and stronger headless reliability in containerised CI environments.
+- [ADR-002: Hexagonal Architecture (Ports and Adapters)](ADR-002-ports-and-adapters.md) — The architecture that makes in-memory adapters possible: because all adapters implement the same port interface, an in-memory implementation is a valid first-class adapter, not a special-case test shim.
+- [ADR-006: Dual Transport Layer — REST and GraphQL](ADR-006-rest-and-graphql-dual-transport.md) — Establishes that REST and GraphQL share the same service layer. The dual-transport deduplication rule in §4 of this ADR is a direct consequence of that design.
