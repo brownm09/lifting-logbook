@@ -75,3 +75,13 @@ choice, but smaller ecosystem than Next.js. Ruled out on portfolio visibility gr
 
 **Vue or Svelte:** Viable frontend frameworks. Ruled out because the codebase is TypeScript-
 native and the team (and portfolio) is React-focused.
+
+---
+
+## References
+
+- [Next.js — App Router Documentation](https://nextjs.org/docs/app) — Official App Router docs; covers Server Components, Client Components, routing, layouts, and Suspense streaming.
+- [React — Server Components](https://react.dev/reference/rsc/server-components) — The React core team's reference documentation for React Server Components, the model the App Router is built on.
+- [Next.js — Loading UI and Streaming](https://nextjs.org/docs/app/building-your-application/routing/loading-ui-and-streaming) — How Suspense boundaries and `loading.tsx` enable progressive rendering; cited in the Rationale section.
+- [Clerk — Next.js SDK](https://clerk.com/docs/references/nextjs/overview) — The `@clerk/nextjs` SDK providing middleware-based authentication for the App Router.
+- [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/) — The testing approach for Client Components cited in the Consequences section.

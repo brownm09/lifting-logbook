@@ -74,3 +74,12 @@ cross-package changes harder.
 
 **Single flat package:** Simplest structure, but loses the clean separation between domain logic
 and infrastructure adapters that is central to the architectural goals of this project.
+
+---
+
+## References
+
+- [Turborepo — Getting Started](https://turbo.build/repo/docs) — Official Turborepo documentation; covers caching model, pipeline configuration, and workspace setup.
+- [Turborepo — `turbo prune`](https://turbo.build/repo/docs/reference/prune) — Pruning the monorepo to a minimal subgraph for Docker builds; referenced in the Consequences section.
+- [npm Workspaces](https://docs.npmjs.com/cli/v10/using-npm/workspaces) — The npm workspace protocol used for inter-package references (`"@logbook/core": "*"`).
+- [Nx — Getting Started](https://nx.dev/getting-started/intro) — The primary alternative considered; more opinionated and better suited to larger package counts.

@@ -137,3 +137,13 @@ erasure is a hard requirement.
 expensive: each tenant requires a Cloud SQL instance (~$7–15/month minimum), making this
 prohibitively costly for a consumer product. Appropriate only for B2B SaaS with enterprise
 pricing that absorbs the infrastructure cost, or for HIPAA/regulated data.
+
+---
+
+## References
+
+- [PostgreSQL — Row Security Policies](https://www.postgresql.org/docs/current/ddl-rowsecurity.html) — The RLS feature used for database-level isolation; documents `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` and `CREATE POLICY` syntax.
+- [PostgreSQL — Schemas](https://www.postgresql.org/docs/current/ddl-schemas.html) — The schema-per-tenant alternative; covers `CREATE SCHEMA`, `search_path`, and namespace isolation.
+- [GDPR — Article 17: Right to Erasure](https://gdpr-info.eu/art-17-gdpr/) — The regulatory requirement analysed in the Compliance Analysis section; the difference in erasure complexity between shared-schema and schema-per-tenant is documented relative to this article.
+- [HHS — HIPAA Security Rule](https://www.hhs.gov/hipaa/for-professionals/security/index.html) — The US healthcare data protection regulation discussed in the HIPAA section; relevant if the application is extended to clinical contexts.
+- [PgBouncer — Usage](https://www.pgbouncer.org/usage.html) — The connection pooler cited in the schema-per-tenant alternative discussion (`search_path` management requirement).
