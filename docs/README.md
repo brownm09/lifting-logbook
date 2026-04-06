@@ -147,6 +147,13 @@ monorepo/
 
 ---
 
+## Product Requirements
+
+See [PRD.md](PRD.md) for the lightweight product requirements document: user personas,
+jobs-to-be-done, non-goals, and v1.0 success metrics.
+
+---
+
 ## Compliance Awareness
 
 This application currently handles personal fitness data for a single user or small group of
