@@ -130,6 +130,21 @@ Before writing a `gh` or other CLI automation script:
 
 ---
 
+## Documentation and Citations
+
+When writing or updating any architectural documentation (ADRs, design docs, READMEs):
+
+- **Every ADR must have a `## References` section.** New ADRs get one on creation. Existing ADRs get one when they receive substantive edits. See `docs/adr-references.md` for the established pattern.
+- **Update `docs/adr-references.md`** whenever an ADR's references change — it is the consolidated index.
+- **Cite primary sources, not summaries.** Three categories:
+  - *Official documentation* — for technology and framework choices (NestJS, Next.js, Prisma, etc.)
+  - *Specifications* — for protocol and standard choices (IETF RFCs, OASIS specs, GraphQL spec, OpenID Connect)
+  - *Foundational writings* — for architectural patterns (Cockburn's Hexagonal Architecture, Uncle Bob's Clean Architecture, Fowler articles)
+- **Regulatory references** (GDPR, HIPAA, SOC 2) must link to the primary regulatory source, not a summary or blog post.
+- **When recommending a technology in any response**, include a link to its official documentation in that same response — not just the name.
+
+---
+
 ## Engineering Journal
 
 After each session (or at natural breakpoints for long sessions), create or update a session transcript in `brownm09/engineering-journal`.
