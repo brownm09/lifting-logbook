@@ -137,28 +137,49 @@ After each session (or at natural breakpoints for long sessions), create or upda
 **File location:** `sessions/lifting-logbook/YYYY-MM-DD-<slug>.md`
 
 **Draft file workflow:**
-1. **Session start:** Create `sessions/lifting-logbook/YYYY-MM-DD-<slug>_draft.md`. Write the header block, TOC, and Opening Brief immediately.
-2. **During session:** Append sections to the draft as work progresses. Read only the draft — never a prior completed journal — to update or append. The draft stays small because it contains only the current session's work.
-3. **Session end:** Complete remaining sections (Open Items, Token Usage, Next Session Context, Reflection), then publish the file without the `_draft` suffix via a final `gh api` push.
 
-Why: Reading a completed prior journal to append a new section costs tokens proportionally to journal length. The draft file contains only the current session's work.
+One draft file per calendar day: `sessions/lifting-logbook/YYYY-MM-DD_draft.md`. Slug is determined at day end when the overall theme is clear.
 
-**Canonical 10-section structure:**
+1. **First session of the day:** Create the draft with the opening brief and a `<!-- session: <slug> -->` marker. Append dialogue sections as work progresses.
+2. **Subsequent sessions:** GET the draft, append a new `<!-- session: <slug> -->` marker and dialogue sections, PUT. Read only the draft — never a completed prior journal.
+3. **End of each session:** Write a `<!-- next-session-context -->` block to the draft (one paragraph). Copy it — this is the opening brief for the next session.
+4. **End of day (last session):** Compose the full 10-section document in one pass from the draft. Publish as `YYYY-MM-DD-<slug>.md`. Delete the draft.
+
+Why: Framework sections (TOC, Key Decisions, Token Usage, Reflection) are written once at day end when the full picture is available. Mid-day appends cost only proportional to that day's accumulated content, not historical journals. Next Session Context is decoupled — produced per session, consumed by the next.
+
+Draft structure during the day:
+```
+<!-- draft: YYYY-MM-DD -->
+Opening brief: ...
+
+<!-- session: <first-slug> -->
+## <Topic>
+...
+<!-- next-session-context -->
+<one paragraph — copy to open next session>
+
+<!-- session: <second-slug> -->
+## <Topic>
+...
+<!-- next-session-context -->
+<one paragraph — copy to open next session>
+```
+
+**Canonical 10-section structure** (composed once at day end):
 1. Header block (Topic, Repo/Branch, Issues closed, PRs merged)
 2. Table of Contents
-3. Opening Brief (paste the Next Session Context from the previous entry verbatim)
+3. Opening Brief (paste the Next Session Context from the previous day verbatim)
 4. Key Decisions (bullet list with links to sections, issues, PRs, ADRs)
-5. Dialogue sections (one H2 per task or topic)
+5. Dialogue sections (one H2 per task or topic, drawn from draft)
 6. Open Items / Next Steps (checkbox list)
 7. Token Usage (table per session with estimated cost)
 8. Token Optimization Suggestions (what drove cost; 3–5 suggestions)
-9. Next Session Context (paste-ready paragraph for the next session opening brief)
+9. Next Session Context (the final `<!-- next-session-context -->` block from the draft)
 10. Reflection (gaps, risks, strategic questions — written last)
 
 **Project journal update triggers** (`sessions/lifting-logbook/`):
-- When a PR is merged (close out that issue's section)
-- When a strategic decision is made that doesn't belong in an ADR
-- At session end
+- Append to draft when a PR is merged or a strategic decision is made
+- Compose and publish the daily document at end of last session of the day
 
 **Meta journal update triggers** (`sessions/meta/`):
 - When `CLAUDE.md` is modified — record what changed, why, and which session prompted it
