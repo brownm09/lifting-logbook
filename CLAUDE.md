@@ -136,6 +136,13 @@ After each session (or at natural breakpoints for long sessions), create or upda
 
 **File location:** `sessions/lifting-logbook/YYYY-MM-DD-<slug>.md`
 
+**Draft file workflow:**
+1. **Session start:** Create `sessions/lifting-logbook/YYYY-MM-DD-<slug>_draft.md`. Write the header block, TOC, and Opening Brief immediately.
+2. **During session:** Append sections to the draft as work progresses. Read only the draft — never a prior completed journal — to update or append. The draft stays small because it contains only the current session's work.
+3. **Session end:** Complete remaining sections (Open Items, Token Usage, Next Session Context, Reflection), then publish the file without the `_draft` suffix via a final `gh api` push.
+
+Why: Reading a completed prior journal to append a new section costs tokens proportionally to journal length. The draft file contains only the current session's work.
+
 **Canonical 10-section structure:**
 1. Header block (Topic, Repo/Branch, Issues closed, PRs merged)
 2. Table of Contents
