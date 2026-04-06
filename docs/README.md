@@ -144,6 +144,7 @@ monorepo/
 | [ADR-010](adr/ADR-010-multi-tenancy-data-isolation.md)        | Multi-Tenancy Data Isolation Strategy                         | Accepted |
 | [ADR-011](adr/ADR-011-api-server-nestjs-and-express.md)       | API Server — NestJS Primary with Express Legacy Comparison    | Accepted |
 | [ADR-012](adr/ADR-012-analytics-and-ab-testing.md)            | Analytics and A/B Testing — Firebase Analytics and Optimizely | Accepted |
+| [ADR-013](adr/ADR-013-testing-strategy.md)                    | Testing Strategy                                              | Accepted |
 
 ---
 
