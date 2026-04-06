@@ -107,3 +107,13 @@ what a REST migration looks like (the Express/NestJS legacy comparison serves a 
 
 **gRPC:** Relevant for internal service-to-service communication in microservice architectures.
 Not appropriate here — this is a client-facing API for web and mobile clients that expect HTTP.
+
+---
+
+## References
+
+- [GraphQL Specification (October 2021)](https://spec.graphql.org/October2021/) — The normative GraphQL language and type system specification.
+- [NestJS — GraphQL Quick Start](https://docs.nestjs.com/graphql/quick-start) — Documents the code-first approach using `@nestjs/graphql` and TypeScript decorators to generate the SDL.
+- [graphql/dataloader](https://github.com/graphql/dataloader) — The batching and caching utility for solving the N+1 problem in nested GraphQL resolvers; referenced in the Consequences section.
+- [Apollo Client — Documentation](https://www.apollographql.com/docs/react/) — The GraphQL client library referenced for client-side caching; cited in the REST vs. GraphQL caching comparison.
+- [NestJS — Controllers (REST)](https://docs.nestjs.com/controllers) — NestJS REST controller documentation using `@Get`, `@Post`, and related decorators.

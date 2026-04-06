@@ -175,3 +175,16 @@ of engineering role targeting enterprise environments.
 (circuit breaking, mTLS, richer A/B splitting). Appropriate for a microservice architecture.
 Ruled out as premature — the application is a monolith at this stage and Istio's operational
 cost is not justified.
+
+---
+
+## References
+
+- [GKE Autopilot — Overview](https://cloud.google.com/kubernetes-engine/docs/concepts/autopilot-overview) — Documents the Autopilot node management model, pod-based billing, and resource constraints cited in the Rationale and cost estimate sections.
+- [Google Cloud Run — Overview](https://cloud.google.com/run/docs/overview/what-is-cloud-run) — Documents scale-to-zero behaviour, cold start characteristics, and request-based billing; all cited in the comparison rationale.
+- [Terraform — Documentation](https://developer.hashicorp.com/terraform/docs) — The IaC tool used to provision GKE, Cloud Run, VPC, and load balancer resources.
+- [Helm — Documentation](https://helm.sh/docs/) — The Kubernetes package manager used for `charts/api` and `charts/web`; covers chart structure, values files, and `helm upgrade`.
+- [Kubernetes — Horizontal Pod Autoscaler](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/) — The HPA configuration shown in the Decision section (`minReplicas: 2`, `maxReplicas: 10`, CPU target 70%).
+- [Google Cloud Load Balancing — HTTPS Load Balancer](https://cloud.google.com/load-balancing/docs/https) — The load balancer used for traffic splitting between GKE and Cloud Run.
+- [Google Artifact Registry — Overview](https://cloud.google.com/artifact-registry/docs/overview) — The container registry where Docker images are pushed by CI/CD.
+- [k6 — Load Testing Documentation](https://grafana.com/docs/k6/latest/) — The load testing tool used for the scale-out time metric in the A/B comparison table.

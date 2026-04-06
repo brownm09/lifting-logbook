@@ -94,3 +94,14 @@ For applications handling PHI (Protected Health Information) under HIPAA, the au
 provide a signed Business Associate Agreement (BAA). Auth0 (on Enterprise plan) and Clerk (on
 Enterprise plan) both offer BAAs. Custom OAuth implementations would need to be certified
 independently, which is significantly more expensive.
+
+---
+
+## References
+
+- [RFC 6749 — The OAuth 2.0 Authorization Framework](https://datatracker.ietf.org/doc/html/rfc6749) — The IETF specification for OAuth 2.0; defines the authorisation code, implicit, client credentials, and resource owner password flows.
+- [OpenID Connect Core 1.0](https://openid.net/specs/openid-connect-core-1_0.html) — The OIDC identity layer on top of OAuth 2.0; defines the ID token, `sub` claim, and UserInfo endpoint used by Clerk and Auth0.
+- [RFC 7636 — Proof Key for Code Exchange (PKCE)](https://datatracker.ietf.org/doc/html/rfc7636) — The PKCE extension that prevents authorisation code interception attacks; referenced in the Rationale section.
+- [OASIS SAML 2.0 Core Specification](https://docs.oasis-open.org/security/saml/v2.0/saml-core-2.0-os.pdf) — The enterprise SSO standard cited in the Future Considerations section.
+- [Clerk — Documentation](https://clerk.com/docs) — Official Clerk developer docs; covers Next.js SDK, JWT verification, and organisation/session management.
+- [Auth0 — Documentation](https://auth0.com/docs) — Official Auth0 developer docs; the primary alternative to Clerk.

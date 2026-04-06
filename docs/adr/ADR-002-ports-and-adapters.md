@@ -79,3 +79,11 @@ persistence technology. Less suited to the multi-adapter goal of this project.
 
 **No formal pattern (ad hoc separation):** The current GAS version's approach. Works at small
 scale but does not provide the enforcement or discoverability needed as the system grows.
+
+---
+
+## References
+
+- [Alistair Cockburn — Hexagonal Architecture (2005)](https://alistair.cockburn.us/hexagonal-architecture/) — The original article coining the Ports and Adapters pattern. The dependency rule and the port/adapter vocabulary used in this ADR come directly from here.
+- [Robert C. Martin — The Clean Architecture (2012)](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html) — Generalises the dependency inversion principle into the "dependency rule": source-code dependencies must point inward, toward higher-level policy.
+- [Martin Fowler — Inversion of Control Containers and the Dependency Injection Pattern](https://martinfowler.com/articles/injection.html) — Background on constructor injection and the IoC container patterns used by NestJS to wire adapters to ports.

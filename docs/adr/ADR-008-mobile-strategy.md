@@ -99,3 +99,15 @@ the TypeScript/Kotlin stack being built. Ruled out on ecosystem consistency grou
 
 **iOS:** Not currently a target platform. Could be added in a future phase using either React
 Native (minimal additional work) or Swift/SwiftUI (a separate native implementation).
+
+---
+
+## References
+
+- [React Native — Getting Started](https://reactnative.dev/docs/getting-started) — Official React Native documentation.
+- [Expo — Documentation](https://docs.expo.dev) — The Expo managed workflow used in Phase 1; covers project structure, native modules, and OTA updates.
+- [Expo EAS Build](https://docs.expo.dev/build/introduction/) — The cloud build service used to produce Android APKs without a local native toolchain.
+- [React Navigation — Getting Started](https://reactnavigation.org/docs/getting-started) — The navigation library used in the React Native client.
+- [Jetpack Compose — Documentation](https://developer.android.com/develop/ui/compose/documentation) — The native Android UI framework used in the Kotlin (Phase 2) client.
+- [Kotlin — Documentation](https://kotlinlang.org/docs/home.html) — Official Kotlin language reference.
+- [Google Play — Manage Tracks](https://support.google.com/googleplay/android-developer/answer/9844487) — How internal, closed testing, and production tracks work; the mechanism for deploying Phase 1 and Phase 2 builds simultaneously.

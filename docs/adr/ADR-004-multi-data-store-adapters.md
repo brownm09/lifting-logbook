@@ -100,3 +100,13 @@ portfolio signal for a director of engineering role.
 
 **Prisma for both Sheets and Postgres:** Not feasible — Prisma is a relational database ORM and
 has no Sheets adapter.
+
+---
+
+## References
+
+- [Google Sheets API v4 — Reference](https://developers.google.com/sheets/api/reference/rest) — The API used by the Sheets adapter for reads and writes; documents range notation, batch operations, and value rendering modes.
+- [Google Sheets API — Usage Limits](https://developers.google.com/sheets/api/limits) — Documents the 100 requests/100 seconds per-user quota cited in the Consequences section.
+- [googleapis npm package](https://www.npmjs.com/package/googleapis) — The Node.js client library wrapping the Sheets API.
+- [Prisma ORM — Getting Started](https://www.prisma.io/docs/getting-started) — The ORM used for the Postgres adapter; provides schema definition, type-safe query building, and migrations.
+- [Prisma Migrate](https://www.prisma.io/docs/orm/prisma-migrate/getting-started) — The migration system used for evolving the Postgres schema.

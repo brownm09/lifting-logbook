@@ -146,3 +146,15 @@ enterprise adoption. Ruled out on portfolio visibility grounds.
 choice. Excellent DX but not REST or GraphQL — using it would undermine the goal of comparing
 those two paradigms empirically ([ADR-006](ADR-006-rest-and-graphql-dual-transport.md)). Ruled
 out for this project.
+
+---
+
+## References
+
+- [NestJS — Documentation](https://docs.nestjs.com) — Official NestJS docs; covers modules, providers, controllers, guards, interceptors, and exception filters.
+- [NestJS — Dependency Injection](https://docs.nestjs.com/fundamentals/dependency-injection) — The DI container mechanics (`@Injectable`, `@Inject`, module providers) that replace Express's manual wiring.
+- [NestJS — Performance (Fastify)](https://docs.nestjs.com/techniques/performance) — Documents the `FastifyAdapter` used instead of the default Express adapter; explains the platform-agnostic adapter API.
+- [NestJS — GraphQL (Code First)](https://docs.nestjs.com/graphql/quick-start) — The code-first approach using TypeScript decorators to generate the SDL; used alongside REST controllers in the same module.
+- [Fastify — Documentation](https://fastify.dev/docs/latest/) — The underlying HTTP framework; covers request/response lifecycle, plugins, and schema-based validation.
+- [Fastify — Benchmarks](https://fastify.dev/benchmarks/) — Benchmark data supporting the ~2× throughput advantage over Express cited in the Rationale section.
+- [Express.js — Routing](https://expressjs.com/en/guide/routing.html) — The manual routing approach (`app.get()`) used in the legacy `apps/api-legacy` implementation.

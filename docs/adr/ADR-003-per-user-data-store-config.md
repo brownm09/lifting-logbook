@@ -88,3 +88,11 @@ onboard Sheets users without immediate data migration is a functional requiremen
 Adds a third-party dependency for what is essentially a data routing decision. Overkill at this
 stage, though a feature flag layer could be added on top of this approach later for canary
 migrations.
+
+---
+
+## References
+
+- [PostgreSQL — JSON Types (JSONB)](https://www.postgresql.org/docs/current/datatype-json.html) — Documents the `JSONB` column type used for `adapter_config`; covers indexing, operators, and storage behaviour.
+- [Google Cloud KMS — Envelope Encryption](https://cloud.google.com/kms/docs/envelope-encryption) — The encryption strategy recommended for the `adapter_config` column, which stores sensitive Sheets OAuth tokens and service account credentials.
+- [Prisma Client — Middleware](https://www.prisma.io/docs/orm/prisma-client/client-extensions/middleware) — How Prisma middleware is used to enforce the per-user cache lookup and inject `app.current_user_id` before each query.

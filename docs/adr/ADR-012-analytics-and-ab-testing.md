@@ -172,3 +172,17 @@ Cloud Messaging) reduces the number of SDK dependencies.
 **Custom analytics:** Logging events to the backend API and building analytics in BigQuery.
 Maximum flexibility, zero vendor dependency. Significantly more engineering effort. Ruled out
 for this project — the goal is demonstrated analytics integration, not a custom analytics stack.
+
+---
+
+## References
+
+- [Firebase Analytics — Overview](https://firebase.google.com/docs/analytics) — Official Firebase Analytics documentation; covers event logging, user properties, and audience segmentation.
+- [React Native Firebase — Analytics](https://rnfirebase.io/analytics/usage) — The `@react-native-firebase/analytics` SDK used in the React Native (Phase 1) client.
+- [Firebase Analytics for Android](https://firebase.google.com/docs/analytics/get-started?platform=android) — The `com.google.firebase:firebase-analytics` SDK used in the Kotlin (Phase 2) client.
+- [Firebase Crashlytics](https://firebase.google.com/docs/crashlytics) — The crash reporting SDK used in both clients; crash-free session rate is a primary A/B comparison metric.
+- [Firebase Performance Monitoring](https://firebase.google.com/docs/perf-mon) — The screen render time and app startup time SDK cited in the metrics table.
+- [Optimizely Feature Experimentation — Welcome](https://docs.developers.optimizely.com/feature-experimentation/docs/welcome) — Official Optimizely Feature Experimentation docs; covers experiment configuration, variation assignment, and event tracking.
+- [Optimizely — JavaScript (React) SDK](https://docs.developers.optimizely.com/feature-experimentation/docs/javascript-react-sdk) — The `@optimizely/react-sdk` used in the React Native client.
+- [Optimizely — Android SDK](https://docs.developers.optimizely.com/feature-experimentation/docs/android-sdk) — The `com.optimizely.sdk:android-sdk` used in the Kotlin client.
+- [Firebase — BigQuery Export](https://firebase.google.com/docs/projects/bigquery-export) — How Firebase Analytics data is streamed to BigQuery for deeper analysis; recommended in the Consequences section.
