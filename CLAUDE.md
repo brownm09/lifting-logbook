@@ -247,7 +247,7 @@ Opening brief: ...
 <one paragraph — copy to open next session>
 ```
 
-**Canonical 10-section structure** (composed once at day end):
+**Canonical 11-section structure** (composed once at day end):
 1. Header block (Topic, Repo/Branch, Issues closed, PRs merged)
 2. Table of Contents
 3. Opening Brief (paste the Next Session Context from the previous day verbatim)
@@ -258,6 +258,7 @@ Opening brief: ...
 8. Token Optimization Suggestions (what drove cost; 3–5 suggestions)
 9. Next Session Context (the final `<!-- next-session-context -->` block from the draft)
 10. Reflection (gaps, risks, strategic questions — written last)
+11. Further Reading (1–3 primary sources per session that explain the reasoning behind key decisions; intended for deliberate study between sessions — link + one sentence on why it matters)
 
 **Project journal update triggers** (`sessions/lifting-logbook/`):
 - Append to draft when a PR is merged or a strategic decision is made
