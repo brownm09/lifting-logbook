@@ -68,6 +68,12 @@ Adapters and transport layers import from `core` and `ports`. Dependency flows i
   interface, register the adapter in DI.
 - The pattern adds indirection. For very simple operations, the port/adapter split may feel like
   overhead. This is accepted given the explicit goal of demonstrating the pattern.
+- **The boundary is enforced by ESLint, not just by convention.** `packages/core/eslint.config.js`
+  configures `no-restricted-imports` to reject imports of database/ORM packages, HTTP
+  server/client libraries, auth libraries, cloud SDKs, and app workspace packages. Violations
+  are caught at lint time and fail CI. The rule fires on the most common failure mode identified
+  in the case studies: infrastructure packages imported directly into domain code under deadline
+  pressure.
 
 ---
 
