@@ -175,3 +175,11 @@ known users. It is not subject to HIPAA or GDPR in its current form. However, ar
 decisions explicitly account for what would need to change if compliance requirements were
 introduced. See [ADR-010](adr/ADR-010-multi-tenancy-data-isolation.md) for a detailed treatment
 of the compliance implications of each data isolation strategy.
+
+---
+
+## Security Review
+
+A pre-ship security review checklist is maintained at [`docs/security-review-checklist.md`](security-review-checklist.md).
+
+The checklist is gated on the v0.2 milestone (first authenticated endpoint). It covers: JWT token handling, session storage, multi-tenancy data isolation, input validation, OWASP Top 10 applicability, security headers, and dependency audit. All findings must be resolved or explicitly risk-accepted before v0.2 is closed.
