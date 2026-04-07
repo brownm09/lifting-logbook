@@ -117,3 +117,6 @@ Not appropriate here — this is a client-facing API for web and mobile clients 
 - [graphql/dataloader](https://github.com/graphql/dataloader) — The batching and caching utility for solving the N+1 problem in nested GraphQL resolvers; referenced in the Consequences section.
 - [Apollo Client — Documentation](https://www.apollographql.com/docs/react/) — The GraphQL client library referenced for client-side caching; cited in the REST vs. GraphQL caching comparison.
 - [NestJS — Controllers (REST)](https://docs.nestjs.com/controllers) — NestJS REST controller documentation using `@Get`, `@Post`, and related decorators.
+- [GitHub — The GitHub GraphQL API (September 2016)](https://github.blog/2016-09-14-the-github-graphql-api/) — GitHub's original announcement explaining why they built GraphQL v4 alongside REST v3; the canonical production example of dual transport at scale.
+- [Shopify Engineering Blog](https://shopify.engineering/) — Documents Shopify's GraphQL-first API strategy alongside their maintained REST Admin API; covers the N+1 batching problem and query complexity scoring.
+- [Case Study: Dual REST + GraphQL Transport](../case-studies.md#dual-rest--graphql-transport) — Empirical evidence from GitHub and Shopify on the operational burden of maintaining both transports, including the permanent-commitment risk and schema synchronization requirements.

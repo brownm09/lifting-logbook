@@ -158,3 +158,5 @@ out for this project.
 - [Fastify — Documentation](https://fastify.dev/docs/latest/) — The underlying HTTP framework; covers request/response lifecycle, plugins, and schema-based validation.
 - [Fastify — Benchmarks](https://fastify.dev/benchmarks/) — Benchmark data supporting the ~2× throughput advantage over Express cited in the Rationale section.
 - [Express.js — Routing](https://expressjs.com/en/guide/routing.html) — The manual routing approach (`app.get()`) used in the legacy `apps/api-legacy` implementation.
+- [Trilon.io Blog](https://trilon.io/blog) — Posts from NestJS core contributors on module design, DI patterns, circular dependency resolution, and production deployment; primary source for the startup overhead characterisation.
+- [Case Study: NestJS at Scale](../case-studies.md#nestjs-at-scale) — Documents the DI startup overhead (2–5 s at 40–60 modules), circular dependency failure mode, and `TestingModule` slowness as the primary production pain points.
