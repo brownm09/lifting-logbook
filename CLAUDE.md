@@ -197,7 +197,7 @@ Before writing a `gh` or other CLI automation script:
 
 1. Run `<command> --help` first to confirm flag names and syntax
 2. Confirm which JSON tools are available (`jq` is NOT available — use `node -e`)
-3. Confirm temp file location (working directory, not `/tmp/`)
+3. Confirm temp file location (`C:/Users/brown/.claude/scratch/`, not `/tmp/` or a project repo directory)
 4. Check whether any additional `gh` auth scopes are needed
 
 ---
@@ -232,22 +232,52 @@ When writing or updating any architectural documentation (ADRs, design docs, REA
 
 ## Engineering Journal
 
-After each session (or at natural breakpoints for long sessions), create or update a session transcript in `brownm09/engineering-journal`.
+After each session (or at natural breakpoints for long sessions), create or update a session
+transcript in `brownm09/engineering-journal`.
 
 **File location:** `sessions/lifting-logbook/YYYY-MM-DD-<slug>.md`
 
-**Draft file workflow:**
+**Scratch directory:** `C:/Users/brown/.claude/scratch/` — all processing tmp files (`gh` output,
+JSON parsing intermediaries, etc.) go here regardless of which project is active. Never write
+tmp files into a project repo working directory.
 
-One draft file per calendar day: `sessions/lifting-logbook/YYYY-MM-DD_draft.md`. Slug is determined at day end when the overall theme is clear.
+---
 
-1. **First session of the day:** Create the draft with the opening brief and a `<!-- session: <slug> -->` marker. Append dialogue sections as work progresses.
-2. **Subsequent sessions:** GET the draft, append a new `<!-- session: <slug> -->` marker and dialogue sections, PUT. Read only the draft — never a completed prior journal.
-3. **End of each session:** Write a `<!-- next-session-context -->` block to the draft (one paragraph). Copy it — this is the opening brief for the next session.
-4. **End of day (last session):** Compose the full 10-section document in one pass from the draft. Publish as `YYYY-MM-DD-<slug>.md`. Delete the draft.
+### Draft file workflow
 
-Why: Framework sections (TOC, Key Decisions, Token Usage, Reflection) are written once at day end when the full picture is available. Mid-day appends cost only proportional to that day's accumulated content, not historical journals. Next Session Context is decoupled — produced per session, consumed by the next.
+One draft file per calendar day, living on a dedicated branch in the engineering-journal repo.
+Slug is determined at day end when the overall theme is clear.
 
-Draft structure during the day:
+**Branch:** `draft/YYYY-MM-DD` — created at the first session of the day, merged to main at day end.
+
+**First session of the day:**
+1. `git -C <engineering-journal-path> checkout main && git pull`
+2. `git -C <engineering-journal-path> checkout -b draft/YYYY-MM-DD`
+3. Create `sessions/lifting-logbook/YYYY-MM-DD_draft.md` with the opening brief and first
+   `<!-- session: <slug> -->` block
+4. `git add`, `git commit -m "draft: YYYY-MM-DD session 1"`, `git push -u origin draft/YYYY-MM-DD`
+
+**Subsequent sessions:**
+1. `git -C <engineering-journal-path> pull origin draft/YYYY-MM-DD`
+2. Get the file's line count (`wc -l`), then `Read` with offset to retrieve only the last
+   `<!-- next-session-context -->` block — do not read the full draft
+3. Append the new `<!-- session: <slug> -->` block and `<!-- next-session-context -->` paragraph
+   using `Edit`
+4. Add a `<!-- tokens: input=N output=N cost≈$N -->` comment at the end of the session block,
+   drawn from the Claude Code CLI session summary
+5. `git add`, `git commit -m "draft: YYYY-MM-DD session N"`, `git push`
+
+**End of day (last session):**
+1. Read the full draft once to compose the final 11-section document
+2. Write as `sessions/lifting-logbook/YYYY-MM-DD-<slug>.md`
+3. Delete the draft file
+4. `git add`, `git commit -m "[docs] Add YYYY-MM-DD journal: <slug>"`
+5. Open a PR from `draft/YYYY-MM-DD` into `main`, squash merge, delete branch
+
+---
+
+### Draft structure during the day
+
 ```
 <!-- draft: YYYY-MM-DD -->
 Opening brief: ...
@@ -255,35 +285,54 @@ Opening brief: ...
 <!-- session: <first-slug> -->
 ## <Topic>
 ...
+<!-- tokens: input=12,450 output=3,200 cost≈$0.08 -->
 <!-- next-session-context -->
 <one paragraph — copy to open next session>
 
 <!-- session: <second-slug> -->
 ## <Topic>
 ...
+<!-- tokens: input=18,900 output=4,100 cost≈$0.12 -->
 <!-- next-session-context -->
 <one paragraph — copy to open next session>
 ```
 
-**Canonical 11-section structure** (composed once at day end):
+---
+
+### Canonical 11-section structure (composed once at day end)
+
 1. Header block (Topic, Repo/Branch, Issues closed, PRs merged)
 2. Table of Contents
 3. Opening Brief (paste the Next Session Context from the previous day verbatim)
 4. Key Decisions (bullet list with links to sections, issues, PRs, ADRs)
 5. Dialogue sections (one H2 per task or topic, drawn from draft)
 6. Open Items / Next Steps (checkbox list)
-7. Token Usage (table per session with estimated cost)
+7. Token Usage (table with one row per session: slug, input tokens, output tokens, estimated
+   cost — drawn from `<!-- tokens: ... -->` comments in the draft)
 8. Token Optimization Suggestions (what drove cost; 3–5 suggestions)
 9. Next Session Context (the final `<!-- next-session-context -->` block from the draft)
 10. Reflection (gaps, risks, strategic questions — written last)
-11. Further Reading (1–3 primary sources per session that explain the reasoning behind key decisions; intended for deliberate study between sessions — link + one sentence on why it matters)
+11. Further Reading (1–3 primary sources per session that explain the reasoning behind key
+    decisions; intended for deliberate study between sessions — link + one sentence on why
+    it matters)
 
-**Project journal update triggers** (`sessions/lifting-logbook/`):
+---
+
+### Update triggers
+
+**Project journal** (`sessions/lifting-logbook/`):
 - Append to draft when a PR is merged or a strategic decision is made
 - Compose and publish the daily document at end of last session of the day
 
-**Meta journal update triggers** (`sessions/meta/`):
+**Meta journal** (`sessions/meta/`):
 - When `CLAUDE.md` is modified — record what changed, why, and which session prompted it
 - When a new platform constraint is discovered — record the symptom, root cause, and fix pattern
+- When a workflow failure mode is discovered and remediated — record the symptom, root cause,
+  and fix pattern
+- When a cross-project convention is established — record the convention and which projects it
+  affects
+- When the journal structure itself changes — record the new section, placement, and rationale
+- When a new canonical reference repo or external resource is identified — record the resource
+  and its role
 
 **Full journal conventions:** See [`brownm09/engineering-journal`](https://github.com/brownm09/engineering-journal) → `sessions/meta/2026-04-05-workflow-and-journal-setup.md`
