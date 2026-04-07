@@ -2,6 +2,8 @@
 
 **Status:** Accepted
 **Date:** 2026-04-03
+**Reviewed:** 2026-04-07
+**Review outcome:** Pass
 
 ---
 
