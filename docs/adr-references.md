@@ -71,6 +71,7 @@ Each entry links back to the ADR where it is discussed and provides a brief desc
 | [Next.js — App Router Documentation](https://nextjs.org/docs/app) | [ADR-007](adr/ADR-007-nextjs-app-router-web-frontend.md) | Official App Router docs; covers Server Components, Client Components, routing, layouts, and Suspense streaming. |
 | [React — Server Components](https://react.dev/reference/rsc/server-components) | [ADR-007](adr/ADR-007-nextjs-app-router-web-frontend.md) | React core team reference for RSC; the model the App Router is built on. |
 | [Next.js — Loading UI and Streaming](https://nextjs.org/docs/app/building-your-application/routing/loading-ui-and-streaming) | [ADR-007](adr/ADR-007-nextjs-app-router-web-frontend.md) | How Suspense boundaries and `loading.tsx` enable progressive rendering of data-heavy pages. |
+| [Next.js — fetch API reference](https://nextjs.org/docs/app/api-reference/functions/fetch) | [ADR-007](adr/ADR-007-nextjs-app-router-web-frontend.md) | Documents the `cache` and `next.revalidate` options for `fetch()` in Server Components; authoritative reference for the explicit cache semantics required by the project coding standard. |
 | [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/) | [ADR-007](adr/ADR-007-nextjs-app-router-web-frontend.md) | The testing approach for Client Components cited in the Consequences section. |
 
 ---

@@ -60,6 +60,14 @@ Use **Next.js with the App Router** (Next.js 14+).
   is a separate Deployment; on Cloud Run, a separate service.
 - Testing strategy: Server Components are tested with integration tests (next/jest); Client
   Components are tested with React Testing Library.
+- **Fetch caching semantics must be set explicitly on every `fetch()` call in Server
+  Components.** In Next.js 14, `fetch()` was cached aggressively by default (no expiry),
+  causing stale data bugs in production. Next.js 15 reversed this: `fetch()` is uncached by
+  default. Relying on either default is unsafe across major version upgrades. All `fetch()`
+  calls in `apps/web` Server Components must specify `{ cache: 'no-store' }` (always-fresh) or
+  `{ next: { revalidate: N } }` (time-based revalidation) explicitly — no reliance on defaults.
+  See [docs/standards/fetch-cache-semantics.md](../standards/fetch-cache-semantics.md) and the
+  [Next.js 15 Upgrade Guide](https://nextjs.org/docs/app/building-your-application/upgrading/version-15).
 
 ---
 
@@ -86,5 +94,6 @@ native and the team (and portfolio) is React-focused.
 - [Clerk — Next.js SDK](https://clerk.com/docs/references/nextjs/overview) — The `@clerk/nextjs` SDK providing middleware-based authentication for the App Router.
 - [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/) — The testing approach for Client Components cited in the Consequences section.
 - [Next.js 15 Upgrade Guide](https://nextjs.org/docs/app/building-your-application/upgrading/version-15) — Documents the reversal of the default `fetch` caching behaviour between Next.js 14 and 15; directly relevant to the caching risk identified in the case study.
+- [Next.js — fetch API reference](https://nextjs.org/docs/app/api-reference/functions/fetch) — Documents the `cache` and `next.revalidate` options for `fetch()` in Server Components; the authoritative reference for the explicit cache semantics required by this ADR.
 - [Vercel Engineering Blog](https://vercel.com/blog/engineering) — Posts by the Next.js team on App Router adoption patterns and production operational experience.
 - [Case Study: Next.js App Router in Production](../case-studies.md#nextjs-app-router-in-production) — Documents the aggressive-caching default issue (Next.js 14 → 15) and the `useSearchParams` Suspense requirement as the primary production pain points.
