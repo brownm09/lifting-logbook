@@ -50,7 +50,61 @@ Architecture follows hexagonal / Ports & Adapters. `packages/core` has zero infr
 
 ---
 
+## GitHub Project & Epic Assignment
+
+All new issues must be added to the **Lifting Logbook** project and assigned an epic before work begins.
+
+**Project IDs (needed for CLI commands):**
+- Project number: `2`, owner: `brownm09`
+- Project node ID: `PVT_kwHOAjEKvM4BTuEF`
+- Epic field ID: `PVTSSF_lAHOAjEKvM4BTuEFzhA7GEs`
+
+**Epic options:**
+
+| Name | Option ID |
+|---|---|
+| Monorepo Scaffolding | `974b67c1` |
+| Package & App Scaffolding | `26d27ab2` |
+| Port Interfaces | `9196ffd9` |
+| Shared Types | `42bf8843` |
+| CI/CD Foundation | `23133b3a` |
+| Architecture & Documentation | `656e470c` |
+
+**Milestones:**
+
+| Title | Number |
+|---|---|
+| v0.1 — Foundation | `1` |
+| v0.2 — Core API | `2` |
+| v0.3 — Client Applications | `3` |
+
+**Workflow — run after `gh issue create`:**
+
+```bash
+# Requires project scope — add once if needed: gh auth refresh -s project
+
+# 1. Set milestone (use the milestone title)
+gh issue edit <N> --milestone "<milestone-title>"
+
+# 2. Add issue to project, capture item ID
+TMPFILE="tmp_$$.json"
+gh project item-add 2 --owner brownm09 --url <issue-url> --format json > "$TMPFILE"
+ITEM_ID=$(node -e "const d=JSON.parse(require('fs').readFileSync('$TMPFILE','utf8')); console.log(d.id);")
+rm -f "$TMPFILE"
+
+# 3. Set Epic field
+gh project item-edit --project-id PVT_kwHOAjEKvM4BTuEF --id "$ITEM_ID" \
+  --field-id PVTSSF_lAHOAjEKvM4BTuEFzhA7GEs \
+  --single-select-option-id <option-id>
+```
+
+If `--format json` is not supported by the installed `gh` version, fall back to the GraphQL API via `gh api graphql`.
+
+---
+
 ## Standard Issue Workflow
+
+> **Prerequisite:** ensure the issue is already in the Lifting Logbook project with an Epic set (see above).
 
 1. Read the issue body and acceptance criteria: `gh issue view <N>`
 2. Create a branch: `git checkout -b <type>/issue-<N>-<slug>` (see Branch Naming)
@@ -127,6 +181,19 @@ Before writing a `gh` or other CLI automation script:
 2. Confirm which JSON tools are available (`jq` is NOT available — use `node -e`)
 3. Confirm temp file location (working directory, not `/tmp/`)
 4. Check whether any additional `gh` auth scopes are needed
+
+---
+
+## Coding Standards
+
+App-level coding standards are in `docs/standards/`. Each file is a self-contained rule with
+rationale, examples, and enforcement notes. Existing standards:
+
+| File | Applies to | Rule |
+|---|---|---|
+| [`docs/standards/fetch-cache-semantics.md`](docs/standards/fetch-cache-semantics.md) | `apps/web` Server Components | All `fetch()` calls must specify `{ cache: 'no-store' }` or `{ next: { revalidate: N } }` explicitly |
+
+When implementing `apps/web`, read the relevant standards before writing any `fetch()` calls.
 
 ---
 
