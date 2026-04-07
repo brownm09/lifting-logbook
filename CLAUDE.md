@@ -129,6 +129,10 @@ If `--format json` is not supported by the installed `gh` version, fall back to 
 8. After PR approval: squash merge with `gh pr merge <N> --squash --delete-branch`
 9. Pull main: `git checkout main && git pull`
 10. Close the issue if not auto-closed: `gh issue close <N>`
+11. Update journals:
+    - **Project journal** (`sessions/lifting-logbook/`): append to the day's draft (PR merged, decisions made)
+    - **Meta journal** (`sessions/meta/`): update if `CLAUDE.md` was modified or a new platform constraint was discovered
+12. Write a `<!-- next-session-context -->` block to the draft and display it as the closing output of the session
 
 ---
 
