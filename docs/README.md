@@ -148,6 +148,19 @@ monorepo/
 
 ---
 
+## Architecture Diagrams
+
+Visual representations of the system are in [`docs/diagrams/`](diagrams/):
+
+| Diagram | What it shows |
+|---------|--------------|
+| [Hexagonal Architecture](diagrams/hexagonal-architecture.md) | `packages/core` at the center, port interfaces, and adapter implementations |
+| [Package Dependencies](diagrams/package-dependencies.md) | Compile-time dependency graph across all monorepo packages and apps |
+| [Deployment Topology](diagrams/deployment-topology.md) | GKE Autopilot vs. Cloud Run traffic split, shared infrastructure, CI/CD |
+| [Data Flow](diagrams/data-flow.md) | Request path: client → transport → domain service → repository adapter → data store |
+
+---
+
 ## Product Requirements
 
 See [PRD.md](PRD.md) for the lightweight product requirements document: user personas,
