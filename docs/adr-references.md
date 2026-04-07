@@ -147,6 +147,20 @@ Each entry links back to the ADR where it is discussed and provides a brief desc
 
 ---
 
+## Security Review
+
+References from [`docs/security-review-checklist.md`](security-review-checklist.md).
+
+| Source | Cited In | Relevance |
+|---|---|---|
+| [OWASP Top 10 (2021)](https://owasp.org/Top10/) | [Security Review Checklist](security-review-checklist.md) | The ten most critical web application security risks; used as the framework for the OWASP applicability section. |
+| [OWASP Authentication Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html) | [Security Review Checklist](security-review-checklist.md) | Practical guidance for implementing and reviewing authentication mechanisms; informs the token handling and session checklist items. |
+| [OWASP SQL Injection Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html) | [Security Review Checklist](security-review-checklist.md) | Parameterised query requirements referenced in the A03 (Injection) OWASP applicability row. |
+| [NestJS — Security](https://docs.nestjs.com/security/helmet) | [Security Review Checklist](security-review-checklist.md) | Official NestJS docs covering Helmet, CORS, rate limiting, and CSRF protection; informs Section 6 (Security Headers and Transport). |
+| [Clerk — Security](https://clerk.com/docs/security/overview) | [Security Review Checklist](security-review-checklist.md) | Clerk's security model; documents token verification, session management, and compliance posture. |
+
+---
+
 ## Case Studies
 
 Empirical evidence from practitioners. Full case studies are in [`docs/case-studies.md`](case-studies.md).
