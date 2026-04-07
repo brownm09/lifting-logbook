@@ -144,3 +144,22 @@ Each entry links back to the ADR where it is discussed and provides a brief desc
 |---|---|---|
 | [GDPR — Article 17: Right to Erasure](https://gdpr-info.eu/art-17-gdpr/) | [ADR-010](adr/ADR-010-multi-tenancy-data-isolation.md) | The regulatory requirement driving the erasure complexity comparison between shared-schema and schema-per-tenant strategies. |
 | [HHS — HIPAA Security Rule](https://www.hhs.gov/hipaa/for-professionals/security/index.html) | [ADR-010](adr/ADR-010-multi-tenancy-data-isolation.md) | US healthcare data protection regulation discussed in the HIPAA section; relevant if the application is extended to clinical contexts. |
+
+---
+
+## Case Studies
+
+Empirical evidence from practitioners. Full case studies are in [`docs/case-studies.md`](case-studies.md).
+
+| Source | Cited In | Relevance |
+|---|---|---|
+| [Trilon.io Blog](https://trilon.io/blog) | [ADR-011](adr/ADR-011-api-server-nestjs-and-express.md) | Posts from NestJS core contributors on module design, DI patterns, circular dependency resolution, and production deployment; primary source for NestJS startup overhead characterisation. |
+| [Next.js 15 Upgrade Guide](https://nextjs.org/docs/app/building-your-application/upgrading/version-15) | [ADR-007](adr/ADR-007-nextjs-app-router-web-frontend.md) | Documents the reversal of the default `fetch` caching behaviour between Next.js 14 and 15; the primary production pain point identified in the App Router case study. |
+| [Vercel Engineering Blog](https://vercel.com/blog/engineering) | [ADR-007](adr/ADR-007-nextjs-app-router-web-frontend.md) | Posts by the Next.js team on App Router adoption patterns and production operational experience. |
+| [Introducing GKE Autopilot (GA announcement, February 2021)](https://cloud.google.com/blog/products/containers-kubernetes/introducing-gke-autopilot) | [ADR-009](adr/ADR-009-infrastructure-kubernetes-cloud-run.md) | Google's GA announcement documenting the Autopilot design rationale; supplements the overview docs with the motivation for the fully-managed node model. |
+| [Cloud Run — Concurrency](https://cloud.google.com/run/docs/about-concurrency) | [ADR-009](adr/ADR-009-infrastructure-kubernetes-cloud-run.md) | Covers the concurrency model, CPU allocation, and minimum instances; directly relevant to cold start mitigation and cost profile. |
+| [Cloud Run — Pricing](https://cloud.google.com/run/pricing) | [ADR-009](adr/ADR-009-infrastructure-kubernetes-cloud-run.md) | Authoritative source for the per-request cost model used in the ADR-009 A/B comparison table. |
+| [ThoughtWorks Technology Radar — Hexagonal Architecture](https://www.thoughtworks.com/radar/techniques/hexagonal-architecture) | [ADR-002](adr/ADR-002-ports-and-adapters.md) | ThoughtWorks's ongoing assessment of the pattern; documents adapter proliferation and enforcement failure modes at team scale. |
+| [Martin Fowler — BoundedContext](https://martinfowler.com/bliki/BoundedContext.html) | [ADR-002](adr/ADR-002-ports-and-adapters.md) | Relevant context on where adapter boundaries should align with domain boundaries. |
+| [GitHub — The GitHub GraphQL API (September 2016)](https://github.blog/2016-09-14-the-github-graphql-api/) | [ADR-006](adr/ADR-006-rest-and-graphql-dual-transport.md) | The canonical production example of dual REST + GraphQL transport; documents the overfetching driver, client migration pattern, and permanent-commitment risk. |
+| [Shopify Engineering Blog](https://shopify.engineering/) | [ADR-006](adr/ADR-006-rest-and-graphql-dual-transport.md) | Documents Shopify's GraphQL-first API strategy maintained alongside REST; covers N+1 batching and query complexity scoring. |

@@ -181,10 +181,15 @@ cost is not justified.
 ## References
 
 - [GKE Autopilot — Overview](https://cloud.google.com/kubernetes-engine/docs/concepts/autopilot-overview) — Documents the Autopilot node management model, pod-based billing, and resource constraints cited in the Rationale and cost estimate sections.
+- [Introducing GKE Autopilot (GA announcement, February 2021)](https://cloud.google.com/blog/products/containers-kubernetes/introducing-gke-autopilot) — Google's GA announcement documenting the design rationale for Autopilot's fully-managed node model.
 - [Google Cloud Run — Overview](https://cloud.google.com/run/docs/overview/what-is-cloud-run) — Documents scale-to-zero behaviour, cold start characteristics, and request-based billing; all cited in the comparison rationale.
+- [Cloud Run — Concurrency](https://cloud.google.com/run/docs/about-concurrency) — Covers the concurrency model, CPU allocation, and minimum instances configuration relevant to the cold start mitigation strategy.
+- [Cloud Run — Pricing](https://cloud.google.com/run/pricing) — Authoritative source for the per-request cost model used in the A/B comparison table.
 - [Terraform — Documentation](https://developer.hashicorp.com/terraform/docs) — The IaC tool used to provision GKE, Cloud Run, VPC, and load balancer resources.
 - [Helm — Documentation](https://helm.sh/docs/) — The Kubernetes package manager used for `charts/api` and `charts/web`; covers chart structure, values files, and `helm upgrade`.
 - [Kubernetes — Horizontal Pod Autoscaler](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/) — The HPA configuration shown in the Decision section (`minReplicas: 2`, `maxReplicas: 10`, CPU target 70%).
 - [Google Cloud Load Balancing — HTTPS Load Balancer](https://cloud.google.com/load-balancing/docs/https) — The load balancer used for traffic splitting between GKE and Cloud Run.
 - [Google Artifact Registry — Overview](https://cloud.google.com/artifact-registry/docs/overview) — The container registry where Docker images are pushed by CI/CD.
 - [k6 — Load Testing Documentation](https://grafana.com/docs/k6/latest/) — The load testing tool used for the scale-out time metric in the A/B comparison table.
+- [Case Study: GKE Autopilot Operational Experience](../case-studies.md#gke-autopilot-operational-experience) — Documents the DaemonSet restriction, startup latency for new node provisioning, and cost premium vs. well-tuned standard GKE.
+- [Case Study: Google Cloud Run Cost and Cold Starts](../case-studies.md#google-cloud-run-cost-and-cold-starts) — Documents Node.js cold start latency ranges (200–600 ms), the concurrency default (80), and the cost crossover point vs. GKE.
