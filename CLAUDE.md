@@ -307,9 +307,13 @@ Opening brief: ...
 4. Key Decisions (bullet list with links to sections, issues, PRs, ADRs)
 5. Dialogue sections (one H2 per task or topic, drawn from draft)
 6. Open Items / Next Steps (checkbox list)
-7. Token Usage (table with one row per session: slug, input tokens, output tokens, estimated
-   cost — drawn from `<!-- tokens: ... -->` comments in the draft)
-8. Token Optimization Suggestions (what drove cost; 3–5 suggestions)
+7. Token Usage (per-session breakdown tables: model, est. input tokens, est. output tokens,
+   est. cost — drawn from `<!-- tokens: ... -->` comments in the draft; when comments are
+   absent use retroactive estimates based on session scope, labeled as "retroactive estimate";
+   close with a Combined totals table)
+8. Token Optimization Suggestions (2–4 per-session observations grouped under a `### Session N`
+   heading; close with a `### Cross-Session Patterns` subsection for generalizable findings
+   that apply across multiple sessions)
 9. Next Session Context (the final `<!-- next-session-context -->` block from the draft)
 10. Reflection (gaps, risks, strategic questions — written last)
 11. Further Reading (1–3 primary sources per session that explain the reasoning behind key
