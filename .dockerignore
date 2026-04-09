@@ -1,0 +1,37 @@
+# Dependencies — never needed in the image; turbo prune + npm ci handles installs
+node_modules
+**/node_modules
+
+# Turborepo cache
+.turbo
+**/.turbo
+
+# Git history
+.git
+.gitignore
+
+# Test files
+**/*.test.ts
+**/*.spec.ts
+**/__tests__
+
+# Build outputs — rebuilt inside Docker
+dist
+**/dist
+.next
+**/.next
+
+# Local env files
+.env
+.env.*
+!.env.example
+
+# IDE / OS noise
+.vscode
+.idea
+*.DS_Store
+Thumbs.db
+
+# CI / coverage
+coverage
+.nyc_output

@@ -1,0 +1,16 @@
+{
+  "name": "@lifting-logbook/api",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "nest build",
+    "dev": "nest start --watch",
+    "start": "node dist/main.js",
+    "lint": "eslint src",
+    "test": "jest --passWithNoTests"
+  },
+  "dependencies": {
+    "@lifting-logbook/core": "*",
+    "@lifting-logbook/types": "*"
+  }
+}
