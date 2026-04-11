@@ -7,10 +7,23 @@
     "dev": "nest start --watch",
     "start": "node dist/main.js",
     "lint": "eslint src",
-    "test": "jest --passWithNoTests"
+    "test": "jest"
   },
   "dependencies": {
     "@lifting-logbook/core": "*",
-    "@lifting-logbook/types": "*"
+    "@lifting-logbook/types": "*",
+    "@nestjs/common": "^10.0.0",
+    "@nestjs/core": "^10.0.0",
+    "@nestjs/platform-fastify": "^10.0.0",
+    "fastify": "^4.0.0",
+    "reflect-metadata": "^0.2.0",
+    "rxjs": "^7.8.0"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^10.0.0",
+    "@nestjs/schematics": "^10.0.0",
+    "@nestjs/testing": "^10.0.0",
+    "ts-node": "^10.9.0",
+    "tsconfig-paths": "^4.2.0"
   }
 }
