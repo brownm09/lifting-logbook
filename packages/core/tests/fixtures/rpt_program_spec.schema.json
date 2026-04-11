@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RptProgramSpec",
+  "type": "object",
+  "properties": {
+    "offset": { "type": "number", "description": "Day offset for the lift" },
+    "lift": { "type": "string", "description": "Name of the lift" },
+    "increment": { "type": "number", "description": "Increment amount for the lift" },
+    "order": { "type": "number", "description": "Order of the lift in the program" },
+    "sets": { "type": "number", "description": "Number of sets" },
+    "reps": { "type": "number", "description": "Number of reps per set" },
+    "amrap": { "oneOf": [ { "type": "boolean" }, { "type": "string" } ], "description": "AMRAP flag (boolean or string)" },
+    "warmUpPct": { "type": "string", "description": "Warm-up percentages as comma-separated string" },
+    "wtDecrementPct": { "type": "number", "description": "Weight decrement percentage for work sets" },
+    "activation": { "type": "string", "description": "Activation exercise name" }
+  },
+  "required": [
+    "offset", "lift", "increment", "order", "sets", "reps", "amrap", "warmUpPct", "wtDecrementPct", "activation"
+  ],
+  "additionalProperties": true
+}

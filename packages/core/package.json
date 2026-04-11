@@ -7,6 +7,9 @@
   "scripts": {
     "build": "tsc --project tsconfig.json",
     "lint": "eslint src",
-    "test": "jest --passWithNoTests"
+    "test": "jest"
+  },
+  "devDependencies": {
+    "csv-parse": "^6.1.0"
   }
 }
