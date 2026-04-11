@@ -1,0 +1,22 @@
+{
+  "name": "@lifting-logbook/api-legacy",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "dev": "ts-node src/main.ts",
+    "lint": "eslint src tests",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@lifting-logbook/core": "*",
+    "@lifting-logbook/types": "*",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/supertest": "^6.0.2",
+    "supertest": "^6.3.4",
+    "ts-node": "^10.9.2"
+  }
+}
