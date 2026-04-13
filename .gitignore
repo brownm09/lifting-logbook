@@ -8,3 +8,6 @@ dist/
 
 # GAS / clasp (retained from source repo — remove when GAS migration is complete)
 .clasptoken*
+
+# Claude Code local overrides (machine-specific permissions, not for team sharing)
+.claude/settings.local.json
