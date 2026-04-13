@@ -9,6 +9,9 @@
     "lint": "eslint src",
     "test": "jest"
   },
+  "dependencies": {
+    "@lifting-logbook/types": "*"
+  },
   "devDependencies": {
     "csv-parse": "^6.1.0"
   }

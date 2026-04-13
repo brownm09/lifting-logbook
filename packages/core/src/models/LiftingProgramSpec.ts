@@ -1,7 +1,9 @@
+import { LiftName } from '@lifting-logbook/types';
+
 // RptProgramSpec interface for RPT program specification objects
 export interface LiftingProgramSpec {
   offset: number;
-  lift: string;
+  lift: LiftName;
   increment: number;
   order: number;
   sets: number;
