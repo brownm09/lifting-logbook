@@ -1,4 +1,5 @@
 export * from './auth';
+export * from './factory';
 export * from './ICycleDashboardRepository';
 export * from './ILiftingProgramSpecRepository';
 export * from './ILiftRecordRepository';

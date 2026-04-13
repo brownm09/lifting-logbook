@@ -7,6 +7,7 @@
  */
 import { CycleDashboard, LiftRecord, LiftingProgramSpec, TrainingMax } from '@lifting-logbook/core';
 import { AuthUser, IAuthProvider } from './auth';
+import { IRepositoryFactory, RepositoryBundle } from './factory';
 import { ICycleDashboardRepository } from './ICycleDashboardRepository';
 import { ILiftingProgramSpecRepository } from './ILiftingProgramSpecRepository';
 import { ILiftRecordRepository } from './ILiftRecordRepository';
@@ -75,6 +76,22 @@ const _workoutRepo: IWorkoutRepository = {
     Promise.resolve(),
 };
 
+// ---------------------------------------------------------------------------
+// IRepositoryFactory
+// ---------------------------------------------------------------------------
+
+const _repositoryBundle: RepositoryBundle = {
+  cycleDashboard: _cycleDashboardRepo,
+  liftingProgramSpec: _programSpecRepo,
+  liftRecord: _liftRecordRepo,
+  trainingMax: _trainingMaxRepo,
+  workout: _workoutRepo,
+};
+
+const _repositoryFactory: IRepositoryFactory = {
+  forUser: (): Promise<RepositoryBundle> => Promise.resolve(_repositoryBundle),
+};
+
 // Suppress "declared but never read" errors — these variables exist solely
 // to trigger structural type checking at compile time.
 void _authProvider;
@@ -83,3 +100,5 @@ void _programSpecRepo;
 void _liftRecordRepo;
 void _trainingMaxRepo;
 void _workoutRepo;
+void _repositoryBundle;
+void _repositoryFactory;
