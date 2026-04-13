@@ -1,0 +1,20 @@
+{
+  "repo": "brownm09/lifting-logbook",
+  "project_number": "2",
+  "project_owner": "brownm09",
+  "project_node_id": "PVT_kwHOAjEKvM4BTuEF",
+  "epic_field_id": "PVTSSF_lAHOAjEKvM4BTuEFzhA7GEs",
+  "epic_options": {
+    "Monorepo Scaffolding":         "974b67c1",
+    "Package & App Scaffolding":    "26d27ab2",
+    "Port Interfaces":              "9196ffd9",
+    "Shared Types":                 "42bf8843",
+    "CI/CD Foundation":             "23133b3a",
+    "Architecture & Documentation": "656e470c"
+  },
+  "milestones": [
+    "v0.1 — Foundation",
+    "v0.2 — Core API",
+    "v0.3 — Client Applications"
+  ]
+}
