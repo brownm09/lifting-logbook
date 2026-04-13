@@ -6,11 +6,21 @@
  * the TypeScript compiler will error here — no runtime needed.
  */
 import { CycleDashboard, LiftRecord, LiftingProgramSpec, TrainingMax } from '@lifting-logbook/core';
+import { AuthUser, IAuthProvider } from './auth';
 import { ICycleDashboardRepository } from './ICycleDashboardRepository';
 import { ILiftingProgramSpecRepository } from './ILiftingProgramSpecRepository';
 import { ILiftRecordRepository } from './ILiftRecordRepository';
 import { ITrainingMaxRepository } from './ITrainingMaxRepository';
 import { IWorkoutRepository } from './IWorkoutRepository';
+
+// ---------------------------------------------------------------------------
+// IAuthProvider
+// ---------------------------------------------------------------------------
+
+const _authProvider: IAuthProvider = {
+  verifyToken: (): Promise<AuthUser> =>
+    Promise.resolve({ id: '1', email: 'test@example.com', provider: 'clerk' }),
+};
 
 // ---------------------------------------------------------------------------
 // ICycleDashboardRepository
@@ -67,6 +77,7 @@ const _workoutRepo: IWorkoutRepository = {
 
 // Suppress "declared but never read" errors — these variables exist solely
 // to trigger structural type checking at compile time.
+void _authProvider;
 void _cycleDashboardRepo;
 void _programSpecRepo;
 void _liftRecordRepo;
