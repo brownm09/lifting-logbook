@@ -202,6 +202,34 @@ Before writing a `gh` or other CLI automation script:
 
 ---
 
+## Proposals and Roadmap
+
+### /propose workflow
+
+Run `/propose <one-line idea>` from the repo root to introduce a new feature or change.
+The skill handles the full flow: clarifying questions → proposal doc → GitHub issue → ROADMAP entry → PR.
+
+Do not create `docs/proposals/` files or ROADMAP entries manually unless `/propose` is
+unavailable. The skill ensures the issue, epic, and milestone are assigned consistently.
+
+### docs/proposals/ convention
+
+- Files live at `docs/proposals/YYYY-MM-DD-<slug>.md`
+- The master template is at `dev-env/claude/templates/proposal.md` — do not duplicate it here
+- Statuses: `draft` → `accepted` → `shipped` | `declined`
+- Update the `**Status:**` field in the proposal file when status changes
+- Update the linked issue's milestone or labels to match if scope changes
+
+### ROADMAP.md maintenance
+
+- `ROADMAP.md` at the repo root is the editorial view; it is **not** a GitHub mirror
+- `/propose` appends rows to the correct milestone's **Proposals** table automatically
+- Update the **Active Work** tables manually when: an item starts, completes, or moves milestones
+- Material milestone-scope changes (dropping or moving items) require a PR with an explicit
+  explanation — same bar as material changes to `docs/PRD.md`
+
+---
+
 ## Coding Standards
 
 App-level coding standards are in `docs/standards/`. Each file is a self-contained rule with
