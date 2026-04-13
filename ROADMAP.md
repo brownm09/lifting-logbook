@@ -51,7 +51,7 @@ Architecture decisions for data access and security documented.
 
 | Proposal | Description | Issue |
 |---|---|---|
-| *(none yet)* | | |
+| [Lift Library and Exercise Tagging](docs/proposals/2026-04-13-lift-library-exercise-tagging.md) | First-class `Lift` domain type with compound/accessory classification, movement tags, and configurable program exercise slots | [#64](https://github.com/brownm09/lifting-logbook/issues/64) |
 
 ---
 

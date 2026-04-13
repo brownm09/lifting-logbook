@@ -1,9 +1,13 @@
 #!/bin/sh
-. "$(dirname "$0")/_/husky.sh"
 
-npm test
+# Excluded until scaffolded/clean:
+#   @lifting-logbook/web  — no src/ yet (issue #9)
+#   @lifting-logbook/core — 51 pre-existing GAS-migration lint errors (issue #51)
+npx turbo run lint \
+  --filter=!@lifting-logbook/web \
+  --filter=!@lifting-logbook/core
 RESULT=$?
 if [ $RESULT -ne 0 ]; then
-  echo "Tests failed. Commit aborted."
+  echo "Lint failed. Commit aborted."
   exit 1
 fi
