@@ -60,7 +60,7 @@ export function updateLiftDates(
   );
   // Update meta header row for all lifts with the same offset
   otherLiftsWithSameOffset.forEach((liftName) => {
-    let rowIdx = data.findIndex((row) => row[coreLiftIdx] === liftName);
+    const rowIdx = data.findIndex((row) => row[coreLiftIdx] === liftName);
     console.log(
       `Updating lift ${liftName} at row ${rowIdx} from ${data[rowIdx][liftDateIdx]} to date ${editedLiftDate}.`,
     );
