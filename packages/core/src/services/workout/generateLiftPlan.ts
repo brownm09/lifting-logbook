@@ -17,9 +17,9 @@ import { LiftingProgramSpec, TrainingMax } from "@src/core/models";
 export function generateLiftPlan(
   tm: TrainingMax,
   ps: LiftingProgramSpec,
-  startDate: Date,
+  _startDate: Date,
 ) {
-  let workoutGrid: any[][] = [];
+  const workoutGrid: any[][] = [];
   const progSpecLiftName = ps.lift;
   const progSpecNumSets = ps.sets;
   const progSpecIncrement = ps.increment;

@@ -14,7 +14,6 @@ export function updateCycle(
   const prevNum = prevCycle.cycleNum;
   const prevDate = new Date(prevCycle.cycleDate);
   const { targetWeekday, today, overrideDate } = overrides;
-  const now = today ? new Date(today) : new Date();
   let targetWeekdayNum: number;
   if (!overrideDate) {
     targetWeekdayNum = prevDate.getUTCDay();

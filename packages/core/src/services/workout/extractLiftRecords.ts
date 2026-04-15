@@ -49,16 +49,13 @@ export function extractLiftRecords(data: any[][]): LiftRecord[] {
     if (!row || row.length < 5) continue;
     // Check for required fields (all except Notes)
     const requiredIdxs = [0, 1, 2, 3]; // Date, Lift, Set, Weight
-    let missingRequired = false;
     for (const idx of requiredIdxs) {
       if (row[idx] === undefined || row[idx] === "") {
-        missingRequired = true;
         throw new Error(
           `Missing required field '${headers[idx]}' at row ${headerIdx + i + 1}, column ${idx + 1}`,
         );
       }
     }
-    // if (missingRequired) continue;
     // Exclude warm-up sets
     const setVal = row[2];
     if (
@@ -85,7 +82,7 @@ export function extractLiftRecords(data: any[][]): LiftRecord[] {
     const rec: any = {};
     for (let j = 0; j < headers.length; j++) {
       const key = headers[j];
-      let value = row[j];
+      const value = row[j];
       switch (key) {
         case "Set":
           const currSetMatch = value.match(/Set\s*(\d+)/i);

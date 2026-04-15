@@ -27,7 +27,6 @@ export function findWorkoutRowsToHideOnEdit(
     throw new Error("Edited row is above the data entry section.");
 
   // Find column indices for "Set" and "Lift" in the reps header row
-  const SET_COL = workoutData[repsRow].indexOf("Set");
   const LIFT_COL = workoutData[repsRow].indexOf("Lift");
   const currLift = workoutData[editedRow][LIFT_COL];
 

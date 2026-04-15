@@ -17,7 +17,7 @@ export function updateMaxes(
   liftRecords: LiftRecord[],
 ): TrainingMax[] {
   // Clone the training maxes to avoid mutating input
-  let newMaxes: TrainingMax[] = trainingMaxes.map((tm) => ({ ...tm }));
+  const newMaxes: TrainingMax[] = trainingMaxes.map((tm) => ({ ...tm }));
   // console.log(`New maxes initialized: ${JSON.stringify(newMaxes)}.`);
 
   liftRecords.forEach((record) => {

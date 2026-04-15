@@ -99,4 +99,14 @@ module.exports = [
       }],
     },
   },
+  // TODO(#52): Remove once GAS-era code is re-typed under issue #52.
+  // These directories were migrated from the Google Apps Script codebase and use
+  // `any` for spreadsheet data structures (mixed-type row arrays). Proper types
+  // require a dedicated cleanup pass; suppress here to keep CI green in the interim.
+  {
+    files: ['src/models/**/*.ts', 'src/services/**/*.ts', 'src/utils/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+    },
+  },
 ];

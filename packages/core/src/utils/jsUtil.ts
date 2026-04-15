@@ -27,7 +27,7 @@ export function getNextDate(
     return mostRecent;
   }
   // 3. Otherwise, find the next valid occurrence at least 7 days after prevDate
-  let cycleDate = new Date(prevDate);
+  const cycleDate = new Date(prevDate);
   // Find the next occurrence of the target weekday after prevDate
   const daysToNext = (weekday - prevDay + 7) % 7 || 7;
   cycleDate.setDate(prevDate.getDate() + daysToNext);
