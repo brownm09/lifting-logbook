@@ -9,6 +9,13 @@ module.exports = [
   // flat/recommended includes the @typescript-eslint parser and recommended rules
   // scoped to **/*.ts | **/*.tsx | **/*.mts | **/*.cts
   ...tsPlugin.configs['flat/recommended'],
+  // Allow underscore-prefixed names as the conventional "intentionally unused" marker.
+  {
+    files: ['**/*.ts', '**/*.tsx', '**/*.mts', '**/*.cts'],
+    rules: {
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+    },
+  },
   // Enforce explicit fetch() cache semantics in apps/web Server Components.
   // Next.js changed the default fetch() caching behaviour between v14 and v15 — relying on
   // defaults is unsafe. See docs/standards/fetch-cache-semantics.md.

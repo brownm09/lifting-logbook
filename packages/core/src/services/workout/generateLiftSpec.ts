@@ -20,7 +20,7 @@ export function generateLiftSpec(
   startDate: Date,
 ) {
   // console.log(`Offset for ${ps.lift}: ${ps.offset}`);
-  let liftDate = addDaysLocal(startDate, ps.offset);
+  const liftDate = addDaysLocal(startDate, ps.offset);
   // console.log(`Original start date: ${formatDateYYYYMMDD(startDate)}; offset date: ${formatDateYYYYMMDD(liftDate)}`);
 
   // Build a mapping from header to value

@@ -20,25 +20,24 @@ export function createGrid(progSpecData, tmData, startDate) {
   const PS_WARM_COL_NUM = progSpecData[0].indexOf("Warm-Up %");
   const PS_WORK_COL_NUM = progSpecData[0].indexOf("WT Decrement %");
   const PS_ACTIVEX_COL_NUM = progSpecData[0].indexOf("Activation");
-  var progSpecLiftName,
+  let progSpecLiftName,
     progSpecOffset,
     progSpecWarmPcts,
     progSpecWorkPcts,
     progSpecActivExName,
     progSpecIncrement,
     progSpecWtDec,
-    progSpecNumSets,
-    liftDate = new Date();
-  const BASE_TM_REF_OFFSET = 2;
+    progSpecNumSets;
+  const liftDate = new Date();
   const CYCLE_SHEET_HEADER = ["Program", "", "Cycle", ""];
   const MINI_PROG_SPEC_HEADERS = ["Core Lift", "TM", "Activ. Ex.", "Inc. Amt."];
   const MINI_WORKOUT_HEADERS = [["Lift", "Weight", "Reps", "Extra"]];
-  var resultGrid = [];
-  var tmGrid = [CYCLE_SHEET_HEADER, MINI_PROG_SPEC_HEADERS];
-  var rowOffset;
-  for (var i = 1; i < tmData.length; i++) {
+  const resultGrid = [];
+  const tmGrid = [CYCLE_SHEET_HEADER, MINI_PROG_SPEC_HEADERS];
+  let rowOffset;
+  for (let i = 1; i < tmData.length; i++) {
     console.log(`Training max: ${tmData[i]}`);
-    for (var j = 0; j < progSpecData.length; j++) {
+    for (let j = 0; j < progSpecData.length; j++) {
       if (
         progSpecData[j][PS_LIFT_COL_NUM] === tmData[i][TM_LIFT_COL_NUM] &&
         progSpecData[j][PS_OFFSET_COL_NUM] >= 0
@@ -92,7 +91,7 @@ export function createGrid(progSpecData, tmData, startDate) {
           "Notes",
         ]);
         // workoutGrids[progSpecLiftName] = [];
-        for (var k = 0; k < progSpecWarmPcts.length; k++) {
+        for (let k = 0; k < progSpecWarmPcts.length; k++) {
           // workoutGrids[progSpecLiftName].push([
           //=MROUND(PRODUCT($B$3, 0.4), 2.5)
           //=MROUND(PRODUCT(INDEX(A1:D, MATCH("Deadlift", A1:A, 0), MATCH("TM", A2:2, 0)), 0.4), 2.5)
@@ -104,7 +103,7 @@ export function createGrid(progSpecData, tmData, startDate) {
             "",
           ]);
         }
-        for (var k = 0; k < progSpecWorkPcts.length; k++) {
+        for (let k = 0; k < progSpecWorkPcts.length; k++) {
           // workoutGrids[progSpecLiftName].push([
           resultGrid.push([
             `Set ${k + 1}`,

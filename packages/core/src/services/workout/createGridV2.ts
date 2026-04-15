@@ -26,15 +26,15 @@ export function createGridV2(
     `Creating grid with ${progSpecData.length} lift specs and ${tmData.length} training maxes starting from ${cycleDashboard.cycleDate.toISOString()}.`,
   );
 
-  let resultGrid: any[][] = [];
+  const resultGrid: any[][] = [];
 
   resultGrid.push(WORKOUT_SHEET_HEADERS);
   resultGrid[0][1] = cycleDashboard.program;
   resultGrid[0][3] = cycleDashboard.cycleNum;
   // resultGrid[0][5] = cycleDashboard.weight;
-  let progSpecGrid: any[][] = [];
+  const progSpecGrid: any[][] = [];
   progSpecGrid.push(LIFT_SPEC_HEADERS);
-  let workoutGrid: any[][] = [];
+  const workoutGrid: any[][] = [];
   workoutGrid.push(LIFT_PLAN_HEADERS);
 
   // console.log(`Program spec data: \n\t${progSpecData.join('\n\t')}`)
