@@ -14,11 +14,11 @@ describe("updateLiftDates", () => {
     row.includes(LIFT_DATE_HEADER),
   );
   const liftSpecColIdx =
-    workoutData[metaHeaderRowIdx].indexOf(LIFT_DATE_HEADER);
+    workoutData[metaHeaderRowIdx]!.indexOf(LIFT_DATE_HEADER);
   const entryHeaderRowIdx = workoutData.findIndex((row) =>
     row.includes("Notes"),
   );
-  const entryLiftDateIdx = workoutData[entryHeaderRowIdx].indexOf(DATE_HEADER);
+  const entryLiftDateIdx = workoutData[entryHeaderRowIdx]!.indexOf(DATE_HEADER);
   const liftSpecRowIdx = workoutData.findIndex(
     (row) => row.includes("Squat") && row.includes("KB Swing"),
   );

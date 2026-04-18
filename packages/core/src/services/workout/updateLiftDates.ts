@@ -23,15 +23,22 @@ export function updateLiftDates(
   const workoutMetaHeaderRowIdx = data.findIndex((row) =>
     row.includes(LIFT_DATE_HEADER),
   );
+  if (workoutMetaHeaderRowIdx === -1)
+    throw new Error("Workout meta header row not found.");
   const workoutEntryHeaderRowIdx = data.findIndex((row) =>
     row.includes(NOTES_HEADER),
   );
-  const entryLiftIdx = data[workoutEntryHeaderRowIdx].indexOf(LIFT_HEADER);
-  const entryDateIdx = data[workoutEntryHeaderRowIdx].indexOf(DATE_HEADER);
-  const workoutMetaHeaderRow = data[workoutMetaHeaderRowIdx];
+  if (workoutEntryHeaderRowIdx === -1)
+    throw new Error("Workout entry header row not found.");
+  const entryHeaderRow = data[workoutEntryHeaderRowIdx]!;
+  const entryLiftIdx = entryHeaderRow.indexOf(LIFT_HEADER);
+  const entryDateIdx = entryHeaderRow.indexOf(DATE_HEADER);
+  const workoutMetaHeaderRow = data[workoutMetaHeaderRowIdx]!;
   const coreLiftIdx = workoutMetaHeaderRow.indexOf(CORE_LIFT_HEADER);
   const liftDateIdx = workoutMetaHeaderRow.indexOf(LIFT_DATE_HEADER);
   const editedLiftData = data[editedCellRow];
+  if (!editedLiftData)
+    throw new Error(`No data row at index ${editedCellRow}.`);
   const editedLiftName = editedLiftData[coreLiftIdx];
   const editedLiftDate = editedLiftData[liftDateIdx];
   const editedOffset = programSpecs.find(
@@ -61,10 +68,12 @@ export function updateLiftDates(
   // Update meta header row for all lifts with the same offset
   otherLiftsWithSameOffset.forEach((liftName) => {
     const rowIdx = data.findIndex((row) => row[coreLiftIdx] === liftName);
+    if (rowIdx === -1) throw new Error(`Meta row for lift ${liftName} not found.`);
+    const metaRow = data[rowIdx]!;
     console.log(
-      `Updating lift ${liftName} at row ${rowIdx} from ${data[rowIdx][liftDateIdx]} to date ${editedLiftDate}.`,
+      `Updating lift ${liftName} at row ${rowIdx} from ${metaRow[liftDateIdx]} to date ${editedLiftDate}.`,
     );
-    data[rowIdx][liftDateIdx] = new Date(editedLiftDate);
+    metaRow[liftDateIdx] = new Date(editedLiftDate);
   });
   // Update entry rows for all lifts with the same offset
   [editedLiftName, ...otherLiftsWithSameOffset].forEach((liftName) => {

@@ -52,13 +52,14 @@ export function setupRepositoryMocks() {
 }
 
 export const gasMock = <T extends object>(): T => {
+  const store: any = {};
   const proxy = new Proxy({} as T, {
-    get: (target, prop) => {
-      if (!target[prop]) {
+    get: (_target, prop) => {
+      if (!store[prop]) {
         // Create a spy that returns the proxy itself for chaining
-        target[prop] = jest.fn().mockReturnValue(proxy);
+        store[prop] = jest.fn().mockReturnValue(proxy);
       }
-      return target[prop];
+      return store[prop];
     },
   });
   return proxy;

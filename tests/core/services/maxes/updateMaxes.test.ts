@@ -47,7 +47,7 @@ describe("updateMaxes", () => {
 
     // Check each lift
     trainingMaxes.forEach((orig, i) => {
-      const updated = updatedMaxes[i];
+      const updated = updatedMaxes[i]!;
       const lift = orig.lift;
       const updatedLiftIdx = expectedUpdates.findIndex(
         (eu) => eu.lift === lift,

@@ -18,15 +18,15 @@ describe("calculateLiftWeights", () => {
   const entryHeaderRowIdx = workoutData.findIndex((row) =>
     row.includes("Notes"),
   );
-  const liftTmIdx = workoutData[metaHeaderRowIdx].indexOf(SPEC_WEIGHT_HEADER);
+  const liftTmIdx = workoutData[metaHeaderRowIdx]!.indexOf(SPEC_WEIGHT_HEADER);
   const entryWeightIdx =
-    workoutData[entryHeaderRowIdx].indexOf(LIFT_WEIGHT_HEADER);
+    workoutData[entryHeaderRowIdx]!.indexOf(LIFT_WEIGHT_HEADER);
   const liftSpecRowIdx = workoutData.findIndex(
     (row) => row.includes("Squat") && row.includes("KB Swing"),
   );
 
   it("throws an error if edited column is not the Weight column", () => {
-    workoutData[liftSpecRowIdx][liftTmIdx] = 105; // Set a known TM value for testing
+    workoutData[liftSpecRowIdx]![liftTmIdx] = 105; // Set a known TM value for testing
     expect(() =>
       calculateLiftWeights(
         workoutData,
@@ -38,14 +38,14 @@ describe("calculateLiftWeights", () => {
   });
 
   it("throws an error if edited row is not the Weight row", () => {
-    workoutData[liftSpecRowIdx][liftTmIdx] = 105; // Set a known TM value for testing
+    workoutData[liftSpecRowIdx]![liftTmIdx] = 105; // Set a known TM value for testing
     expect(() =>
       calculateLiftWeights(workoutData, rptProgramSpec, -1, liftTmIdx),
     ).toThrow();
   });
 
   it("modifies all lift weights of core lift with matching offset", () => {
-    workoutData[liftSpecRowIdx][liftTmIdx] = 105; // Set a known TM value for testing
+    workoutData[liftSpecRowIdx]![liftTmIdx] = 105; // Set a known TM value for testing
     const result = calculateLiftWeights(
       workoutData,
       rptProgramSpec,
@@ -55,7 +55,7 @@ describe("calculateLiftWeights", () => {
     const expectedWeights = [42.5, 62.5, 85, 105, 95, 85];
     const actualWeights = Array.from(
       { length: 6 },
-      (_, i) => result[41 + i][entryWeightIdx],
+      (_, i) => result[41 + i]![entryWeightIdx],
     );
     expect(result.length).toBe(77);
     expect(Array.isArray(result)).toBe(true);

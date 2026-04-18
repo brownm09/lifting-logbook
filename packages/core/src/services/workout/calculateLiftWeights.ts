@@ -28,23 +28,29 @@ export function calculateLiftWeights(
   const workoutMetaHeaderRowIdx = data.findIndex((row) =>
     row.includes(LIFT_DATE_HEADER),
   );
-  const workoutMetaHeaderRow = data[workoutMetaHeaderRowIdx];
+  if (workoutMetaHeaderRowIdx === -1)
+    throw new Error("Workout meta header row not found.");
+  const workoutMetaHeaderRow = data[workoutMetaHeaderRowIdx]!;
   const workoutEntryHeaderRowIdx = data.findIndex((row) =>
     row.includes(NOTES_HEADER),
   );
-  const entryLiftIdx = data[workoutEntryHeaderRowIdx].indexOf(LIFT_HEADER);
-  const entrySetIdx = data[workoutEntryHeaderRowIdx].indexOf(SET_HEADER);
-  const entryWeightIdx =
-    data[workoutEntryHeaderRowIdx].indexOf(LIFT_WEIGHT_HEADER);
+  if (workoutEntryHeaderRowIdx === -1)
+    throw new Error("Workout entry header row not found.");
+  const entryHeaderRow = data[workoutEntryHeaderRowIdx]!;
+  const entryLiftIdx = entryHeaderRow.indexOf(LIFT_HEADER);
+  const entrySetIdx = entryHeaderRow.indexOf(SET_HEADER);
+  const entryWeightIdx = entryHeaderRow.indexOf(LIFT_WEIGHT_HEADER);
   const coreLiftIdx = workoutMetaHeaderRow.indexOf(CORE_LIFT_HEADER);
   const metaWeightIdx = workoutMetaHeaderRow.indexOf(SPEC_WEIGHT_HEADER);
   const editedLiftData = data[editedCellRow];
+  if (!editedLiftData)
+    throw new Error(`No data row at index ${editedCellRow}.`);
   const editedLiftName = editedLiftData[coreLiftIdx];
   const currLiftSpec = programSpecs.find(
     (spec) => spec.lift === editedLiftName,
   );
   const editedOffset = currLiftSpec?.offset;
-  const currLiftTm = data[editedCellRow][metaWeightIdx];
+  const currLiftTm = editedLiftData[metaWeightIdx];
   const currLiftIncrement = currLiftSpec?.increment || 1;
 
   // If edited column is not the "Reps" column, return empty array

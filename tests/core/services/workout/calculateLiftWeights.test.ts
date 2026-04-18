@@ -18,9 +18,9 @@ describe("calculateLiftWeights", () => {
   const entryHeaderRowIdx = workoutData.findIndex((row) =>
     row.includes("Notes"),
   );
-  const liftTmIdx = workoutData[metaHeaderRowIdx].indexOf(SPEC_WEIGHT_HEADER);
+  const liftTmIdx = workoutData[metaHeaderRowIdx]!.indexOf(SPEC_WEIGHT_HEADER);
   const entryWeightIdx =
-    workoutData[entryHeaderRowIdx].indexOf(LIFT_WEIGHT_HEADER);
+    workoutData[entryHeaderRowIdx]!.indexOf(LIFT_WEIGHT_HEADER);
   const liftSpecRowIdx = workoutData.findIndex(
     (row) => row.includes("Squat") && row.includes("KB Swing"),
   );

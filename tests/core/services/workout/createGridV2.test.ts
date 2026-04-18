@@ -43,13 +43,13 @@ describe("createGridV2", () => {
   });
 
   it("generates correct lift spec and plan for a known lift", () => {
-    const singleSpec = [rptProgramSpec[0]];
-    const singleMax = [trainingMaxes[0]];
+    const singleSpec = [rptProgramSpec[0]!];
+    const singleMax = [trainingMaxes[0]!];
     const result = createGridV2(cycleDashboard, singleSpec, singleMax);
     expect(result.length).toBeGreaterThan(2);
-    expect(result[1][0]).toBe("Core Lift");
-    expect(result[2][0]).toBe(singleMax[0].lift);
-    expect(result[result.length - 1][1]).toBe(singleMax[0].lift);
+    expect(result[1]![0]).toBe("Core Lift");
+    expect(result[2]![0]).toBe(singleMax[0]!.lift);
+    expect(result[result.length - 1]![1]).toBe(singleMax[0]!.lift);
   });
 
   it("uses the correct start date in generated lift specs", () => {

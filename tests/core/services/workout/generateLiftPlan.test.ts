@@ -12,8 +12,8 @@ const rptProgramSpec = parseLiftingProgramSpec(rptProgramSpecData);
 
 describe("generateLiftPlan", () => {
   it("generates correct lift plan for Bench P.", () => {
-    const tm = trainingMaxes.find((t) => t.lift === "Bench P.");
-    const ps = rptProgramSpec.find((p) => p.lift === "Bench P.");
+    const tm = trainingMaxes.find((t) => t.lift === "Bench P.")!;
+    const ps = rptProgramSpec.find((p) => p.lift === "Bench P.")!;
     const startDate = new Date("2026-01-01");
     const plan = generateLiftPlan(tm, ps, startDate);
     expect(Array.isArray(plan)).toBe(true);

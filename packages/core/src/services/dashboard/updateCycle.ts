@@ -14,18 +14,18 @@ export function updateCycle(
   const prevNum = prevCycle.cycleNum;
   const prevDate = new Date(prevCycle.cycleDate);
   const { targetWeekday, today, overrideDate } = overrides;
-  let targetWeekdayNum: number;
+  let targetWeekdayNum = 0;
   if (!overrideDate) {
     targetWeekdayNum = prevDate.getUTCDay();
 
     // Determine target weekday: if not specified, use previous cycle's weekday
     if (targetWeekday) {
-      targetWeekdayNum = WEEKDAY_MAP[targetWeekday.toLowerCase()];
+      targetWeekdayNum = WEEKDAY_MAP[targetWeekday.toLowerCase()]!;
       console.log(
         `Target weekday overridden to ${targetWeekday} (${targetWeekdayNum}).`,
       );
     } else {
-      targetWeekdayNum = WEEKDAY_MAP[prevCycle.cycleStartWeekday.toLowerCase()];
+      targetWeekdayNum = WEEKDAY_MAP[prevCycle.cycleStartWeekday.toLowerCase()]!;
       console.log(
         `Target weekday set to previous cycle's weekday: ${prevCycle.cycleStartWeekday} (${targetWeekdayNum}).`,
       );

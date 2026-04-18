@@ -14,11 +14,11 @@ describe("updateLiftDates", () => {
     row.includes(LIFT_DATE_HEADER),
   );
   const liftSpecColIdx =
-    workoutData[metaHeaderRowIdx].indexOf(LIFT_DATE_HEADER);
+    workoutData[metaHeaderRowIdx]!.indexOf(LIFT_DATE_HEADER);
   const entryHeaderRowIdx = workoutData.findIndex((row) =>
     row.includes("Notes"),
   );
-  const entryLiftDateIdx = workoutData[entryHeaderRowIdx].indexOf(DATE_HEADER);
+  const entryLiftDateIdx = workoutData[entryHeaderRowIdx]!.indexOf(DATE_HEADER);
   const liftSpecRowIdx = workoutData.findIndex(
     (row) => row.includes("Squat") && row.includes("KB Swing"),
   );
@@ -37,7 +37,7 @@ describe("updateLiftDates", () => {
   });
 
   it("modifies all lift dates of core lifts with matching offset", () => {
-    workoutData[liftSpecRowIdx][liftSpecColIdx] = newLiftDate;
+    workoutData[liftSpecRowIdx]![liftSpecColIdx] = newLiftDate;
     const result = updateLiftDates(
       workoutData,
       rptProgramSpec,
@@ -47,10 +47,10 @@ describe("updateLiftDates", () => {
     expect(result.length).toBe(77);
     expect(Array.isArray(result)).toBe(true);
     Array.from({ length: 4 }, (_, i) => 7 + i).forEach((rowIdx) => {
-      expect(result[rowIdx][liftSpecColIdx]).toEqual(newLiftDate);
+      expect(result[rowIdx]![liftSpecColIdx]).toEqual(newLiftDate);
     });
     Array.from({ length: 18 }, (_, i) => 42 + i).forEach((rowIdx) => {
-      expect(result[rowIdx][entryLiftDateIdx]).toEqual(newLiftDate);
+      expect(result[rowIdx]![entryLiftDateIdx]).toEqual(newLiftDate);
     });
   });
 });

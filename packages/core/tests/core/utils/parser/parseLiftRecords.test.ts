@@ -7,9 +7,9 @@ describe("parseLiftRecords", () => {
     const records = parseLiftRecords(data);
     expect(Array.isArray(records)).toBe(true);
     expect(records.length).toBeGreaterThan(0);
-    expect(records[0]).toHaveProperty("program");
-    expect(records[0]).toHaveProperty("cycleNum");
-    expect(records[0]).toHaveProperty("workoutNum");
-    expect(records[0]).toHaveProperty("setNum");
+    expect(records[0]!).toHaveProperty("program");
+    expect(records[0]!).toHaveProperty("cycleNum");
+    expect(records[0]!).toHaveProperty("workoutNum");
+    expect(records[0]!).toHaveProperty("setNum");
   });
 });
