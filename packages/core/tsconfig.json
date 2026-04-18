@@ -8,10 +8,7 @@
     },
     "rootDir": "src",
     "outDir": "dist",
-    "composite": true,
-    "strict": false,
-    "noUncheckedIndexedAccess": false,
-    "exactOptionalPropertyTypes": false
+    "composite": true
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist"]

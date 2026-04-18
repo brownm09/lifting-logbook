@@ -9,7 +9,7 @@ export function mapTrainingMaxes(maxes: TrainingMax[]): any[][] {
   return [
     headers,
     ...maxes.map((max) =>
-      headers.map((header) => max[TRAINING_MAX_HEADER_MAP[header].key]),
+      headers.map((header) => max[TRAINING_MAX_HEADER_MAP[header]!.key as keyof TrainingMax]),
     ),
   ];
 }

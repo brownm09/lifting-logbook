@@ -26,8 +26,8 @@ describe("updateMaxes", () => {
     // Check that at least one max was updated (date or weight changed)
     const changed = updatedMaxes.some(
       (um, i) =>
-        um.weight !== trainingMaxes[i].weight ||
-        um.dateUpdated.getTime() !== trainingMaxes[i].dateUpdated.getTime(),
+        um.weight !== trainingMaxes[i]!.weight ||
+        um.dateUpdated.getTime() !== trainingMaxes[i]!.dateUpdated.getTime(),
     );
     expect(changed).toBe(true);
 
@@ -47,7 +47,7 @@ describe("updateMaxes", () => {
 
     // Check each lift
     trainingMaxes.forEach((orig, i) => {
-      const updated = updatedMaxes[i];
+      const updated = updatedMaxes[i]!;
       const lift = orig.lift;
       const updatedLiftIdx = expectedUpdates.findIndex(
         (eu) => eu.lift === lift,
@@ -55,11 +55,11 @@ describe("updateMaxes", () => {
       if (updatedLiftIdx !== -1) {
         // Compare only the date part in UTC to avoid timezone issues
         expect(updated.dateUpdated.toISOString().slice(0, 10)).toBe(
-          expectedUpdates[updatedLiftIdx].dateUpdated
+          expectedUpdates[updatedLiftIdx]!.dateUpdated
             .toISOString()
             .slice(0, 10),
         );
-        expect(updated.weight).toBe(expectedUpdates[updatedLiftIdx].weight);
+        expect(updated.weight).toBe(expectedUpdates[updatedLiftIdx]!.weight);
       } else {
         // Should remain unchanged
         expect(updated.dateUpdated).toEqual(orig.dateUpdated);

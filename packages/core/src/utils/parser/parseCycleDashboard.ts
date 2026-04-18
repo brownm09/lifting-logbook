@@ -23,11 +23,11 @@ export function parseCycleDashboard(data: any[][]): CycleDashboard {
     map[key] = value;
   });
   return {
-    program: map[PROGRAM_KEY],
-    cycleUnit: map[CYCLE_UNIT_KEY],
+    program: map[PROGRAM_KEY] ?? "",
+    cycleUnit: map[CYCLE_UNIT_KEY] ?? "",
     cycleNum: Number(map[CYCLE_NUM_KEY]),
-    cycleDate: new Date(map[CYCLE_DATE_KEY]),
-    sheetName: map[SHEET_NAME_KEY],
-    cycleStartWeekday: toTitleCase(map[CYCLE_START_WEEKDAY_KEY]) as Weekday,
+    cycleDate: new Date(map[CYCLE_DATE_KEY] ?? ""),
+    sheetName: map[SHEET_NAME_KEY] ?? "",
+    cycleStartWeekday: toTitleCase(map[CYCLE_START_WEEKDAY_KEY] ?? "") as Weekday,
   };
 }

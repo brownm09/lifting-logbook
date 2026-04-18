@@ -17,7 +17,9 @@ export function findWorkoutRowsToHideOnEdit(
 ): number[] {
   const rowsToHide: number[] = [];
   const repsRow = workoutData.findIndex((row) => row.includes(REPS_HEADER));
-  const repsCol = workoutData[repsRow].indexOf(REPS_HEADER);
+  if (repsRow === -1) throw new Error("Reps header row not found.");
+  const repsHeaderRow = workoutData[repsRow]!;
+  const repsCol = repsHeaderRow.indexOf(REPS_HEADER);
 
   // If edited column is not the "Reps" column, return empty array
   if (editedCol !== repsCol)
@@ -27,11 +29,14 @@ export function findWorkoutRowsToHideOnEdit(
     throw new Error("Edited row is above the data entry section.");
 
   // Find column indices for "Set" and "Lift" in the reps header row
-  const LIFT_COL = workoutData[repsRow].indexOf("Lift");
-  const currLift = workoutData[editedRow][LIFT_COL];
+  const LIFT_COL = repsHeaderRow.indexOf("Lift");
+  const editedRowData = workoutData[editedRow];
+  if (!editedRowData) throw new Error(`No data row at index ${editedRow}.`);
+  const currLift = editedRowData[LIFT_COL];
 
   for (let r = editedRow; r > repsRow; r--) {
-    if (workoutData[r][LIFT_COL] === currLift) {
+    const row = workoutData[r];
+    if (row && row[LIFT_COL] === currLift) {
       // workoutRepo.hideRow(r + 1);
       rowsToHide.push(r);
     }

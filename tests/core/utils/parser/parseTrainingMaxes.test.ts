@@ -9,9 +9,9 @@ describe("parseTrainingMaxes", () => {
     expect(result.length).toBeGreaterThan(0);
     expect(result[0]).toHaveProperty("dateUpdated");
     // Should be a Date object
-    expect(result[0].dateUpdated).toBeInstanceOf(Date);
-    expect(result[0]).toHaveProperty("lift");
-    expect(result[0]).toHaveProperty("weight");
+    expect(result[0]!.dateUpdated).toBeInstanceOf(Date);
+    expect(result[0]!).toHaveProperty("lift");
+    expect(result[0]!).toHaveProperty("weight");
   });
 
   it("parses weight as a number", () => {
@@ -20,8 +20,8 @@ describe("parseTrainingMaxes", () => {
       ["2024-01-01", "Squat", "200"],
     ];
     const result = parseTrainingMaxes(data);
-    expect(typeof result[0].weight).toBe("number");
-    expect(result[0].weight).toBe(200);
+    expect(typeof result[0]!.weight).toBe("number");
+    expect(result[0]!.weight).toBe(200);
   });
 
   it("parses dateUpdated as a Date object", () => {
@@ -30,8 +30,8 @@ describe("parseTrainingMaxes", () => {
       ["2024-01-01", "Bench", "150"],
     ];
     const result = parseTrainingMaxes(data);
-    expect(result[0].dateUpdated).toBeInstanceOf(Date);
-    expect(result[0].dateUpdated.toISOString().startsWith("2024-01-01")).toBe(
+    expect(result[0]!.dateUpdated).toBeInstanceOf(Date);
+    expect(result[0]!.dateUpdated.toISOString().startsWith("2024-01-01")).toBe(
       true,
     );
   });

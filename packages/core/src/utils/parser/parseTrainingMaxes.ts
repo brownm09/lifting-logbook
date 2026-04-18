@@ -14,7 +14,7 @@ export function parseTrainingMaxes(data: any[][]): TrainingMax[] {
   return rawObjects.map((obj) => {
     const result: any = {};
     for (const header in headerMap) {
-      const { key, type } = headerMap[header];
+      const { key, type } = headerMap[header]!;
       let value = obj[header];
       if (type === "number") {
         value = Number(value);

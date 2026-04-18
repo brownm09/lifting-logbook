@@ -10,7 +10,7 @@ export function mapLiftingProgramSpec(specs: LiftingProgramSpec[]): any[][] {
     headers,
     ...specs.map((spec) =>
       headers.map(
-        (header) => spec[LIFTING_PROGRAM_SPEC_HEADER_MAP[header].key],
+        (header) => spec[LIFTING_PROGRAM_SPEC_HEADER_MAP[header]!.key],
       ),
     ),
   ];

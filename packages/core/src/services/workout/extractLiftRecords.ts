@@ -38,7 +38,7 @@ export function extractLiftRecords(data: any[][]): LiftRecord[] {
   const headerIdx = data.findIndex((row) => row.includes(REPS_HEADER));
 
   if (headerIdx === -1) throw new Error("Lift records header row not found.");
-  const headers = data[headerIdx];
+  const headers = data[headerIdx]!;
   const records: LiftRecord[] = [];
   // Map of date string to workout number (incremented as new dates are found)
   const dateToWorkoutNum = new Map<string, number>();

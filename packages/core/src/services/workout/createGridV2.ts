@@ -29,8 +29,8 @@ export function createGridV2(
   const resultGrid: any[][] = [];
 
   resultGrid.push(WORKOUT_SHEET_HEADERS);
-  resultGrid[0][1] = cycleDashboard.program;
-  resultGrid[0][3] = cycleDashboard.cycleNum;
+  resultGrid[0]![1] = cycleDashboard.program;
+  resultGrid[0]![3] = cycleDashboard.cycleNum;
   // resultGrid[0][5] = cycleDashboard.weight;
   const progSpecGrid: any[][] = [];
   progSpecGrid.push(LIFT_SPEC_HEADERS);

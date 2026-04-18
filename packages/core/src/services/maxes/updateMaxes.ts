@@ -33,11 +33,12 @@ export function updateMaxes(
     if (tmIndex === -1)
       throw new Error(`Training max for lift ${liftName} not found.`);
 
+    const currentMax = newMaxes[tmIndex]!;
     const spec = programSpec.find((ps) => ps.lift === liftName);
     if (!spec) throw new Error(`Program spec for lift ${liftName} not found.`);
 
     console.log(
-      `Current training max for ${liftName}: weight=${newMaxes[tmIndex].weight}, date=${newMaxes[tmIndex].dateUpdated}`,
+      `Current training max for ${liftName}: weight=${currentMax.weight}, date=${currentMax.dateUpdated}`,
     );
     console.log(
       `Program spec for ${liftName}: reps=${spec.reps}, increment=${spec.increment}`,
@@ -50,20 +51,20 @@ export function updateMaxes(
     if (
       record.reps >= spec.reps &&
       new Date(record.date).getTime() >
-        new Date(newMaxes[tmIndex].dateUpdated).getTime()
+        new Date(currentMax.dateUpdated).getTime()
     ) {
       // Update training max
       const updatedWeight = record.weight + spec.increment;
       console.log(
-        `Updating training max for ${liftName} from weight=${newMaxes[tmIndex].weight} to weight=${updatedWeight} based on lift record.`,
+        `Updating training max for ${liftName} from weight=${currentMax.weight} to weight=${updatedWeight} based on lift record.`,
       );
       if (typeof updatedWeight !== "number" || isNaN(updatedWeight)) {
         throw new Error(
           `Updated weight for ${liftName} is not a valid number: ${updatedWeight}`,
         );
       }
-      newMaxes[tmIndex].weight = updatedWeight;
-      newMaxes[tmIndex].dateUpdated = record.date;
+      currentMax.weight = updatedWeight;
+      currentMax.dateUpdated = record.date;
     }
   });
 

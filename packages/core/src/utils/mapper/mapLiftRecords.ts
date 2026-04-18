@@ -9,7 +9,7 @@ export function mapLiftRecords(records: LiftRecord[]): any[][] {
   return [
     headers,
     ...records.map((rec) =>
-      headers.map((header) => rec[LIFT_RECORD_HEADER_MAP[header].key]),
+      headers.map((header) => rec[LIFT_RECORD_HEADER_MAP[header]!.key as keyof LiftRecord]),
     ),
   ];
 }
