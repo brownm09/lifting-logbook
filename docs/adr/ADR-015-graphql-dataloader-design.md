@@ -30,6 +30,12 @@ DataLoader instances **must** be created fresh for every incoming HTTP request. 
 this is enforced by registering the DataLoader service with `Scope.REQUEST`:
 
 ```typescript
+// Illustrative — types not yet defined in @logbook/core:
+//   RepositoryBundle: object returned by IRepositoryFactory.forUser(), grouping
+//     per-entity repository instances (workouts, liftRecords, trainingMaxes, …)
+//   Workout, LiftRecord, TrainingMax: domain types from packages/types
+// These will be concrete once port interface scaffolding (issue #71 area) ships.
+
 import { Injectable, Scope, Inject } from '@nestjs/common';
 import { REQUEST } from '@nestjs/core';
 import DataLoader from 'dataloader';
@@ -50,18 +56,23 @@ export class DataLoaderService {
   ) {
     this.repos = repositoryFactory.forUser(request.user);
 
-    this.workoutLoader = new DataLoader(this._batchWorkouts.bind(this));
-    this.liftRecordsByWorkoutLoader = new DataLoader(this._batchLiftRecordsByWorkout.bind(this));
-    this.trainingMaxesLoader = new DataLoader(this._batchTrainingMaxes.bind(this));
+    // Arrow function class fields capture `this` lexically — no .bind() needed.
+    this.workoutLoader = new DataLoader(this._batchWorkouts);
+    this.liftRecordsByWorkoutLoader = new DataLoader(this._batchLiftRecordsByWorkout);
+    this.trainingMaxesLoader = new DataLoader(this._batchTrainingMaxes);
   }
 
-  private async _batchWorkouts(ids: readonly string[]): Promise<(Workout | Error)[]> {
+  // Returns Error for a missing id: a workout that cannot be resolved by id is
+  // a data-integrity problem, not a normal empty-result case.
+  private readonly _batchWorkouts = async (ids: readonly string[]): Promise<(Workout | Error)[]> => {
     const workouts = await this.repos.workouts.findByIds([...ids]);
     const map = new Map(workouts.map(w => [w.id, w]));
     return ids.map(id => map.get(id) ?? new Error(`Workout not found: ${id}`));
-  }
+  };
 
-  private async _batchLiftRecordsByWorkout(workoutIds: readonly string[]): Promise<(LiftRecord[] | Error)[]> {
+  // Returns [] for a workoutId with no records: zero lift records is a valid
+  // state (new or empty workout), not an error.
+  private readonly _batchLiftRecordsByWorkout = async (workoutIds: readonly string[]): Promise<(LiftRecord[] | Error)[]> => {
     const records = await this.repos.liftRecords.findByWorkoutIds([...workoutIds]);
     const grouped = new Map<string, LiftRecord[]>();
     for (const r of records) {
@@ -70,11 +81,13 @@ export class DataLoaderService {
       grouped.set(r.workoutId, bucket);
     }
     return workoutIds.map(id => grouped.get(id) ?? []);
-  }
+  };
 
-  private async _batchTrainingMaxes(userIds: readonly string[]): Promise<(TrainingMax[] | Error)[]> {
-    // Within a request there is exactly one authenticated user; the DataLoader
-    // still uses the standard batch function signature for consistency.
+  // Within a request there is exactly one authenticated user, so this loader
+  // always receives a single-element key array. The batch signature is retained
+  // so that resolvers interact with DataLoaderService uniformly (always via
+  // .load(), never via direct repository calls).
+  private readonly _batchTrainingMaxes = async (userIds: readonly string[]): Promise<(TrainingMax[] | Error)[]> => {
     const maxes = await this.repos.trainingMaxes.findForUsers([...userIds]);
     const grouped = new Map<string, TrainingMax[]>();
     for (const m of maxes) {
@@ -83,7 +96,7 @@ export class DataLoaderService {
       grouped.set(m.userId, bucket);
     }
     return userIds.map(id => grouped.get(id) ?? []);
-  }
+  };
 }
 ```
 
@@ -92,11 +105,11 @@ export class DataLoaderService {
 
 ### 2. Batching key strategy per entity
 
-| Entity | Key | Batch function source | Notes |
-|---|---|---|---|
-| `Workout` | `workoutId: string` | `IWorkoutRepository.findByIds(ids)` | Used when resolving `liftRecords` or `sets` fields on a list of workouts |
-| `LiftRecord` (by workout) | `workoutId: string` | `ILiftRecordRepository.findByWorkoutIds(ids)` | Returns `LiftRecord[]` per key; empty array is a valid result |
-| `TrainingMax` (by user) | `userId: string` | `ITrainingMaxRepository.findForUsers(ids)` | Single user per request in practice; batch form is retained for consistency |
+| Entity | Key | Batch function source | Missing-key result | Notes |
+|---|---|---|---|---|
+| `Workout` | `workoutId: string` | `IWorkoutRepository.findByIds(ids)` | `Error` — unresolvable workout ID is a data-integrity problem | Used when resolving `liftRecords` or `sets` fields on a list of workouts |
+| `LiftRecord` (by workout) | `workoutId: string` | `ILiftRecordRepository.findByWorkoutIds(ids)` | `[]` — zero records is a valid state for a new or empty workout | Returns `LiftRecord[]` per key |
+| `TrainingMax` (by user) | `userId: string` | `ITrainingMaxRepository.findForUsers(ids)` | `[]` — user with no training maxes is valid | Single user per request in practice; batch form retained so all resolvers interact with `DataLoaderService` uniformly via `.load()` rather than calling repositories directly |
 
 Keys are always plain strings (entity IDs or the authenticated user's ID). Compound keys
 (e.g., `cycleId + weekId`) are serialised to a delimited string if needed and deserialised
@@ -197,9 +210,8 @@ correctness issue, not just a performance concern.
 
 ## References
 
-- [graphql/dataloader — README](https://github.com/graphql/dataloader#readme) — The batching and caching library; documents the batch function contract, cache behaviour, and the per-request instantiation pattern recommended in the README.
-- [NestJS — Injection Scopes](https://docs.nestjs.com/fundamentals/injection-scopes) — Documents `Scope.REQUEST`, scope propagation up the dependency tree, and the performance implications of request-scoped providers.
-- [NestJS — GraphQL — DataLoader](https://docs.nestjs.com/graphql/complexity#dataloader) — NestJS-specific guidance on wiring DataLoaders into GraphQL resolvers using the request context or request-scoped injection.
+- [graphql/dataloader — README](https://github.com/graphql/dataloader#readme) — The batching and caching library; documents the batch function contract, cache behaviour, and the per-request instantiation pattern (see "Creating a new DataLoader per request" section).
+- [NestJS — Injection Scopes](https://docs.nestjs.com/fundamentals/injection-scopes) — Documents `Scope.REQUEST`, scope propagation up the dependency tree, and the performance implications of request-scoped providers; the NestJS mechanism used to enforce per-request DataLoader lifecycle.
 - [ADR-003](ADR-003-per-user-data-store-config.md) — Per-request adapter resolution via `IRepositoryFactory`; the source of the `RepositoryBundle` used inside each DataLoader batch function.
 - [ADR-006](ADR-006-rest-and-graphql-dual-transport.md) — Identifies the N+1 problem and names DataLoader as the solution; this ADR provides the design.
 - [ADR-010](ADR-010-multi-tenancy-data-isolation.md) — Per-user data isolation via RLS; documents why RLS alone cannot protect against a stale in-memory DataLoader cache.

@@ -48,7 +48,6 @@ Each entry links back to the ADR where it is discussed and provides a brief desc
 | [graphql/dataloader — README](https://github.com/graphql/dataloader#readme) | [ADR-006](adr/ADR-006-rest-and-graphql-dual-transport.md), [ADR-015](adr/ADR-015-graphql-dataloader-design.md) | The batching and caching utility for solving the N+1 problem in nested GraphQL resolvers; ADR-015 documents the required per-request instantiation pattern. |
 | [Apollo Client — Documentation](https://www.apollographql.com/docs/react/) | [ADR-006](adr/ADR-006-rest-and-graphql-dual-transport.md) | GraphQL client library referenced in the REST vs. GraphQL caching comparison. |
 | [NestJS — Injection Scopes](https://docs.nestjs.com/fundamentals/injection-scopes) | [ADR-015](adr/ADR-015-graphql-dataloader-design.md) | Documents `Scope.REQUEST`, scope propagation up the dependency tree, and the performance implications of request-scoped providers; the mechanism used to enforce per-request DataLoader lifecycle. |
-| [NestJS — GraphQL — DataLoader](https://docs.nestjs.com/graphql/complexity#dataloader) | [ADR-015](adr/ADR-015-graphql-dataloader-design.md) | NestJS-specific guidance on wiring DataLoaders into GraphQL resolvers via request-scoped injection. |
 
 ---
 
