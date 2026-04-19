@@ -53,12 +53,11 @@ export function calculateLiftWeights(
     (spec) => spec.lift === editedLiftName,
   );
   const editedOffset = currLiftSpec?.offset;
-  const currLiftTmRaw = editedLiftData[metaWeightIdx];
-  if (typeof currLiftTmRaw !== "number" || isNaN(currLiftTmRaw))
+  const currLiftTm = editedLiftData[metaWeightIdx];
+  if (typeof currLiftTm !== "number" || isNaN(currLiftTm))
     throw new Error(
-      `Expected a number in the ${SPEC_WEIGHT_HEADER} column at row ${editedCellRow}, got ${String(currLiftTmRaw)}.`,
+      `Expected a number in the ${SPEC_WEIGHT_HEADER} column at row ${editedCellRow}, got ${String(currLiftTm)}.`,
     );
-  const currLiftTm = currLiftTmRaw;
   const currLiftIncrement = currLiftSpec?.increment || 1;
 
   // If edited column is not the "Reps" column, return empty array

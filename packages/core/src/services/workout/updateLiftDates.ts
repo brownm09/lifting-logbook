@@ -36,25 +36,23 @@ export function updateLiftDates(
   const entryDateIdx = entryHeaderRow.indexOf(DATE_HEADER);
   const workoutMetaHeaderRow = data[workoutMetaHeaderRowIdx]!;
   const coreLiftIdx = workoutMetaHeaderRow.indexOf(CORE_LIFT_HEADER);
+  // indexOf is guaranteed non-negative: the row was found by row.includes(LIFT_DATE_HEADER).
   const liftDateIdx = workoutMetaHeaderRow.indexOf(LIFT_DATE_HEADER);
-  if (liftDateIdx === -1)
-    throw new Error(`${LIFT_DATE_HEADER} not found in workout meta header row.`);
   const editedLiftData = data[editedCellRow];
   if (!editedLiftData)
     throw new Error(`No data row at index ${editedCellRow}.`);
   const editedLiftName = editedLiftData[coreLiftIdx];
-  const editedLiftDateRaw = editedLiftData[liftDateIdx];
+  const editedLiftDate = editedLiftData[liftDateIdx];
   if (
-    editedLiftDateRaw == null ||
-    (typeof editedLiftDateRaw !== "string" &&
-      typeof editedLiftDateRaw !== "number" &&
-      !(editedLiftDateRaw instanceof Date)) ||
-    isNaN(new Date(editedLiftDateRaw as string | number | Date).getTime())
+    editedLiftDate == null ||
+    (typeof editedLiftDate !== "string" &&
+      typeof editedLiftDate !== "number" &&
+      !(editedLiftDate instanceof Date)) ||
+    isNaN(new Date(editedLiftDate as string | number | Date).getTime())
   )
     throw new Error(
-      `Expected a valid date in the ${LIFT_DATE_HEADER} column at row ${editedCellRow}, got ${String(editedLiftDateRaw)}.`,
+      `Expected a valid date in the ${LIFT_DATE_HEADER} column at row ${editedCellRow}, got ${String(editedLiftDate)}.`,
     );
-  const editedLiftDate = editedLiftDateRaw as string | number | Date;
   const editedOffset = programSpecs.find(
     (spec) => spec.lift === editedLiftName,
   )?.offset;
@@ -87,7 +85,7 @@ export function updateLiftDates(
     console.log(
       `Updating lift ${liftName} at row ${rowIdx} from ${String(metaRow[liftDateIdx])} to date ${String(editedLiftDate)}.`,
     );
-    metaRow[liftDateIdx] = new Date(editedLiftDate);
+    metaRow[liftDateIdx] = new Date(editedLiftDate as string | number | Date);
   });
   // Update entry rows for all lifts with the same offset
   [editedLiftName, ...otherLiftsWithSameOffset].forEach((liftName) => {
@@ -97,7 +95,7 @@ export function updateLiftDates(
         console.log(
           `Updating entry for lift ${String(liftName)} from ${String(row[entryDateIdx])} to date ${String(editedLiftDate)}.`,
         );
-        row[entryDateIdx] = new Date(editedLiftDate);
+        row[entryDateIdx] = new Date(editedLiftDate as string | number | Date);
       });
   });
   return data;
