@@ -24,6 +24,19 @@ describe("updateLiftDates", () => {
   );
   const newLiftDate = new Date(2026, 0, 15); // Jan 15, 2026
 
+  it("throws an error if the lift date cell contains an invalid date value", () => {
+    const dataWithBadDate = workoutData.map((row) => [...row]);
+    dataWithBadDate[liftSpecRowIdx]![liftSpecColIdx] = "not-a-date";
+    expect(() =>
+      updateLiftDates(
+        dataWithBadDate,
+        rptProgramSpec,
+        liftSpecRowIdx,
+        liftSpecColIdx,
+      ),
+    ).toThrow(/Expected a valid date/);
+  });
+
   it("throws an error if edited row is not a lift spec row", () => {
     expect(() =>
       updateLiftDates(workoutData, rptProgramSpec, -1, liftSpecColIdx),

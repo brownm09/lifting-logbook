@@ -37,11 +37,24 @@ export function updateLiftDates(
   const workoutMetaHeaderRow = data[workoutMetaHeaderRowIdx]!;
   const coreLiftIdx = workoutMetaHeaderRow.indexOf(CORE_LIFT_HEADER);
   const liftDateIdx = workoutMetaHeaderRow.indexOf(LIFT_DATE_HEADER);
+  if (liftDateIdx === -1)
+    throw new Error(`${LIFT_DATE_HEADER} not found in workout meta header row.`);
   const editedLiftData = data[editedCellRow];
   if (!editedLiftData)
     throw new Error(`No data row at index ${editedCellRow}.`);
   const editedLiftName = editedLiftData[coreLiftIdx];
-  const editedLiftDate = editedLiftData[liftDateIdx] as string | number | Date;
+  const editedLiftDateRaw = editedLiftData[liftDateIdx];
+  if (
+    editedLiftDateRaw == null ||
+    (typeof editedLiftDateRaw !== "string" &&
+      typeof editedLiftDateRaw !== "number" &&
+      !(editedLiftDateRaw instanceof Date)) ||
+    isNaN(new Date(editedLiftDateRaw as string | number | Date).getTime())
+  )
+    throw new Error(
+      `Expected a valid date in the ${LIFT_DATE_HEADER} column at row ${editedCellRow}, got ${String(editedLiftDateRaw)}.`,
+    );
+  const editedLiftDate = editedLiftDateRaw as string | number | Date;
   const editedOffset = programSpecs.find(
     (spec) => spec.lift === editedLiftName,
   )?.offset;

@@ -25,6 +25,20 @@ describe("calculateLiftWeights", () => {
     (row) => row.includes("Squat") && row.includes("KB Swing"),
   );
 
+  it("throws an error if SPEC_WEIGHT_HEADER is absent from the meta header row", () => {
+    const dataWithoutWeightHeader = workoutData.map((row) =>
+      row.map((cell) => (cell === SPEC_WEIGHT_HEADER ? "" : cell)),
+    );
+    expect(() =>
+      calculateLiftWeights(
+        dataWithoutWeightHeader,
+        rptProgramSpec,
+        liftSpecRowIdx,
+        liftTmIdx,
+      ),
+    ).toThrow(/not found in workout meta header row/);
+  });
+
   it("throws an error if edited column is not the Weight column", () => {
     workoutData[liftSpecRowIdx]![liftTmIdx] = 105; // Set a known TM value for testing
     expect(() =>
