@@ -43,6 +43,8 @@ export function calculateLiftWeights(
   const entryWeightIdx = entryHeaderRow.indexOf(LIFT_WEIGHT_HEADER);
   const coreLiftIdx = workoutMetaHeaderRow.indexOf(CORE_LIFT_HEADER);
   const metaWeightIdx = workoutMetaHeaderRow.indexOf(SPEC_WEIGHT_HEADER);
+  if (metaWeightIdx === -1)
+    throw new Error(`${SPEC_WEIGHT_HEADER} not found in workout meta header row.`);
   const editedLiftData = data[editedCellRow];
   if (!editedLiftData)
     throw new Error(`No data row at index ${editedCellRow}.`);
@@ -51,7 +53,11 @@ export function calculateLiftWeights(
     (spec) => spec.lift === editedLiftName,
   );
   const editedOffset = currLiftSpec?.offset;
-  const currLiftTm = editedLiftData[metaWeightIdx] as number;
+  const currLiftTm = editedLiftData[metaWeightIdx];
+  if (typeof currLiftTm !== "number" || isNaN(currLiftTm))
+    throw new Error(
+      `Expected a number in the ${SPEC_WEIGHT_HEADER} column at row ${editedCellRow}, got ${String(currLiftTm)}.`,
+    );
   const currLiftIncrement = currLiftSpec?.increment || 1;
 
   // If edited column is not the "Reps" column, return empty array
