@@ -3,6 +3,7 @@ import {
   CORE_LIFT_HEADER,
   LIFT_SPEC_HEADERS,
   LiftingProgramSpec,
+  SpreadsheetCell,
   TrainingMax,
 } from "@src/core";
 
@@ -11,20 +12,20 @@ import {
  * @param {TrainingMax} tm
  * @param {LiftingProgramSpec} ps
  * @param {Date} startDate
- * @return {any[]}
+ * @return {SpreadsheetCell[]}
  */
 
 export function generateLiftSpec(
   tm: TrainingMax,
   ps: LiftingProgramSpec,
   startDate: Date,
-) {
+): SpreadsheetCell[] {
   // console.log(`Offset for ${ps.lift}: ${ps.offset}`);
   const liftDate = addDaysLocal(startDate, ps.offset);
   // console.log(`Original start date: ${formatDateYYYYMMDD(startDate)}; offset date: ${formatDateYYYYMMDD(liftDate)}`);
 
   // Build a mapping from header to value
-  const specMap: Record<string, any> = {
+  const specMap: Record<string, SpreadsheetCell> = {
     [CORE_LIFT_HEADER]: ps.lift,
     Scheme: `${ps.sets} × ${ps.reps}`,
     "Inc. Amt.": ps.increment,
@@ -34,5 +35,5 @@ export function generateLiftSpec(
   };
 
   // Return values in the order of LIFT_SPEC_HEADERS
-  return LIFT_SPEC_HEADERS.map((header) => specMap[header]);
+  return LIFT_SPEC_HEADERS.map((header) => specMap[header] ?? null);
 }

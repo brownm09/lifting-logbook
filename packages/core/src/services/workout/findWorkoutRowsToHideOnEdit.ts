@@ -1,4 +1,5 @@
 import { REPS_HEADER } from "@src/core/constants";
+import { SpreadsheetCell } from "@src/core";
 
 /**
  * Given the sheet data and the edited row,
@@ -11,7 +12,7 @@ import { REPS_HEADER } from "@src/core/constants";
  * @returns array of 1-based row numbers to hide
  */
 export function findWorkoutRowsToHideOnEdit(
-  workoutData: any[][],
+  workoutData: SpreadsheetCell[][],
   editedRow: number,
   editedCol: number,
 ): number[] {

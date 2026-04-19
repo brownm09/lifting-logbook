@@ -1,22 +1,22 @@
-import { LIFTING_PROGRAM_SPEC_HEADER_MAP, LiftingProgramSpec } from "@src/core";
+import { LIFTING_PROGRAM_SPEC_HEADER_MAP, LiftingProgramSpec, SpreadsheetCell } from "@src/core";
 import { tableToObjects } from "./tableToObjects";
 
 /**
  * Converts a 2D array to an array of LiftingProgramSpec objects.
- * @param {any[][]} data
+ * @param {SpreadsheetCell[][]} data
  * @returns {LiftingProgramSpec[]}
  */
 
-export function parseLiftingProgramSpec(data: any[][]): LiftingProgramSpec[] {
+export function parseLiftingProgramSpec(data: SpreadsheetCell[][]): LiftingProgramSpec[] {
   // Use header map from constants
   const headerMap = LIFTING_PROGRAM_SPEC_HEADER_MAP;
   // Convert using tableToObjects, then cast/convert types
   const rawObjects = tableToObjects(data, undefined);
   const parsed = rawObjects.map((obj) => {
-    const result: any = {};
+    const result: Record<string, unknown> = {};
     for (const header in headerMap) {
       const { key, type } = headerMap[header]!;
-      let value = obj[header];
+      let value: unknown = obj[header];
       if (type === "number") {
         value = Number(value);
       } else if (type === "boolean|string") {
@@ -26,7 +26,7 @@ export function parseLiftingProgramSpec(data: any[][]): LiftingProgramSpec[] {
       }
       result[key] = value;
     }
-    return result as LiftingProgramSpec;
+    return result as unknown as LiftingProgramSpec;
   });
 
   // Sort by offset, then order

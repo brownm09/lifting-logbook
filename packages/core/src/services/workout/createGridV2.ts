@@ -3,6 +3,7 @@ import {
   LIFT_PLAN_HEADERS,
   LIFT_SPEC_HEADERS,
   LiftingProgramSpec,
+  SpreadsheetCell,
   TrainingMax,
   WORKOUT_SHEET_HEADERS,
 } from "@src/core";
@@ -14,27 +15,27 @@ import { generateLiftSpec } from "./generateLiftSpec";
  * @param {CycleDashboard} cycleDashboard
  * @param {LiftingProgramSpec[]} progSpecData
  * @param {TrainingMax[]} tmData
- * @returns {any[][]}
+ * @returns {SpreadsheetCell[][]}
  */
 
 export function createGridV2(
   cycleDashboard: CycleDashboard,
   progSpecData: LiftingProgramSpec[],
   tmData: TrainingMax[],
-) {
+): SpreadsheetCell[][] {
   console.log(
     `Creating grid with ${progSpecData.length} lift specs and ${tmData.length} training maxes starting from ${cycleDashboard.cycleDate.toISOString()}.`,
   );
 
-  const resultGrid: any[][] = [];
+  const resultGrid: SpreadsheetCell[][] = [];
 
   resultGrid.push(WORKOUT_SHEET_HEADERS);
   resultGrid[0]![1] = cycleDashboard.program;
   resultGrid[0]![3] = cycleDashboard.cycleNum;
   // resultGrid[0][5] = cycleDashboard.weight;
-  const progSpecGrid: any[][] = [];
+  const progSpecGrid: SpreadsheetCell[][] = [];
   progSpecGrid.push(LIFT_SPEC_HEADERS);
-  const workoutGrid: any[][] = [];
+  const workoutGrid: SpreadsheetCell[][] = [];
   workoutGrid.push(LIFT_PLAN_HEADERS);
 
   // console.log(`Program spec data: \n\t${progSpecData.join('\n\t')}`)

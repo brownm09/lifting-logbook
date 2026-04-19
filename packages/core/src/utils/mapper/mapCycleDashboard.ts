@@ -1,4 +1,4 @@
-import { CycleDashboard } from "@src/core";
+import { CycleDashboard, SpreadsheetCell } from "@src/core";
 import {
   CYCLE_DATE_KEY,
   CYCLE_NUM_KEY,
@@ -12,7 +12,7 @@ import {
  * @param {CycleDashboard} obj
  * @returns {any[][]} 2D array with [key, value] pairs
  */
-export function mapCycleDashboard(obj: CycleDashboard): any[][] {
+export function mapCycleDashboard(obj: CycleDashboard): SpreadsheetCell[][] {
   return [
     ["Key", "Value"],
     [PROGRAM_KEY, obj.program],

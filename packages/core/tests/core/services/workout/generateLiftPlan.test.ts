@@ -19,13 +19,13 @@ describe("generateLiftPlan", () => {
     expect(Array.isArray(plan)).toBe(true);
     expect(plan.length).toBe(6); // 3 warm-up + 3 work sets
     // Check first warm-up set
-    const warmup = plan.find((row) => row[2] && row[2].startsWith("Warm-up"));
+    const warmup = plan.find((row) => typeof row[2] === "string" && row[2].startsWith("Warm-up"));
     expect(warmup).toBeDefined();
     expect(warmup![1]).toBe("Bench P.");
     expect(warmup![2]).toMatch(/Warm-up \d+/);
     expect(warmup![4]).toBe(5);
     // Check first work set
-    const workset = plan.find((row) => row[2] && row[2].startsWith("Set"));
+    const workset = plan.find((row) => typeof row[2] === "string" && row[2].startsWith("Set"));
     expect(workset).toBeDefined();
     expect(workset![1]).toBe("Bench P.");
     expect(workset![2]).toMatch(/Set \d+/);
