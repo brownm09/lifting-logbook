@@ -9,6 +9,7 @@ import {
   PROG_SPEC_WARMUP_PCTS,
   PROG_SPEC_WORK_PCTS,
   SET_HEADER,
+  SpreadsheetCell,
   SPEC_WEIGHT_HEADER,
 } from "@src/core";
 
@@ -20,11 +21,11 @@ import {
  * @returns Updated 2D array with lift dates synchronized.
  */
 export function calculateLiftWeights(
-  data: any[][],
+  data: SpreadsheetCell[][],
   programSpecs: LiftingProgramSpec[],
   editedCellRow: number,
   editedCellCol: number,
-): any[][] {
+): SpreadsheetCell[][] {
   const workoutMetaHeaderRowIdx = data.findIndex((row) =>
     row.includes(LIFT_DATE_HEADER),
   );
@@ -50,7 +51,7 @@ export function calculateLiftWeights(
     (spec) => spec.lift === editedLiftName,
   );
   const editedOffset = currLiftSpec?.offset;
-  const currLiftTm = editedLiftData[metaWeightIdx];
+  const currLiftTm = editedLiftData[metaWeightIdx] as number;
   const currLiftIncrement = currLiftSpec?.increment || 1;
 
   // If edited column is not the "Reps" column, return empty array
@@ -61,7 +62,7 @@ export function calculateLiftWeights(
     throw new Error("Edited row is not in the metadata section.");
 
   console.log(
-    `Edited lift: ${editedLiftName}, Weight: ${currLiftTm}, Offset: ${editedOffset}.`,
+    `Edited lift: ${String(editedLiftName)}, Weight: ${currLiftTm}, Offset: ${editedOffset}.`,
   );
 
   const progSpecWarmPcts: number[] = PROG_SPEC_WARMUP_PCTS(

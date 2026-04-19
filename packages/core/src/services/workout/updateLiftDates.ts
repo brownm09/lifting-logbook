@@ -5,6 +5,7 @@ import {
   LIFT_HEADER,
   LiftingProgramSpec,
   NOTES_HEADER,
+  SpreadsheetCell,
 } from "@src/core";
 
 /**
@@ -15,11 +16,11 @@ import {
  * @returns Updated 2D array with lift dates synchronized.
  */
 export function updateLiftDates(
-  data: any[][],
+  data: SpreadsheetCell[][],
   programSpecs: LiftingProgramSpec[],
   editedCellRow: number,
   editedCellCol: number,
-): any[][] {
+): SpreadsheetCell[][] {
   const workoutMetaHeaderRowIdx = data.findIndex((row) =>
     row.includes(LIFT_DATE_HEADER),
   );
@@ -40,7 +41,7 @@ export function updateLiftDates(
   if (!editedLiftData)
     throw new Error(`No data row at index ${editedCellRow}.`);
   const editedLiftName = editedLiftData[coreLiftIdx];
-  const editedLiftDate = editedLiftData[liftDateIdx];
+  const editedLiftDate = editedLiftData[liftDateIdx] as string | number | Date;
   const editedOffset = programSpecs.find(
     (spec) => spec.lift === editedLiftName,
   )?.offset;
@@ -53,7 +54,7 @@ export function updateLiftDates(
     throw new Error("Edited row is not in the metadata section.");
 
   console.log(
-    `Edited lift: ${editedLiftName}, Date: ${editedLiftDate}, Offset: ${editedOffset}.`,
+    `Edited lift: ${String(editedLiftName)}, Date: ${String(editedLiftDate)}, Offset: ${editedOffset}.`,
   );
   // Find all lifts with the same offset (including the edited lift)
   const otherLiftsWithSameOffset = programSpecs
@@ -71,7 +72,7 @@ export function updateLiftDates(
     if (rowIdx === -1) throw new Error(`Meta row for lift ${liftName} not found.`);
     const metaRow = data[rowIdx]!;
     console.log(
-      `Updating lift ${liftName} at row ${rowIdx} from ${metaRow[liftDateIdx]} to date ${editedLiftDate}.`,
+      `Updating lift ${liftName} at row ${rowIdx} from ${String(metaRow[liftDateIdx])} to date ${String(editedLiftDate)}.`,
     );
     metaRow[liftDateIdx] = new Date(editedLiftDate);
   });
@@ -81,7 +82,7 @@ export function updateLiftDates(
       .filter((row) => row[entryLiftIdx] === liftName)
       .forEach((row) => {
         console.log(
-          `Updating entry for lift ${liftName} from ${row[entryDateIdx]} to date ${editedLiftDate}.`,
+          `Updating entry for lift ${String(liftName)} from ${String(row[entryDateIdx])} to date ${String(editedLiftDate)}.`,
         );
         row[entryDateIdx] = new Date(editedLiftDate);
       });

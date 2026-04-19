@@ -4,22 +4,22 @@ import {
   PROG_SPEC_WORK_PCTS,
   WARMUP_BASE_REPS,
 } from "@src/core/constants";
-import { LiftingProgramSpec, TrainingMax } from "@src/core/models";
+import { LiftingProgramSpec, SpreadsheetCell, TrainingMax } from "@src/core/models";
 
 /**
  * Creates a lift plan from a training max and program spec.
  * @param {TrainingMax} tm
  * @param {LiftingProgramSpec} ps
  * @param {Date} startDate
- * @return {any[]}
+ * @return {SpreadsheetCell[][]}
  */
 
 export function generateLiftPlan(
   tm: TrainingMax,
   ps: LiftingProgramSpec,
   _startDate: Date,
-) {
-  const workoutGrid: any[][] = [];
+): SpreadsheetCell[][] {
+  const workoutGrid: SpreadsheetCell[][] = [];
   const progSpecLiftName = ps.lift;
   const progSpecNumSets = ps.sets;
   const progSpecIncrement = ps.increment;

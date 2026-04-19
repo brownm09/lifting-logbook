@@ -12,5 +12,4 @@ export interface LiftingProgramSpec {
   warmUpPct: string;
   wtDecrementPct: number;
   activation: string;
-  [key: string]: any;
 }

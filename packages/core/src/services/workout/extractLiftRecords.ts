@@ -1,12 +1,12 @@
-import { LiftRecord, LiftRecordRequiredKeys, REPS_HEADER } from "@src/core";
+import { LiftRecord, LiftRecordRequiredKeys, REPS_HEADER, SpreadsheetCell } from "@src/core";
 
 /**
  * Extract lift records from a 2D grid of data.
- * @param {any[][]} data
+ * @param {SpreadsheetCell[][]} data
  * @returns {LiftRecord[]}
  */
 
-export function extractLiftRecords(data: any[][]): LiftRecord[] {
+export function extractLiftRecords(data: SpreadsheetCell[][]): LiftRecord[] {
   if (!data || data.length < 2) return [];
   // Extract program and cycle from the first few rows (look for 'Program' and 'Cycle' headers)
   let program: string | undefined = undefined;
@@ -15,10 +15,10 @@ export function extractLiftRecords(data: any[][]): LiftRecord[] {
     const row = data[i];
     if (Array.isArray(row)) {
       for (let j = 0; j < row.length; j++) {
-        if (typeof row[j] === "string" && row[j].trim() === "Program") {
+        if (typeof row[j] === "string" && (row[j] as string).trim() === "Program") {
           program = row[j + 1] !== undefined ? String(row[j + 1]) : undefined;
         }
-        if (typeof row[j] === "string" && row[j].trim() === "Cycle") {
+        if (typeof row[j] === "string" && (row[j] as string).trim() === "Cycle") {
           const val = row[j + 1];
           if (val !== undefined && val !== "") {
             const num = Number(val);
@@ -52,7 +52,7 @@ export function extractLiftRecords(data: any[][]): LiftRecord[] {
     for (const idx of requiredIdxs) {
       if (row[idx] === undefined || row[idx] === "") {
         throw new Error(
-          `Missing required field '${headers[idx]}' at row ${headerIdx + i + 1}, column ${idx + 1}`,
+          `Missing required field '${String(headers[idx])}' at row ${headerIdx + i + 1}, column ${idx + 1}`,
         );
       }
     }
@@ -79,47 +79,47 @@ export function extractLiftRecords(data: any[][]): LiftRecord[] {
       dateToWorkoutNum.set(dateStr, workoutNum);
     }
     // Map row to LiftRecord
-    const rec: any = {};
+    const rec: Record<string, unknown> = {};
     for (let j = 0; j < headers.length; j++) {
       const key = headers[j];
       const value = row[j];
       switch (key) {
-        case "Set":
-          const currSetMatch = value.match(/Set\s*(\d+)/i);
+        case "Set": {
+          const currSetMatch = (value as string).match(/Set\s*(\d+)/i);
           if (currSetMatch) {
-            rec.setNum = Number(currSetMatch[1]);
+            rec["setNum"] = Number(currSetMatch[1]);
           } else {
             throw new Error(
-              `Invalid Set string format at row ${headerIdx + i + 1}: ${value}`,
+              `Invalid Set string format at row ${headerIdx + i + 1}: ${String(value)}`,
             );
           }
           break;
+        }
         case "Weight":
         case "Reps":
-          rec[key.trim().toLowerCase()] = Number(value);
+          rec[(key as string).trim().toLowerCase()] = Number(value);
           break;
         default:
           if (
             !LiftRecordRequiredKeys.includes(
-              key.toLowerCase().trim() as keyof LiftRecord,
+              String(key).toLowerCase().trim() as keyof LiftRecord,
             )
           ) {
             throw new Error(
-              `Unexpected column header '${key}' at row ${headerIdx + 1}, column ${j + 1}.`,
+              `Unexpected column header '${String(key)}' at row ${headerIdx + 1}, column ${j + 1}.`,
             );
           }
-          rec[key.trim().toLowerCase()] = value;
+          rec[String(key).trim().toLowerCase()] = value;
           break;
       }
-      // rec[`${LIFT_RECORD_HEADER_MAP[key]}`] = value;
     }
     // Add required program and cycleNum
-    rec.program = program;
-    rec.cycleNum = cycleNum;
-    rec.workoutNum = workoutNum;
+    rec["program"] = program;
+    rec["cycleNum"] = cycleNum;
+    rec["workoutNum"] = workoutNum;
 
     // Validate all LiftRecord keys (including notes)
-    const recTyped = rec as LiftRecord;
+    const recTyped = rec as unknown as LiftRecord;
     const missingKeys = LiftRecordRequiredKeys.filter(
       (key) => recTyped[key] === undefined || recTyped[key] === null,
     );

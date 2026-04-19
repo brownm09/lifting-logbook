@@ -16,5 +16,4 @@ export interface CycleDashboard {
   cycleDate: Date;
   sheetName: string;
   cycleStartWeekday: Weekday;
-  [key: string]: any;
 }
