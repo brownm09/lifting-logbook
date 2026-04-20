@@ -41,7 +41,7 @@ describe("mapLiftingProgramSpec", () => {
     expect(result[2]).toEqual([0, "Bench", 2.5, 2, 3, 5, "FALSE", "40,50,60", 0, "None"]);
   });
 
-  it("round-trips through parseLiftingProgramSpec preserving amrap as boolean", () => {
+  it("maps amrap boolean to string so parseLiftingProgramSpec can round-trip it", () => {
     const roundTripped = parseLiftingProgramSpec(mapLiftingProgramSpec(specs));
     expect(roundTripped).toEqual(specs);
   });
