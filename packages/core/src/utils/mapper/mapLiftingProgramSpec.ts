@@ -9,9 +9,14 @@ export function mapLiftingProgramSpec(specs: LiftingProgramSpec[]): SpreadsheetC
   return [
     headers,
     ...specs.map((spec) =>
-      headers.map(
-        (header) => spec[LIFTING_PROGRAM_SPEC_HEADER_MAP[header]!.key as keyof LiftingProgramSpec] as SpreadsheetCell,
-      ),
+      headers.map((header) => {
+        const { key, type } = LIFTING_PROGRAM_SPEC_HEADER_MAP[header]!;
+        const value = spec[key as keyof LiftingProgramSpec];
+        if (type === "boolean|string" && typeof value === "boolean") {
+          return value ? "TRUE" : "FALSE";
+        }
+        return value as SpreadsheetCell;
+      }),
     ),
   ];
 }
