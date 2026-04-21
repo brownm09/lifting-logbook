@@ -1,3 +1,20 @@
+/** Classification of a lift by primary training role. */
+export type LiftClassification = 'compound' | 'accessory';
+
+/**
+ * Movement pattern tags used to classify a lift.
+ * Tags combine to describe a pattern — e.g., push + vertical = overhead press pattern.
+ */
+export type MovementTag = 'push' | 'pull' | 'vertical' | 'horizontal' | 'hinge' | 'carry';
+
+/** A first-class exercise domain object. */
+export interface Lift {
+  id: string;
+  name: string;
+  classification: LiftClassification;
+  movementTags: MovementTag[];
+}
+
 /**
  * A named lift. Typed as a branded string so new lifts can be added without
  * a code change, while still enabling autocomplete from LIFT_NAMES.
