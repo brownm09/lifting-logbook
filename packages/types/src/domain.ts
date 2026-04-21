@@ -5,7 +5,7 @@ export type LiftClassification = 'compound' | 'accessory';
  * Movement pattern tags used to classify a lift.
  * Tags combine to describe a pattern — e.g., push + vertical = overhead press pattern.
  */
-export type MovementTag = 'push' | 'pull' | 'vertical' | 'horizontal' | 'hinge' | 'carry';
+export type MovementTag = 'push' | 'pull' | 'vertical' | 'horizontal' | 'hinge' | 'carry' | 'squat';
 
 /** A first-class exercise domain object. */
 export interface Lift {

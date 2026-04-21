@@ -10,7 +10,7 @@
  * Covers all slot names used by the 5/3/1 and RPT program templates,
  * including both canonical names (from LIFT_NAMES) and CSV-abbreviated forms.
  */
-export const DEFAULT_SLOT_MAP: Record<string, string> = {
+export const DEFAULT_SLOT_MAP: Readonly<Record<string, string>> = {
   // Canonical names shared by 5/3/1 and LIFT_NAMES
   'Squat':           'back-squat',
   'Bench Press':     'bench-press',

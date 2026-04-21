@@ -11,8 +11,8 @@ import { Lift } from '@lifting-logbook/types';
  */
 export function resolveLift(
   slotName: string,
-  slotMap: Record<string, string>,
-  catalog: Lift[],
+  slotMap: Readonly<Record<string, string>>,
+  catalog: readonly Lift[],
 ): Lift {
   const liftId = slotMap[slotName];
   if (liftId === undefined) {

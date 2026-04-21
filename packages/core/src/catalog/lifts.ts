@@ -10,17 +10,15 @@ import { Lift } from '@lifting-logbook/types';
  *   push + horizontal = bench press / dip pattern
  *   pull + vertical   = chin-up / lat pulldown pattern
  *   pull + horizontal = row pattern
+ *   squat             = knee-dominant squat pattern
  *   hinge             = hip hinge pattern (deadlift, RDL)
  *   carry             = loaded carry pattern
- *
- * Squats are represented as compound lifts with no movement tags — the squat
- * pattern does not map to any of the above axes.
  */
-export const LIFT_CATALOG: Lift[] = [
+export const LIFT_CATALOG: readonly Lift[] = [
   // --- Squat pattern ---
-  { id: 'back-squat',    name: 'Back Squat',    classification: 'compound',  movementTags: [] },
-  { id: 'front-squat',   name: 'Front Squat',   classification: 'compound',  movementTags: [] },
-  { id: 'goblet-squat',  name: 'Goblet Squat',  classification: 'accessory', movementTags: [] },
+  { id: 'back-squat',    name: 'Back Squat',    classification: 'compound',  movementTags: ['squat'] },
+  { id: 'front-squat',   name: 'Front Squat',   classification: 'compound',  movementTags: ['squat'] },
+  { id: 'goblet-squat',  name: 'Goblet Squat',  classification: 'accessory', movementTags: ['squat'] },
 
   // --- Hip hinge pattern ---
   { id: 'deadlift',           name: 'Deadlift',                 classification: 'compound',  movementTags: ['hinge'] },

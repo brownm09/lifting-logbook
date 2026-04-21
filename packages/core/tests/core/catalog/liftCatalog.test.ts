@@ -14,7 +14,7 @@ describe("LIFT_CATALOG", () => {
   });
 
   it("all movementTags are valid values", () => {
-    const validTags = new Set(['push', 'pull', 'vertical', 'horizontal', 'hinge', 'carry']);
+    const validTags = new Set(['push', 'pull', 'vertical', 'horizontal', 'hinge', 'carry', 'squat']);
     for (const lift of LIFT_CATALOG) {
       for (const tag of lift.movementTags) {
         expect(validTags.has(tag)).toBe(true);
@@ -77,10 +77,7 @@ describe("LIFT_CATALOG", () => {
 
   describe("covers major movement patterns", () => {
     it("has at least one squat-pattern lift", () => {
-      const squatLifts = LIFT_CATALOG.filter((l) =>
-        l.id.includes('squat') || l.id.includes('goblet'),
-      );
-      expect(squatLifts.length).toBeGreaterThanOrEqual(1);
+      expect(LIFT_CATALOG.some((l) => l.movementTags.includes('squat'))).toBe(true);
     });
 
     it("has at least one hinge-pattern lift", () => {
@@ -138,14 +135,25 @@ describe("resolveLift", () => {
     expect(lift.name).toBe('Bench Press');
   });
 
-  it("resolves all RPT CSV slot names without error", () => {
-    const rptSlots = [
-      'Bench P.', 'BB Row', 'Calf Raise', 'C. Lat Raise', 'OH Press-HV',
-      'Squat', 'Chin-up', 'Dip', 'Upright Row',
-      'Deadlift', 'OH Press', 'CBL Curls', 'Face Pulls',
+  it("resolves abbreviated RPT slot names to the correct catalog ids", () => {
+    const cases: [string, string][] = [
+      ['Bench P.',    'bench-press'],
+      ['BB Row',      'barbell-row'],
+      ['C. Lat Raise','lateral-raise'],
+      ['OH Press',    'overhead-press'],
+      ['OH Press-HV', 'overhead-press'],
+      ['CBL Curls',   'cable-curl'],
+      ['Dip',         'dip'],
     ];
-    for (const slot of rptSlots) {
-      expect(() => resolveLift(slot, DEFAULT_SLOT_MAP, LIFT_CATALOG)).not.toThrow();
+    for (const [slot, expectedId] of cases) {
+      expect(resolveLift(slot, DEFAULT_SLOT_MAP, LIFT_CATALOG).id).toBe(expectedId);
+    }
+  });
+
+  it("every DEFAULT_SLOT_MAP value is a valid catalog id", () => {
+    const catalogIds = new Set(LIFT_CATALOG.map((l) => l.id));
+    for (const [slot, liftId] of Object.entries(DEFAULT_SLOT_MAP)) {
+      expect(catalogIds.has(liftId)).toBe(true);
     }
   });
 
