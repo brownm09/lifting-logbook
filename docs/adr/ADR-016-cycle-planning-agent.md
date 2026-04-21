@@ -29,11 +29,11 @@ Rationale for Sonnet over Haiku: cycle planning requires interpreting multi-cycl
 
 Swappability is enforced at the port boundary (see §3). The adapter is `anthropic-cycle-planning.adapter.ts`; a future `gemini-cycle-planning.adapter.ts` or `openai-cycle-planning.adapter.ts` would implement the same port interface with no changes to callers or domain code.
 
-The model ID is injected via NestJS `ConfigService` (`CYCLE_AGENT_MODEL`), defaulting to `claude-sonnet-4-6`. This allows per-environment overrides (e.g., `claude-haiku-4-5-20251001` in local dev) without code changes.
+The model ID is injected via NestJS `ConfigService` (`CYCLE_AGENT_MODEL`), defaulting to `claude-sonnet-4-6`. This allows per-environment overrides (e.g., `claude-haiku-4-5-20251001` in local dev) without code changes. Anthropic deprecates model versions on a published schedule; `CYCLE_AGENT_MODEL` is the operational knob for keeping the default current — the ADR default will need to be updated when `claude-sonnet-4-6` is deprecated. See [Anthropic model deprecation policy](https://docs.anthropic.com/en/docs/deprecations) for the current timeline.
 
 ### 2. Tool Schema Design
 
-The agent has read access to three domain tools and submits its output via a fourth structured tool call. All tool inputs and outputs use domain types from `packages/core`.
+The agent has read access to four domain tools and submits its output via a fifth structured tool call. All tool inputs and outputs use domain types from `packages/core`.
 
 #### `get_lift_history`
 
@@ -42,7 +42,7 @@ Retrieves `LiftRecord[]` for a specified program and cycle number. Lets the agen
 ```json
 {
   "name": "get_lift_history",
-  "description": "Retrieve all lift records logged for a given program cycle. Use this to assess recent performance — actual weights lifted, reps completed (including AMRAP sets), and trends across workouts.",
+  "description": "Retrieve all lift records logged for a given program cycle. Use this to assess recent performance — actual weights lifted, reps completed (including AMRAP sets), and trends across workouts. Call once per cycle; typically called for 1–3 recent cycles to establish a progression trend.",
   "input_schema": {
     "type": "object",
     "properties": {
@@ -55,6 +55,8 @@ Retrieves `LiftRecord[]` for a specified program and cycle number. Lets the agen
 ```
 
 Maps to: `ILiftRecordRepository.getLiftRecords(program, cycleNum)`
+
+**Budget note:** This tool fetches one cycle per call. An agent examining 3 prior cycles consumes 3 of 5 available tool rounds before calling the remaining read tools. The default `MAX_TOOL_ROUNDS = 5` is calibrated for a 3-history-cycle pattern (3× `get_lift_history` + `get_training_maxes` + `get_program_spec` = 5 read calls, leaving `propose_cycle_plan` as the terminal call outside the loop budget). If the expected history depth changes, `MAX_TOOL_ROUNDS` must be adjusted accordingly.
 
 #### `get_training_maxes`
 
@@ -96,6 +98,26 @@ Retrieves `LiftingProgramSpec[]` — the full program configuration including se
 
 Maps to: `ILiftingProgramSpecRepository.getProgramSpec(program)`
 
+#### `get_cycle_dashboard`
+
+Retrieves `CycleDashboard` — the current cycle number, cycle start date, cycle unit, and preferred start weekday. This is the only tool that exposes scheduling data. Without it the agent cannot reason about time-bounded goals (e.g., "peak in 8 weeks") because it has no way to project how many cycles fit within the target window.
+
+```json
+{
+  "name": "get_cycle_dashboard",
+  "description": "Retrieve the current cycle dashboard: cycle number, start date, cycle unit, and preferred start weekday. Use this when the goal involves a time horizon (e.g. 'peak in 8 weeks') to determine how many cycles are available before the target date.",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "program": { "type": "string", "description": "Program identifier" }
+    },
+    "required": ["program"]
+  }
+}
+```
+
+Maps to: `ICycleDashboardRepository.getCycleDashboard(program)`
+
 #### `propose_cycle_plan`
 
 The agent submits its final recommendation as a structured tool call rather than as free-form text. This makes the output machine-parseable and directly actionable: the adapter maps the tool result to a `CyclePlanResult` before returning it to the caller. Using a tool call for output (rather than parsing unstructured text) eliminates brittle JSON-extraction logic and keeps the output contract explicit.
@@ -114,10 +136,11 @@ The agent submits its final recommendation as a structured tool call rather than
           "type": "object",
           "properties": {
             "lift":             { "type": "string", "description": "Lift name (e.g. 'Squat')" },
+            "current_weight":   { "type": "number", "description": "Current training max weight as returned by get_training_maxes — state the value you observed so the adapter can verify it matches the live data" },
             "proposed_weight":  { "type": "number", "description": "Proposed new training max weight" },
             "reasoning":        { "type": "string", "description": "Why this change is recommended" }
           },
-          "required": ["lift", "proposed_weight", "reasoning"]
+          "required": ["lift", "current_weight", "proposed_weight", "reasoning"]
         }
       },
       "overall_reasoning": {
@@ -171,6 +194,9 @@ export interface CyclePlanRequest {
 
 export interface ProposedTrainingMaxChange {
   lift: string;
+  /** Sourced from the agent's propose_cycle_plan `current_weight` field.
+   *  The adapter validates this against the get_training_maxes result to catch
+   *  cases where the agent reasoned from a stale value. */
   currentWeight: number;
   proposedWeight: number;
   reasoning: string;
@@ -226,10 +252,11 @@ Multi-turn agent state is **not in scope for v0.3**. The agent completes its rea
 |---|---|---|
 | Token budget | `max_tokens` on the Anthropic API request | 4096 output tokens |
 | Turn budget | Loop counter in the adapter; exits after N tool-call rounds | 5 rounds |
-| Request timeout | NestJS `TimeoutInterceptor` on the cycle-plan controller | 30 seconds |
-| Partial result | `partial: true` flag on `CyclePlanResult` if budget exceeded before `propose_cycle_plan` is called | — |
+| Request timeout | `Promise.race` inside the adapter between the agentic loop and a deadline timer | 30 seconds |
+| Hard timeout backstop | NestJS `TimeoutInterceptor` on the cycle-plan controller — fires only if the adapter deadline is missed (e.g., hung I/O) | 35 seconds |
+| Partial result | `partial: true` flag on `CyclePlanResult` if turn budget or adapter deadline exceeded before `propose_cycle_plan` is called | — |
 
-On timeout or budget exhaustion, the adapter logs the event and returns the most complete `CyclePlanResult` available, or a zero-change proposal with `partial: true` if `propose_cycle_plan` was never reached.
+The adapter owns the primary deadline via `Promise.race`. When the deadline fires, the adapter catches it and returns the most complete `CyclePlanResult` available — a zero-change proposal with `partial: true` if `propose_cycle_plan` was never reached. The NestJS `TimeoutInterceptor` is a backstop for cases where the adapter itself hangs; when it fires it throws a 408 response and no partial result is returned. The 5-second gap between the two timeouts (30 s adapter, 35 s interceptor) ensures the adapter's graceful path runs first under normal conditions.
 
 ---
 
@@ -259,7 +286,7 @@ The agent must operate on the authenticated user's data store configuration (ADR
 - `@anthropic-ai/sdk` is a dependency of `apps/api` only, not of `packages/core` or `packages/types`. The ESLint import restriction in `packages/core` already blocks this path.
 - The agent never writes to any repository. All proposed changes require an explicit user-confirmation step (a separate endpoint, not in scope for v0.3) before any mutation is committed.
 - `MAX_TOOL_ROUNDS` and `max_tokens` are intentionally conservative defaults. Real-world performance data from v0.3 will inform whether they need adjustment.
-- Adding a new domain tool (e.g., `get_cycle_dashboard` for scheduling context) is a bounded change: add the tool schema to the adapter, map the tool call to the appropriate port interface, and update the system prompt. The port interface and controller are unchanged.
+- Adding a new domain tool is a bounded change: add the tool schema to the adapter, map the tool call to the appropriate port interface, and update the system prompt. The port interface and controller are unchanged.
 
 ---
 
@@ -279,6 +306,7 @@ The agent must operate on the authenticated user's data store configuration (ADR
 
 - [Anthropic — Tool Use (Function Calling)](https://docs.anthropic.com/en/docs/tool-use) — The Anthropic guide to tool use with the Messages API; documents the tool schema format, the agentic loop pattern, and the `propose_<output>` tool pattern for structured output.
 - [Anthropic Node.js SDK (`@anthropic-ai/sdk`)](https://github.com/anthropics/anthropic-sdk-node) — The SDK used in the adapter; documents `client.messages.create()` and the `tool_use` / `tool_result` message block types.
+- [Anthropic — Model Deprecation Policy](https://docs.anthropic.com/en/docs/deprecations) — Anthropic's published deprecation timeline for model versions; the `CYCLE_AGENT_MODEL` env var must be kept current as `claude-sonnet-4-6` ages out.
 - [Alistair Cockburn — Hexagonal Architecture (2005)](https://alistair.cockburn.us/hexagonal-architecture/) — The Ports and Adapters pattern governing the `ICyclePlanningAgent` boundary design; the dependency rule (infrastructure depends on domain, never the reverse) applies to the LLM adapter as it does to every other adapter in this codebase.
 - [ADR-002](ADR-002-ports-and-adapters.md) — The hexagonal architecture decision for this codebase; the `ICyclePlanningAgent` port follows the same dependency-inversion rule as `IAuthProvider`, `IWorkoutRepository`, and all other ports.
 - [ADR-003](ADR-003-per-user-data-store-config.md) — Per-request adapter resolution via `IRepositoryFactory`; the `RepositoryBundle` passed into `ICyclePlanningAgent.plan()` comes from this factory.
