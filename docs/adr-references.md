@@ -163,6 +163,15 @@ References from [`docs/security-review-checklist.md`](security-review-checklist.
 
 ---
 
+## LLM Integration
+
+| Source | Cited In | Relevance |
+|---|---|---|
+| [Anthropic — Tool Use (Function Calling)](https://docs.anthropic.com/en/docs/tool-use) | [ADR-016](adr/ADR-016-cycle-planning-agent.md) | The Anthropic guide to tool use with the Messages API; documents the tool schema format, the agentic loop pattern, and the `propose_<output>` tool pattern for structured output. |
+| [Anthropic Node.js SDK (`@anthropic-ai/sdk`)](https://github.com/anthropics/anthropic-sdk-node) | [ADR-016](adr/ADR-016-cycle-planning-agent.md) | The SDK used in the cycle planning adapter; documents `client.messages.create()` and the `tool_use` / `tool_result` message block types. |
+
+---
+
 ## Case Studies
 
 Empirical evidence from practitioners. Full case studies are in [`docs/case-studies.md`](case-studies.md).
