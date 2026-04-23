@@ -98,3 +98,21 @@ export interface CycleDashboardResponse {
   cycleStartDate: string; // ISO 8601 date string
   weeks: CycleWeekSummary[];
 }
+
+// ---------------------------------------------------------------------------
+// Lifting Program Spec
+// ---------------------------------------------------------------------------
+
+/** Per-lift specification within a lifting program (e.g., 5/3/1). */
+export interface LiftingProgramSpecResponse {
+  lift: LiftName;
+  order: number;
+  offset: number;
+  increment: number;
+  sets: number;
+  reps: number;
+  amrap: boolean;
+  warmUpPct: string;
+  wtDecrementPct: number;
+  activation: string;
+}
