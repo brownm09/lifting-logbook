@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { LiftRecord } from '@lifting-logbook/core';
 import { IWorkoutRepository } from '../../ports/IWorkoutRepository';
+import { WorkoutNotFoundError } from '../../ports/errors';
 import { SEED_PROGRAM, seedLiftRecords } from './fixtures';
 
 const workoutKey = (program: string, cycleNum: number, workoutNum: number) =>
@@ -22,9 +23,7 @@ export class InMemoryWorkoutRepository implements IWorkoutRepository {
   ): Promise<LiftRecord[]> {
     const records = this.workouts.get(workoutKey(program, cycleNum, workoutNum));
     if (!records) {
-      throw new NotFoundException(
-        `Workout ${workoutNum} for program '${program}' cycle ${cycleNum} not found`,
-      );
+      throw new WorkoutNotFoundError(program, cycleNum, workoutNum);
     }
     return records;
   }

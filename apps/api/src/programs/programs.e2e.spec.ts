@@ -6,6 +6,7 @@ import {
 } from '@nestjs/platform-fastify';
 import { AppModule } from '../app.module';
 import { SEED_PROGRAM } from '../adapters/in-memory/fixtures';
+import { DomainNotFoundFilter } from './not-found.filter';
 
 describe('Programs HTTP (e2e, in-memory adapters)', () => {
   let app: NestFastifyApplication;
@@ -16,6 +17,7 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
       new FastifyAdapter(),
       { logger: false },
     );
+    app.useGlobalFilters(new DomainNotFoundFilter());
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
   });
@@ -67,5 +69,16 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
   it('GET unknown program returns 404', async () => {
     const res = await get('/programs/does-not-exist/cycles/current');
     expect(res.statusCode).toBe(404);
+  });
+
+  // Forcing function for the Scope decision in ProgramsModule. Today adapters
+  // are Nest singletons holding mutable Map state — fine while single-tenant,
+  // but swapping `useClass` for a per-user Sheets adapter without setting
+  // `scope: Scope.REQUEST` (or a per-user factory) will leak one user's data
+  // into another's request. Unskip when auth lands.
+  it.skip('isolates adapter state per request (enable when auth lands)', () => {
+    // Expected setup: request A writes via authenticated user X, request B
+    // reads as user Y; B must not observe A's write. Requires per-request
+    // adapter instances.
   });
 });

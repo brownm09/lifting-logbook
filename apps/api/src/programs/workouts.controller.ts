@@ -12,7 +12,11 @@ import {
   CYCLE_DASHBOARD_REPOSITORY,
   WORKOUT_REPOSITORY,
 } from '../ports/tokens';
-import { toWorkoutResponse } from './mappers';
+import {
+  MAX_WORKOUT_NUM,
+  isValidWorkoutNum,
+  toWorkoutResponse,
+} from './mappers';
 
 @Controller('programs/:program')
 export class WorkoutsController {
@@ -29,8 +33,10 @@ export class WorkoutsController {
     @Param('workoutNum') workoutNumParam: string,
   ): Promise<WorkoutResponse> {
     const workoutNum = Number.parseInt(workoutNumParam, 10);
-    if (!Number.isInteger(workoutNum) || workoutNum < 1) {
-      throw new BadRequestException('workoutNum must be a positive integer');
+    if (!isValidWorkoutNum(workoutNum)) {
+      throw new BadRequestException(
+        `workoutNum must be an integer in [1, ${MAX_WORKOUT_NUM}]`,
+      );
     }
     const dashboard = await this.cycleDashboardRepo.getCycleDashboard(program);
     const records = await this.workoutRepo.getWorkout(

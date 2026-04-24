@@ -19,8 +19,10 @@ import { WorkoutsController } from './workouts.controller';
 
 /**
  * Wires controllers to in-memory adapters via port tokens. Adapters are
- * provider-singletons; replace with real Sheets adapters + per-user factory
- * when auth lands (see follow-up issue).
+ * provider-singletons; replace with real Sheets adapters + `Scope.REQUEST`
+ * (or a per-user factory) when auth lands. The skipped test
+ * `isolates adapter state per request` in `programs.e2e.spec.ts` is the
+ * forcing function for that wiring decision.
  */
 @Module({
   controllers: [

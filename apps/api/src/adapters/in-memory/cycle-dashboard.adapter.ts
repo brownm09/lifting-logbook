@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { CycleDashboard } from '@lifting-logbook/core';
 import { ICycleDashboardRepository } from '../../ports/ICycleDashboardRepository';
+import { ProgramNotFoundError } from '../../ports/errors';
 import { SEED_PROGRAM, seedCycleDashboard } from './fixtures';
 
 @Injectable()
@@ -14,7 +15,7 @@ export class InMemoryCycleDashboardRepository
   async getCycleDashboard(program: string): Promise<CycleDashboard> {
     const dashboard = this.dashboards.get(program);
     if (!dashboard) {
-      throw new NotFoundException(`Program '${program}' not found`);
+      throw new ProgramNotFoundError(program);
     }
     return dashboard;
   }
