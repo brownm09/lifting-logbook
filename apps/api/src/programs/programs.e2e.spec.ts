@@ -29,6 +29,9 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
   const get = (url: string) =>
     app.getHttpAdapter().getInstance().inject({ method: 'GET', url });
 
+  const post = (url: string) =>
+    app.getHttpAdapter().getInstance().inject({ method: 'POST', url });
+
   it('GET /programs/:program/cycles/current returns the seeded cycle', async () => {
     const res = await get(`/programs/${SEED_PROGRAM}/cycles/current`);
     expect(res.statusCode).toBe(200);
@@ -68,6 +71,49 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
 
   it('GET unknown program returns 404', async () => {
     const res = await get('/programs/does-not-exist/cycles/current');
+    expect(res.statusCode).toBe(404);
+  });
+
+  // -------------------------------------------------------------------------
+  // Write endpoints — these tests mutate singleton adapter state so they run
+  // after all read-only GET tests to avoid interference.
+  // -------------------------------------------------------------------------
+
+  it('POST /programs/:program/cycles advances cycleNum and persists new maxes', async () => {
+    const res = await post(`/programs/${SEED_PROGRAM}/cycles`);
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    expect(body.program).toBe(SEED_PROGRAM);
+    // Cycle counter must have advanced from the seeded value of 1
+    expect(body.cycleNum).toBe(2);
+    expect(body.cycleStartDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+    // Verify the persisted dashboard is readable via GET
+    const getRes = await get(`/programs/${SEED_PROGRAM}/cycles/current`);
+    expect(getRes.statusCode).toBe(200);
+    expect(getRes.json().cycleNum).toBe(2);
+  });
+
+  it('POST /programs/:program/training-maxes/recalculate returns updated maxes', async () => {
+    const res = await post(
+      `/programs/${SEED_PROGRAM}/training-maxes/recalculate`,
+    );
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(Array.isArray(body)).toBe(true);
+    expect(body.length).toBeGreaterThan(0);
+    for (const m of body) {
+      expect(m).toMatchObject({
+        lift: expect.any(String),
+        weight: expect.any(Number),
+        unit: 'lbs',
+        dateUpdated: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      });
+    }
+  });
+
+  it('POST /programs/unknown/cycles returns 404', async () => {
+    const res = await post('/programs/does-not-exist/cycles');
     expect(res.statusCode).toBe(404);
   });
 

@@ -12,6 +12,8 @@ import {
   WORKOUT_REPOSITORY,
 } from '../ports/tokens';
 import { CycleDashboardController } from './cycle-dashboard.controller';
+import { CycleGenerationController } from './cycle-generation.controller';
+import { CycleGenerationService } from './cycle-generation.service';
 import { LiftRecordsController } from './lift-records.controller';
 import { ProgramSpecController } from './program-spec.controller';
 import { TrainingMaxesController } from './training-maxes.controller';
@@ -27,6 +29,7 @@ import { WorkoutsController } from './workouts.controller';
 @Module({
   controllers: [
     CycleDashboardController,
+    CycleGenerationController,
     WorkoutsController,
     TrainingMaxesController,
     LiftRecordsController,
@@ -47,6 +50,7 @@ import { WorkoutsController } from './workouts.controller';
       provide: LIFTING_PROGRAM_SPEC_REPOSITORY,
       useClass: InMemoryLiftingProgramSpecRepository,
     },
+    CycleGenerationService,
   ],
 })
 export class ProgramsModule {}
