@@ -24,10 +24,10 @@ export const seedCycleDashboard = (): CycleDashboard => ({
 });
 
 export const seedTrainingMaxes = (): TrainingMax[] => [
-  { lift: 'Squat', weight: 315, dateUpdated: new Date('2026-04-20T00:00:00.000Z') },
-  { lift: 'Bench Press', weight: 225, dateUpdated: new Date('2026-04-20T00:00:00.000Z') },
-  { lift: 'Deadlift', weight: 405, dateUpdated: new Date('2026-04-20T00:00:00.000Z') },
-  { lift: 'Overhead Press', weight: 145, dateUpdated: new Date('2026-04-20T00:00:00.000Z') },
+  { lift: 'Squat', weight: 315, dateUpdated: new Date('2026-04-13T00:00:00.000Z') },
+  { lift: 'Bench Press', weight: 225, dateUpdated: new Date('2026-04-13T00:00:00.000Z') },
+  { lift: 'Deadlift', weight: 405, dateUpdated: new Date('2026-04-13T00:00:00.000Z') },
+  { lift: 'Overhead Press', weight: 145, dateUpdated: new Date('2026-04-13T00:00:00.000Z') },
 ];
 
 export const seedLiftRecords = (): LiftRecord[] => [

@@ -32,6 +32,14 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
   const post = (url: string) =>
     app.getHttpAdapter().getInstance().inject({ method: 'POST', url });
 
+  const postJson = (url: string, body: unknown) =>
+    app.getHttpAdapter().getInstance().inject({
+      method: 'POST',
+      url,
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify(body),
+    });
+
   it('GET /programs/:program/cycles/current returns the seeded cycle', async () => {
     const res = await get(`/programs/${SEED_PROGRAM}/cycles/current`);
     expect(res.statusCode).toBe(200);
@@ -75,46 +83,77 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
   });
 
   // -------------------------------------------------------------------------
-  // Write endpoints — these tests mutate singleton adapter state so they run
-  // after all read-only GET tests to avoid interference.
+  // Write endpoints — order-sensitive; each test mutates singleton adapter
+  // state and the next test observes that state. Do not reorder or randomize.
   // -------------------------------------------------------------------------
 
-  it('POST /programs/:program/cycles advances cycleNum and persists new maxes', async () => {
-    const res = await post(`/programs/${SEED_PROGRAM}/cycles`);
-    expect(res.statusCode).toBe(201);
-    const body = res.json();
-    expect(body.program).toBe(SEED_PROGRAM);
-    // Cycle counter must have advanced from the seeded value of 1
-    expect(body.cycleNum).toBe(2);
-    expect(body.cycleStartDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  describe('write operations', () => {
+    it('POST /programs/:program/training-maxes/recalculate updates maxes from lift records', async () => {
+      // Capture seeded Squat max before recalculate (cycle 1 has Squat records)
+      const beforeRes = await get(`/programs/${SEED_PROGRAM}/training-maxes`);
+      const squatBefore = beforeRes
+        .json()
+        .find((m: { lift: string }) => m.lift === 'Squat').weight;
 
-    // Verify the persisted dashboard is readable via GET
-    const getRes = await get(`/programs/${SEED_PROGRAM}/cycles/current`);
-    expect(getRes.statusCode).toBe(200);
-    expect(getRes.json().cycleNum).toBe(2);
-  });
+      const res = await post(`/programs/${SEED_PROGRAM}/training-maxes/recalculate`);
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(Array.isArray(body)).toBe(true);
+      expect(body.length).toBeGreaterThan(0);
+      for (const m of body) {
+        expect(m).toMatchObject({
+          lift: expect.any(String),
+          weight: expect.any(Number),
+          unit: 'lbs',
+          dateUpdated: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+        });
+      }
+      // Squat has cycle-1 records — verify the max actually changed
+      const squatAfter = body.find((m: { lift: string }) => m.lift === 'Squat').weight;
+      expect(squatAfter).not.toBe(squatBefore);
+    });
 
-  it('POST /programs/:program/training-maxes/recalculate returns updated maxes', async () => {
-    const res = await post(
-      `/programs/${SEED_PROGRAM}/training-maxes/recalculate`,
-    );
-    expect(res.statusCode).toBe(200);
-    const body = res.json();
-    expect(Array.isArray(body)).toBe(true);
-    expect(body.length).toBeGreaterThan(0);
-    for (const m of body) {
-      expect(m).toMatchObject({
-        lift: expect.any(String),
-        weight: expect.any(Number),
-        unit: 'lbs',
-        dateUpdated: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+    it('POST /programs/:program/cycles advances cycleNum and persists new maxes', async () => {
+      const res = await post(`/programs/${SEED_PROGRAM}/cycles`);
+      expect(res.statusCode).toBe(201);
+      const body = res.json();
+      expect(body.program).toBe(SEED_PROGRAM);
+      // Cycle counter must have advanced from the seeded value of 1
+      expect(body.cycleNum).toBe(2);
+      expect(body.cycleStartDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+      // Verify the persisted dashboard is readable via GET
+      const getRes = await get(`/programs/${SEED_PROGRAM}/cycles/current`);
+      expect(getRes.statusCode).toBe(200);
+      expect(getRes.json().cycleNum).toBe(2);
+    });
+
+    it('POST /programs/:program/cycles with fromCycleNum uses that cycle\'s records', async () => {
+      // Cycle is now 2 (no records). Use fromCycleNum=1 to advance from cycle 1 → 2.
+      const res = await postJson(`/programs/${SEED_PROGRAM}/cycles`, { fromCycleNum: 1 });
+      expect(res.statusCode).toBe(201);
+      const body = res.json();
+      expect(body.cycleNum).toBe(2);
+      expect(body.cycleStartDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
+
+    it('POST /programs/:program/cycles with cycleDate pins the new cycle\'s start date', async () => {
+      const res = await postJson(`/programs/${SEED_PROGRAM}/cycles`, {
+        cycleDate: '2026-06-01',
       });
-    }
-  });
+      expect(res.statusCode).toBe(201);
+      expect(res.json().cycleStartDate).toBe('2026-06-01');
+    });
 
-  it('POST /programs/unknown/cycles returns 404', async () => {
-    const res = await post('/programs/does-not-exist/cycles');
-    expect(res.statusCode).toBe(404);
+    it('POST /programs/:program/cycles with fromCycleNum having no records returns 400', async () => {
+      const res = await postJson(`/programs/${SEED_PROGRAM}/cycles`, { fromCycleNum: 99 });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('POST /programs/unknown/cycles returns 404', async () => {
+      const res = await post('/programs/does-not-exist/cycles');
+      expect(res.statusCode).toBe(404);
+    });
   });
 
   // Forcing function for the Scope decision in ProgramsModule. Today adapters

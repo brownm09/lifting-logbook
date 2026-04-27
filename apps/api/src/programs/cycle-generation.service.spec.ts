@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Weekday } from '@lifting-logbook/core';
 import {
@@ -146,6 +147,41 @@ describe('CycleGenerationService', () => {
       await expect(service.startNewCycle('unknown')).rejects.toThrow(
         'Program not found',
       );
+    });
+
+    it('fetches records for fromCycleNum when provided and advances from that cycle', async () => {
+      cycleDashboardRepo.getCycleDashboard.mockResolvedValue(stubDashboard()); // cycleNum: 1
+      programSpecRepo.getProgramSpec.mockResolvedValue(stubProgramSpec());
+      trainingMaxRepo.getTrainingMaxes.mockResolvedValue(stubTrainingMaxes());
+      liftRecordRepo.getLiftRecords.mockResolvedValue(stubLiftRecords());
+
+      const result = await service.startNewCycle(PROGRAM, { fromCycleNum: 3 });
+
+      expect(liftRecordRepo.getLiftRecords).toHaveBeenCalledWith(PROGRAM, 3);
+      // Advances from cycle 3 → 4, not from current dashboard cycle 1 → 2
+      expect(result.cycleNum).toBe(4);
+    });
+
+    it('throws BadRequestException when fromCycleNum has no records', async () => {
+      cycleDashboardRepo.getCycleDashboard.mockResolvedValue(stubDashboard());
+      programSpecRepo.getProgramSpec.mockResolvedValue(stubProgramSpec());
+      trainingMaxRepo.getTrainingMaxes.mockResolvedValue(stubTrainingMaxes());
+      liftRecordRepo.getLiftRecords.mockResolvedValue([]);
+
+      await expect(
+        service.startNewCycle(PROGRAM, { fromCycleNum: 5 }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('pins cycleDate when cycleDate override is provided', async () => {
+      cycleDashboardRepo.getCycleDashboard.mockResolvedValue(stubDashboard());
+      programSpecRepo.getProgramSpec.mockResolvedValue(stubProgramSpec());
+      trainingMaxRepo.getTrainingMaxes.mockResolvedValue(stubTrainingMaxes());
+      liftRecordRepo.getLiftRecords.mockResolvedValue(stubLiftRecords());
+
+      const result = await service.startNewCycle(PROGRAM, { cycleDate: '2026-06-01' });
+
+      expect(result.cycleDate).toEqual(new Date('2026-06-01T00:00:00.000Z'));
     });
   });
 
