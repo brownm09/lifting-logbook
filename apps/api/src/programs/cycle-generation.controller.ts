@@ -5,6 +5,7 @@ import {
 } from '@lifting-logbook/types';
 import { toCycleDashboardResponse, toTrainingMaxResponse } from './mappers';
 import { CycleGenerationService } from './cycle-generation.service';
+import { ParseProgramPipe } from './program.pipe';
 import { StartNewCycleDto } from './start-new-cycle.dto';
 
 @Controller('programs/:program')
@@ -25,8 +26,8 @@ export class CycleGenerationController {
    */
   @Post('cycles')
   async startNewCycle(
-    @Param('program') program: string,
-    @Body() dto: StartNewCycleDto = {},
+    @Param('program', ParseProgramPipe) program: string,
+    @Body() dto: StartNewCycleDto,
   ): Promise<CycleDashboardResponse> {
     const newCycle = await this.cycleGenerationService.startNewCycle(program, dto);
     return toCycleDashboardResponse(newCycle);
@@ -41,7 +42,7 @@ export class CycleGenerationController {
   @Post('training-maxes/recalculate')
   @HttpCode(HttpStatus.OK)
   async recalculateMaxes(
-    @Param('program') program: string,
+    @Param('program', ParseProgramPipe) program: string,
   ): Promise<TrainingMaxResponse[]> {
     const maxes = await this.cycleGenerationService.recalculateMaxes(program);
     return maxes.map(toTrainingMaxResponse);

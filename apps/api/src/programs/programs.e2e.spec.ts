@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
 import {
   FastifyAdapter,
   NestFastifyApplication,
@@ -18,6 +19,7 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
       { logger: false },
     );
     app.useGlobalFilters(new DomainNotFoundFilter());
+    app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
   });
@@ -114,6 +116,9 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
     });
 
     it('POST /programs/:program/cycles advances cycleNum and persists new maxes', async () => {
+      // Pre-condition: recalculate does not advance the cycle; counter is still 1
+      expect((await get(`/programs/${SEED_PROGRAM}/cycles/current`)).json().cycleNum).toBe(1);
+
       const res = await post(`/programs/${SEED_PROGRAM}/cycles`);
       expect(res.statusCode).toBe(201);
       const body = res.json();
@@ -129,7 +134,10 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
     });
 
     it('POST /programs/:program/cycles with fromCycleNum uses that cycle\'s records', async () => {
-      // Cycle is now 2 (no records). Use fromCycleNum=1 to advance from cycle 1 → 2.
+      // Pre-condition: cycle is at 2 (advanced by previous test).
+      // fromCycleNum=1 re-pins "advance from cycle 1", producing cycleNum=2 again — not normal
+      // advancement, but confirms that fromCycleNum overrides the current counter.
+      expect((await get(`/programs/${SEED_PROGRAM}/cycles/current`)).json().cycleNum).toBe(2);
       const res = await postJson(`/programs/${SEED_PROGRAM}/cycles`, { fromCycleNum: 1 });
       expect(res.statusCode).toBe(201);
       const body = res.json();
@@ -138,6 +146,8 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
     });
 
     it('POST /programs/:program/cycles with cycleDate pins the new cycle\'s start date', async () => {
+      // Pre-condition: fromCycleNum re-pinned cycle to 2; advancing normally moves it to 3.
+      expect((await get(`/programs/${SEED_PROGRAM}/cycles/current`)).json().cycleNum).toBe(2);
       const res = await postJson(`/programs/${SEED_PROGRAM}/cycles`, {
         cycleDate: '2026-06-01',
       });

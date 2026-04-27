@@ -40,10 +40,9 @@ export class CycleGenerationService {
    * When `dto.cycleDate` is provided the new cycle's start date is pinned to
    * that ISO string rather than being computed from the previous date.
    *
-   * Sequential writes bound the blast radius: if the second write fails the
-   * first is already committed, but the caller receives a 500 and can retry
-   * safely. True atomicity requires a transaction primitive — add when real
-   * adapters land.
+   * Write order: maxes are saved before the dashboard so that if the second
+   * write fails the cycle counter has not yet advanced and a retry is safe.
+   * True atomicity requires a transaction primitive — add when real adapters land.
    */
   async startNewCycle(
     program: string,
@@ -58,14 +57,13 @@ export class CycleGenerationService {
       this.liftRecordRepo.getLiftRecords(program, sourceCycleNum),
     ]);
 
-    if (dto.fromCycleNum !== undefined && liftRecords.length === 0) {
-      throw new BadRequestException(
-        `No lift records found for cycle ${dto.fromCycleNum}`,
-      );
-    }
-
     let prevDashboard = dashboard;
     if (dto.fromCycleNum !== undefined) {
+      if (liftRecords.length === 0) {
+        throw new BadRequestException(
+          `No lift records found for cycle ${dto.fromCycleNum}`,
+        );
+      }
       const minDate = liftRecords.reduce(
         (min, r) => (r.date < min ? r.date : min),
         liftRecords[0].date,
@@ -80,8 +78,8 @@ export class CycleGenerationService {
     const newCycle = updateCycle(prevDashboard, cycleOverrides);
     const newMaxes = updateMaxes(programSpec, trainingMaxes, liftRecords);
 
-    await this.cycleDashboardRepo.saveCycleDashboard(newCycle);
     await this.trainingMaxRepo.saveTrainingMaxes(program, newMaxes);
+    await this.cycleDashboardRepo.saveCycleDashboard(newCycle);
 
     return newCycle;
   }
