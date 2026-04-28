@@ -243,6 +243,28 @@ When implementing `apps/web`, read the relevant standards before writing any `fe
 
 ---
 
+## Testing
+
+Run `npm test` from the repo root to execute the full test suite across all workspaces.
+
+```bash
+npm test
+```
+
+**Prerequisites:**
+- Run `npm run build` first if you have touched compiled output (e.g., API controllers, shared types in `packages/types`).
+- Integration tests that hit the database require `DATABASE_URL` to be set.
+
+Individual workspaces can be verified independently:
+
+```bash
+npm test -w @lifting-logbook/core
+npm test -w @lifting-logbook/api
+npm test -w @lifting-logbook/web
+```
+
+---
+
 ## Documentation and Citations
 
 When writing or updating any architectural documentation (ADRs, design docs, READMEs):
