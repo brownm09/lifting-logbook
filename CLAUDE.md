@@ -118,7 +118,7 @@ If `--format json` is not supported by the installed `gh` version, fall back to 
      console.log(item.id);
    ")
    rm -f "$TMPFILE"
-   gh project item-edit --project-id PVT_kwHOAjEKvM4BTuEF --id "\$ITEM_ID" \
+   gh project item-edit --project-id PVT_kwHOAjEKvM4BTuEF --id "$ITEM_ID" \
      --field-id PVTSSF_lAHOAjEKvM4BTuEFzhA7F7E \
      --single-select-option-id 47fc9ee4
    ```
