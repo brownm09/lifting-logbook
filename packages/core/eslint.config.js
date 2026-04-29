@@ -12,6 +12,19 @@ module.exports = [
       // workspaces or infrastructure packages. Violations mean the dependency
       // rule is inverted; use a port interface instead.
       'no-restricted-imports': ['error', {
+        // Exact-match ban: prevents regression of the circular barrel import
+        // that caused Jest worker OOM (issue #89, fixed in PR #91).
+        // `paths` matches the literal specifier only — sub-paths like
+        // @src/core/models are unaffected.
+        paths: [
+          {
+            name: '@src/core',
+            message:
+              "Import from the root barrel '@src/core' is not allowed inside " +
+              "packages/core/src — use '@src/core/models', '@src/core/constants', " +
+              "or '@src/core/utils/jsUtil' instead.",
+          },
+        ],
         patterns: [
           {
             group: [
