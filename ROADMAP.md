@@ -84,7 +84,7 @@ Web and mobile clients functional end-to-end. Key user-facing features implement
 
 | Proposal | Description | Issue |
 |---|---|---|
-| *(none yet)* | | |
+| [Cycle Dashboard Screen](docs/proposals/2026-04-29-cycle-dashboard-screen.md) | Week-by-week workout status and planned lift weights; `/cycle` bookmarkable route | [#104](https://github.com/brownm09/lifting-logbook/issues/104) |
 
 ---
 
