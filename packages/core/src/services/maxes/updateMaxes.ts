@@ -1,4 +1,4 @@
-import { LiftingProgramSpec, LiftRecord, TrainingMax } from "@src/core";
+import { LiftingProgramSpec, LiftRecord, TrainingMax } from "@src/core/models";
 /**
  * Updates training maxes based on lift records and program spec.
  * For any lift record:

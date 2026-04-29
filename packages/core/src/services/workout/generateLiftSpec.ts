@@ -1,11 +1,6 @@
-import {
-  addDaysLocal,
-  CORE_LIFT_HEADER,
-  LIFT_SPEC_HEADERS,
-  LiftingProgramSpec,
-  SpreadsheetCell,
-  TrainingMax,
-} from "@src/core";
+import { CORE_LIFT_HEADER, LIFT_SPEC_HEADERS } from "@src/core/constants";
+import { LiftingProgramSpec, SpreadsheetCell, TrainingMax } from "@src/core/models";
+import { addDaysLocal } from "@src/core/utils/jsUtil";
 
 /**
  * Creates a lift specification from a training max and program spec.

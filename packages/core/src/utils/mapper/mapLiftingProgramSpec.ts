@@ -1,4 +1,5 @@
-import { LIFTING_PROGRAM_SPEC_HEADER_MAP, LiftingProgramSpec, SpreadsheetCell } from "@src/core";
+import { LIFTING_PROGRAM_SPEC_HEADER_MAP } from "@src/core/constants";
+import { LiftingProgramSpec, SpreadsheetCell } from "@src/core/models";
 /**
  * Converts an array of LiftingProgramSpec objects to a 2D array (for writing to a sheet)
  * @param {LiftingProgramSpec[]} specs

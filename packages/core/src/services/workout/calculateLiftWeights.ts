@@ -3,15 +3,14 @@ import {
   LIFT_DATE_HEADER,
   LIFT_HEADER,
   LIFT_WEIGHT_HEADER,
-  LiftingProgramSpec,
   MROUND,
   NOTES_HEADER,
   PROG_SPEC_WARMUP_PCTS,
   PROG_SPEC_WORK_PCTS,
   SET_HEADER,
-  SpreadsheetCell,
   SPEC_WEIGHT_HEADER,
-} from "@src/core";
+} from "@src/core/constants";
+import { LiftingProgramSpec, SpreadsheetCell } from "@src/core/models";
 
 /**
  * Updates lift dates for lifts with the same offset as the edited lift.

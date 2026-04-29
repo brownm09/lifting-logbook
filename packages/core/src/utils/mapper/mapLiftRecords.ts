@@ -1,4 +1,5 @@
-import { LIFT_RECORD_HEADER_MAP, LiftRecord, SpreadsheetCell } from "@src/core";
+import { LIFT_RECORD_HEADER_MAP } from "@src/core/constants";
+import { LiftRecord, SpreadsheetCell } from "@src/core/models";
 /**
  * Converts an array of LiftRecord objects to a 2D array (for writing to a sheet)
  * @param {LiftRecord[]} records

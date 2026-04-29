@@ -1,4 +1,4 @@
-import { SpreadsheetCell } from "@src/core";
+import { SpreadsheetCell } from "@src/core/models";
 
 /**
  * Converts a 2D array (as from Sheet.getDataRange().getValues() or parsed CSV) to an array of objects using the first row as headers.
