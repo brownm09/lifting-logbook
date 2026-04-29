@@ -33,11 +33,11 @@ export const LIFT_CATALOG: readonly Lift[] = [
   // --- Horizontal push pattern ---
   { id: 'bench-press',         name: 'Bench Press',         classification: 'compound',  movementTags: ['push', 'horizontal'] },
   { id: 'incline-bench-press', name: 'Incline Bench Press', classification: 'compound',  movementTags: ['push', 'horizontal'] },
-  { id: 'dip',                 name: 'Dip',                 classification: 'compound',  movementTags: ['push', 'horizontal'] },
+  { id: 'dip',                 name: 'Dip',                 classification: 'compound',  movementTags: ['push', 'horizontal'], isBodyweightComponent: true },
 
   // --- Vertical pull pattern ---
-  { id: 'chin-up',       name: 'Chin-up',       classification: 'compound',  movementTags: ['pull', 'vertical'] },
-  { id: 'pull-up',       name: 'Pull-up',        classification: 'compound',  movementTags: ['pull', 'vertical'] },
+  { id: 'chin-up',       name: 'Chin-up',       classification: 'compound',  movementTags: ['pull', 'vertical'], isBodyweightComponent: true },
+  { id: 'pull-up',       name: 'Pull-up',        classification: 'compound',  movementTags: ['pull', 'vertical'], isBodyweightComponent: true },
   { id: 'lat-pulldown',  name: 'Lat Pulldown',   classification: 'accessory', movementTags: ['pull', 'vertical'] },
 
   // --- Horizontal pull pattern ---

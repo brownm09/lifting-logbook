@@ -13,6 +13,8 @@ export interface Lift {
   name: string;
   classification: LiftClassification;
   movementTags: MovementTag[];
+  /** True when body weight contributes to the total load (e.g. chin-ups, dips). */
+  isBodyweightComponent?: boolean;
 }
 
 /**
@@ -43,6 +45,13 @@ export const LIFT_NAMES = [
 
 /** Unit of measurement for weights. */
 export type WeightUnit = 'lbs' | 'kg';
+
+/** A single body weight observation recorded at session start. */
+export interface BodyWeightEntry {
+  date: Date;
+  weight: number;
+  unit: WeightUnit;
+}
 
 /** Week number within a training cycle (1-based, 4-week cycles). */
 export type WeekNumber = 1 | 2 | 3 | 4;

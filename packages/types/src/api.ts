@@ -47,6 +47,7 @@ export interface WorkoutResponse {
   week: WeekNumber;
   date: string; // ISO 8601 date string
   lifts: WorkoutLiftResponse[];
+  bodyWeightEntry?: { weight: number; unit: WeightUnit };
 }
 
 // ---------------------------------------------------------------------------
@@ -78,6 +79,17 @@ export interface CreateLiftRecordRequest {
   weight: number;
   reps: number;
   notes?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Body Weight
+// ---------------------------------------------------------------------------
+
+/** Request body for recording a body weight observation. */
+export interface RecordBodyWeightRequest {
+  date: string; // ISO 8601 date string
+  weight: number;
+  unit: WeightUnit;
 }
 
 // ---------------------------------------------------------------------------
