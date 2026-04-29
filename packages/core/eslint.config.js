@@ -21,8 +21,17 @@ module.exports = [
             name: '@src/core',
             message:
               "Import from the root barrel '@src/core' is not allowed inside " +
-              "packages/core/src — use '@src/core/models', '@src/core/constants', " +
-              "or '@src/core/utils/jsUtil' instead.",
+              "packages/core/src — use a direct sub-path such as '@src/core/models', " +
+              "'@src/core/constants', or '@src/core/utils/jsUtil' instead.",
+          },
+          // '@src/core/*' in tsconfig maps @src/core/index → src/index.ts, so
+          // the explicit-index form resolves to the same barrel and must also be banned.
+          {
+            name: '@src/core/index',
+            message:
+              "Import from the root barrel '@src/core/index' is not allowed inside " +
+              "packages/core/src — use a direct sub-path such as '@src/core/models', " +
+              "'@src/core/constants', or '@src/core/utils/jsUtil' instead.",
           },
         ],
         patterns: [
