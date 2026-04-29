@@ -106,7 +106,7 @@ Each entry links back to the ADR where it is discussed and provides a brief desc
 | [Google Cloud Load Balancing — HTTPS](https://cloud.google.com/load-balancing/docs/https) | [ADR-009](adr/ADR-009-infrastructure-kubernetes-cloud-run.md) | The load balancer used for 90/10 traffic splitting between GKE and Cloud Run. |
 | [Google Artifact Registry — Overview](https://cloud.google.com/artifact-registry/docs/overview) | [ADR-009](adr/ADR-009-infrastructure-kubernetes-cloud-run.md) | Container registry where Docker images are pushed by CI/CD. |
 | [k6 — Load Testing Documentation](https://grafana.com/docs/k6/latest/) | [ADR-009](adr/ADR-009-infrastructure-kubernetes-cloud-run.md) | Load testing tool used for the scale-out time metric in the A/B infrastructure comparison. |
-| [Google Cloud KMS — Envelope Encryption](https://cloud.google.com/kms/docs/envelope-encryption) | [ADR-003](adr/ADR-003-per-user-data-store-config.md) | Encryption strategy for the `adapter_config` column, which stores sensitive Sheets credentials. |
+| [Google Cloud KMS — Envelope Encryption](https://cloud.google.com/kms/docs/envelope-encryption) | [ADR-003](adr/ADR-003-per-user-data-store-config.md), [ADR-014](adr/ADR-014-credential-encryption-at-rest.md) | Encryption strategy for the `adapter_config` column; ADR-014 specifies the full KEK/DEK hierarchy, encrypt/decrypt flow, and re-encryption procedure. |
 
 ---
 
@@ -146,6 +146,16 @@ Each entry links back to the ADR where it is discussed and provides a brief desc
 |---|---|---|
 | [GDPR — Article 17: Right to Erasure](https://gdpr-info.eu/art-17-gdpr/) | [ADR-010](adr/ADR-010-multi-tenancy-data-isolation.md) | The regulatory requirement driving the erasure complexity comparison between shared-schema and schema-per-tenant strategies. |
 | [HHS — HIPAA Security Rule](https://www.hhs.gov/hipaa/for-professionals/security/index.html) | [ADR-010](adr/ADR-010-multi-tenancy-data-isolation.md) | US healthcare data protection regulation discussed in the HIPAA section; relevant if the application is extended to clinical contexts. |
+
+---
+
+## Security
+
+| Source | Cited In | Relevance |
+|---|---|---|
+| [Google Cloud KMS — Key Rotation](https://cloud.google.com/kms/docs/key-rotation) | [ADR-014](adr/ADR-014-credential-encryption-at-rest.md) | Automatic rotation scheduling, prior key version behaviour after rotation, and audit logging for version-level decrypt calls used in the re-encryption procedure. |
+| [Google Tink — AES-GCM AEAD](https://developers.google.com/tink/aead) | [ADR-014](adr/ADR-014-credential-encryption-at-rest.md) | Recommended implementation library for AEAD encryption on GCP; covers AES-256-GCM key generation, encrypt/decrypt API, and key rotation via keyset handles. |
+| [NIST SP 800-38D — Recommendation for Block Cipher Modes of Operation: GCM and GMAC](https://csrc.nist.gov/publications/detail/sp/800-38d/final) | [ADR-014](adr/ADR-014-credential-encryption-at-rest.md) | NIST normative recommendation for GCM mode; documents the 12-byte nonce requirement and authentication tag validation used for `config_ciphertext` integrity. |
 
 ---
 
