@@ -110,7 +110,7 @@ If `--format json` is not supported by the installed `gh` version, fall back to 
 2. Create a branch: `git checkout -b <type>/issue-<N>-<slug>` (see Branch Naming)
 3. Move the issue to **In Progress** on the project board:
    ```bash
-   TMPFILE="tmp_item_<N>.json"
+   TMPFILE="C:/Users/brown/.claude/scratch/tmp_item_<N>.json"
    gh project item-list 2 --owner brownm09 --format json > "$TMPFILE"
    ITEM_ID=$(node -e "
      const d=JSON.parse(require('fs').readFileSync('$TMPFILE','utf8'));
@@ -118,7 +118,7 @@ If `--format json` is not supported by the installed `gh` version, fall back to 
      console.log(item.id);
    ")
    rm -f "$TMPFILE"
-   gh project item-edit --project-id PVT_kwHOAjEKvM4BTuEF --id "\$ITEM_ID" \
+   gh project item-edit --project-id PVT_kwHOAjEKvM4BTuEF --id "$ITEM_ID" \
      --field-id PVTSSF_lAHOAjEKvM4BTuEFzhA7F7E \
      --single-select-option-id 47fc9ee4
    ```
@@ -127,12 +127,27 @@ If `--format json` is not supported by the installed `gh` version, fall back to 
 6. Push: `git push -u origin <branch>`
 7. Open a PR: `gh pr create --title "<prefix> <title>" --body "..."`
 8. After PR approval: squash merge with `gh pr merge <N> --squash --delete-branch`
-9. Pull main: `git checkout main && git pull`
-10. Close the issue if not auto-closed: `gh issue close <N>`
-11. Update journals:
+9. Move the issue to **Done** on the project board:
+   ```bash
+   TMPFILE="C:/Users/brown/.claude/scratch/tmp_item_<N>.json"
+   gh project item-list 2 --owner brownm09 --format json > "$TMPFILE"
+   ITEM_ID=$(node -e "
+     const d=JSON.parse(require('fs').readFileSync('$TMPFILE','utf8'));
+     const item=d.items.find(i=>i.content&&i.content.number===<N>);
+     console.log(item.id);
+   ")
+   rm -f "$TMPFILE"
+   gh project item-edit --project-id PVT_kwHOAjEKvM4BTuEF --id "$ITEM_ID" \
+     --field-id PVTSSF_lAHOAjEKvM4BTuEFzhA7F7E \
+     --single-select-option-id 98236657
+   ```
+10. Pull main: `git checkout main && git pull`
+11. Close the issue if not auto-closed: `gh issue close <N>`
+12. Update journals and tracking:
     - **Project journal** (`sessions/lifting-logbook/`): append to the day's draft (PR merged, decisions made)
     - **Meta journal** (`sessions/meta/`): update if `CLAUDE.md` was modified or a new platform constraint was discovered
-12. Write a `<!-- next-session-context -->` block to the draft and display it as the closing output of the session
+    - **ROADMAP.md**: if this PR completes a work stream listed in a milestone's Active Work table, move that row to the milestone's Shipped table; if the Active Work table becomes empty, replace it with `| *(all shipped)* | | |`
+13. Write a `<!-- next-session-context -->` block to the draft and display it as the closing output of the session
 
 ---
 

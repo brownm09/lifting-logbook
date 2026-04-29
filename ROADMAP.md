@@ -10,13 +10,13 @@ below. Status is updated manually as work progresses.
 
 ---
 
-## v0.1 — Foundation `[Current]`
+## v0.1 — Foundation `[Shipped]`
 
 Monorepo scaffolding, port interfaces, shared types, and CI/CD. The goal is a working
 skeleton where every app and package is wired together and the core hexagonal architecture
 is codified.
 
-### Active Work
+### Shipped
 
 | Work stream | Description | Issues |
 |---|---|---|
@@ -34,7 +34,7 @@ is codified.
 
 ---
 
-## v0.2 — Core API `[Next]`
+## v0.2 — Core API `[Current]`
 
 A working REST + GraphQL API backed by real adapters. Core module quality gates enforced.
 Architecture decisions for data access and security documented.
@@ -43,19 +43,25 @@ Architecture decisions for data access and security documented.
 
 | Work stream | Description | Issues |
 |---|---|---|
+| Architecture documentation | ADR-014 credential encryption; cache invalidation strategy; Express legacy archival policy | [#38](https://github.com/brownm09/lifting-logbook/issues/38), [#39](https://github.com/brownm09/lifting-logbook/issues/39), [#42](https://github.com/brownm09/lifting-logbook/issues/42) |
+
+### Shipped
+
+| Work stream | Description | Issues |
+|---|---|---|
 | Core module cleanup | Enable strict TypeScript; remove GAS Logger dependency | [#51](https://github.com/brownm09/lifting-logbook/issues/51), [#52](https://github.com/brownm09/lifting-logbook/issues/52) |
-| Architecture documentation | ADR-014 credential encryption; cache invalidation strategy; ADR-015 GraphQL DataLoader; Express legacy archival policy | [#38](https://github.com/brownm09/lifting-logbook/issues/38), [#39](https://github.com/brownm09/lifting-logbook/issues/39), [#40](https://github.com/brownm09/lifting-logbook/issues/40), [#42](https://github.com/brownm09/lifting-logbook/issues/42) |
-| Cycle planning — design | ADR-016: LLM integration, tool schema, and adapter boundary for the cycle planning agent | [#55](https://github.com/brownm09/lifting-logbook/issues/55) |
+| ADR-015 | GraphQL DataLoader design: scope, batching, and request isolation | [#40](https://github.com/brownm09/lifting-logbook/issues/40) |
+| ADR-016 | Cycle planning agent: LLM integration, tool schema, and adapter boundary | [#55](https://github.com/brownm09/lifting-logbook/issues/55) |
 
 ### Proposals
 
-| Proposal | Description | Issue |
-|---|---|---|
-| [Lift Library and Exercise Tagging](docs/proposals/2026-04-13-lift-library-exercise-tagging.md) | First-class `Lift` domain type with compound/accessory classification, movement tags, and configurable program exercise slots | [#64](https://github.com/brownm09/lifting-logbook/issues/64) |
+| Proposal | Description | Issue | Status |
+|---|---|---|---|
+| [Lift Library and Exercise Tagging](docs/proposals/2026-04-13-lift-library-exercise-tagging.md) | First-class `Lift` domain type with compound/accessory classification, movement tags, and configurable program exercise slots | [#64](https://github.com/brownm09/lifting-logbook/issues/64) | shipped |
 
 ---
 
-## v0.3 — Client Applications `[Later]`
+## v0.3 — Client Applications `[Next]`
 
 Web and mobile clients functional end-to-end. Key user-facing features implemented.
 
