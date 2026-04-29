@@ -141,8 +141,10 @@ Each factory resolve emits a structured log line with the following fields:
 ```
 
 A `cacheHit: true` entry with an `adapterType` that does not match the current
-`user_data_source` row indicates a stale cache entry. Operators can detect this by joining
-log output against the `user_data_source` table during or after a migration.
+`user_data_source` row indicates a stale cache entry. To detect during or after a migration:
+1. Query `user_data_source` for the user's expected `adapter_type` after the update.
+2. Search structured logs for `factory.resolve` events with `cacheHit: true` and an
+   `adapterType` that does not match the expected value within the migration window.
 
 ---
 

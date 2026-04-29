@@ -98,6 +98,11 @@ decrypt call. See [Cache Interaction](#cache-interaction) below.
 | API service account | `cloudkms.cryptoKeyVersions.useToDecrypt` | `user-data-source-kek` |
 | API service account | `cloudkms.cryptoKeyVersions.useToEncrypt` | `user-data-source-kek` |
 | Admin service account | `cloudkms.cryptoKeys.get` | `user-data-source-kek` |
+| Re-encryption operator¹ | `cloudkms.cryptoKeyVersions.useToDecrypt` | `user-data-source-kek` |
+| Re-encryption operator¹ | `cloudkms.cryptoKeyVersions.useToEncrypt` | `user-data-source-kek` |
+
+¹ The re-encryption operator is whichever principal runs `scripts/reencrypt-adapter-configs.ts`
+— typically a dedicated CI/CD service account or the API service account if reused for ops jobs.
 
 No application principal holds `cloudkms.cryptoKeys.destroy` — key destruction is a manual
 operations step (see Key Rotation below).
@@ -122,8 +127,9 @@ For forward secrecy, rows written before a rotation should eventually be re-encr
 DEK wrapped by the new primary key version. The procedure:
 
 1. Query all rows from `user_data_source`.
-2. For each row: decrypt DEK with old key version → generate new DEK → re-encrypt
-   `adapter_config` → encrypt new DEK with current primary key version → `UPDATE` row.
+2. For each row: call `kek:decrypt` on `config_dek_ciphertext` (KMS resolves the key version
+   automatically from the ciphertext) → generate new DEK → re-encrypt `adapter_config` →
+   encrypt new DEK with current primary key version → `UPDATE` row.
 3. Verify row count and spot-check a sample of decrypted configs.
 4. Once all rows are re-encrypted, disable (do not immediately destroy) the old key version.
 5. After a 30-day observation period with no decrypt calls to the old version (visible in
@@ -151,10 +157,15 @@ must be immediately disabled, cached plaintext derived from DEKs wrapped by that
 remain in memory for up to the TTL (~5 minutes). To reduce this window:
 - Use the admin cache invalidation endpoint (see
   [ADR-003 — Cache Invalidation](ADR-003-per-user-data-store-config.md#cache-invalidation)) to
-  immediately evict all entries, forcing re-fetch after the version is disabled. New fetches
-  will fail if the old version is disabled before re-encryption completes.
-- As a result, emergency key revocation requires a coordinated sequence: disable key version →
-  flush cache → complete re-encryption with new key version → validate.
+  immediately evict all entries, forcing re-reads that will use the newly re-encrypted rows.
+- Emergency key revocation requires a coordinated sequence:
+  1. **Complete re-encryption** — run `scripts/reencrypt-adapter-configs.ts` while the
+     compromised version is still enabled (the script needs it to decrypt existing DEKs).
+  2. **Flush cache** — evict all cached entries so subsequent requests re-read from the
+     database and use the newly re-encrypted rows (wrapped by the new primary key version).
+  3. **Disable the compromised key version** — safe only after all rows have been
+     re-encrypted and confirmed. New fetches will no longer call the disabled version.
+  4. **Validate** — confirm no decrypt audit log entries for the disabled version.
 
 **Factory never holds a plaintext DEK past a single request.** Plaintext DEKs are local
 variables discarded at the end of the read path. Only the final typed config struct is cached.

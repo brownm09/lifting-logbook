@@ -149,7 +149,7 @@ Each entry links back to the ADR where it is discussed and provides a brief desc
 
 ---
 
-## Security
+## Security Standards
 
 | Source | Cited In | Relevance |
 |---|---|---|
