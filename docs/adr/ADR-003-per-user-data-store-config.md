@@ -3,7 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-04-03
 **Reviewed:** 2026-04-07
-**Review outcome:** Pass with gaps — open items: [#38](https://github.com/brownm09/lifting-logbook/issues/38), [#39](https://github.com/brownm09/lifting-logbook/issues/39)
+**Review outcome:** Pass with gaps — open items resolved: [#38](https://github.com/brownm09/lifting-logbook/issues/38) (ADR-014), [#39](https://github.com/brownm09/lifting-logbook/issues/39) (cache invalidation section below)
 
 ---
 
@@ -77,6 +77,74 @@ interface RepositoryBundle {
   envelope encryption).
 - Adapter config changes (e.g., a user migrates to Postgres) take effect after the cache TTL,
   which is acceptable.
+
+---
+
+## Cache Invalidation
+
+The factory caches the resolved adapter config in memory, keyed by `user_id`, with a TTL of
+approximately 5 minutes. This section documents when and how that cache is invalidated.
+
+### Normal expiry
+
+Cache entries expire automatically after the TTL. Config changes (e.g., migrating a user from
+the Sheets adapter to Postgres) take effect within 5 minutes without any operator action. This
+is the expected path for planned migrations.
+
+### Admin-triggered immediate invalidation
+
+For cases where immediate effect is required — for example, an in-progress migration where
+serving the wrong adapter would corrupt data, or an emergency key revocation (see
+[ADR-014 — Cache Interaction](ADR-014-credential-encryption-at-rest.md#cache-interaction)) —
+an admin can force cache eviction before the TTL expires.
+
+Two mechanisms are supported depending on the cache backend:
+
+**In-process cache (single instance):**
+`POST /admin/users/:userId/invalidate-cache` — a protected admin endpoint that calls
+`cache.delete(userId)` directly. Requires the `admin:cache` scope on the caller's JWT.
+
+**Distributed cache (Redis, multi-instance):**
+`DEL lifting-logbook:factory-cache:<userId>` — executed against the Redis instance via the
+`redis-cli` or an admin script. This is the only mechanism that works when multiple API
+replicas share a Redis cache, because the HTTP endpoint only invalidates the local instance.
+
+### What the user observes during migration
+
+After a user's `adapter_type` is changed in `user_data_source` but before the cache entry
+expires or is evicted:
+- Requests continue to be served by the old adapter (Sheets or Postgres) as configured in
+  the cached entry.
+- No error is surfaced to the user; the old adapter responds normally.
+- Once the cache entry expires or is evicted, the next request re-reads `user_data_source`
+  and routes to the new adapter.
+
+For migrations involving data that must not be double-written, the sequence is:
+1. Pause writes (application-level or by taking the user offline temporarily).
+2. Migrate data.
+3. Update `user_data_source` to the new `adapter_type`.
+4. Trigger immediate cache invalidation via the admin endpoint or Redis `DEL`.
+5. Resume writes.
+
+### Detecting stale cache
+
+Each factory resolve emits a structured log line with the following fields:
+
+```json
+{
+  "event": "factory.resolve",
+  "userId": "<user_id>",
+  "adapterType": "sheets|postgres",
+  "cacheHit": true,
+  "ttlRemainingMs": 240000
+}
+```
+
+A `cacheHit: true` entry with an `adapterType` that does not match the current
+`user_data_source` row indicates a stale cache entry. To detect during or after a migration:
+1. Query `user_data_source` for the user's expected `adapter_type` after the update.
+2. Search structured logs for `factory.resolve` events with `cacheHit: true` and an
+   `adapterType` that does not match the expected value within the migration window.
 
 ---
 

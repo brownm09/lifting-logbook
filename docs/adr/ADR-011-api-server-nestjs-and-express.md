@@ -3,7 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-04-03
 **Reviewed:** 2026-04-07
-**Review outcome:** Pass with gaps — open items: [#42](https://github.com/brownm09/lifting-logbook/issues/42)
+**Review outcome:** Pass with gaps — open items resolved: [#42](https://github.com/brownm09/lifting-logbook/issues/42) (archival policy section below)
 
 ---
 
@@ -129,6 +129,55 @@ swapping the entire transport layer requires zero changes to domain logic.
 - Fastify is not Express: some Express middleware (particularly those that depend on
   `req`/`res` being Express-flavored objects) is incompatible. Third-party middleware must be
   verified for Fastify compatibility or replaced with Fastify equivalents.
+
+---
+
+## Express Archival Policy
+
+`apps/api-legacy` is a reference implementation, not a production service. Without an explicit
+policy, every NestJS feature added creates implicit pressure to maintain parity in Express —
+which ADR-011 explicitly does not intend. This section defines the scope, cutoff, and
+post-comparison disposition.
+
+### Feature parity scope
+
+`apps/api-legacy` is kept current with the **v0.2 Core API** REST endpoints only:
+
+| Endpoint group | Parity required |
+|---|---|
+| Workouts REST (`/workouts`) | Yes |
+| Training maxes REST (`/maxes`) | Yes |
+| Cycle dashboard REST (`/cycles`) | Yes |
+| GraphQL endpoints | No — Express comparison is REST-only by design |
+| Auth middleware (JWT verification) | Initial wiring only; no updates after v0.2 |
+| v0.3 features and beyond | No |
+
+The comparison table in the Decision section above documents the structural differences between
+Express and NestJS; it is not a feature checklist. The Express app does not need to implement
+every NestJS feature — it demonstrates the migration starting point, not the destination.
+
+### Cutoff milestone
+
+The Express comparison is **complete when the v0.2 — Core API milestone is marked shipped**
+(all Active Work items in ROADMAP.md moved to the Shipped table). At that point, the comparison
+narrative is complete and no further parity updates are expected.
+
+### Post-comparison disposition
+
+At the v0.2 cutoff:
+
+1. Tag the repository at HEAD with `legacy-comparison-complete`:
+   ```bash
+   git tag legacy-comparison-complete
+   git push origin legacy-comparison-complete
+   ```
+2. Add a notice to `apps/api-legacy/README.md`:
+   > **Archived reference.** This implementation was kept current with v0.2 Core API endpoints
+   > for comparison purposes. No further updates are planned. See ADR-011 for context.
+3. No further PRs targeting `apps/api-legacy` will be reviewed or merged, except critical
+   security patches.
+4. The directory is retained in the monorepo as a read-only portfolio reference. It is not
+   deleted or moved to a separate repository.
 
 ---
 
