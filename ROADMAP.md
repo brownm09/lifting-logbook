@@ -43,12 +43,13 @@ Architecture decisions for data access and security documented.
 
 | Work stream | Description | Issues |
 |---|---|---|
-| Architecture documentation | ADR-014 credential encryption; cache invalidation strategy; Express legacy archival policy | [#38](https://github.com/brownm09/lifting-logbook/issues/38), [#39](https://github.com/brownm09/lifting-logbook/issues/39), [#42](https://github.com/brownm09/lifting-logbook/issues/42) |
+| *(all shipped)* | | |
 
 ### Shipped
 
 | Work stream | Description | Issues |
 |---|---|---|
+| Architecture documentation | ADR-014 credential encryption; cache invalidation strategy; Express legacy archival policy | [#38](https://github.com/brownm09/lifting-logbook/issues/38), [#39](https://github.com/brownm09/lifting-logbook/issues/39), [#42](https://github.com/brownm09/lifting-logbook/issues/42) |
 | Core module cleanup | Enable strict TypeScript; remove GAS Logger dependency | [#51](https://github.com/brownm09/lifting-logbook/issues/51), [#52](https://github.com/brownm09/lifting-logbook/issues/52) |
 | ADR-015 | GraphQL DataLoader design: scope, batching, and request isolation | [#40](https://github.com/brownm09/lifting-logbook/issues/40) |
 | ADR-016 | Cycle planning agent: LLM integration, tool schema, and adapter boundary | [#55](https://github.com/brownm09/lifting-logbook/issues/55) |
