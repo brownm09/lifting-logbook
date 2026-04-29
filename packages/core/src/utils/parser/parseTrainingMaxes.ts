@@ -1,4 +1,5 @@
-import { TRAINING_MAX_HEADER_MAP, TrainingMax, SpreadsheetCell } from "@src/core";
+import { TRAINING_MAX_HEADER_MAP } from "@src/core/constants";
+import { TrainingMax, SpreadsheetCell } from "@src/core/models";
 import { tableToObjects } from "./tableToObjects";
 
 /**

@@ -3,10 +3,9 @@ import {
   DATE_HEADER,
   LIFT_DATE_HEADER,
   LIFT_HEADER,
-  LiftingProgramSpec,
   NOTES_HEADER,
-  SpreadsheetCell,
-} from "@src/core";
+} from "@src/core/constants";
+import { LiftingProgramSpec, SpreadsheetCell } from "@src/core/models";
 
 /**
  * Updates lift dates for lifts with the same offset as the edited lift.

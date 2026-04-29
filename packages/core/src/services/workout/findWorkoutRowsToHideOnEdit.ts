@@ -1,5 +1,5 @@
 import { REPS_HEADER } from "@src/core/constants";
-import { SpreadsheetCell } from "@src/core";
+import { SpreadsheetCell } from "@src/core/models";
 
 /**
  * Given the sheet data and the edited row,

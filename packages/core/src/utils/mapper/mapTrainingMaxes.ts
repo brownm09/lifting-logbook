@@ -1,4 +1,5 @@
-import { TRAINING_MAX_HEADER_MAP, TrainingMax, SpreadsheetCell } from "@src/core";
+import { TRAINING_MAX_HEADER_MAP } from "@src/core/constants";
+import { TrainingMax, SpreadsheetCell } from "@src/core/models";
 /**
  * Converts an array of TrainingMax objects to a 2D array (for writing to a sheet)
  * @param {TrainingMax[]} maxes

@@ -1,4 +1,5 @@
-import { LiftRecord, LiftRecordRequiredKeys, REPS_HEADER, SpreadsheetCell } from "@src/core";
+import { REPS_HEADER } from "@src/core/constants";
+import { LiftRecord, LiftRecordRequiredKeys, SpreadsheetCell } from "@src/core/models";
 
 /**
  * Extract lift records from a 2D grid of data.

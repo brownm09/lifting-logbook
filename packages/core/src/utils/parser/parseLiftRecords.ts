@@ -1,4 +1,5 @@
-import { LIFT_RECORD_HEADER_MAP, LiftRecord, SpreadsheetCell } from "@src/core";
+import { LIFT_RECORD_HEADER_MAP } from "@src/core/constants";
+import { LiftRecord, SpreadsheetCell } from "@src/core/models";
 import { tableToObjects } from "./tableToObjects";
 
 /**

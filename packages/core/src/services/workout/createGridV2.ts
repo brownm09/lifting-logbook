@@ -1,12 +1,5 @@
-import {
-  CycleDashboard,
-  LIFT_PLAN_HEADERS,
-  LIFT_SPEC_HEADERS,
-  LiftingProgramSpec,
-  SpreadsheetCell,
-  TrainingMax,
-  WORKOUT_SHEET_HEADERS,
-} from "@src/core";
+import { LIFT_PLAN_HEADERS, LIFT_SPEC_HEADERS, WORKOUT_SHEET_HEADERS } from "@src/core/constants";
+import { CycleDashboard, LiftingProgramSpec, SpreadsheetCell, TrainingMax } from "@src/core/models";
 import { generateLiftPlan } from "./generateLiftPlan";
 import { generateLiftSpec } from "./generateLiftSpec";
 

@@ -1,4 +1,4 @@
-import { CycleDashboard, SpreadsheetCell, Weekday } from "@src/core";
+import { CycleDashboard, SpreadsheetCell, Weekday } from "@src/core/models";
 import {
   CYCLE_DATE_KEY,
   CYCLE_NUM_KEY,
