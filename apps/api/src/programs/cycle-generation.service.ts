@@ -66,7 +66,7 @@ export class CycleGenerationService {
       }
       const minDate = liftRecords.reduce(
         (min, r) => (r.date < min ? r.date : min),
-        liftRecords[0].date,
+        liftRecords[0]!.date,
       );
       prevDashboard = { ...dashboard, cycleNum: dto.fromCycleNum, cycleDate: minDate };
     }
