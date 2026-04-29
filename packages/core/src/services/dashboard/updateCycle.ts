@@ -1,7 +1,6 @@
 import { WEEKDAY_MAP } from "@src/core/constants";
-import { CycleDashboard, Weekday } from "@src/core/models";
+import { CycleDashboard, UpdateCycleOverrides, Weekday } from "@src/core/models";
 import { formatDateYYYYMMDD, getNextDate } from "@src/core/utils/jsUtil";
-import { UpdateCycleOverrides } from "../../models/UpdateCycleOverrides";
 
 export function updateCycle(
   prevCycle: CycleDashboard,
