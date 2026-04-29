@@ -34,7 +34,7 @@ is codified.
 
 ---
 
-## v0.2 — Core API `[Current]`
+## v0.2 — Core API `[Shipped]`
 
 A working REST + GraphQL API backed by real adapters. Core module quality gates enforced.
 Architecture decisions for data access and security documented.
@@ -62,7 +62,7 @@ Architecture decisions for data access and security documented.
 
 ---
 
-## v0.3 — Client Applications `[Next]`
+## v0.3 — Client Applications `[Current]`
 
 Web and mobile clients functional end-to-end. Key user-facing features implemented.
 
@@ -70,10 +70,15 @@ Web and mobile clients functional end-to-end. Key user-facing features implement
 
 | Work stream | Description | Issues |
 |---|---|---|
-| Bodyweight exercise tracking | Track body weight; calculate added weight for exercises like weighted chin-ups and dips (J4 from PRD) | [#29](https://github.com/brownm09/lifting-logbook/issues/29) |
 | Cycle planning — implementation | LLM-powered training cycle recommendations, using design from ADR-016 | [#54](https://github.com/brownm09/lifting-logbook/issues/54) |
 | Mobile dependency wiring | Add `@logbook/types` workspace dependency to `apps/mobile` | [#50](https://github.com/brownm09/lifting-logbook/issues/50) |
 | A/B comparison documentation | Define exit criteria and CI event taxonomy enforcement for Express/NestJS comparison | [#41](https://github.com/brownm09/lifting-logbook/issues/41) |
+
+### Shipped
+
+| Work stream | Description | Issues |
+|---|---|---|
+| Bodyweight exercise tracking | Track body weight; calculate added weight for exercises like weighted chin-ups and dips (J4 from PRD) | [#29](https://github.com/brownm09/lifting-logbook/issues/29) |
 
 ### Proposals
 
