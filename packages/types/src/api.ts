@@ -1,4 +1,4 @@
-import { LiftName, WeightUnit, WeekNumber, CycleNumber } from './domain';
+import { BodyWeightEntry, LiftName, WeightUnit, WeekNumber, CycleNumber } from './domain';
 
 // ---------------------------------------------------------------------------
 // Training Maxes
@@ -47,7 +47,7 @@ export interface WorkoutResponse {
   week: WeekNumber;
   date: string; // ISO 8601 date string
   lifts: WorkoutLiftResponse[];
-  bodyWeightEntry?: { weight: number; unit: WeightUnit };
+  bodyWeightEntry?: Pick<BodyWeightEntry, 'weight' | 'unit'>;
 }
 
 // ---------------------------------------------------------------------------
