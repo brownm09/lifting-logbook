@@ -71,7 +71,6 @@ Web and mobile clients functional end-to-end. Key user-facing features implement
 | Work stream | Description | Issues |
 |---|---|---|
 | Cycle planning — implementation | LLM-powered training cycle recommendations, using design from ADR-016 | [#54](https://github.com/brownm09/lifting-logbook/issues/54) |
-| Mobile dependency wiring | Add `@logbook/types` workspace dependency to `apps/mobile` | [#50](https://github.com/brownm09/lifting-logbook/issues/50) |
 | A/B comparison documentation | Define exit criteria and CI event taxonomy enforcement for Express/NestJS comparison | [#41](https://github.com/brownm09/lifting-logbook/issues/41) |
 
 ### Shipped
@@ -79,6 +78,7 @@ Web and mobile clients functional end-to-end. Key user-facing features implement
 | Work stream | Description | Issues |
 |---|---|---|
 | Bodyweight exercise tracking | Track body weight; calculate added weight for exercises like weighted chin-ups and dips (J4 from PRD) | [#29](https://github.com/brownm09/lifting-logbook/issues/29) |
+| Mobile dependency wiring | `@logbook/types` already declared in `apps/mobile/package.json`; hoisted by npm workspaces — no code change needed | [#50](https://github.com/brownm09/lifting-logbook/issues/50) |
 
 ### Proposals
 
