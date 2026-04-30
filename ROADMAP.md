@@ -84,7 +84,7 @@ Web and mobile clients functional end-to-end. Key user-facing features implement
 
 | Proposal | Description | Issue |
 |---|---|---|
-| *(none yet)* | | |
+| [Workout Logging Screen](docs/proposals/2026-04-29-workout-logging-screen.md) | Per-exercise logging with warm-ups, bodyweight gate, and whole-workout overview toggle | [#106](https://github.com/brownm09/lifting-logbook/issues/106) |
 
 ---
 
