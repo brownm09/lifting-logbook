@@ -10,6 +10,7 @@ import {
   LiftingProgramSpecResponse,
   SetResponse,
   TrainingMaxResponse,
+  WeekNumber,
   WorkoutLiftResponse,
   WorkoutResponse,
 } from '@lifting-logbook/types';
@@ -83,7 +84,7 @@ export const isValidWorkoutNum = (n: number): boolean =>
 export const weekForWorkoutNum = (
   spec: LiftingProgramSpec[],
   workoutNum: number,
-): number | undefined => {
+): WeekNumber | undefined => {
   const offsets = [...new Set(spec.map((s) => s.offset))].sort((a, b) => a - b);
   const offset = offsets[workoutNum - 1];
   return offset !== undefined
@@ -100,7 +101,7 @@ export const toWorkoutResponse = (
   program: string,
   cycleNum: number,
   workoutNum: number,
-  week: number,
+  week: WeekNumber,
   records: LiftRecord[],
 ): WorkoutResponse => {
   const liftMap = new Map<string, SetResponse[]>();
