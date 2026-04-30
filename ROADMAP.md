@@ -34,7 +34,7 @@ is codified.
 
 ---
 
-## v0.2 — Core API `[Current]`
+## v0.2 — Core API `[Shipped]`
 
 A working REST + GraphQL API backed by real adapters. Core module quality gates enforced.
 Architecture decisions for data access and security documented.
@@ -62,7 +62,7 @@ Architecture decisions for data access and security documented.
 
 ---
 
-## v0.3 — Client Applications `[Next]`
+## v0.3 — Client Applications `[Current]`
 
 Web and mobile clients functional end-to-end. Key user-facing features implemented.
 
@@ -71,7 +71,6 @@ Web and mobile clients functional end-to-end. Key user-facing features implement
 | Work stream | Description | Issues |
 |---|---|---|
 | Cycle planning — implementation | LLM-powered training cycle recommendations, using design from ADR-016 | [#54](https://github.com/brownm09/lifting-logbook/issues/54) |
-| Mobile dependency wiring | Add `@logbook/types` workspace dependency to `apps/mobile` | [#50](https://github.com/brownm09/lifting-logbook/issues/50) |
 | A/B comparison documentation | Define exit criteria and CI event taxonomy enforcement for Express/NestJS comparison | [#41](https://github.com/brownm09/lifting-logbook/issues/41) |
 
 ### Shipped
@@ -79,12 +78,15 @@ Web and mobile clients functional end-to-end. Key user-facing features implement
 | Work stream | Description | Issues |
 |---|---|---|
 | Bodyweight exercise tracking | Domain/core layer: `BodyWeightEntry` type, `isBodyweightComponent` flag, catalog metadata, `calculateAddedWeight` utility | [#29](https://github.com/brownm09/lifting-logbook/issues/29) |
+| Mobile dependency wiring | `@logbook/types` already declared in `apps/mobile/package.json`; hoisted by npm workspaces — no code change needed | [#50](https://github.com/brownm09/lifting-logbook/issues/50) |
 
 ### Proposals
 
 | Proposal | Description | Issue |
 |---|---|---|
-| *(none yet)* | | |
+| [Cycle Dashboard Screen](docs/proposals/2026-04-29-cycle-dashboard-screen.md) | Week-by-week workout status and planned lift weights; `/cycle` bookmarkable route | [#104](https://github.com/brownm09/lifting-logbook/issues/104) |
+| [Workout Logging Screen](docs/proposals/2026-04-29-workout-logging-screen.md) | Per-exercise logging with warm-ups, bodyweight gate, and whole-workout overview toggle | [#106](https://github.com/brownm09/lifting-logbook/issues/106) |
+| [Training Max Management Screen](docs/proposals/2026-04-29-training-max-management.md) | View and edit per-lift 1RMs at `/settings/training-maxes`; drives all working set calculations | [#108](https://github.com/brownm09/lifting-logbook/issues/108) |
 
 ---
 
