@@ -49,10 +49,12 @@ export class WorkoutsController {
       (a, b) => a - b,
     );
     const offsetForWorkout = offsetsSorted[workoutNum - 1];
-    const week =
-      offsetForWorkout !== undefined
-        ? (spec.find((s) => s.offset === offsetForWorkout)?.week ?? 1)
-        : 1;
+    if (offsetForWorkout === undefined) {
+      throw new BadRequestException(
+        `workoutNum ${workoutNum} exceeds program spec (${offsetsSorted.length} workout days)`,
+      );
+    }
+    const week = spec.find((s) => s.offset === offsetForWorkout)?.week ?? 1;
 
     const records = await this.workoutRepo.getWorkout(
       program,
