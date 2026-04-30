@@ -1,8 +1,8 @@
-import { LiftName } from '@lifting-logbook/types';
+import { LiftName, WeekNumber } from '@lifting-logbook/types';
 
 // RptProgramSpec interface for RPT program specification objects
 export interface LiftingProgramSpec {
-  week: number;
+  week: WeekNumber;
   offset: number;
   lift: LiftName;
   increment: number;
