@@ -84,7 +84,7 @@ Web and mobile clients functional end-to-end. Key user-facing features implement
 
 | Proposal | Description | Issue |
 |---|---|---|
-| *(none yet)* | | |
+| [Training Max Management Screen](docs/proposals/2026-04-29-training-max-management.md) | View and edit per-lift 1RMs at `/settings/training-maxes`; drives all working set calculations | [#108](https://github.com/brownm09/lifting-logbook/issues/108) |
 
 ---
 
