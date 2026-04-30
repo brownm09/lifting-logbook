@@ -14,7 +14,7 @@ import {
   LIFTING_PROGRAM_SPEC_REPOSITORY,
   WORKOUT_REPOSITORY,
 } from '../ports/tokens';
-import { isValidWorkoutNum, toWorkoutResponse } from './mappers';
+import { isValidWorkoutNum, toWorkoutResponse, weekForWorkoutNum } from './mappers';
 
 @Controller('programs/:program')
 export class WorkoutsController {
@@ -42,20 +42,12 @@ export class WorkoutsController {
       this.cycleDashboardRepo.getCycleDashboard(program),
       this.programSpecRepo.getProgramSpec(program),
     ]);
-
-    // Group spec entries by offset (ascending) to map workoutNum → week.
-    // workoutNum 1 = first offset group, workoutNum 2 = second, etc.
-    const offsetsSorted = [...new Set(spec.map((s) => s.offset))].sort(
-      (a, b) => a - b,
-    );
-    const offsetForWorkout = offsetsSorted[workoutNum - 1];
-    if (offsetForWorkout === undefined) {
+    const week = weekForWorkoutNum(spec, workoutNum);
+    if (week === undefined) {
       throw new BadRequestException(
-        `workoutNum ${workoutNum} exceeds program spec (${offsetsSorted.length} workout days)`,
+        `workoutNum ${workoutNum} exceeds program spec (${new Set(spec.map((s) => s.offset)).size} workout days)`,
       );
     }
-    const week = spec.find((s) => s.offset === offsetForWorkout)?.week ?? 1;
-
     const records = await this.workoutRepo.getWorkout(
       program,
       dashboard.cycleNum,

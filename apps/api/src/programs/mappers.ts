@@ -74,9 +74,27 @@ export const isValidWorkoutNum = (n: number): boolean =>
   Number.isInteger(n) && n >= 1;
 
 /**
+ * Derives the training week for a given workoutNum from the program spec.
+ * Deduplicates offsets, sorts ascending, maps workoutNum to the Nth offset,
+ * then reads the `week` field from the first matching spec entry (defaulting
+ * to 1 when the field is absent). Returns undefined when workoutNum exceeds
+ * the number of distinct offsets.
+ */
+export const weekForWorkoutNum = (
+  spec: LiftingProgramSpec[],
+  workoutNum: number,
+): number | undefined => {
+  const offsets = [...new Set(spec.map((s) => s.offset))].sort((a, b) => a - b);
+  const offset = offsets[workoutNum - 1];
+  return offset !== undefined
+    ? (spec.find((s) => s.offset === offset)?.week ?? 1)
+    : undefined;
+};
+
+/**
  * Groups a workout's lift records into the WorkoutResponse shape.
- * Caller must validate `workoutNum` with `isValidWorkoutNum` and supply
- * the `week` sourced from the program spec before invoking.
+ * Caller must validate `workoutNum` with `isValidWorkoutNum` and derive
+ * `week` via `weekForWorkoutNum` before invoking.
  */
 export const toWorkoutResponse = (
   program: string,
