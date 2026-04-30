@@ -135,13 +135,13 @@ export default function TrainingMaxesForm({
                   <td className={styles.weightCell} data-label="Weight">
                     <input
                       type="number"
-                      min="0.1"
-                      step="0.5"
                       value={row.value}
                       placeholder="—"
                       aria-label={`${lift} training max`}
+                      autoComplete="off"
                       className={styles.weightInput}
                       onChange={(e) => handleChange(lift, e.target.value)}
+                      suppressHydrationWarning
                     />
                     {row.error && (
                       <span className={styles.errorText}>{row.error}</span>
