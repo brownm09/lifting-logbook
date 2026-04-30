@@ -1,4 +1,6 @@
-export default function CycleLayout({
+import Link from 'next/link';
+
+export default function SettingsLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -6,9 +8,9 @@ export default function CycleLayout({
   return (
     <main>
       <header>
-        <h1>Lifting Logbook</h1>
+        <h1>Settings</h1>
         <nav>
-          <a href="/settings/training-maxes">Settings</a>
+          <Link href="/cycle">← Back to cycle</Link>
         </nav>
       </header>
       {children}
