@@ -4,7 +4,6 @@ import { LiftName } from '@lifting-logbook/types';
 export interface LiftingProgramSpec {
   week: number;
   offset: number;
-  week?: number;
   lift: LiftName;
   increment: number;
   order: number;
