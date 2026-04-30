@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import type { TrainingMaxResponse } from '@lifting-logbook/types';
-import { updateTrainingMaxes } from '@/lib/api';
+import { saveTrainingMaxes } from './actions';
 import styles from './TrainingMaxesForm.module.css';
 
 type RowState = {
@@ -89,7 +89,7 @@ export default function TrainingMaxesForm({
     }
 
     try {
-      const updated = await updateTrainingMaxes(program, { maxes: changed });
+      const updated = await saveTrainingMaxes(program, { maxes: changed });
       const updatedMap = new Map(updated.map((m) => [m.lift, m]));
       setRows((prev) => {
         const next = { ...prev };

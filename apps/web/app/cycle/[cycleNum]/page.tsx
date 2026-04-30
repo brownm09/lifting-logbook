@@ -20,7 +20,7 @@ export default async function CycleDashboardPage({
 }) {
   const { cycleNum: cycleNumParam } = await params;
   const requestedCycleNum = Number(cycleNumParam);
-  const program = process.env.NEXT_PUBLIC_DEFAULT_PROGRAM ?? '531';
+  const program = process.env.NEXT_PUBLIC_DEFAULT_PROGRAM ?? '5-3-1';
 
   const [dashboard, specs, maxes] = await Promise.all([
     fetchCycleDashboard(program),
