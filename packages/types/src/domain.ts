@@ -61,3 +61,24 @@ export type WeekNumber = number;
  * 1-indexed: the first cycle is cycle 1.
  */
 export type CycleNumber = number;
+
+/** Strength classification tier relative to bodyweight-based standards. */
+export type StrengthTier = 'intermediate' | 'advanced' | 'elite';
+
+/** A bodyweight-multiplier standard for a specific lift and tier. */
+export interface StrengthStandard {
+  liftId: string;
+  tier: StrengthTier;
+  multiplier: number;
+}
+
+/** A per-user strength goal for a specific lift and tier. */
+export interface StrengthGoal {
+  userId: string;
+  liftId: string;
+  tier: StrengthTier;
+  /** Overrides the system-default multiplier when set. */
+  multiplierOverride?: number;
+  targetDate?: Date;
+  observedDate?: Date;
+}
