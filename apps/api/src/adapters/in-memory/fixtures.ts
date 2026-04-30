@@ -68,6 +68,7 @@ export const seedLiftRecords = (): LiftRecord[] => [
 
 export const seedProgramSpec = (): LiftingProgramSpec[] => [
   {
+    week: 1,
     offset: 0,
     lift: 'Squat',
     increment: 5,
@@ -80,6 +81,7 @@ export const seedProgramSpec = (): LiftingProgramSpec[] => [
     activation: 'compound',
   },
   {
+    week: 1,
     offset: 0,
     lift: 'Bench Press',
     increment: 5,

@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc --project tsconfig.json",
+    "build": "tsc --project tsconfig.json && tsc-alias --project tsconfig.json",
     "lint": "eslint src",
     "test": "jest"
   },
@@ -13,6 +13,7 @@
     "@lifting-logbook/types": "*"
   },
   "devDependencies": {
-    "csv-parse": "^6.1.0"
+    "csv-parse": "^6.1.0",
+    "tsc-alias": "^1.8.16"
   }
 }

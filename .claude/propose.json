@@ -1,0 +1,25 @@
+{
+  "proposals_dir": "docs/proposals",
+  "roadmap_file": "ROADMAP.md",
+  "prd_file": "docs/PRD.md",
+  "github_repo": "brownm09/lifting-logbook",
+  "milestones": [
+    "v0.1 — Foundation",
+    "v0.2 — Core API",
+    "v0.3 — Client Applications"
+  ],
+  "epics": [
+    { "name": "Monorepo Scaffolding",         "id": "974b67c1" },
+    { "name": "Package & App Scaffolding",    "id": "26d27ab2" },
+    { "name": "Port Interfaces",              "id": "9196ffd9" },
+    { "name": "Shared Types",                 "id": "42bf8843" },
+    { "name": "CI/CD Foundation",             "id": "23133b3a" },
+    { "name": "Architecture & Documentation", "id": "656e470c" }
+  ],
+  "github_project": {
+    "number": 2,
+    "owner": "brownm09",
+    "node_id": "PVT_kwHOAjEKvM4BTuEF",
+    "epic_field_id": "PVTSSF_lAHOAjEKvM4BTuEFzhA7GEs"
+  }
+}

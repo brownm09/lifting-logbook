@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"],
+      "@src/core": ["../../packages/core/src/index.ts"],
+      "@src/core/*": ["../../packages/core/src/*"],
+      "@lifting-logbook/types": ["../../packages/types/src/index.ts"],
+      "@lifting-logbook/core": ["../../packages/core/src/index.ts"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules"]
+}

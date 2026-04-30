@@ -27,6 +27,7 @@ export const LIFTING_PROGRAM_SPEC_HEADER_MAP: Record<
   string,
   { key: string; type: string }
 > = {
+  Week: { key: "week", type: "number" },
   Offset: { key: "offset", type: "number" },
   Lift: { key: "lift", type: "string" },
   Increment: { key: "increment", type: "number" },

@@ -79,12 +79,13 @@ Web and mobile clients functional end-to-end. Key user-facing features implement
 |---|---|---|
 | Bodyweight exercise tracking | Domain/core layer: `BodyWeightEntry` type, `isBodyweightComponent` flag, catalog metadata, `calculateAddedWeight` utility | [#29](https://github.com/brownm09/lifting-logbook/issues/29) |
 | Mobile dependency wiring | `@logbook/types` already declared in `apps/mobile/package.json`; hoisted by npm workspaces — no code change needed | [#50](https://github.com/brownm09/lifting-logbook/issues/50) |
+| Cycle Dashboard Screen | `/cycle` and `/cycle/:cycleNum` — week grid, planned weights, completion status; `tsc-alias` fix for Turbopack | [#104](https://github.com/brownm09/lifting-logbook/issues/104) |
+| Configurable week grouping | Remove `WeekNumber = 1\|2\|3\|4` type constraint and `MAX_WORKOUT_NUM = 8` API limit; source week from program spec | [#116](https://github.com/brownm09/lifting-logbook/issues/116) |
 
 ### Proposals
 
 | Proposal | Description | Issue |
 |---|---|---|
-| [Cycle Dashboard Screen](docs/proposals/2026-04-29-cycle-dashboard-screen.md) | Week-by-week workout status and planned lift weights; `/cycle` bookmarkable route | [#104](https://github.com/brownm09/lifting-logbook/issues/104) |
 | [Workout Logging Screen](docs/proposals/2026-04-29-workout-logging-screen.md) | Per-exercise logging with warm-ups, bodyweight gate, and whole-workout overview toggle | [#106](https://github.com/brownm09/lifting-logbook/issues/106) |
 | [Training Max Management Screen](docs/proposals/2026-04-29-training-max-management.md) | View and edit per-lift 1RMs at `/settings/training-maxes`; drives all working set calculations | [#108](https://github.com/brownm09/lifting-logbook/issues/108) |
 | [Strength Goal Tracking](docs/proposals/2026-04-29-strength-goal-tracking.md) | Per-lift, per-tier strength standards (intermediate/advanced/elite) with target and observed dates | [#111](https://github.com/brownm09/lifting-logbook/issues/111) |
