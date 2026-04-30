@@ -2,6 +2,7 @@ import type {
   CycleDashboardResponse,
   LiftingProgramSpecResponse,
   TrainingMaxResponse,
+  UpdateTrainingMaxesRequest,
   WorkoutResponse,
 } from '@lifting-logbook/types';
 
@@ -38,6 +39,21 @@ export function fetchTrainingMaxes(
   return apiFetch(
     `/programs/${encodeURIComponent(program)}/training-maxes`,
     { cache: 'no-store' },
+  );
+}
+
+export function updateTrainingMaxes(
+  program: string,
+  body: UpdateTrainingMaxesRequest,
+): Promise<TrainingMaxResponse[]> {
+  return apiFetch(
+    `/programs/${encodeURIComponent(program)}/training-maxes`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      cache: 'no-store',
+    } as RequestInit,
   );
 }
 
