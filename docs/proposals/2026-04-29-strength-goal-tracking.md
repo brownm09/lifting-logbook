@@ -1,6 +1,6 @@
 # Proposal: Strength Goal Tracking
 
-**Status:** `draft`
+**Status:** `shipped`
 **Date:** 2026-04-29
 **Issue:** [#111](https://github.com/brownm09/lifting-logbook/issues/111)
 
