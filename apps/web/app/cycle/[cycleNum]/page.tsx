@@ -32,20 +32,27 @@ export default async function CycleDashboardPage({
     notFound();
   }
 
-  const workoutResponses = await Promise.all(
-    Array.from({ length: 8 }, (_, i) => fetchWorkout(program, i + 1)),
+  const workoutDays = buildWorkoutDays(specs, dashboard.cycleStartDate);
+  const workoutResponseList = await Promise.all(
+    workoutDays.map((w) => fetchWorkout(program, w.workoutNum)),
+  );
+  const workoutResponseMap = new Map(
+    workoutDays.map((w, i) => [w.workoutNum, workoutResponseList[i]]),
   );
 
-  const workoutDays = buildWorkoutDays(specs, dashboard.cycleStartDate);
   const today = new Date().toISOString().slice(0, 10);
   const maxMap = new Map(maxes.map((m) => [m.lift, m.weight]));
 
-  const weeks: WeekRow[] = ([1, 2, 3, 4] as const).map((week) => ({
+  // Derive week numbers from workout offsets. Assumes 2 workouts per week —
+  // a workouts-per-week value from the program config would generalize this.
+  const weekNums = [...new Set(workoutDays.map((w) => Math.ceil(w.workoutNum / 2)))];
+
+  const weeks: WeekRow[] = weekNums.map((week) => ({
     week,
     workouts: workoutDays
       .filter((w) => Math.ceil(w.workoutNum / 2) === week)
       .map((w): WorkoutCell => {
-        const response = workoutResponses[w.workoutNum - 1];
+        const response = workoutResponseMap.get(w.workoutNum);
         const logged = response != null && response.lifts.length > 0;
         const status: WorkoutCell['status'] = logged
           ? 'completed'

@@ -119,4 +119,12 @@ describe('computePlannedSets', () => {
     const sets = computePlannedSets(spec, 100);
     expect(sets.every((s) => s.setLabel.startsWith('Set'))).toBe(true);
   });
+
+  it('clamps warmup reps to 1 for programs with more than 5 warmup sets', () => {
+    const spec = makeSpec({ warmUpPct: '0.4,0.45,0.5,0.55,0.6,0.65', sets: 1, wtDecrementPct: 0 });
+    const sets = computePlannedSets(spec, 200);
+    const warmups = sets.filter((s) => s.setLabel.startsWith('Warm-up'));
+    expect(warmups).toHaveLength(6);
+    expect(warmups[5]?.reps).toBe(1);
+  });
 });

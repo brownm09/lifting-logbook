@@ -41,12 +41,15 @@ export function fetchTrainingMaxes(
   );
 }
 
-export function fetchWorkout(
+export async function fetchWorkout(
   program: string,
   workoutNum: number,
-): Promise<WorkoutResponse> {
-  return apiFetch(
-    `/programs/${encodeURIComponent(program)}/workouts/${workoutNum}`,
-    { cache: 'no-store' },
-  );
+): Promise<WorkoutResponse | null> {
+  const path = `/programs/${encodeURIComponent(program)}/workouts/${workoutNum}`;
+  const res = await fetch(`${API_URL}${path}`, { cache: 'no-store' });
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
+  }
+  return res.json() as Promise<WorkoutResponse>;
 }

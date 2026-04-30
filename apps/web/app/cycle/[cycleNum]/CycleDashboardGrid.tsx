@@ -10,7 +10,7 @@ function findCurrentWeek(weeks: WeekRow[]): number {
       return row.week;
     }
   }
-  return 4;
+  return weeks[weeks.length - 1]?.week ?? 1;
 }
 
 function StatusBadge({ status }: { status: WorkoutCell['status'] }) {

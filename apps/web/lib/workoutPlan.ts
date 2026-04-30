@@ -27,7 +27,7 @@ export interface WorkoutCell {
 }
 
 export interface WeekRow {
-  week: 1 | 2 | 3 | 4;
+  week: number;
   workouts: WorkoutCell[];
 }
 
@@ -84,7 +84,7 @@ export function computePlannedSets(
   const warmupSets: PlannedSet[] = warmupPcts.map((pct, i) => ({
     setLabel: `Warm-up ${i + 1}`,
     weight: MROUND(trainingMax * pct, spec.increment),
-    reps: WARMUP_BASE_REPS - i,
+    reps: Math.max(1, WARMUP_BASE_REPS - i),
   }));
 
   const workSets: PlannedSet[] = workPcts.map((pct, i) => ({
