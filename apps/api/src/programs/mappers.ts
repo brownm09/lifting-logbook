@@ -10,7 +10,6 @@ import {
   LiftingProgramSpecResponse,
   SetResponse,
   TrainingMaxResponse,
-  WeekNumber,
   WorkoutLiftResponse,
   WorkoutResponse,
 } from '@lifting-logbook/types';
@@ -43,6 +42,7 @@ export const toLiftRecordResponse = (r: LiftRecord): LiftRecordResponse => ({
 export const toLiftingProgramSpecResponse = (
   s: LiftingProgramSpec,
 ): LiftingProgramSpecResponse => ({
+  week: s.week,
   lift: s.lift,
   order: s.order,
   offset: s.offset,
@@ -70,23 +70,19 @@ export const toCycleDashboardResponse = (
   weeks: [],
 });
 
-// Largest workoutNum whose derived week still fits in WeekNumber (1..4)
-// assuming 2 workouts per training week. Real programs vary — when that
-// becomes relevant, source week from the program spec instead of deriving.
-export const MAX_WORKOUT_NUM = 8 as const;
-
 export const isValidWorkoutNum = (n: number): boolean =>
-  Number.isInteger(n) && n >= 1 && n <= MAX_WORKOUT_NUM;
+  Number.isInteger(n) && n >= 1;
 
 /**
  * Groups a workout's lift records into the WorkoutResponse shape.
- * Assumes 2 workouts per training week; caller must validate `workoutNum`
- * with `isValidWorkoutNum` before invoking.
+ * Caller must validate `workoutNum` with `isValidWorkoutNum` and supply
+ * the `week` sourced from the program spec before invoking.
  */
 export const toWorkoutResponse = (
   program: string,
   cycleNum: number,
   workoutNum: number,
+  week: number,
   records: LiftRecord[],
 ): WorkoutResponse => {
   const liftMap = new Map<string, SetResponse[]>();
@@ -104,7 +100,6 @@ export const toWorkoutResponse = (
   const lifts: WorkoutLiftResponse[] = Array.from(liftMap.entries()).map(
     ([lift, sets]) => ({ lift, sets }),
   );
-  const week = Math.ceil(workoutNum / 2) as WeekNumber;
   const date = records[0] ? isoDate(records[0].date) : isoDate(new Date());
   return { program, cycleNum, workoutNum, week, date, lifts };
 };

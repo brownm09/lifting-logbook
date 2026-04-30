@@ -53,8 +53,8 @@ export interface BodyWeightEntry {
   unit: WeightUnit;
 }
 
-/** Week number within a training cycle (1-based, 4-week cycles). */
-export type WeekNumber = 1 | 2 | 3 | 4;
+/** Week number within a training cycle (1-based). */
+export type WeekNumber = number;
 
 /**
  * Cycle number within a training program.

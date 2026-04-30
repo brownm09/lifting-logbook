@@ -117,6 +117,7 @@ export interface CycleDashboardResponse {
 
 /** Per-lift specification within a lifting program (e.g., 5/3/1). */
 export interface LiftingProgramSpecResponse {
+  week: number;
   lift: LiftName;
   order: number;
   offset: number;
