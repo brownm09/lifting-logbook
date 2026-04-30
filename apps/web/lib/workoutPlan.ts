@@ -15,6 +15,7 @@ export interface PlannedSet {
 
 export interface WorkoutDay {
   workoutNum: number;
+  week: number;
   date: string; // YYYY-MM-DD
   lifts: LiftingProgramSpecResponse[];
 }
@@ -58,11 +59,15 @@ export function buildWorkoutDays(
 
   return Array.from(byOffset.keys())
     .sort((a, b) => a - b)
-    .map((offset, i) => ({
-      workoutNum: i + 1,
-      date: addDaysUTC(startDate, offset).toISOString().slice(0, 10),
-      lifts: (byOffset.get(offset) ?? []).sort((a, b) => a.order - b.order),
-    }));
+    .map((offset, i) => {
+      const lifts = (byOffset.get(offset) ?? []).sort((a, b) => a.order - b.order);
+      return {
+        workoutNum: i + 1,
+        week: lifts[0]?.week ?? 1,
+        date: addDaysUTC(startDate, offset).toISOString().slice(0, 10),
+        lifts,
+      };
+    });
 }
 
 /**

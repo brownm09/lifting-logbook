@@ -2,9 +2,11 @@ import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Weekday } from '@lifting-logbook/core';
 import { ICycleDashboardRepository } from '../ports/ICycleDashboardRepository';
+import { ILiftingProgramSpecRepository } from '../ports/ILiftingProgramSpecRepository';
 import { IWorkoutRepository } from '../ports/IWorkoutRepository';
 import {
   CYCLE_DASHBOARD_REPOSITORY,
+  LIFTING_PROGRAM_SPEC_REPOSITORY,
   WORKOUT_REPOSITORY,
 } from '../ports/tokens';
 import { WorkoutsController } from './workouts.controller';
@@ -13,6 +15,7 @@ describe('WorkoutsController', () => {
   let controller: WorkoutsController;
   let workoutRepo: jest.Mocked<IWorkoutRepository>;
   let dashboardRepo: jest.Mocked<ICycleDashboardRepository>;
+  let specRepo: jest.Mocked<ILiftingProgramSpecRepository>;
 
   beforeEach(async () => {
     workoutRepo = { getWorkout: jest.fn(), saveWorkout: jest.fn() };
@@ -20,17 +23,19 @@ describe('WorkoutsController', () => {
       getCycleDashboard: jest.fn(),
       saveCycleDashboard: jest.fn(),
     };
+    specRepo = { getProgramSpec: jest.fn() };
     const module: TestingModule = await Test.createTestingModule({
       controllers: [WorkoutsController],
       providers: [
         { provide: WORKOUT_REPOSITORY, useValue: workoutRepo },
         { provide: CYCLE_DASHBOARD_REPOSITORY, useValue: dashboardRepo },
+        { provide: LIFTING_PROGRAM_SPEC_REPOSITORY, useValue: specRepo },
       ],
     }).compile();
     controller = module.get(WorkoutsController);
   });
 
-  it('groups records by lift, derives week, and looks up current cycle', async () => {
+  it('groups records by lift, sources week from spec, and looks up current cycle', async () => {
     dashboardRepo.getCycleDashboard.mockResolvedValue({
       program: '5-3-1',
       cycleUnit: 'week',
@@ -39,6 +44,21 @@ describe('WorkoutsController', () => {
       sheetName: '',
       cycleStartWeekday: Weekday.Monday,
     });
+    specRepo.getProgramSpec.mockResolvedValue([
+      {
+        week: 1,
+        offset: 0,
+        lift: 'Squat',
+        increment: 5,
+        order: 1,
+        sets: 3,
+        reps: 5,
+        amrap: true,
+        warmUpPct: '0.4,0.5,0.6',
+        wtDecrementPct: 0.1,
+        activation: 'compound',
+      },
+    ]);
     workoutRepo.getWorkout.mockResolvedValue([
       {
         program: '5-3-1',
@@ -79,6 +99,36 @@ describe('WorkoutsController', () => {
 
   it('rejects non-numeric workoutNum', async () => {
     await expect(controller.getWorkout('5-3-1', 'abc')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+  });
+
+  it('rejects workoutNum that exceeds the number of offset groups in the spec', async () => {
+    dashboardRepo.getCycleDashboard.mockResolvedValue({
+      program: '5-3-1',
+      cycleUnit: 'week',
+      cycleNum: 3,
+      cycleDate: new Date('2026-04-20T00:00:00.000Z'),
+      sheetName: '',
+      cycleStartWeekday: Weekday.Monday,
+    });
+    specRepo.getProgramSpec.mockResolvedValue([
+      {
+        week: 1,
+        offset: 0,
+        lift: 'Squat',
+        increment: 5,
+        order: 1,
+        sets: 3,
+        reps: 5,
+        amrap: true,
+        warmUpPct: '0.4,0.5,0.6',
+        wtDecrementPct: 0.1,
+        activation: 'compound',
+      },
+    ]);
+
+    await expect(controller.getWorkout('5-3-1', '2')).rejects.toBeInstanceOf(
       BadRequestException,
     );
   });

@@ -7,7 +7,9 @@
     "paths": {
       "@/*": ["./*"],
       "@src/core": ["../../packages/core/src/index.ts"],
-      "@src/core/*": ["../../packages/core/src/*"]
+      "@src/core/*": ["../../packages/core/src/*"],
+      "@lifting-logbook/types": ["../../packages/types/src/index.ts"],
+      "@lifting-logbook/core": ["../../packages/core/src/index.ts"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx"],

@@ -43,14 +43,12 @@ export default async function CycleDashboardPage({
   const today = new Date().toISOString().slice(0, 10);
   const maxMap = new Map(maxes.map((m) => [m.lift, m.weight]));
 
-  // Derive week numbers from workout offsets. Assumes 2 workouts per week —
-  // a workouts-per-week value from the program config would generalize this.
-  const weekNums = [...new Set(workoutDays.map((w) => Math.ceil(w.workoutNum / 2)))];
+  const weekNums = [...new Set(workoutDays.map((w) => w.week))];
 
   const weeks: WeekRow[] = weekNums.map((week) => ({
     week,
     workouts: workoutDays
-      .filter((w) => Math.ceil(w.workoutNum / 2) === week)
+      .filter((w) => w.week === week)
       .map((w): WorkoutCell => {
         const response = workoutResponseMap.get(w.workoutNum);
         const logged = response != null && response.lifts.length > 0;

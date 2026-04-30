@@ -4,6 +4,7 @@ import { buildWorkoutDays, computePlannedSets } from '../workoutPlan';
 const makeSpec = (
   overrides: Partial<LiftingProgramSpecResponse>,
 ): LiftingProgramSpecResponse => ({
+  week: 1,
   lift: 'Squat',
   order: 1,
   offset: 0,
@@ -32,6 +33,19 @@ describe('buildWorkoutDays', () => {
     expect(days[0]?.lifts.map((l) => l.lift)).toEqual(['Squat', 'Bench Press']);
     expect(days[1]?.workoutNum).toBe(2);
     expect(days[1]?.lifts.map((l) => l.lift)).toEqual(['Deadlift']);
+  });
+
+  it('sources week from the first lift in each offset group', () => {
+    const specs: LiftingProgramSpecResponse[] = [
+      makeSpec({ offset: 0, week: 1 }),
+      makeSpec({ lift: 'Bench Press', offset: 0, week: 1 }),
+      makeSpec({ lift: 'Deadlift', offset: 7, week: 2 }),
+    ];
+
+    const days = buildWorkoutDays(specs, '2026-01-05');
+
+    expect(days[0]?.week).toBe(1);
+    expect(days[1]?.week).toBe(2);
   });
 
   it('computes workout dates by adding offset days to cycleStartDate in UTC', () => {
