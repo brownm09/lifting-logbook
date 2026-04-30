@@ -97,6 +97,36 @@ describe('WorkoutsController', () => {
     ]);
   });
 
+  it('throws BadRequestException when workoutNum exceeds spec offset count', async () => {
+    specRepo.getProgramSpec.mockResolvedValue([
+      {
+        offset: 0,
+        lift: 'Squat',
+        increment: 5,
+        order: 1,
+        sets: 3,
+        reps: 5,
+        amrap: true,
+        warmUpPct: '0.4,0.5,0.6',
+        wtDecrementPct: 0.1,
+        activation: 'compound',
+      },
+    ]);
+    dashboardRepo.getCycleDashboard.mockResolvedValue({
+      program: '5-3-1',
+      cycleUnit: 'week',
+      cycleNum: 3,
+      cycleDate: new Date('2026-04-20T00:00:00.000Z'),
+      sheetName: '',
+      cycleStartWeekday: Weekday.Monday,
+    });
+    workoutRepo.getWorkout.mockResolvedValue([]);
+
+    await expect(controller.getWorkout('5-3-1', '2')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+  });
+
   it('rejects non-numeric workoutNum', async () => {
     await expect(controller.getWorkout('5-3-1', 'abc')).rejects.toBeInstanceOf(
       BadRequestException,
