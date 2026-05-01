@@ -19,4 +19,5 @@ export interface CycleDashboard {
   sheetName: string;
   cycleStartWeekday: Weekday;
   currentWeekType: WeekType;
+  programType?: string;
 }

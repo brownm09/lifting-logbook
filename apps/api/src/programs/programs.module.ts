@@ -3,13 +3,16 @@ import { InMemoryBodyWeightRepository } from '../adapters/in-memory/body-weight.
 import { InMemoryCycleDashboardRepository } from '../adapters/in-memory/cycle-dashboard.adapter';
 import { InMemoryLiftRecordRepository } from '../adapters/in-memory/lift-record.adapter';
 import { InMemoryLiftingProgramSpecRepository } from '../adapters/in-memory/lifting-program-spec.adapter';
+import { InMemoryProgramPhilosophyRepository } from '../adapters/in-memory/program-philosophy.adapter';
 import { InMemoryTrainingMaxRepository } from '../adapters/in-memory/training-max.adapter';
 import { InMemoryWorkoutRepository } from '../adapters/in-memory/workout.adapter';
+import { cyclePlanningAgentProvider } from '../adapters/llm/cycle-planning-provider.factory';
 import {
   BODY_WEIGHT_REPOSITORY,
   CYCLE_DASHBOARD_REPOSITORY,
   LIFT_RECORD_REPOSITORY,
   LIFTING_PROGRAM_SPEC_REPOSITORY,
+  PROGRAM_PHILOSOPHY_REPOSITORY,
   TRAINING_MAX_REPOSITORY,
   WORKOUT_REPOSITORY,
 } from '../ports/tokens';
@@ -17,6 +20,7 @@ import { BodyWeightController } from './body-weight.controller';
 import { CycleDashboardController } from './cycle-dashboard.controller';
 import { CycleGenerationController } from './cycle-generation.controller';
 import { CycleGenerationService } from './cycle-generation.service';
+import { CyclePlanController } from './cycle-plan.controller';
 import { LiftRecordsController } from './lift-records.controller';
 import { ProgramSpecController } from './program-spec.controller';
 import { TrainingMaxesController } from './training-maxes.controller';
@@ -34,6 +38,7 @@ import { WorkoutsController } from './workouts.controller';
     BodyWeightController,
     CycleDashboardController,
     CycleGenerationController,
+    CyclePlanController,
     WorkoutsController,
     TrainingMaxesController,
     LiftRecordsController,
@@ -55,6 +60,11 @@ import { WorkoutsController } from './workouts.controller';
       provide: LIFTING_PROGRAM_SPEC_REPOSITORY,
       useClass: InMemoryLiftingProgramSpecRepository,
     },
+    {
+      provide: PROGRAM_PHILOSOPHY_REPOSITORY,
+      useClass: InMemoryProgramPhilosophyRepository,
+    },
+    cyclePlanningAgentProvider,
     CycleGenerationService,
   ],
 })
