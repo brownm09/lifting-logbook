@@ -28,19 +28,45 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
     await app.close();
   });
 
+  const AUTH = { authorization: 'Bearer dev-token' };
+
   const get = (url: string) =>
-    app.getHttpAdapter().getInstance().inject({ method: 'GET', url });
+    app.getHttpAdapter().getInstance().inject({ method: 'GET', url, headers: AUTH });
 
   const post = (url: string) =>
-    app.getHttpAdapter().getInstance().inject({ method: 'POST', url });
+    app.getHttpAdapter().getInstance().inject({ method: 'POST', url, headers: AUTH });
 
   const postJson = (url: string, body: unknown) =>
     app.getHttpAdapter().getInstance().inject({
       method: 'POST',
       url,
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...AUTH },
       payload: JSON.stringify(body),
     });
+
+  const _patchJson = (url: string, body: unknown) =>
+    app.getHttpAdapter().getInstance().inject({
+      method: 'PATCH',
+      url,
+      headers: { 'content-type': 'application/json', ...AUTH },
+      payload: JSON.stringify(body),
+    });
+
+  it('GET /health returns ok without auth', async () => {
+    const res = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({ method: 'GET', url: '/health' });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('GET /programs/:program/cycles/current returns 401 without auth', async () => {
+    const res = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({ method: 'GET', url: `/programs/${SEED_PROGRAM}/cycles/current` });
+    expect(res.statusCode).toBe(401);
+  });
 
   it('GET /programs/:program/cycles/current returns the seeded cycle', async () => {
     const res = await get(`/programs/${SEED_PROGRAM}/cycles/current`);

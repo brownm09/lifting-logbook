@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.92.0",
+    "@clerk/backend": "^3.4.4",
     "@lifting-logbook/core": "*",
     "@lifting-logbook/types": "*",
     "@nestjs/common": "^10.0.0",
