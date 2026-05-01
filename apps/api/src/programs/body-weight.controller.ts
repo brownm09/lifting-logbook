@@ -1,5 +1,5 @@
-import { Body, Controller, HttpCode, HttpStatus, Inject, Param, Post } from '@nestjs/common';
-import { BodyWeightEntry, RecordBodyWeightRequest } from '@lifting-logbook/types';
+import { Body, Controller, Get, HttpCode, HttpStatus, Inject, NotFoundException, Param, Post } from '@nestjs/common';
+import { BodyWeightEntry, BodyWeightResponse, RecordBodyWeightRequest } from '@lifting-logbook/types';
 import { IBodyWeightRepository } from '../ports/IBodyWeightRepository';
 import { BODY_WEIGHT_REPOSITORY } from '../ports/tokens';
 
@@ -22,5 +22,20 @@ export class BodyWeightController {
       unit: body.unit,
     };
     await this.bodyWeightRepo.recordBodyWeight(program, entry);
+  }
+
+  @Get('body-weight/latest')
+  async getLatestBodyWeight(
+    @Param('program') program: string,
+  ): Promise<BodyWeightResponse> {
+    const entry = await this.bodyWeightRepo.getLatestBodyWeight(program);
+    if (!entry) {
+      throw new NotFoundException(`No body weight recorded for program '${program}'`);
+    }
+    return {
+      date: entry.date.toISOString().slice(0, 10),
+      weight: entry.weight,
+      unit: entry.unit,
+    };
   }
 }

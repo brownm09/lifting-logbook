@@ -42,4 +42,10 @@ export interface WorkoutLoggerProps {
   lifts: LiftData[];
   hasBodyweightComponent: boolean;
   isReadOnly: boolean;
+  /**
+   * Body weight (lbs) already recorded for this workout's date, if any.
+   * When set, the bodyweight gate is skipped and this value is used directly.
+   * When null, the gate fires on first render (unless isReadOnly or !hasBodyweightComponent).
+   */
+  initialBodyWeight: number | null;
 }

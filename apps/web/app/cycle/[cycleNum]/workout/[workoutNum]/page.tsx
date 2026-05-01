@@ -7,6 +7,7 @@ import {
   DEFAULT_SLOT_MAP,
 } from '@lifting-logbook/core';
 import {
+  fetchLatestBodyWeight,
   fetchLiftRecords,
   fetchProgramSpec,
   fetchTrainingMaxes,
@@ -46,11 +47,12 @@ export default async function WorkoutLoggingPage({
 
   const program = process.env.NEXT_PUBLIC_DEFAULT_PROGRAM ?? '5-3-1';
 
-  const [workout, specs, maxes, allRecords] = await Promise.all([
+  const [workout, specs, maxes, allRecords, latestBodyWeight] = await Promise.all([
     fetchWorkout(program, workoutNum),
     fetchProgramSpec(program),
     fetchTrainingMaxes(program),
     fetchLiftRecords(program),
+    fetchLatestBodyWeight(program),
   ]);
 
   if (!workout) {
@@ -109,6 +111,13 @@ export default async function WorkoutLoggingPage({
   );
   const isReadOnly = totalWorkingSets > 0 && loggedCount === totalWorkingSets;
 
+  // Re-use a same-day body weight so the gate doesn't re-fire mid-session.
+  // If the stored entry is from a different day, pass null → gate fires again.
+  const initialBodyWeight =
+    latestBodyWeight && latestBodyWeight.date === workout.date
+      ? latestBodyWeight.weight
+      : null;
+
   const props: WorkoutLoggerProps = {
     program,
     cycleNum,
@@ -117,6 +126,7 @@ export default async function WorkoutLoggingPage({
     lifts,
     hasBodyweightComponent,
     isReadOnly,
+    initialBodyWeight,
   };
 
   return <WorkoutLogger {...props} />;

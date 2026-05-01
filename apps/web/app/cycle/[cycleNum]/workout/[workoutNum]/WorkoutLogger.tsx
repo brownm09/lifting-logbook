@@ -166,8 +166,13 @@ function WorkingSetRow({
     bodyWeight,
     isBodyweightComponent,
   );
-  const [weightInput, setWeightInput] = useState(String(defaultWeight));
-  const [repsInput, setRepsInput] = useState(String(set.reps));
+  // Pre-fill from the logged record when entering edit mode; fall back to plan defaults for new logs.
+  const [weightInput, setWeightInput] = useState(
+    loggedRecord
+      ? String(formatWorkingWeight(loggedRecord.weight, null, false).value)
+      : String(defaultWeight),
+  );
+  const [repsInput, setRepsInput] = useState(String(loggedRecord?.reps ?? set.reps));
   const [notesInput, setNotesInput] = useState(loggedRecord?.notes ?? '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -178,7 +183,7 @@ function WorkingSetRow({
     e.preventDefault();
     const weight = Number(weightInput);
     const reps = Number(repsInput);
-    if (!weight || weight < 0 || !reps || reps < 0) {
+    if (isNaN(weight) || weight < 0 || isNaN(reps) || reps <= 0) {
       setError('Enter valid weight and reps.');
       return;
     }
@@ -208,7 +213,7 @@ function WorkingSetRow({
     if (!loggedRecord) return;
     const weight = Number(weightInput);
     const reps = Number(repsInput);
-    if (!weight || weight < 0 || !reps || reps < 0) {
+    if (isNaN(weight) || weight < 0 || isNaN(reps) || reps <= 0) {
       setError('Enter valid weight and reps.');
       return;
     }
@@ -469,6 +474,7 @@ export default function WorkoutLogger({
   lifts,
   hasBodyweightComponent,
   isReadOnly,
+  initialBodyWeight,
 }: WorkoutLoggerProps) {
   const router = useRouter();
 
@@ -489,8 +495,11 @@ export default function WorkoutLogger({
   const [editingSet, setEditingSet] = useState<string | null>(null);
   const [currentLiftIdx, setCurrentLiftIdx] = useState(0);
   const [viewMode, setViewMode] = useState<'per-lift' | 'overview'>('per-lift');
-  const [bodyWeight, setBodyWeight] = useState<number | null>(null);
-  const [bodyWeightDone, setBodyWeightDone] = useState(!hasBodyweightComponent || isReadOnly);
+  // initialBodyWeight is non-null when the server found a same-day body weight entry.
+  const [bodyWeight, setBodyWeight] = useState<number | null>(initialBodyWeight);
+  const [bodyWeightDone, setBodyWeightDone] = useState(
+    !hasBodyweightComponent || isReadOnly || initialBodyWeight !== null,
+  );
 
   async function handleBodyWeightSubmit(weight: number) {
     await recordBodyWeight(program, {

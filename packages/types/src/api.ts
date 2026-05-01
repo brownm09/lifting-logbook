@@ -99,6 +99,13 @@ export interface RecordBodyWeightRequest {
   unit: WeightUnit;
 }
 
+/** Serialized body weight entry as returned by the API. */
+export interface BodyWeightResponse {
+  date: string; // ISO 8601 date string ("YYYY-MM-DD")
+  weight: number;
+  unit: WeightUnit;
+}
+
 // ---------------------------------------------------------------------------
 // Cycle Dashboard
 // ---------------------------------------------------------------------------
