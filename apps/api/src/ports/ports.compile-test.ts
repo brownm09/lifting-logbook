@@ -6,7 +6,9 @@
  * the TypeScript compiler will error here — no runtime needed.
  */
 import { CycleDashboard, LiftRecord, LiftingProgramSpec, TrainingMax } from '@lifting-logbook/core';
+import { BodyWeightEntry } from '@lifting-logbook/types';
 import { AuthUser, IAuthProvider } from './auth';
+import { IBodyWeightRepository } from './IBodyWeightRepository';
 import { IRepositoryFactory, RepositoryBundle } from './factory';
 import { ICycleDashboardRepository } from './ICycleDashboardRepository';
 import { ILiftingProgramSpecRepository } from './ILiftingProgramSpecRepository';
@@ -52,6 +54,19 @@ const _liftRecordRepo: ILiftRecordRepository = {
     Promise.resolve([]),
   appendLiftRecords: (): Promise<void> =>
     Promise.resolve(),
+  updateLiftRecord: (): Promise<LiftRecord | null> =>
+    Promise.resolve(null),
+};
+
+// ---------------------------------------------------------------------------
+// IBodyWeightRepository
+// ---------------------------------------------------------------------------
+
+const _bodyWeightRepo: IBodyWeightRepository = {
+  recordBodyWeight: (): Promise<void> =>
+    Promise.resolve(),
+  getLatestBodyWeight: (): Promise<BodyWeightEntry | null> =>
+    Promise.resolve(null),
 };
 
 // ---------------------------------------------------------------------------
@@ -95,6 +110,7 @@ const _repositoryFactory: IRepositoryFactory = {
 // Suppress "declared but never read" errors — these variables exist solely
 // to trigger structural type checking at compile time.
 void _authProvider;
+void _bodyWeightRepo;
 void _cycleDashboardRepo;
 void _programSpecRepo;
 void _liftRecordRepo;

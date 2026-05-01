@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Weekday } from '@lifting-logbook/core';
 import { ICycleDashboardRepository } from '../ports/ICycleDashboardRepository';
@@ -8,6 +9,28 @@ import {
 } from '../ports/tokens';
 import { LiftRecordsController } from './lift-records.controller';
 
+const SEED_DASHBOARD = {
+  program: '5-3-1',
+  cycleUnit: 'week' as const,
+  cycleNum: 4,
+  cycleDate: new Date('2026-04-20T00:00:00.000Z'),
+  sheetName: '',
+  cycleStartWeekday: Weekday.Monday,
+  currentWeekType: 'training' as const,
+};
+
+const SEED_RECORD = {
+  program: '5-3-1',
+  cycleNum: 4,
+  workoutNum: 1,
+  date: new Date('2026-04-20T00:00:00.000Z'),
+  lift: 'Bench Press',
+  setNum: 1,
+  weight: 180,
+  reps: 5,
+  notes: '',
+};
+
 describe('LiftRecordsController', () => {
   let controller: LiftRecordsController;
   let liftRecordRepo: jest.Mocked<ILiftRecordRepository>;
@@ -17,6 +40,7 @@ describe('LiftRecordsController', () => {
     liftRecordRepo = {
       getLiftRecords: jest.fn(),
       appendLiftRecords: jest.fn(),
+      updateLiftRecord: jest.fn(),
     };
     dashboardRepo = {
       getCycleDashboard: jest.fn(),
@@ -32,35 +56,90 @@ describe('LiftRecordsController', () => {
     controller = module.get(LiftRecordsController);
   });
 
-  it('fetches lift records scoped to current cycle', async () => {
-    dashboardRepo.getCycleDashboard.mockResolvedValue({
-      program: '5-3-1',
-      cycleUnit: 'week',
-      cycleNum: 4,
-      cycleDate: new Date('2026-04-20T00:00:00.000Z'),
-      sheetName: '',
-      cycleStartWeekday: Weekday.Monday,
-      currentWeekType: 'training' as const,
+  describe('GET lift-records', () => {
+    it('fetches lift records scoped to current cycle', async () => {
+      dashboardRepo.getCycleDashboard.mockResolvedValue(SEED_DASHBOARD);
+      liftRecordRepo.getLiftRecords.mockResolvedValue([SEED_RECORD]);
+
+      const result = await controller.getLiftRecords('5-3-1');
+
+      expect(liftRecordRepo.getLiftRecords).toHaveBeenCalledWith('5-3-1', 4);
+      expect(result).toHaveLength(1);
+      expect(result[0]?.lift).toBe('Bench Press');
+      expect(result[0]?.date).toBe('2026-04-20');
     });
-    liftRecordRepo.getLiftRecords.mockResolvedValue([
-      {
+  });
+
+  describe('POST lift-records', () => {
+    it('appends the record and returns the serialized response', async () => {
+      liftRecordRepo.appendLiftRecords.mockResolvedValue(undefined);
+
+      const result = await controller.createLiftRecord('5-3-1', {
         program: '5-3-1',
         cycleNum: 4,
         workoutNum: 1,
-        date: new Date('2026-04-20T00:00:00.000Z'),
+        date: '2026-04-20',
         lift: 'Bench Press',
         setNum: 1,
         weight: 180,
         reps: 5,
-        notes: '',
-      },
-    ]);
+      });
 
-    const result = await controller.getLiftRecords('5-3-1');
+      expect(liftRecordRepo.appendLiftRecords).toHaveBeenCalledWith(
+        '5-3-1',
+        expect.arrayContaining([
+          expect.objectContaining({ lift: 'Bench Press', setNum: 1, notes: '' }),
+        ]),
+      );
+      expect(result.id).toBe('5-3-1-4-1-Bench Press-1');
+      expect(result.notes).toBe('');
+    });
 
-    expect(liftRecordRepo.getLiftRecords).toHaveBeenCalledWith('5-3-1', 4);
-    expect(result).toHaveLength(1);
-    expect(result[0]?.lift).toBe('Bench Press');
-    expect(result[0]?.date).toBe('2026-04-20');
+    it('forwards optional notes to the record', async () => {
+      liftRecordRepo.appendLiftRecords.mockResolvedValue(undefined);
+
+      const result = await controller.createLiftRecord('5-3-1', {
+        program: '5-3-1',
+        cycleNum: 4,
+        workoutNum: 1,
+        date: '2026-04-20',
+        lift: 'Squat',
+        setNum: 2,
+        weight: 225,
+        reps: 5,
+        notes: 'felt good',
+      });
+
+      expect(result.notes).toBe('felt good');
+    });
+  });
+
+  describe('PATCH lift-records/:id', () => {
+    it('returns the updated record when found', async () => {
+      const updated = { ...SEED_RECORD, weight: 185, reps: 4 };
+      liftRecordRepo.updateLiftRecord.mockResolvedValue(updated);
+
+      const result = await controller.updateLiftRecord(
+        '5-3-1',
+        '5-3-1-4-1-Bench Press-1',
+        { weight: 185, reps: 4 },
+      );
+
+      expect(liftRecordRepo.updateLiftRecord).toHaveBeenCalledWith(
+        '5-3-1',
+        '5-3-1-4-1-Bench Press-1',
+        { weight: 185, reps: 4 },
+      );
+      expect(result.weight).toBe(185);
+      expect(result.reps).toBe(4);
+    });
+
+    it('throws NotFoundException when record does not exist', async () => {
+      liftRecordRepo.updateLiftRecord.mockResolvedValue(null);
+
+      await expect(
+        controller.updateLiftRecord('5-3-1', 'unknown-id', { weight: 200 }),
+      ).rejects.toThrow(NotFoundException);
+    });
   });
 });

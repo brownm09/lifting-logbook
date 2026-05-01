@@ -1,7 +1,11 @@
 import type {
+  CreateLiftRecordRequest,
   CycleDashboardResponse,
   LiftingProgramSpecResponse,
+  LiftRecordResponse,
+  RecordBodyWeightRequest,
   TrainingMaxResponse,
+  UpdateLiftRecordRequest,
   UpdateTrainingMaxesRequest,
   WorkoutResponse,
 } from '@lifting-logbook/types';
@@ -68,4 +72,59 @@ export async function fetchWorkout(
     throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
   }
   return res.json() as Promise<WorkoutResponse>;
+}
+
+export function fetchLiftRecords(
+  program: string,
+): Promise<LiftRecordResponse[]> {
+  return apiFetch(
+    `/programs/${encodeURIComponent(program)}/lift-records`,
+    { cache: 'no-store' },
+  );
+}
+
+export function createLiftRecord(
+  program: string,
+  body: CreateLiftRecordRequest,
+): Promise<LiftRecordResponse> {
+  return apiFetch(
+    `/programs/${encodeURIComponent(program)}/lift-records`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      cache: 'no-store',
+    } as RequestInit,
+  );
+}
+
+export function updateLiftRecord(
+  program: string,
+  id: string,
+  body: UpdateLiftRecordRequest,
+): Promise<LiftRecordResponse> {
+  return apiFetch(
+    `/programs/${encodeURIComponent(program)}/lift-records/${encodeURIComponent(id)}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      cache: 'no-store',
+    } as RequestInit,
+  );
+}
+
+export function recordBodyWeight(
+  program: string,
+  body: RecordBodyWeightRequest,
+): Promise<void> {
+  return apiFetch(
+    `/programs/${encodeURIComponent(program)}/body-weight`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      cache: 'no-store',
+    } as RequestInit,
+  );
 }

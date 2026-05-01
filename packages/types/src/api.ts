@@ -81,6 +81,13 @@ export interface CreateLiftRecordRequest {
   notes?: string;
 }
 
+/** Request body for updating an existing lift record (in-session editing). */
+export interface UpdateLiftRecordRequest {
+  weight?: number;
+  reps?: number;
+  notes?: string;
+}
+
 // ---------------------------------------------------------------------------
 // Body Weight
 // ---------------------------------------------------------------------------

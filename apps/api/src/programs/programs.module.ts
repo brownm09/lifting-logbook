@@ -1,16 +1,19 @@
 import { Module } from '@nestjs/common';
+import { InMemoryBodyWeightRepository } from '../adapters/in-memory/body-weight.adapter';
 import { InMemoryCycleDashboardRepository } from '../adapters/in-memory/cycle-dashboard.adapter';
 import { InMemoryLiftRecordRepository } from '../adapters/in-memory/lift-record.adapter';
 import { InMemoryLiftingProgramSpecRepository } from '../adapters/in-memory/lifting-program-spec.adapter';
 import { InMemoryTrainingMaxRepository } from '../adapters/in-memory/training-max.adapter';
 import { InMemoryWorkoutRepository } from '../adapters/in-memory/workout.adapter';
 import {
+  BODY_WEIGHT_REPOSITORY,
   CYCLE_DASHBOARD_REPOSITORY,
   LIFT_RECORD_REPOSITORY,
   LIFTING_PROGRAM_SPEC_REPOSITORY,
   TRAINING_MAX_REPOSITORY,
   WORKOUT_REPOSITORY,
 } from '../ports/tokens';
+import { BodyWeightController } from './body-weight.controller';
 import { CycleDashboardController } from './cycle-dashboard.controller';
 import { CycleGenerationController } from './cycle-generation.controller';
 import { CycleGenerationService } from './cycle-generation.service';
@@ -28,6 +31,7 @@ import { WorkoutsController } from './workouts.controller';
  */
 @Module({
   controllers: [
+    BodyWeightController,
     CycleDashboardController,
     CycleGenerationController,
     WorkoutsController,
@@ -36,6 +40,7 @@ import { WorkoutsController } from './workouts.controller';
     ProgramSpecController,
   ],
   providers: [
+    { provide: BODY_WEIGHT_REPOSITORY, useClass: InMemoryBodyWeightRepository },
     {
       provide: CYCLE_DASHBOARD_REPOSITORY,
       useClass: InMemoryCycleDashboardRepository,
