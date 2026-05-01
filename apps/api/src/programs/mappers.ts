@@ -69,6 +69,7 @@ export const toCycleDashboardResponse = (
   cycleNum: d.cycleNum,
   cycleStartDate: isoDate(d.cycleDate),
   weeks: [],
+  currentWeekType: d.currentWeekType,
 });
 
 export const isValidWorkoutNum = (n: number): boolean =>

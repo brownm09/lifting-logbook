@@ -38,6 +38,7 @@ export const LIFTING_PROGRAM_SPEC_HEADER_MAP: Record<
   "Warm-Up %": { key: "warmUpPct", type: "string" },
   "WT Decrement %": { key: "wtDecrementPct", type: "number" },
   Activation: { key: "activation", type: "string" },
+  "Week Type": { key: "weekType", type: "string" },
 };
 
 export const WEEKDAY_MAP: Record<string, number> = {

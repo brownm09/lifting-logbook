@@ -43,6 +43,7 @@ describe('WorkoutsController', () => {
       cycleDate: new Date('2026-04-20T00:00:00.000Z'),
       sheetName: '',
       cycleStartWeekday: Weekday.Monday,
+      currentWeekType: 'training' as const,
     });
     specRepo.getProgramSpec.mockResolvedValue([
       {
@@ -119,6 +120,7 @@ describe('WorkoutsController', () => {
       cycleDate: new Date('2026-04-20T00:00:00.000Z'),
       sheetName: '',
       cycleStartWeekday: Weekday.Monday,
+      currentWeekType: 'training' as const,
     });
     workoutRepo.getWorkout.mockResolvedValue([]);
 
@@ -141,6 +143,7 @@ describe('WorkoutsController', () => {
       cycleDate: new Date('2026-04-20T00:00:00.000Z'),
       sheetName: '',
       cycleStartWeekday: Weekday.Monday,
+      currentWeekType: 'training' as const,
     });
     specRepo.getProgramSpec.mockResolvedValue([
       {

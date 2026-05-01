@@ -28,6 +28,7 @@ describe('CycleDashboardController', () => {
       cycleDate: new Date('2026-04-20T00:00:00.000Z'),
       sheetName: '',
       cycleStartWeekday: Weekday.Monday,
+      currentWeekType: 'training',
     });
 
     const result = await controller.getCurrentCycle('5-3-1');
@@ -38,6 +39,7 @@ describe('CycleDashboardController', () => {
       cycleNum: 2,
       cycleStartDate: '2026-04-20',
       weeks: [],
+      currentWeekType: 'training',
     });
   });
 });
