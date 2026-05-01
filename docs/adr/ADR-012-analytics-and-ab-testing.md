@@ -144,6 +144,42 @@ ensure consistency.
 
 ---
 
+## CI Taxonomy Enforcement
+
+To prevent silent drift between the TypeScript and Kotlin event taxonomy definitions, a CI
+validation step runs on every pull request targeting `main`.
+
+### How it works
+
+The script `scripts/validate-analytics-taxonomy.mjs`:
+
+1. Parses all string values from the `AnalyticsEvent` const object in
+   `packages/types/src/analytics.ts`.
+2. Checks that each event name string is present as a quoted literal in
+   `apps/mobile-kotlin/app/src/main/java/com/liftinglogbook/analytics/AnalyticsConstants.kt`.
+3. **If `AnalyticsConstants.kt` does not yet exist** (Kotlin app not yet scaffolded), the
+   script exits successfully — this is not treated as drift.
+4. **If `AnalyticsConstants.kt` exists but is missing one or more event names**, the script
+   prints the missing events and exits with code 1, failing the CI job.
+
+### Adding or renaming an event
+
+When a new event is added to `AnalyticsEvent` in `packages/types/src/analytics.ts`:
+
+1. Add the matching constant to `AnalyticsConstants.kt` in the same PR.
+2. The CI step will fail if the Kotlin file is out of sync, preventing the PR from merging.
+
+### CI configuration
+
+The step is defined in `.github/workflows/ci.yml`:
+
+```yaml
+- name: Validate analytics taxonomy
+  run: node scripts/validate-analytics-taxonomy.mjs
+```
+
+---
+
 ## Metrics for the React Native vs. Kotlin A/B Comparison
 
 | Metric | Source | Segmented by `client` |

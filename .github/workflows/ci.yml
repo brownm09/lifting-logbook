@@ -32,3 +32,6 @@ jobs:
 
       - name: Lint & Test
         run: npx turbo run lint test
+
+      - name: Validate analytics taxonomy
+        run: node scripts/validate-analytics-taxonomy.mjs

@@ -87,6 +87,57 @@ accumulate.
 
 ---
 
+## Comparison Conclusion Criteria
+
+The two-codebase maintenance period is explicitly time-bounded. The following criteria define
+when the comparison is complete and which client becomes the production standard.
+
+### Minimum comparison duration
+
+Both clients must have been deployed to internal testing tracks and instrumented for **at least
+8 weeks** before a conclusion is drawn. This ensures the Firebase Analytics data set is large
+enough to detect meaningful differences in session length, crash rate, and render performance
+with reasonable confidence.
+
+### Decision thresholds
+
+A winner is selected when **at least three of the five primary metrics** show a consistent
+advantage (≥ 10% delta sustained over the final 4 weeks of the comparison period):
+
+| Metric | Source | Direction |
+|---|---|---|
+| Screen render time (p95) | Firebase Performance | Lower is better |
+| Crash-free session rate | Firebase Crashlytics | Higher is better |
+| App startup time (cold, p95) | Firebase Performance | Lower is better |
+| `workout_completed` / `workout_started` ratio | Firebase Analytics | Higher is better |
+| Install size | Play Console | Lower is better |
+
+If no client meets the threshold after 8 weeks, extend the comparison in 4-week increments
+(up to a maximum of 20 weeks) until thresholds are met or the decision is made by judgment
+with documented rationale.
+
+### Decision process
+
+1. Export the full 8-week Firebase Analytics and Performance dataset to BigQuery.
+2. Produce a summary report in `docs/mobile-ab-test-results.md` with metric tables, segment
+   breakdowns by `client` property, and a recommendation.
+3. Decision is finalized by the project owner. Record the outcome in `docs/mobile-ab-test-results.md`
+   and update the Status field of this ADR to `Decided — [React Native | Kotlin]`.
+
+### Archival plan for the losing codebase
+
+After the winner is selected:
+
+1. Tag the losing client's repository state: `git tag ab-comparison-final`.
+2. Move the losing app directory to `apps/archive/<app-name>/` and add a `README.md` noting
+   the comparison outcome, the date archived, and a link to `docs/mobile-ab-test-results.md`.
+3. Remove the losing client's Play Store internal track.
+4. Delete the archived app's CI jobs from `.github/workflows/` (keeping the workflow file with
+   a note that it was retired post-comparison).
+5. Update this ADR status and add a `Decided` date.
+
+---
+
 ## Alternatives Considered
 
 **React Native only (no Kotlin phase):** Faster. Appropriate if native performance is not a
