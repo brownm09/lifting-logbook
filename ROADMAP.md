@@ -71,7 +71,6 @@ Web and mobile clients functional end-to-end. Key user-facing features implement
 | Work stream | Description | Issues |
 |---|---|---|
 | Cycle planning — implementation | LLM-powered training cycle recommendations, using design from ADR-016 | [#54](https://github.com/brownm09/lifting-logbook/issues/54) |
-| A/B comparison documentation | Define exit criteria and CI event taxonomy enforcement for Express/NestJS comparison | [#41](https://github.com/brownm09/lifting-logbook/issues/41) |
 
 ### Shipped
 
@@ -85,6 +84,7 @@ Web and mobile clients functional end-to-end. Key user-facing features implement
 | Training Max Management Screen | PATCH endpoint + `/settings/training-maxes` UI; inline editable 1RMs with validation, Server Action for save, Settings nav link | [#108](https://github.com/brownm09/lifting-logbook/issues/108) |
 | Initial Training Max Discovery | `WeekType` (`training`/`test`/`deload`), `estimateTrainingMax` (Brzycki), test/deload branches in `generateLiftPlan` and `updateMaxes`, `currentWeekType` in API response | [#129](https://github.com/brownm09/lifting-logbook/issues/129) |
 | Workout Logging Screen | Per-exercise logging with warm-ups, bodyweight gate, and whole-workout overview toggle; `POST /lift-records`, `PATCH /lift-records/:id`, `GET/POST /body-weight/latest` | [#133](https://github.com/brownm09/lifting-logbook/issues/133) |
+| A/B comparison documentation | Exit criteria (8-week minimum, 5 metrics, archival plan) and CI taxonomy enforcement for RN/Kotlin comparison | [#41](https://github.com/brownm09/lifting-logbook/issues/41) |
 
 ### Proposals
 
