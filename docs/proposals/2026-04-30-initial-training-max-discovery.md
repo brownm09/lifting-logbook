@@ -33,10 +33,12 @@ Three coordinated changes:
 **1. `WeekType` — a new shared type**
 
 Add `WeekType` (`'training' | 'test' | 'deload'`) to `packages/types/src/domain.ts`. Add an
-optional `weekType?: WeekType` field to `LiftingProgramSpec` (default: `'training'`).
-`CycleDashboard` gains a derived `currentWeekType: WeekType` field computed from the active
-week's spec rows. The Sheets parser reads an optional `Week Type` column; blank/missing maps
-to `'training'`.
+optional `weekType?: WeekType` per-row field to `LiftingProgramSpec` (default: `'training'`).
+`CycleDashboard` gains `currentWeekType: WeekType` reflecting the week-level declared type
+(not a per-exercise aggregate). The Sheets parser reads an optional `Week Type` column
+per-row; blank rows inherit the first non-blank value in the same week, defaulting to
+`'training'` if the entire week is blank. Simple programs use a uniform week type; advanced
+programs may override per exercise.
 
 **2. `estimateTrainingMax` — a new core utility**
 
@@ -45,33 +47,60 @@ Brzycki formula: `1RM = weight / (1.0278 − 0.0278 × reps)`. Result rounds to 
 lbs. Exported from the package's public API and surfaced in the training max management screen
 as an optional "estimate from reps" input.
 
-**3. Test-week ramp-up protocol**
+**3. Week-type behavior**
 
-When `weekType === 'test'`, `generateLiftPlan` produces a 5-set ascending ramp-up ending in a
-heavy set of 1–3 reps (e.g., 50% × 5, 65% × 3, 80% × 2, 90% × 1, 100% × 1). `updateMaxes`
-is relaxed for test weeks: the `reps >= spec.reps` gate is replaced by "any completed final
-set" — that set's weight becomes the new training max (no increment applied). `GET
-/programs/:program/cycle-dashboard` response includes `currentWeekType`.
+`generateLiftPlan` and `updateMaxes` branch on `weekType`:
+
+- **`'training'` (default):** Existing behavior — working sets at prescribed percentages,
+  progression gate `reps >= spec.reps`.
+
+- **`'test'`:** `generateLiftPlan` produces a 5-set ascending ramp-up ending in a heavy set
+  of 1–3 reps (50% × 5, 65% × 3, 80% × 2, 90% × 1, 100% × 1). `updateMaxes` replaces the
+  `reps >= spec.reps` gate with: any final set with non-zero logged reps, unless set notes
+  flag abnormal conditions (injury, unusual stimulus) — in that case, fall back to the last
+  unaffected set, or skip the update if all sets were affected. The completed set's weight
+  becomes the new training max; no increment is applied.
+
+- **`'deload'`:** `generateLiftPlan` produces a 3-set light protocol (40% × 5, 50% × 5,
+  60% × 5). `updateMaxes` skips entirely — deload weeks do not count toward progression.
+
+`GET /programs/:program/cycle-dashboard` response includes `currentWeekType`, which reflects
+the week-level declared type — not a per-exercise aggregate. Per-exercise `weekType` is
+consumed directly by `generateLiftPlan` and `updateMaxes` from `LiftingProgramSpec` rows.
+
+The `weekType` field will additionally govern rest interval configuration when the timer
+feature is implemented (deferred).
 
 ## Acceptance Criteria
 
 - [ ] `WeekType` (`'training' | 'test' | 'deload'`) exported from `packages/types/src/domain.ts`
-- [ ] `LiftingProgramSpec.weekType?: WeekType` added; parser default is `'training'`
-- [ ] Sheets parser reads optional `Week Type` column; blank/missing → `'training'`
-- [ ] `CycleDashboard.currentWeekType: WeekType` derived from the active week's spec rows
+- [ ] `LiftingProgramSpec.weekType?: WeekType` added (per-row field); default is `'training'`
+- [ ] Sheets parser reads optional `Week Type` column; per-row with week-level inheritance:
+      blank rows inherit the first non-blank value in the same week; all-blank week defaults
+      to `'training'`; simple programs use a uniform week type; advanced programs may override
+      per exercise
+- [ ] `CycleDashboard.currentWeekType: WeekType` — the week-level declared type (first
+      non-blank `weekType` value in the active week's spec rows); not a per-exercise aggregate
 - [ ] `estimateTrainingMax(weight, reps): number` in `packages/core` using Brzycki formula,
-      rounded to nearest 5 lbs; exported from package public API
+      rounded to nearest 5 lbs; valid rep range enforced (1–36); exported from package
+      public API
 - [ ] `generateLiftPlan` handles `weekType === 'test'`: 5-set ascending ramp-up to ~100% TM × 1–3
-- [ ] `updateMaxes` for test weeks: completed final set weight → new TM (no increment)
+- [ ] `generateLiftPlan` handles `weekType === 'deload'`: 3-set protocol at 40% × 5, 50% × 5,
+      60% × 5
+- [ ] `updateMaxes` for test weeks: final set with non-zero logged reps → new TM (no
+      increment); set notes flagging abnormal conditions (injury, unusual stimulus) cause
+      fallback to the last unaffected set, or skip update if all sets were affected
+- [ ] `updateMaxes` for deload weeks: skip entirely — no progression
 - [ ] `GET /programs/:program/cycle-dashboard` response includes `currentWeekType`
-- [ ] Unit tests in `packages/core` cover `estimateTrainingMax` and the test-week branches of
-      `generateLiftPlan` and `updateMaxes`
+- [ ] Unit tests in `packages/core` cover `estimateTrainingMax` and all three `weekType`
+      branches of `generateLiftPlan` and `updateMaxes`
 
 ## Out of Scope
 
 - Importing historical data from external sources (separate proposal)
-- Deload-week progression logic (deferred per PRD Non-Goals)
-- React Native (`apps/mobile`) client for the test-week UX
+- Rest interval configuration per week type (deferred to timer feature; `weekType` will
+  govern rest protocol when the timer is implemented)
+- React Native (`apps/mobile`) client for test-week and deload-week UX
 - Mechanism (1): covered by #108 (shipped)
 
 ## References
@@ -81,5 +110,5 @@ set" — that set's weight becomes the new training max (no increment applied). 
 - [`packages/core/src/models/CycleDashboard.ts`](../../packages/core/src/models/CycleDashboard.ts) — model to extend with `currentWeekType`
 - [`packages/core/src/services/maxes/updateMaxes.ts`](../../packages/core/src/services/maxes/updateMaxes.ts) — progression gate to relax for test weeks
 - [`packages/core/src/services/workout/generateLiftPlan.ts`](../../packages/core/src/services/workout/generateLiftPlan.ts) — ramp-up protocol generation basis
-- PRD §Non-Goals — "Deload / missed-session recovery" explicitly deferred; `test` week is a distinct concept in scope
+- PRD §Non-Goals — "Deload / missed-session recovery" originally deferred; deload is now in scope as a distinct week type with defined progression behavior
 - Brzycki, M. (1993). "Strength Testing—Predicting a One-Rep Max from Reps-to-Fatigue." *JOPERD* 64(1):88–90.
