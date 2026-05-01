@@ -129,5 +129,48 @@ describe('agent-tools', () => {
       expect(r.overallReasoning).toBe('');
       expect(r.partial).toBe(false);
     });
+
+    it('drops elements with non-numeric weight', () => {
+      const r = parseProposal({
+        proposedChanges: [
+          { lift: 'Squat', currentWeight: 'heavy', proposedWeight: 325, reasoning: 'r' },
+          { lift: 'Bench Press', currentWeight: 225, proposedWeight: 235, reasoning: 'r' },
+        ],
+        overallReasoning: 'ok',
+      });
+      expect(r.proposedChanges).toHaveLength(1);
+      expect(r.proposedChanges[0]!.lift).toBe('Bench Press');
+    });
+
+    it('drops elements with zero or negative weight', () => {
+      const r = parseProposal({
+        proposedChanges: [
+          { lift: 'Squat', currentWeight: 0, proposedWeight: 325, reasoning: 'r' },
+          { lift: 'Deadlift', currentWeight: 405, proposedWeight: -10, reasoning: 'r' },
+        ],
+        overallReasoning: 'ok',
+      });
+      expect(r.proposedChanges).toHaveLength(0);
+    });
+
+    it('drops elements with empty lift name', () => {
+      const r = parseProposal({
+        proposedChanges: [
+          { lift: '', currentWeight: 315, proposedWeight: 325, reasoning: 'r' },
+        ],
+        overallReasoning: 'ok',
+      });
+      expect(r.proposedChanges).toHaveLength(0);
+    });
+
+    it('drops elements missing required fields', () => {
+      const r = parseProposal({
+        proposedChanges: [
+          { lift: 'Squat', currentWeight: 315 }, // missing proposedWeight and reasoning
+        ],
+        overallReasoning: 'ok',
+      });
+      expect(r.proposedChanges).toHaveLength(0);
+    });
   });
 });

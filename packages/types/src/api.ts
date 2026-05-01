@@ -143,6 +143,7 @@ export interface CyclePlanResponse {
   proposedChanges: ProposedTrainingMaxChangeResponse[];
   overallReasoning: string;
   partial: boolean;
+  partialReason?: string;
 }
 
 // ---------------------------------------------------------------------------

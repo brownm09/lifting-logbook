@@ -91,11 +91,12 @@ describe('CyclePlanController', () => {
     });
   });
 
-  it('passes through partial: true when the agent does not converge', async () => {
+  it('passes through partial:true and partialReason when the agent times out', async () => {
     agent.plan.mockResolvedValue({
       proposedChanges: [],
       overallReasoning: 'Agent exceeded the deadline before producing a plan.',
       partial: true,
+      partialReason: 'deadline',
     });
 
     const result = await controller.plan({
@@ -105,6 +106,25 @@ describe('CyclePlanController', () => {
     });
 
     expect(result.partial).toBe(true);
+    expect(result.partialReason).toBe('deadline');
     expect(result.proposedChanges).toEqual([]);
+  });
+
+  it('passes through partial:true with partialReason:budget when budget exhausted', async () => {
+    agent.plan.mockResolvedValue({
+      proposedChanges: [],
+      overallReasoning: 'Agent exhausted tool-call budget without proposing a plan.',
+      partial: true,
+      partialReason: 'budget',
+    });
+
+    const result = await controller.plan({
+      program: '5-3-1',
+      goal: 'add 50 lbs to squat',
+      cycleNum: 5,
+    });
+
+    expect(result.partial).toBe(true);
+    expect(result.partialReason).toBe('budget');
   });
 });

@@ -7,100 +7,16 @@ import {
 } from '../../ports/ICyclePlanningAgent';
 import { RepositoryBundle } from '../../ports/factory';
 import {
-  DEADLINE_MS,
-  MAX_TOOL_ROUNDS,
+  AgentLoopCallbacks,
   SYSTEM_PROMPT,
+  TurnOutcome,
   buildUserMessage,
-  dispatchTool,
   isProposeTool,
-  parseProposal,
+  runPlan,
+  toOpenAITools,
 } from './agent-tools';
 
-const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
-  {
-    type: 'function',
-    function: {
-      name: 'get_lift_history',
-      description:
-        "Fetch the lifter's recorded sets for a given cycle. Defaults to the previous cycle if cycleNum is omitted.",
-      parameters: {
-        type: 'object',
-        properties: {
-          cycleNum: { type: 'number', description: 'The cycle number to read' },
-        },
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_training_maxes',
-      description: 'Fetch the current training maxes for the program.',
-      parameters: { type: 'object', properties: {} },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_program_spec',
-      description:
-        'Fetch the per-lift program specification (sets, reps, percentages, increments).',
-      parameters: { type: 'object', properties: {} },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_cycle_dashboard',
-      description:
-        'Fetch the cycle dashboard (current cycleNum, programType, schedule).',
-      parameters: { type: 'object', properties: {} },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_program_philosophy',
-      description:
-        'Fetch curated guidance for a program type (e.g. "5-3-1", "starting-strength"). Use programType from the cycle dashboard.',
-      parameters: {
-        type: 'object',
-        properties: {
-          programType: { type: 'string' },
-        },
-        required: ['programType'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'propose_cycle_plan',
-      description:
-        'Terminal tool. Submit the final cycle plan with proposed training-max changes and overall reasoning.',
-      parameters: {
-        type: 'object',
-        properties: {
-          proposedChanges: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                lift: { type: 'string' },
-                currentWeight: { type: 'number' },
-                proposedWeight: { type: 'number' },
-                reasoning: { type: 'string' },
-              },
-              required: ['lift', 'currentWeight', 'proposedWeight', 'reasoning'],
-            },
-          },
-          overallReasoning: { type: 'string' },
-        },
-        required: ['proposedChanges', 'overallReasoning'],
-      },
-    },
-  },
-];
+const TOOLS = toOpenAITools() as OpenAI.Chat.Completions.ChatCompletionTool[];
 
 @Injectable()
 export class OpenAICompatibleCyclePlanningAdapter implements ICyclePlanningAgent {
@@ -112,6 +28,13 @@ export class OpenAICompatibleCyclePlanningAdapter implements ICyclePlanningAgent
     const baseURL = process.env.CYCLE_AGENT_BASE_URL ?? 'http://localhost:11434/v1';
     const apiKey = process.env.CYCLE_AGENT_API_KEY ?? 'ollama';
     this.model = process.env.CYCLE_AGENT_MODEL ?? 'llama3.1';
+
+    if (!process.env.CYCLE_AGENT_BASE_URL) {
+      this.logger.warn(
+        'CYCLE_AGENT_BASE_URL is not set — defaulting to http://localhost:11434/v1 (Ollama dev mode)',
+      );
+    }
+
     this.client = new OpenAI({ baseURL, apiKey });
   }
 
@@ -119,83 +42,81 @@ export class OpenAICompatibleCyclePlanningAdapter implements ICyclePlanningAgent
     repos: RepositoryBundle,
     request: CyclePlanRequest,
   ): Promise<CyclePlanResult> {
-    const work = this.runLoop(repos, request);
-    const deadline = new Promise<CyclePlanResult>((resolve) =>
-      setTimeout(
-        () =>
-          resolve({
-            proposedChanges: [],
-            overallReasoning: 'Agent exceeded the deadline before producing a plan.',
-            partial: true,
-          }),
-        DEADLINE_MS,
-      ),
+    return runPlan(
+      () => this.makeCallbacks(request),
+      repos,
+      request,
+      { log: (m) => this.logger.log(m), warn: (m) => this.logger.warn(m) },
     );
-    return Promise.race([work, deadline]);
   }
 
-  private async runLoop(
-    repos: RepositoryBundle,
-    request: CyclePlanRequest,
-  ): Promise<CyclePlanResult> {
+  private makeCallbacks(request: CyclePlanRequest): AgentLoopCallbacks {
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
       { role: 'system', content: SYSTEM_PROMPT },
       { role: 'user', content: buildUserMessage(request) },
     ];
 
-    for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-      const completion = await this.client.chat.completions.create({
-        model: this.model,
-        messages,
-        tools: TOOLS,
-        tool_choice: 'auto',
-        max_tokens: 4096,
-      });
-      const choice = completion.choices[0];
-      if (!choice) {
-        return {
-          proposedChanges: [],
-          overallReasoning: 'Agent returned no choices.',
-          partial: true,
-        };
-      }
-      const msg = choice.message;
-      messages.push(msg);
-
-      const toolCalls = msg.tool_calls ?? [];
-      if (toolCalls.length === 0) {
-        return {
-          proposedChanges: [],
-          overallReasoning: msg.content ?? 'Agent returned no plan.',
-          partial: true,
-        };
-      }
-
-      for (const call of toolCalls) {
-        if (call.type !== 'function') continue;
-        const name = call.function.name;
-        let parsed: Record<string, unknown> = {};
-        try {
-          parsed = JSON.parse(call.function.arguments) as Record<string, unknown>;
-        } catch {
-          parsed = {};
-        }
-        if (isProposeTool(name)) {
-          return parseProposal(parsed);
-        }
-        const result = await dispatchTool(name, parsed, repos, request);
-        messages.push({
-          role: 'tool',
-          tool_call_id: call.id,
-          content: JSON.stringify(result),
-        });
-      }
-    }
-
     return {
-      proposedChanges: [],
-      overallReasoning: 'Agent exhausted tool-call budget without proposing a plan.',
-      partial: true,
+      runTurn: async (sig: AbortSignal): Promise<TurnOutcome> => {
+        const completion = await this.client.chat.completions.create(
+          {
+            model: this.model,
+            messages,
+            tools: TOOLS,
+            tool_choice: 'auto',
+            max_tokens: 4096,
+          },
+          { signal: sig },
+        );
+
+        const choice = completion.choices[0];
+        if (!choice) return { type: 'no_calls', text: 'Agent returned no choices.' };
+
+        const msg = choice.message;
+        messages.push(msg);
+
+        const rawCalls = msg.tool_calls ?? [];
+        if (rawCalls.length === 0) {
+          return { type: 'no_calls', text: msg.content ?? '' };
+        }
+
+        const calls: TurnOutcome = { type: 'tool_calls', calls: [] };
+        for (const tc of rawCalls) {
+          if (tc.type !== 'function') continue;
+          let args: Record<string, unknown> = {};
+          try {
+            args = JSON.parse(tc.function.arguments) as Record<string, unknown>;
+          } catch {
+            // Malformed args on propose_cycle_plan: surface as no_calls so the
+            // loop returns partial rather than substituting an empty proposal.
+            if (isProposeTool(tc.function.name)) {
+              return {
+                type: 'no_calls',
+                text: 'Failed to parse propose_cycle_plan arguments.',
+              };
+            }
+          }
+          if (calls.type === 'tool_calls') {
+            calls.calls.push({ id: tc.id, name: tc.function.name, args });
+          }
+        }
+
+        if (calls.type === 'tool_calls' && calls.calls.length === 0) {
+          return { type: 'no_calls', text: msg.content ?? '' };
+        }
+
+        return calls;
+      },
+
+      appendResults: (results) => {
+        for (const { id, result } of results) {
+          messages.push({
+            role: 'tool',
+            tool_call_id: id,
+            content: JSON.stringify(result),
+          });
+        }
+      },
     };
   }
 }

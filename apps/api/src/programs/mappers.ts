@@ -83,6 +83,7 @@ export const toCyclePlanResponse = (r: CyclePlanResult): CyclePlanResponse => ({
   })),
   overallReasoning: r.overallReasoning,
   partial: r.partial,
+  ...(r.partialReason !== undefined && { partialReason: r.partialReason }),
 });
 
 export const isValidWorkoutNum = (n: number): boolean =>

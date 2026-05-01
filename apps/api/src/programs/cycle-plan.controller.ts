@@ -45,6 +45,10 @@ export class CyclePlanController {
    * Runs the cycle planning agent. Returns proposed training-max changes and
    * overall reasoning. `partial: true` indicates the agent did not converge
    * (timeout, tool budget exhausted, malformed model output).
+   *
+   * Auth guard is intentionally absent here — authentication is out of scope
+   * until issue #136 lands. Add an @UseGuards(AuthGuard) decorator and
+   * per-user repository scoping at that point.
    */
   @Post()
   @HttpCode(HttpStatus.OK)
