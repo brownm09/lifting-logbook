@@ -33,6 +33,7 @@ export function parseLiftingProgramSpec(data: SpreadsheetCell[][]): LiftingProgr
 
   // Apply week-level weekType inheritance: blank rows inherit the first non-blank
   // value in the same week; an all-blank week defaults to 'training'.
+  const isBlank = (v: WeekType | undefined): boolean => !v || (v as string) === '';
   const weekGroups = new Map<number, typeof parsed>();
   for (const row of parsed) {
     const grp = weekGroups.get(row.week) ?? [];
@@ -40,7 +41,6 @@ export function parseLiftingProgramSpec(data: SpreadsheetCell[][]): LiftingProgr
     weekGroups.set(row.week, grp);
   }
   for (const rows of weekGroups.values()) {
-    const isBlank = (v: WeekType | undefined): boolean => !v || (v as string) === '';
     const firstNonBlank = rows.find((r) => !isBlank(r.weekType))?.weekType ?? 'training';
     for (const r of rows) {
       if (isBlank(r.weekType)) r.weekType = firstNonBlank as WeekType;
