@@ -81,6 +81,13 @@ export interface CreateLiftRecordRequest {
   notes?: string;
 }
 
+/** Request body for updating an existing lift record (in-session editing). */
+export interface UpdateLiftRecordRequest {
+  weight?: number;
+  reps?: number;
+  notes?: string;
+}
+
 // ---------------------------------------------------------------------------
 // Body Weight
 // ---------------------------------------------------------------------------
@@ -88,6 +95,13 @@ export interface CreateLiftRecordRequest {
 /** Request body for recording a body weight observation. */
 export interface RecordBodyWeightRequest {
   date: string; // ISO 8601 date string
+  weight: number;
+  unit: WeightUnit;
+}
+
+/** Serialized body weight entry as returned by the API. */
+export interface BodyWeightResponse {
+  date: string; // ISO 8601 date string ("YYYY-MM-DD")
   weight: number;
   unit: WeightUnit;
 }
