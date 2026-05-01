@@ -12,6 +12,7 @@ const stubCycleDashboard = () => ({
   cycleDate: new Date('2026-04-27T00:00:00.000Z'),
   sheetName: '5-3-1_Cycle_2_20260427',
   cycleStartWeekday: Weekday.Monday,
+  currentWeekType: 'training' as const,
 });
 
 describe('CycleGenerationController', () => {
@@ -44,6 +45,7 @@ describe('CycleGenerationController', () => {
         cycleNum: 2,
         cycleStartDate: '2026-04-27',
         weeks: [],
+        currentWeekType: 'training',
       });
     });
 

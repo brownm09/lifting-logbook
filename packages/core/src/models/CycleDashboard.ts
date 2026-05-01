@@ -1,3 +1,5 @@
+import { WeekType } from '@lifting-logbook/types';
+
 // DashboardCycle model for dashboard cycle records
 export enum Weekday {
   Sunday = "Sunday",
@@ -16,4 +18,5 @@ export interface CycleDashboard {
   cycleDate: Date;
   sheetName: string;
   cycleStartWeekday: Weekday;
+  currentWeekType: WeekType;
 }

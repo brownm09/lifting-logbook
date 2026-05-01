@@ -6,5 +6,6 @@ module.exports = {
   },
   moduleNameMapper: {
     '^@src/core(.*)$': '<rootDir>/src$1',
+    '^@lifting-logbook/types$': '<rootDir>/../types/src/index.ts',
   },
 };

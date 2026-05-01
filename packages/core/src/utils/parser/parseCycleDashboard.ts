@@ -1,3 +1,4 @@
+import { WeekType } from "@lifting-logbook/types";
 import { CycleDashboard, SpreadsheetCell, Weekday } from "@src/core/models";
 import {
   CYCLE_DATE_KEY,
@@ -29,5 +30,7 @@ export function parseCycleDashboard(data: SpreadsheetCell[][]): CycleDashboard {
     cycleDate: new Date(String(map[CYCLE_DATE_KEY] ?? "")),
     sheetName: String(map[SHEET_NAME_KEY] ?? ""),
     cycleStartWeekday: toTitleCase(String(map[CYCLE_START_WEEKDAY_KEY] ?? "")) as Weekday,
+    // currentWeekType is derived from the program spec at request time, not stored in the dashboard sheet
+    currentWeekType: 'training' as WeekType,
   };
 }

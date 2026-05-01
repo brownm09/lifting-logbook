@@ -12,6 +12,7 @@ describe("parseCycleDashboard", () => {
       cycleDate: new Date("1/5/2026"),
       sheetName: "RPT_Cycle_1_20260105",
       cycleStartWeekday: Weekday.Monday,
+      currentWeekType: 'training',
     });
   });
 });

@@ -9,6 +9,7 @@ describe("updateCycle", () => {
       cycleDate: new Date(2026, 0, 5, 0, 0, 0, 0),
       sheetName: "RPT_Cycle_1_20260105",
       cycleStartWeekday: Weekday.Monday,
+      currentWeekType: 'training',
     };
     const overrides = {
       targetWeekday: "Monday" as Weekday,
@@ -28,6 +29,7 @@ describe("updateCycle", () => {
       cycleDate: new Date(2026, 0, 5, 0, 0, 0, 0),
       sheetName: "RPT_Cycle_1_20260105",
       cycleStartWeekday: Weekday.Monday,
+      currentWeekType: 'training',
     };
     const overrides = {
       targetWeekday: "Friday" as Weekday,
@@ -50,6 +52,7 @@ describe("updateCycle", () => {
       cycleDate: new Date(2026, 0, 12, 0, 0, 0, 0), // Monday
       sheetName: "RPT_Cycle_2_20260112",
       cycleStartWeekday: Weekday.Monday,
+      currentWeekType: 'training',
     };
     const overrides = {
       today: new Date(2026, 0, 19, 0, 0, 0, 0),
@@ -69,6 +72,7 @@ describe("updateCycle", () => {
       cycleDate: new Date(2026, 0, 19, 0, 0, 0, 0), // Monday
       sheetName: "RPT_Cycle_3_20260119",
       cycleStartWeekday: Weekday.Monday,
+      currentWeekType: 'training',
     };
     const overrides = {
       targetWeekday: "friday" as Weekday,
@@ -89,6 +93,7 @@ describe("updateCycle", () => {
       cycleDate: new Date(2026, 0, 23, 0, 0, 0, 0), // Friday
       sheetName: "RPT_Cycle_4_20260123",
       cycleStartWeekday: Weekday.Friday,
+      currentWeekType: 'training',
     };
     // Today is before the next Friday
     const overrides = {
@@ -110,6 +115,7 @@ describe("updateCycle", () => {
       cycleDate: new Date(2026, 0, 25, 0, 0, 0, 0), // Sunday
       sheetName: "RPT_Cycle_5_20260125",
       cycleStartWeekday: Weekday.Sunday,
+      currentWeekType: 'training',
     };
     const overrides = {
       targetWeekday: "Sunday" as Weekday,

@@ -1,4 +1,4 @@
-import { BodyWeightEntry, LiftName, WeightUnit, WeekNumber, CycleNumber } from './domain';
+import { BodyWeightEntry, LiftName, WeightUnit, WeekNumber, CycleNumber, WeekType } from './domain';
 
 // ---------------------------------------------------------------------------
 // Training Maxes
@@ -109,6 +109,7 @@ export interface CycleDashboardResponse {
   cycleNum: CycleNumber;
   cycleStartDate: string; // ISO 8601 date string
   weeks: CycleWeekSummary[];
+  currentWeekType: WeekType;
 }
 
 // ---------------------------------------------------------------------------

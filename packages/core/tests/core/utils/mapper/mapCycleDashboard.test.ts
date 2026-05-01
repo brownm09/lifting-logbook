@@ -19,6 +19,7 @@ describe("mapCycleDashboard", () => {
       cycleDate: new Date("2026-01-01"),
       sheetName: "Week 1",
       cycleStartWeekday: Weekday.Friday,
+      currentWeekType: 'training',
     };
     const result = mapCycleDashboard(obj);
     expect(result).toEqual([

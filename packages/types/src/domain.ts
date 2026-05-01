@@ -56,6 +56,9 @@ export interface BodyWeightEntry {
 /** Week number within a training cycle (1-based). */
 export type WeekNumber = number;
 
+/** Declares the character of a training week. */
+export type WeekType = 'training' | 'test' | 'deload';
+
 /**
  * Cycle number within a training program.
  * 1-indexed: the first cycle is cycle 1.

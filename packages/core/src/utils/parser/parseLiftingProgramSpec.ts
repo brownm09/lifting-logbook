@@ -1,3 +1,4 @@
+import { WeekType } from "@lifting-logbook/types";
 import { LIFTING_PROGRAM_SPEC_HEADER_MAP } from "@src/core/constants";
 import { LiftingProgramSpec, SpreadsheetCell } from "@src/core/models";
 import { tableToObjects } from "./tableToObjects";
@@ -29,6 +30,22 @@ export function parseLiftingProgramSpec(data: SpreadsheetCell[][]): LiftingProgr
     }
     return result as unknown as LiftingProgramSpec;
   });
+
+  // Apply week-level weekType inheritance: blank rows inherit the first non-blank
+  // value in the same week; an all-blank week defaults to 'training'.
+  const isBlank = (v: WeekType | undefined): boolean => !v || (v as string) === '';
+  const weekGroups = new Map<number, typeof parsed>();
+  for (const row of parsed) {
+    const grp = weekGroups.get(row.week) ?? [];
+    grp.push(row);
+    weekGroups.set(row.week, grp);
+  }
+  for (const rows of weekGroups.values()) {
+    const firstNonBlank = rows.find((r) => !isBlank(r.weekType))?.weekType ?? 'training';
+    for (const r of rows) {
+      if (isBlank(r.weekType)) r.weekType = firstNonBlank as WeekType;
+    }
+  }
 
   // Sort by offset, then order
   parsed.sort((a, b) => {

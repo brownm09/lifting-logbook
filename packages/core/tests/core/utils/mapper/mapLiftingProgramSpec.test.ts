@@ -18,6 +18,7 @@ const specs: LiftingProgramSpec[] = [
     warmUpPct: "40,50,60",
     wtDecrementPct: 0,
     activation: "None",
+    weekType: "training",
   },
   {
     week: 1,
@@ -31,6 +32,7 @@ const specs: LiftingProgramSpec[] = [
     warmUpPct: "40,50,60",
     wtDecrementPct: 0,
     activation: "None",
+    weekType: "training",
   },
 ];
 
@@ -39,8 +41,8 @@ describe("mapLiftingProgramSpec", () => {
     const headers = Object.keys(LIFTING_PROGRAM_SPEC_HEADER_MAP);
     const result = mapLiftingProgramSpec(specs);
     expect(result[0]).toEqual(headers);
-    expect(result[1]).toEqual([1, 0, "Squat", 5, 1, 3, 5, "TRUE", "40,50,60", 0, "None"]);
-    expect(result[2]).toEqual([1, 0, "Bench", 2.5, 2, 3, 5, "FALSE", "40,50,60", 0, "None"]);
+    expect(result[1]).toEqual([1, 0, "Squat", 5, 1, 3, 5, "TRUE", "40,50,60", 0, "None", "training"]);
+    expect(result[2]).toEqual([1, 0, "Bench", 2.5, 2, 3, 5, "FALSE", "40,50,60", 0, "None", "training"]);
   });
 
   it("maps amrap boolean to string so parseLiftingProgramSpec can round-trip it", () => {

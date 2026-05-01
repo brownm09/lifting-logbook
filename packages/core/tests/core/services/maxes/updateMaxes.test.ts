@@ -1,4 +1,5 @@
 import {
+  LiftingProgramSpec,
   parseLiftingProgramSpec,
   parseLiftRecords,
   parseTrainingMaxes,
@@ -71,5 +72,74 @@ describe("updateMaxes", () => {
     expect(updateMaxes(programSpec, updatedMaxes, liftRecords)).toEqual(
       expectedMaxes,
     );
+  });
+
+  it("test week: final set weight becomes new TM with no increment", () => {
+    const tmData = loadCsvFixture("training_maxes.csv");
+    const specData = loadCsvFixture("rpt_program_spec_test_week.csv");
+    const liftData = loadCsvFixture("lift_records_test_week.csv");
+    const expectedData = loadCsvFixture("training_maxes_test_week.csv");
+    const trainingMaxes = parseTrainingMaxes(tmData);
+    const programSpec = parseLiftingProgramSpec(specData);
+    const liftRecords = parseLiftRecords(liftData);
+    const expectedMaxes = parseTrainingMaxes(expectedData);
+
+    const updated = updateMaxes(programSpec, trainingMaxes, liftRecords);
+    expect(updated).toEqual(expectedMaxes);
+
+    // Specifically verify no increment was applied
+    const benchMax = updated.find((m) => m.lift === "Bench P.")!;
+    expect(benchMax.weight).toBe(185); // final set weight, not 185 + 2.5 increment
+  });
+
+  it("test week: skips update when final set notes flag abnormal condition", () => {
+    const tmData = loadCsvFixture("training_maxes.csv");
+    const specData = loadCsvFixture("rpt_program_spec_test_week.csv");
+    const trainingMaxes = parseTrainingMaxes(tmData);
+    const programSpec = parseLiftingProgramSpec(specData);
+
+    // All 5 sets flagged as injury
+    const liftRecords = [1, 2, 3, 4, 5].map((setNum) => ({
+      program: "RPT",
+      cycleNum: 1,
+      workoutNum: 1,
+      date: new Date("2026-01-05"),
+      lift: "Bench P." as const,
+      setNum,
+      weight: 100 + setNum * 20,
+      reps: setNum === 5 ? 1 : 3,
+      notes: "injury",
+    }));
+
+    const updated = updateMaxes(programSpec, trainingMaxes, liftRecords);
+    const benchMax = updated.find((m) => m.lift === "Bench P.")!;
+    const originalBenchMax = trainingMaxes.find((m) => m.lift === "Bench P.")!;
+    expect(benchMax.weight).toBe(originalBenchMax.weight); // unchanged
+  });
+
+  it("deload week: returns maxes unchanged", () => {
+    const tmData = loadCsvFixture("training_maxes.csv");
+    const specData = loadCsvFixture("rpt_program_spec_deload_week.csv");
+    const trainingMaxes = parseTrainingMaxes(tmData);
+    const programSpec = parseLiftingProgramSpec(specData);
+
+    // A completed deload set — should never update the max
+    const liftRecords = [1, 2, 3].map((setNum) => ({
+      program: "RPT",
+      cycleNum: 1,
+      workoutNum: 1,
+      date: new Date("2026-01-05"),
+      lift: "Bench P." as const,
+      setNum,
+      weight: 100,
+      reps: 5,
+      notes: "",
+    }));
+
+    const updated = updateMaxes(programSpec, trainingMaxes, liftRecords);
+    const benchMax = updated.find((m) => m.lift === "Bench P.")!;
+    const originalBenchMax = trainingMaxes.find((m) => m.lift === "Bench P.")!;
+    expect(benchMax.weight).toBe(originalBenchMax.weight);
+    expect(benchMax.dateUpdated).toEqual(originalBenchMax.dateUpdated);
   });
 });
