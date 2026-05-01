@@ -38,7 +38,17 @@ strip reads "Last exercise."
 
 **Working sets:** Weight and reps are pre-filled from the program spec. The lifter adjusts
 actuals and taps Log per set; each submission posts to `POST /lift-records` and marks the set
-complete. When all sets across all exercises are logged, a "Finish workout" action navigates
+complete (inputs locked, ✓ shown). A logged set can be re-opened for editing within the same
+session; re-submission sends a `PATCH /lift-records/:id` to update the record in place.
+Editing requires a new API endpoint — `PATCH /programs/:program/lift-records/:id` accepting
+a partial `UpdateLiftRecordRequest` (weight, reps, notes).
+
+**Per-set notes:** An optional free-text notes field is shown below weight/reps on each working
+set. The value is included in the `notes` field of `CreateLiftRecordRequest` (and
+`UpdateLiftRecordRequest` for edits). This is legacy functionality — the field already exists
+in the API; the UI is the only addition required.
+
+When all sets across all exercises are logged, a "Finish workout" action navigates
 back to the cycle dashboard.
 
 **Whole-workout view:** A toggle (⊞) switches to a scrollable list of all exercises showing
@@ -64,6 +74,10 @@ existing lift records are displayed.
       component lifts use `calculateAddedWeight(targetLoad, bodyWeight)` from `packages/core`
 - [ ] The lifter can adjust weight and reps per set; tapping Log posts to `POST /lift-records`
       and marks the set complete (inputs locked, ✓ shown)
+- [ ] A logged set can be re-opened for editing within the same session; re-submission sends
+      `PATCH /programs/:program/lift-records/:id` and updates the displayed record in place
+- [ ] An optional notes field is shown per working set; the value is posted in the `notes`
+      field of `CreateLiftRecordRequest` / `UpdateLiftRecordRequest`
 - [ ] Navigation dots above the exercise name are tappable to jump to any exercise
 - [ ] A bottom strip shows the next exercise name and its first warm-up weight; on the last
       exercise the strip reads "Last exercise"
@@ -78,8 +92,7 @@ existing lift records are displayed.
 
 ## Out of Scope
 
-- Editing a previously submitted set (read-only review is in scope; edit is not)
-- Per-set or per-lift notes
+- Per-lift (per-exercise) notes
 - Rest timer between sets
 - Offline / service-worker support
 - React Native (`apps/mobile`) — web only
@@ -95,5 +108,6 @@ warm-up sets, and the percentage steps — so users can match their actual gym w
 
 - [`packages/core/src/services/bodyWeight.ts`](../../packages/core/src/services/bodyWeight.ts) — `calculateAddedWeight` to reuse client-side
 - [`packages/core/src/services/workout/calculateLiftWeights.ts`](../../packages/core/src/services/workout/calculateLiftWeights.ts) — working set weight calculation
-- [`packages/types/src/api.ts`](../../packages/types/src/api.ts) — `WorkoutResponse`, `CreateLiftRecordRequest`, `RecordBodyWeightRequest`, `LiftingProgramSpecResponse`
+- [`packages/types/src/api.ts`](../../packages/types/src/api.ts) — `WorkoutResponse`, `CreateLiftRecordRequest`, `RecordBodyWeightRequest`, `LiftingProgramSpecResponse`; needs new `UpdateLiftRecordRequest` type
+- [`apps/api/src/programs/lift-records.controller.ts`](../../apps/api/src/programs/lift-records.controller.ts) — needs `PATCH /:id` handler added alongside the existing `GET`
 - PRD §Jobs to Be Done — J1 (log without friction, ≤ 2 min), J4 (bodyweight-component target weight)
