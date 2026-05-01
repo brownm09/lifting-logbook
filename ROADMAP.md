@@ -84,12 +84,13 @@ Web and mobile clients functional end-to-end. Key user-facing features implement
 | Strength goal tracking | `StrengthGoal` domain types and `evaluateStrengthTier` utility; system-default Kilgore/Rippetoe standards for Big 4 + chin-up | [#111](https://github.com/brownm09/lifting-logbook/issues/111) |
 | Training Max Management Screen | PATCH endpoint + `/settings/training-maxes` UI; inline editable 1RMs with validation, Server Action for save, Settings nav link | [#108](https://github.com/brownm09/lifting-logbook/issues/108) |
 | Initial Training Max Discovery | `WeekType` (`training`/`test`/`deload`), `estimateTrainingMax` (Brzycki), test/deload branches in `generateLiftPlan` and `updateMaxes`, `currentWeekType` in API response | [#129](https://github.com/brownm09/lifting-logbook/issues/129) |
+| Workout Logging Screen | Per-exercise logging with warm-ups, bodyweight gate, and whole-workout overview toggle; `POST /lift-records`, `PATCH /lift-records/:id`, `GET/POST /body-weight/latest` | [#133](https://github.com/brownm09/lifting-logbook/issues/133) |
 
 ### Proposals
 
 | Proposal | Description | Issue | Status |
 |---|---|---|---|
-| [Workout Logging Screen](docs/proposals/2026-04-29-workout-logging-screen.md) | Per-exercise logging with warm-ups, bodyweight gate, and whole-workout overview toggle | [#106](https://github.com/brownm09/lifting-logbook/issues/106) | draft |
+| [Workout Logging Screen](docs/proposals/2026-04-29-workout-logging-screen.md) | Per-exercise logging with warm-ups, bodyweight gate, and whole-workout overview toggle | [#106](https://github.com/brownm09/lifting-logbook/issues/106) | shipped |
 | [Training Max Management Screen](docs/proposals/2026-04-29-training-max-management.md) | View and edit per-lift 1RMs at `/settings/training-maxes`; drives all working set calculations | [#108](https://github.com/brownm09/lifting-logbook/issues/108) | shipped |
 | [Strength Goal Tracking](docs/proposals/2026-04-29-strength-goal-tracking.md) | Per-lift, per-tier strength standards (intermediate/advanced/elite) with target and observed dates | [#111](https://github.com/brownm09/lifting-logbook/issues/111) | shipped |
 | [Initial Training Max Discovery](docs/proposals/2026-04-30-initial-training-max-discovery.md) | Estimation utility (Brzycki) and test-week cycle phase for users with no existing training maxes | [#129](https://github.com/brownm09/lifting-logbook/issues/129) | shipped |
