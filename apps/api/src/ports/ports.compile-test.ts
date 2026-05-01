@@ -13,6 +13,7 @@ import { IRepositoryFactory, RepositoryBundle } from './factory';
 import { ICycleDashboardRepository } from './ICycleDashboardRepository';
 import { ILiftingProgramSpecRepository } from './ILiftingProgramSpecRepository';
 import { ILiftRecordRepository } from './ILiftRecordRepository';
+import { IProgramPhilosophyRepository } from './IProgramPhilosophyRepository';
 import { ITrainingMaxRepository } from './ITrainingMaxRepository';
 import { IWorkoutRepository } from './IWorkoutRepository';
 
@@ -95,10 +96,16 @@ const _workoutRepo: IWorkoutRepository = {
 // IRepositoryFactory
 // ---------------------------------------------------------------------------
 
+const _programPhilosophyRepo: IProgramPhilosophyRepository = {
+  getProgramPhilosophy: () => Promise.resolve(null),
+  listPrograms: () => Promise.resolve([]),
+};
+
 const _repositoryBundle: RepositoryBundle = {
   cycleDashboard: _cycleDashboardRepo,
   liftingProgramSpec: _programSpecRepo,
   liftRecord: _liftRecordRepo,
+  programPhilosophy: _programPhilosophyRepo,
   trainingMax: _trainingMaxRepo,
   workout: _workoutRepo,
 };

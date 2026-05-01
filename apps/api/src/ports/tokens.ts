@@ -6,3 +6,7 @@ export const LIFTING_PROGRAM_SPEC_REPOSITORY = Symbol(
   'ILiftingProgramSpecRepository',
 );
 export const BODY_WEIGHT_REPOSITORY = Symbol('IBodyWeightRepository');
+export const PROGRAM_PHILOSOPHY_REPOSITORY = Symbol(
+  'IProgramPhilosophyRepository',
+);
+export const CYCLE_PLANNING_AGENT = Symbol('ICyclePlanningAgent');

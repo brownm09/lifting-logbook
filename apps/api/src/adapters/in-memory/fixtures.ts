@@ -22,6 +22,7 @@ export const seedCycleDashboard = (): CycleDashboard => ({
   sheetName: '',
   cycleStartWeekday: Weekday.Monday,
   currentWeekType: 'training',
+  programType: '5-3-1',
 });
 
 export const seedTrainingMaxes = (): TrainingMax[] => [

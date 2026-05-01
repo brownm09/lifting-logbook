@@ -127,6 +127,25 @@ export interface CycleDashboardResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Cycle Planning Agent
+// ---------------------------------------------------------------------------
+
+/** A single proposed training-max change within a cycle plan. */
+export interface ProposedTrainingMaxChangeResponse {
+  lift: LiftName;
+  currentWeight: number;
+  proposedWeight: number;
+  reasoning: string;
+}
+
+/** Result of a cycle planning agent run. */
+export interface CyclePlanResponse {
+  proposedChanges: ProposedTrainingMaxChangeResponse[];
+  overallReasoning: string;
+  partial: boolean;
+}
+
+// ---------------------------------------------------------------------------
 // Lifting Program Spec
 // ---------------------------------------------------------------------------
 

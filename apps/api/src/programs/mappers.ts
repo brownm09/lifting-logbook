@@ -6,6 +6,7 @@ import {
 } from '@lifting-logbook/core';
 import {
   CycleDashboardResponse,
+  CyclePlanResponse,
   LiftRecordResponse,
   LiftingProgramSpecResponse,
   SetResponse,
@@ -14,6 +15,7 @@ import {
   WorkoutLiftResponse,
   WorkoutResponse,
 } from '@lifting-logbook/types';
+import { CyclePlanResult } from '../ports/ICyclePlanningAgent';
 
 // All API date fields are emitted as `YYYY-MM-DD` in UTC. Domain `Date`
 // values must be stored as UTC midnight; adapters parsing external sources
@@ -70,6 +72,17 @@ export const toCycleDashboardResponse = (
   cycleStartDate: isoDate(d.cycleDate),
   weeks: [],
   currentWeekType: d.currentWeekType,
+});
+
+export const toCyclePlanResponse = (r: CyclePlanResult): CyclePlanResponse => ({
+  proposedChanges: r.proposedChanges.map((c) => ({
+    lift: c.lift,
+    currentWeight: c.currentWeight,
+    proposedWeight: c.proposedWeight,
+    reasoning: c.reasoning,
+  })),
+  overallReasoning: r.overallReasoning,
+  partial: r.partial,
 });
 
 export const isValidWorkoutNum = (n: number): boolean =>
