@@ -1,0 +1,57 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model LiftRecord {
+  id         String   @id @default(cuid())
+  userId     String
+  program    String
+  cycleNum   Int
+  workoutNum Int
+  date       DateTime
+  lift       String
+  setNum     Int
+  weight     Float
+  reps       Int
+  notes      String   @default("")
+
+  @@unique([userId, program, cycleNum, workoutNum, lift, setNum])
+  @@index([userId, program, cycleNum])
+  @@index([userId, program, cycleNum, workoutNum])
+  @@map("lift_record")
+}
+
+model TrainingMax {
+  id          String   @id @default(cuid())
+  userId      String
+  program     String
+  lift        String
+  weight      Float
+  dateUpdated DateTime
+
+  @@unique([userId, program, lift])
+  @@index([userId, program])
+  @@map("training_max")
+}
+
+model CycleDashboard {
+  id                String   @id @default(cuid())
+  userId            String
+  program           String
+  cycleUnit         String
+  cycleNum          Int
+  cycleDate         DateTime
+  sheetName         String
+  cycleStartWeekday String
+  currentWeekType   String
+  programType       String?
+
+  @@unique([userId, program])
+  @@index([userId, program])
+  @@map("cycle_dashboard")
+}
