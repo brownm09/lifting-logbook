@@ -3,11 +3,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { Weekday } from '@lifting-logbook/core';
 import { ICycleDashboardRepository } from '../ports/ICycleDashboardRepository';
 import { ILiftRecordRepository } from '../ports/ILiftRecordRepository';
-import {
-  CYCLE_DASHBOARD_REPOSITORY,
-  LIFT_RECORD_REPOSITORY,
-} from '../ports/tokens';
+import { IRepositoryFactory } from '../ports/factory';
+import { REPOSITORY_FACTORY } from '../ports/tokens';
 import { LiftRecordsController } from './lift-records.controller';
+
+const MOCK_USER = { id: 'test-user', email: 'test@example.com', provider: 'dev' };
 
 const SEED_DASHBOARD = {
   program: '5-3-1',
@@ -35,6 +35,7 @@ describe('LiftRecordsController', () => {
   let controller: LiftRecordsController;
   let liftRecordRepo: jest.Mocked<ILiftRecordRepository>;
   let dashboardRepo: jest.Mocked<ICycleDashboardRepository>;
+  let factory: jest.Mocked<IRepositoryFactory>;
 
   beforeEach(async () => {
     liftRecordRepo = {
@@ -46,12 +47,15 @@ describe('LiftRecordsController', () => {
       getCycleDashboard: jest.fn(),
       saveCycleDashboard: jest.fn(),
     };
+    factory = {
+      forUser: jest.fn().mockResolvedValue({
+        liftRecord: liftRecordRepo,
+        cycleDashboard: dashboardRepo,
+      }),
+    };
     const module: TestingModule = await Test.createTestingModule({
       controllers: [LiftRecordsController],
-      providers: [
-        { provide: LIFT_RECORD_REPOSITORY, useValue: liftRecordRepo },
-        { provide: CYCLE_DASHBOARD_REPOSITORY, useValue: dashboardRepo },
-      ],
+      providers: [{ provide: REPOSITORY_FACTORY, useValue: factory }],
     }).compile();
     controller = module.get(LiftRecordsController);
   });
@@ -61,7 +65,7 @@ describe('LiftRecordsController', () => {
       dashboardRepo.getCycleDashboard.mockResolvedValue(SEED_DASHBOARD);
       liftRecordRepo.getLiftRecords.mockResolvedValue([SEED_RECORD]);
 
-      const result = await controller.getLiftRecords('5-3-1');
+      const result = await controller.getLiftRecords('5-3-1', MOCK_USER);
 
       expect(liftRecordRepo.getLiftRecords).toHaveBeenCalledWith('5-3-1', 4);
       expect(result).toHaveLength(1);
@@ -83,7 +87,7 @@ describe('LiftRecordsController', () => {
         setNum: 1,
         weight: 180,
         reps: 5,
-      });
+      }, MOCK_USER);
 
       expect(liftRecordRepo.appendLiftRecords).toHaveBeenCalledWith(
         '5-3-1',
@@ -108,7 +112,7 @@ describe('LiftRecordsController', () => {
         weight: 225,
         reps: 5,
         notes: 'felt good',
-      });
+      }, MOCK_USER);
 
       expect(result.notes).toBe('felt good');
     });
@@ -123,6 +127,7 @@ describe('LiftRecordsController', () => {
         '5-3-1',
         '5-3-1-4-1-Bench Press-1',
         { weight: 185, reps: 4 },
+        MOCK_USER,
       );
 
       expect(liftRecordRepo.updateLiftRecord).toHaveBeenCalledWith(
@@ -138,7 +143,7 @@ describe('LiftRecordsController', () => {
       liftRecordRepo.updateLiftRecord.mockResolvedValue(null);
 
       await expect(
-        controller.updateLiftRecord('5-3-1', 'unknown-id', { weight: 200 }),
+        controller.updateLiftRecord('5-3-1', 'unknown-id', { weight: 200 }, MOCK_USER),
       ).rejects.toThrow(NotFoundException);
     });
   });

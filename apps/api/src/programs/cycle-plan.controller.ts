@@ -1,22 +1,10 @@
 import { Body, Controller, HttpCode, HttpStatus, Inject, Post } from '@nestjs/common';
 import { CyclePlanResponse } from '@lifting-logbook/types';
-import {
-  CYCLE_DASHBOARD_REPOSITORY,
-  CYCLE_PLANNING_AGENT,
-  ICycleDashboardRepository,
-  ICyclePlanningAgent,
-  ILiftingProgramSpecRepository,
-  ILiftRecordRepository,
-  IProgramPhilosophyRepository,
-  ITrainingMaxRepository,
-  IWorkoutRepository,
-  LIFTING_PROGRAM_SPEC_REPOSITORY,
-  LIFT_RECORD_REPOSITORY,
-  PROGRAM_PHILOSOPHY_REPOSITORY,
-  RepositoryBundle,
-  TRAINING_MAX_REPOSITORY,
-  WORKOUT_REPOSITORY,
-} from '../ports';
+import { CurrentUser } from '../auth/current-user.decorator';
+import { AuthUser } from '../ports/auth';
+import { IRepositoryFactory } from '../ports/factory';
+import { ICyclePlanningAgent } from '../ports/ICyclePlanningAgent';
+import { CYCLE_PLANNING_AGENT, REPOSITORY_FACTORY } from '../ports/tokens';
 import { CyclePlanRequestDto } from './cycle-plan.dto';
 import { toCyclePlanResponse } from './mappers';
 
@@ -25,42 +13,16 @@ export class CyclePlanController {
   constructor(
     @Inject(CYCLE_PLANNING_AGENT)
     private readonly agent: ICyclePlanningAgent,
-    @Inject(CYCLE_DASHBOARD_REPOSITORY)
-    private readonly cycleDashboard: ICycleDashboardRepository,
-    @Inject(LIFTING_PROGRAM_SPEC_REPOSITORY)
-    private readonly liftingProgramSpec: ILiftingProgramSpecRepository,
-    @Inject(LIFT_RECORD_REPOSITORY)
-    private readonly liftRecord: ILiftRecordRepository,
-    @Inject(PROGRAM_PHILOSOPHY_REPOSITORY)
-    private readonly programPhilosophy: IProgramPhilosophyRepository,
-    @Inject(TRAINING_MAX_REPOSITORY)
-    private readonly trainingMax: ITrainingMaxRepository,
-    @Inject(WORKOUT_REPOSITORY)
-    private readonly workout: IWorkoutRepository,
+    @Inject(REPOSITORY_FACTORY) private readonly factory: IRepositoryFactory,
   ) {}
 
-  /**
-   * POST /cycle-plan
-   *
-   * Runs the cycle planning agent. Returns proposed training-max changes and
-   * overall reasoning. `partial: true` indicates the agent did not converge
-   * (timeout, tool budget exhausted, malformed model output).
-   *
-   * Auth guard is intentionally absent here — authentication is out of scope
-   * until issue #136 lands. Add an @UseGuards(AuthGuard) decorator and
-   * per-user repository scoping at that point.
-   */
   @Post()
   @HttpCode(HttpStatus.OK)
-  async plan(@Body() dto: CyclePlanRequestDto): Promise<CyclePlanResponse> {
-    const repos: RepositoryBundle = {
-      cycleDashboard: this.cycleDashboard,
-      liftingProgramSpec: this.liftingProgramSpec,
-      liftRecord: this.liftRecord,
-      programPhilosophy: this.programPhilosophy,
-      trainingMax: this.trainingMax,
-      workout: this.workout,
-    };
+  async plan(
+    @Body() dto: CyclePlanRequestDto,
+    @CurrentUser() user: AuthUser,
+  ): Promise<CyclePlanResponse> {
+    const repos = await this.factory.forUser(user);
     const result = await this.agent.plan(repos, {
       program: dto.program,
       goal: dto.goal,

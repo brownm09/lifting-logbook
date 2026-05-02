@@ -15,32 +15,26 @@ import {
   LiftRecordResponse,
   UpdateLiftRecordRequest,
 } from '@lifting-logbook/types';
-import { ICycleDashboardRepository } from '../ports/ICycleDashboardRepository';
-import { ILiftRecordRepository } from '../ports/ILiftRecordRepository';
-import {
-  CYCLE_DASHBOARD_REPOSITORY,
-  LIFT_RECORD_REPOSITORY,
-} from '../ports/tokens';
+import { CurrentUser } from '../auth/current-user.decorator';
+import { AuthUser } from '../ports/auth';
+import { IRepositoryFactory } from '../ports/factory';
+import { REPOSITORY_FACTORY } from '../ports/tokens';
 import { toLiftRecordResponse } from './mappers';
 
 @Controller('programs/:program')
 export class LiftRecordsController {
   constructor(
-    @Inject(LIFT_RECORD_REPOSITORY)
-    private readonly liftRecordRepo: ILiftRecordRepository,
-    @Inject(CYCLE_DASHBOARD_REPOSITORY)
-    private readonly cycleDashboardRepo: ICycleDashboardRepository,
+    @Inject(REPOSITORY_FACTORY) private readonly factory: IRepositoryFactory,
   ) {}
 
   @Get('lift-records')
   async getLiftRecords(
     @Param('program') program: string,
+    @CurrentUser() user: AuthUser,
   ): Promise<LiftRecordResponse[]> {
-    const dashboard = await this.cycleDashboardRepo.getCycleDashboard(program);
-    const records = await this.liftRecordRepo.getLiftRecords(
-      program,
-      dashboard.cycleNum,
-    );
+    const { liftRecord, cycleDashboard } = await this.factory.forUser(user);
+    const dashboard = await cycleDashboard.getCycleDashboard(program);
+    const records = await liftRecord.getLiftRecords(program, dashboard.cycleNum);
     return records.map(toLiftRecordResponse);
   }
 
@@ -49,7 +43,9 @@ export class LiftRecordsController {
   async createLiftRecord(
     @Param('program') program: string,
     @Body() body: CreateLiftRecordRequest,
+    @CurrentUser() user: AuthUser,
   ): Promise<LiftRecordResponse> {
+    const { liftRecord } = await this.factory.forUser(user);
     const record = {
       program,
       cycleNum: body.cycleNum,
@@ -61,7 +57,7 @@ export class LiftRecordsController {
       reps: body.reps,
       notes: body.notes ?? '',
     };
-    await this.liftRecordRepo.appendLiftRecords(program, [record]);
+    await liftRecord.appendLiftRecords(program, [record]);
     return toLiftRecordResponse(record);
   }
 
@@ -70,8 +66,10 @@ export class LiftRecordsController {
     @Param('program') program: string,
     @Param('id') id: string,
     @Body() body: UpdateLiftRecordRequest,
+    @CurrentUser() user: AuthUser,
   ): Promise<LiftRecordResponse> {
-    const updated = await this.liftRecordRepo.updateLiftRecord(program, id, body);
+    const { liftRecord } = await this.factory.forUser(user);
+    const updated = await liftRecord.updateLiftRecord(program, id, body);
     if (!updated) {
       throw new NotFoundException(
         `Lift record '${id}' not found for program '${program}'`,

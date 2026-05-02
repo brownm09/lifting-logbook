@@ -2,8 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { Weekday } from '@lifting-logbook/core';
 import { ICycleDashboardRepository } from '../ports/ICycleDashboardRepository';
 import { ILiftingProgramSpecRepository } from '../ports/ILiftingProgramSpecRepository';
-import { CYCLE_DASHBOARD_REPOSITORY, LIFTING_PROGRAM_SPEC_REPOSITORY } from '../ports/tokens';
+import { IRepositoryFactory } from '../ports/factory';
+import { REPOSITORY_FACTORY } from '../ports/tokens';
 import { CycleDashboardController } from './cycle-dashboard.controller';
+
+const MOCK_USER = { id: 'test-user', email: 'test@example.com', provider: 'dev' };
 
 const stubDashboard = (overrides: Partial<{ currentWeekType: 'training' | 'test' | 'deload' }> = {}) => ({
   program: '5-3-1',
@@ -35,6 +38,7 @@ describe('CycleDashboardController', () => {
   let controller: CycleDashboardController;
   let repo: jest.Mocked<ICycleDashboardRepository>;
   let specRepo: jest.Mocked<ILiftingProgramSpecRepository>;
+  let factory: jest.Mocked<IRepositoryFactory>;
 
   beforeEach(async () => {
     repo = {
@@ -42,13 +46,16 @@ describe('CycleDashboardController', () => {
       saveCycleDashboard: jest.fn(),
     };
     specRepo = { getProgramSpec: jest.fn() };
+    factory = {
+      forUser: jest.fn().mockResolvedValue({
+        cycleDashboard: repo,
+        liftingProgramSpec: specRepo,
+      }),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [CycleDashboardController],
-      providers: [
-        { provide: CYCLE_DASHBOARD_REPOSITORY, useValue: repo },
-        { provide: LIFTING_PROGRAM_SPEC_REPOSITORY, useValue: specRepo },
-      ],
+      providers: [{ provide: REPOSITORY_FACTORY, useValue: factory }],
     }).compile();
     controller = module.get(CycleDashboardController);
   });
@@ -57,8 +64,9 @@ describe('CycleDashboardController', () => {
     repo.getCycleDashboard.mockResolvedValue(stubDashboard());
     specRepo.getProgramSpec.mockResolvedValue(stubSpec('training'));
 
-    const result = await controller.getCurrentCycle('5-3-1');
+    const result = await controller.getCurrentCycle('5-3-1', MOCK_USER);
 
+    expect(factory.forUser).toHaveBeenCalledWith(MOCK_USER);
     expect(repo.getCycleDashboard).toHaveBeenCalledWith('5-3-1');
     expect(specRepo.getProgramSpec).toHaveBeenCalledWith('5-3-1');
     expect(result).toEqual({
@@ -71,11 +79,10 @@ describe('CycleDashboardController', () => {
   });
 
   it('reflects test weekType when program spec contains a test week', async () => {
-    // Cycle started 0 days ago → week 1
     repo.getCycleDashboard.mockResolvedValue(stubDashboard());
     specRepo.getProgramSpec.mockResolvedValue(stubSpec('test'));
 
-    const result = await controller.getCurrentCycle('5-3-1');
+    const result = await controller.getCurrentCycle('5-3-1', MOCK_USER);
 
     expect(result.currentWeekType).toBe('test');
   });

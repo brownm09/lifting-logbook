@@ -1,50 +1,43 @@
-import { Body, Controller, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Inject, Param, Post } from '@nestjs/common';
 import {
   CycleDashboardResponse,
   TrainingMaxResponse,
 } from '@lifting-logbook/types';
+import { CurrentUser } from '../auth/current-user.decorator';
+import { AuthUser } from '../ports/auth';
+import { IRepositoryFactory } from '../ports/factory';
+import { REPOSITORY_FACTORY } from '../ports/tokens';
 import { toCycleDashboardResponse, toTrainingMaxResponse } from './mappers';
-import { CycleGenerationService } from './cycle-generation.service';
 import { ParseProgramPipe } from './program.pipe';
 import { StartNewCycleDto } from './start-new-cycle.dto';
+import { CycleGenerationService } from './cycle-generation.service';
 
 @Controller('programs/:program')
 export class CycleGenerationController {
   constructor(
     private readonly cycleGenerationService: CycleGenerationService,
+    @Inject(REPOSITORY_FACTORY) private readonly factory: IRepositoryFactory,
   ) {}
 
-  /**
-   * POST /programs/:program/cycles
-   *
-   * Starts a new cycle: advances the cycle counter, updates training maxes
-   * from the source cycle's lift records, and persists both. Returns the
-   * new cycle dashboard.
-   *
-   * Optional body: `{ fromCycleNum?: number, cycleDate?: string }` — see
-   * StartNewCycleDto for semantics.
-   */
   @Post('cycles')
   async startNewCycle(
     @Param('program', ParseProgramPipe) program: string,
     @Body() dto: StartNewCycleDto,
+    @CurrentUser() user: AuthUser,
   ): Promise<CycleDashboardResponse> {
-    const newCycle = await this.cycleGenerationService.startNewCycle(program, dto);
+    const repos = await this.factory.forUser(user);
+    const newCycle = await this.cycleGenerationService.startNewCycle(repos, program, dto);
     return toCycleDashboardResponse(newCycle);
   }
 
-  /**
-   * POST /programs/:program/training-maxes/recalculate
-   *
-   * Re-runs training max calculation against the current cycle's lift records
-   * without advancing the cycle. Returns the updated training maxes.
-   */
   @Post('training-maxes/recalculate')
   @HttpCode(HttpStatus.OK)
   async recalculateMaxes(
     @Param('program', ParseProgramPipe) program: string,
+    @CurrentUser() user: AuthUser,
   ): Promise<TrainingMaxResponse[]> {
-    const maxes = await this.cycleGenerationService.recalculateMaxes(program);
+    const repos = await this.factory.forUser(user);
+    const maxes = await this.cycleGenerationService.recalculateMaxes(repos, program);
     return maxes.map(toTrainingMaxResponse);
   }
 }

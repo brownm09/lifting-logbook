@@ -1,27 +1,27 @@
 import { Controller, Get, Inject, Param } from '@nestjs/common';
 import { CycleDashboardResponse } from '@lifting-logbook/types';
 import { weekTypeForDate } from '@lifting-logbook/core';
-import { ICycleDashboardRepository } from '../ports/ICycleDashboardRepository';
-import { ILiftingProgramSpecRepository } from '../ports/ILiftingProgramSpecRepository';
-import { CYCLE_DASHBOARD_REPOSITORY, LIFTING_PROGRAM_SPEC_REPOSITORY } from '../ports/tokens';
+import { CurrentUser } from '../auth/current-user.decorator';
+import { AuthUser } from '../ports/auth';
+import { IRepositoryFactory } from '../ports/factory';
+import { REPOSITORY_FACTORY } from '../ports/tokens';
 import { toCycleDashboardResponse } from './mappers';
 
 @Controller('programs/:program')
 export class CycleDashboardController {
   constructor(
-    @Inject(CYCLE_DASHBOARD_REPOSITORY)
-    private readonly cycleDashboardRepo: ICycleDashboardRepository,
-    @Inject(LIFTING_PROGRAM_SPEC_REPOSITORY)
-    private readonly programSpecRepo: ILiftingProgramSpecRepository,
+    @Inject(REPOSITORY_FACTORY) private readonly factory: IRepositoryFactory,
   ) {}
 
   @Get('cycles/current')
   async getCurrentCycle(
     @Param('program') program: string,
+    @CurrentUser() user: AuthUser,
   ): Promise<CycleDashboardResponse> {
+    const { cycleDashboard, liftingProgramSpec } = await this.factory.forUser(user);
     const [dashboard, programSpec] = await Promise.all([
-      this.cycleDashboardRepo.getCycleDashboard(program),
-      this.programSpecRepo.getProgramSpec(program),
+      cycleDashboard.getCycleDashboard(program),
+      liftingProgramSpec.getProgramSpec(program),
     ]);
     dashboard.currentWeekType = weekTypeForDate(dashboard.cycleDate, programSpec);
     return toCycleDashboardResponse(dashboard);

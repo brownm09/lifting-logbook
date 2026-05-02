@@ -1,17 +1,24 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ITrainingMaxRepository } from '../ports/ITrainingMaxRepository';
-import { TRAINING_MAX_REPOSITORY } from '../ports/tokens';
+import { IRepositoryFactory } from '../ports/factory';
+import { REPOSITORY_FACTORY } from '../ports/tokens';
 import { TrainingMaxesController } from './training-maxes.controller';
+
+const MOCK_USER = { id: 'test-user', email: 'test@example.com', provider: 'dev' };
 
 describe('TrainingMaxesController', () => {
   let controller: TrainingMaxesController;
   let repo: jest.Mocked<ITrainingMaxRepository>;
+  let factory: jest.Mocked<IRepositoryFactory>;
 
   beforeEach(async () => {
     repo = { getTrainingMaxes: jest.fn(), saveTrainingMaxes: jest.fn() };
+    factory = {
+      forUser: jest.fn().mockResolvedValue({ trainingMax: repo }),
+    };
     const module: TestingModule = await Test.createTestingModule({
       controllers: [TrainingMaxesController],
-      providers: [{ provide: TRAINING_MAX_REPOSITORY, useValue: repo }],
+      providers: [{ provide: REPOSITORY_FACTORY, useValue: factory }],
     }).compile();
     controller = module.get(TrainingMaxesController);
   });
@@ -25,8 +32,9 @@ describe('TrainingMaxesController', () => {
       },
     ]);
 
-    const result = await controller.getTrainingMaxes('5-3-1');
+    const result = await controller.getTrainingMaxes('5-3-1', MOCK_USER);
 
+    expect(factory.forUser).toHaveBeenCalledWith(MOCK_USER);
     expect(repo.getTrainingMaxes).toHaveBeenCalledWith('5-3-1');
     expect(result).toEqual([
       { lift: 'Squat', weight: 315, unit: 'lbs', dateUpdated: '2026-04-20' },
@@ -43,7 +51,7 @@ describe('TrainingMaxesController', () => {
 
       const result = await controller.updateTrainingMaxes('5-3-1', {
         maxes: [{ lift: 'Squat', weight: 325, unit: 'lbs' }],
-      });
+      }, MOCK_USER);
 
       expect(repo.saveTrainingMaxes).toHaveBeenCalledWith(
         '5-3-1',
@@ -66,7 +74,7 @@ describe('TrainingMaxesController', () => {
 
       const result = await controller.updateTrainingMaxes('5-3-1', {
         maxes: [{ lift: 'Deadlift', weight: 405, unit: 'lbs' }],
-      });
+      }, MOCK_USER);
 
       expect(repo.saveTrainingMaxes).toHaveBeenCalledWith(
         '5-3-1',
