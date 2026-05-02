@@ -24,12 +24,12 @@ import { DomainNotFoundFilter } from './not-found.filter';
 const TEST_USER = 'db-e2e-primary';
 const USER_ALICE = 'db-e2e-alice';
 const USER_BOB = 'db-e2e-bob';
-const ALL_TEST_USERS = [TEST_USER, USER_ALICE, USER_BOB];
 
 async function cleanTestUsers(prisma: PrismaClient): Promise<void> {
-  await prisma.liftRecord.deleteMany({ where: { userId: { in: ALL_TEST_USERS } } });
-  await prisma.trainingMax.deleteMany({ where: { userId: { in: ALL_TEST_USERS } } });
-  await prisma.cycleDashboard.deleteMany({ where: { userId: { in: ALL_TEST_USERS } } });
+  const users = [TEST_USER, USER_ALICE, USER_BOB];
+  await prisma.liftRecord.deleteMany({ where: { userId: { in: users } } });
+  await prisma.trainingMax.deleteMany({ where: { userId: { in: users } } });
+  await prisma.cycleDashboard.deleteMany({ where: { userId: { in: users } } });
 }
 
 const describeOrSkip = process.env.DATABASE_URL ? describe : describe.skip;
@@ -252,6 +252,11 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
       const body = res.json();
       expect(body.cycleNum).toBe(2);
       expect(body.cycleStartDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+      // Verify the re-pinned cycle is persisted to the DB (not just returned in the response).
+      const getRes = await get(`/programs/${SEED_PROGRAM}/cycles/current`);
+      expect(getRes.statusCode).toBe(200);
+      expect(getRes.json().cycleNum).toBe(2);
     });
 
     it('POST /programs/:program/cycles with cycleDate pins the new cycle\'s start date', async () => {
