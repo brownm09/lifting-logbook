@@ -1,6 +1,7 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { AuthUser, IAuthProvider } from '../../ports/auth';
 
+@Injectable()
 export class DevAuthProvider implements IAuthProvider {
   async verifyToken(token: string): Promise<AuthUser> {
     if (!token) throw new UnauthorizedException();
