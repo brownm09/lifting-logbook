@@ -4,18 +4,18 @@ import { Weekday } from '@lifting-logbook/core';
 import { ICycleDashboardRepository } from '../ports/ICycleDashboardRepository';
 import { ILiftingProgramSpecRepository } from '../ports/ILiftingProgramSpecRepository';
 import { IWorkoutRepository } from '../ports/IWorkoutRepository';
-import {
-  CYCLE_DASHBOARD_REPOSITORY,
-  LIFTING_PROGRAM_SPEC_REPOSITORY,
-  WORKOUT_REPOSITORY,
-} from '../ports/tokens';
+import { IRepositoryFactory } from '../ports/factory';
+import { REPOSITORY_FACTORY } from '../ports/tokens';
 import { WorkoutsController } from './workouts.controller';
+
+const MOCK_USER = { id: 'test-user', email: 'test@example.com', provider: 'dev' };
 
 describe('WorkoutsController', () => {
   let controller: WorkoutsController;
   let workoutRepo: jest.Mocked<IWorkoutRepository>;
   let dashboardRepo: jest.Mocked<ICycleDashboardRepository>;
   let specRepo: jest.Mocked<ILiftingProgramSpecRepository>;
+  let factory: jest.Mocked<IRepositoryFactory>;
 
   beforeEach(async () => {
     workoutRepo = { getWorkout: jest.fn(), saveWorkout: jest.fn() };
@@ -24,13 +24,16 @@ describe('WorkoutsController', () => {
       saveCycleDashboard: jest.fn(),
     };
     specRepo = { getProgramSpec: jest.fn() };
+    factory = {
+      forUser: jest.fn().mockResolvedValue({
+        workout: workoutRepo,
+        cycleDashboard: dashboardRepo,
+        liftingProgramSpec: specRepo,
+      }),
+    };
     const module: TestingModule = await Test.createTestingModule({
       controllers: [WorkoutsController],
-      providers: [
-        { provide: WORKOUT_REPOSITORY, useValue: workoutRepo },
-        { provide: CYCLE_DASHBOARD_REPOSITORY, useValue: dashboardRepo },
-        { provide: LIFTING_PROGRAM_SPEC_REPOSITORY, useValue: specRepo },
-      ],
+      providers: [{ provide: REPOSITORY_FACTORY, useValue: factory }],
     }).compile();
     controller = module.get(WorkoutsController);
   });
@@ -85,7 +88,7 @@ describe('WorkoutsController', () => {
       },
     ]);
 
-    const result = await controller.getWorkout('5-3-1', '1');
+    const result = await controller.getWorkout('5-3-1', '1', MOCK_USER);
 
     expect(workoutRepo.getWorkout).toHaveBeenCalledWith('5-3-1', 3, 1);
     expect(result.cycleNum).toBe(3);
@@ -124,13 +127,13 @@ describe('WorkoutsController', () => {
     });
     workoutRepo.getWorkout.mockResolvedValue([]);
 
-    await expect(controller.getWorkout('5-3-1', '2')).rejects.toBeInstanceOf(
+    await expect(controller.getWorkout('5-3-1', '2', MOCK_USER)).rejects.toBeInstanceOf(
       BadRequestException,
     );
   });
 
   it('rejects non-numeric workoutNum', async () => {
-    await expect(controller.getWorkout('5-3-1', 'abc')).rejects.toBeInstanceOf(
+    await expect(controller.getWorkout('5-3-1', 'abc', MOCK_USER)).rejects.toBeInstanceOf(
       BadRequestException,
     );
   });
@@ -161,7 +164,7 @@ describe('WorkoutsController', () => {
       },
     ]);
 
-    await expect(controller.getWorkout('5-3-1', '2')).rejects.toBeInstanceOf(
+    await expect(controller.getWorkout('5-3-1', '2', MOCK_USER)).rejects.toBeInstanceOf(
       BadRequestException,
     );
   });

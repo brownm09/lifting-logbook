@@ -192,14 +192,39 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
     });
   });
 
-  // Forcing function for the Scope decision in ProgramsModule. Today adapters
-  // are Nest singletons holding mutable Map state — fine while single-tenant,
-  // but swapping `useClass` for a per-user Sheets adapter without setting
-  // `scope: Scope.REQUEST` (or a per-user factory) will leak one user's data
-  // into another's request. Unskip when auth lands.
-  it.skip('isolates adapter state per request (enable when auth lands)', () => {
-    // Expected setup: request A writes via authenticated user X, request B
-    // reads as user Y; B must not observe A's write. Requires per-request
-    // adapter instances.
+  it('isolates adapter state between users', async () => {
+    const injectRaw = app.getHttpAdapter().getInstance().inject.bind(
+      app.getHttpAdapter().getInstance(),
+    );
+
+    const AS_ALICE = { authorization: 'Bearer user-alice' };
+    const AS_BOB   = { authorization: 'Bearer user-bob'  };
+
+    // Alice writes a distinctive training max — her bundle starts empty, this creates it.
+    const patchRes = await injectRaw({
+      method: 'PATCH',
+      url: `/programs/${SEED_PROGRAM}/training-maxes`,
+      headers: { 'content-type': 'application/json', ...AS_ALICE },
+      payload: JSON.stringify({ maxes: [{ lift: 'Squat', weight: 999 }] }),
+    });
+    expect(patchRes.statusCode).toBe(200);
+
+    // Alice sees her value.
+    const aliceRes = await injectRaw({
+      method: 'GET',
+      url: `/programs/${SEED_PROGRAM}/training-maxes`,
+      headers: AS_ALICE,
+    });
+    expect(aliceRes.json().find((m: { lift: string }) => m.lift === 'Squat')?.weight).toBe(999);
+
+    // Bob reads the same program — his bundle is independent; Alice's write must not appear.
+    const bobRes = await injectRaw({
+      method: 'GET',
+      url: `/programs/${SEED_PROGRAM}/training-maxes`,
+      headers: AS_BOB,
+    });
+    expect(bobRes.statusCode).toBe(200);
+    const bobSquat = bobRes.json().find((m: { lift: string }) => m.lift === 'Squat');
+    expect(bobSquat).toBeUndefined();
   });
 });

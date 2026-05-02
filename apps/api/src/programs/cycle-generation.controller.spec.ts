@@ -1,7 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Weekday } from '@lifting-logbook/core';
+import { IRepositoryFactory, RepositoryBundle } from '../ports/factory';
+import { REPOSITORY_FACTORY } from '../ports/tokens';
 import { CycleGenerationController } from './cycle-generation.controller';
 import { CycleGenerationService } from './cycle-generation.service';
+
+const MOCK_USER = { id: 'test-user', email: 'test@example.com', provider: 'dev' };
+const MOCK_BUNDLE = {} as RepositoryBundle;
 
 const PROGRAM = '5-3-1';
 
@@ -18,28 +23,36 @@ const stubCycleDashboard = () => ({
 describe('CycleGenerationController', () => {
   let controller: CycleGenerationController;
   let service: jest.Mocked<Pick<CycleGenerationService, 'startNewCycle' | 'recalculateMaxes'>>;
+  let factory: jest.Mocked<IRepositoryFactory>;
 
   beforeEach(async () => {
     service = {
       startNewCycle: jest.fn(),
       recalculateMaxes: jest.fn(),
     };
+    factory = {
+      forUser: jest.fn().mockResolvedValue(MOCK_BUNDLE),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [CycleGenerationController],
-      providers: [{ provide: CycleGenerationService, useValue: service }],
+      providers: [
+        { provide: CycleGenerationService, useValue: service },
+        { provide: REPOSITORY_FACTORY, useValue: factory },
+      ],
     }).compile();
 
     controller = module.get(CycleGenerationController);
   });
 
   describe('startNewCycle', () => {
-    it('calls service with program and dto, returns mapped response', async () => {
+    it('calls service with repos, program, and dto, returns mapped response', async () => {
       service.startNewCycle.mockResolvedValue(stubCycleDashboard());
 
-      const result = await controller.startNewCycle(PROGRAM, {});
+      const result = await controller.startNewCycle(PROGRAM, {}, MOCK_USER);
 
-      expect(service.startNewCycle).toHaveBeenCalledWith(PROGRAM, {});
+      expect(factory.forUser).toHaveBeenCalledWith(MOCK_USER);
+      expect(service.startNewCycle).toHaveBeenCalledWith(MOCK_BUNDLE, PROGRAM, {});
       expect(result).toEqual({
         program: PROGRAM,
         cycleNum: 2,
@@ -55,9 +68,9 @@ describe('CycleGenerationController', () => {
       await controller.startNewCycle(PROGRAM, {
         fromCycleNum: 1,
         cycleDate: '2026-05-01',
-      });
+      }, MOCK_USER);
 
-      expect(service.startNewCycle).toHaveBeenCalledWith(PROGRAM, {
+      expect(service.startNewCycle).toHaveBeenCalledWith(MOCK_BUNDLE, PROGRAM, {
         fromCycleNum: 1,
         cycleDate: '2026-05-01',
       });
@@ -66,14 +79,14 @@ describe('CycleGenerationController', () => {
     it('propagates service errors (e.g. 404 from unknown program)', async () => {
       service.startNewCycle.mockRejectedValue(new Error('Program not found'));
 
-      await expect(controller.startNewCycle('unknown', {})).rejects.toThrow(
+      await expect(controller.startNewCycle('unknown', {}, MOCK_USER)).rejects.toThrow(
         'Program not found',
       );
     });
   });
 
   describe('recalculateMaxes', () => {
-    it('calls service with program and returns mapped maxes', async () => {
+    it('calls service with repos and program, returns mapped maxes', async () => {
       service.recalculateMaxes.mockResolvedValue([
         {
           lift: 'Squat',
@@ -82,9 +95,10 @@ describe('CycleGenerationController', () => {
         },
       ]);
 
-      const result = await controller.recalculateMaxes(PROGRAM);
+      const result = await controller.recalculateMaxes(PROGRAM, MOCK_USER);
 
-      expect(service.recalculateMaxes).toHaveBeenCalledWith(PROGRAM);
+      expect(factory.forUser).toHaveBeenCalledWith(MOCK_USER);
+      expect(service.recalculateMaxes).toHaveBeenCalledWith(MOCK_BUNDLE, PROGRAM);
       expect(result).toEqual([
         { lift: 'Squat', weight: 270, unit: 'lbs', dateUpdated: '2026-04-27' },
       ]);

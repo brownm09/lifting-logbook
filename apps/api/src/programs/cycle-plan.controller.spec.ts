@@ -1,51 +1,28 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { InMemoryBodyWeightRepository } from '../adapters/in-memory/body-weight.adapter';
-import { InMemoryCycleDashboardRepository } from '../adapters/in-memory/cycle-dashboard.adapter';
-import { InMemoryLiftRecordRepository } from '../adapters/in-memory/lift-record.adapter';
-import { InMemoryLiftingProgramSpecRepository } from '../adapters/in-memory/lifting-program-spec.adapter';
-import { InMemoryProgramPhilosophyRepository } from '../adapters/in-memory/program-philosophy.adapter';
-import { InMemoryTrainingMaxRepository } from '../adapters/in-memory/training-max.adapter';
-import { InMemoryWorkoutRepository } from '../adapters/in-memory/workout.adapter';
-import {
-  BODY_WEIGHT_REPOSITORY,
-  CYCLE_DASHBOARD_REPOSITORY,
-  CYCLE_PLANNING_AGENT,
-  LIFT_RECORD_REPOSITORY,
-  LIFTING_PROGRAM_SPEC_REPOSITORY,
-  PROGRAM_PHILOSOPHY_REPOSITORY,
-  TRAINING_MAX_REPOSITORY,
-  WORKOUT_REPOSITORY,
-} from '../ports/tokens';
+import { IRepositoryFactory, RepositoryBundle } from '../ports/factory';
 import { ICyclePlanningAgent } from '../ports/ICyclePlanningAgent';
+import { CYCLE_PLANNING_AGENT, REPOSITORY_FACTORY } from '../ports/tokens';
 import { CyclePlanController } from './cycle-plan.controller';
+
+const MOCK_USER = { id: 'test-user', email: 'test@example.com', provider: 'dev' };
+const MOCK_BUNDLE = {} as RepositoryBundle;
 
 describe('CyclePlanController', () => {
   let controller: CyclePlanController;
   let agent: jest.Mocked<ICyclePlanningAgent>;
+  let factory: jest.Mocked<IRepositoryFactory>;
 
   beforeEach(async () => {
     agent = { plan: jest.fn() };
+    factory = {
+      forUser: jest.fn().mockResolvedValue(MOCK_BUNDLE),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [CyclePlanController],
       providers: [
         { provide: CYCLE_PLANNING_AGENT, useValue: agent },
-        { provide: BODY_WEIGHT_REPOSITORY, useClass: InMemoryBodyWeightRepository },
-        {
-          provide: CYCLE_DASHBOARD_REPOSITORY,
-          useClass: InMemoryCycleDashboardRepository,
-        },
-        { provide: WORKOUT_REPOSITORY, useClass: InMemoryWorkoutRepository },
-        { provide: TRAINING_MAX_REPOSITORY, useClass: InMemoryTrainingMaxRepository },
-        { provide: LIFT_RECORD_REPOSITORY, useClass: InMemoryLiftRecordRepository },
-        {
-          provide: LIFTING_PROGRAM_SPEC_REPOSITORY,
-          useClass: InMemoryLiftingProgramSpecRepository,
-        },
-        {
-          provide: PROGRAM_PHILOSOPHY_REPOSITORY,
-          useClass: InMemoryProgramPhilosophyRepository,
-        },
+        { provide: REPOSITORY_FACTORY, useValue: factory },
       ],
     }).compile();
 
@@ -70,13 +47,13 @@ describe('CyclePlanController', () => {
       program: '5-3-1',
       goal: 'peak my squat',
       cycleNum: 2,
-    });
+    }, MOCK_USER);
 
+    expect(factory.forUser).toHaveBeenCalledWith(MOCK_USER);
     expect(agent.plan).toHaveBeenCalledTimes(1);
     const [repos, request] = agent.plan.mock.calls[0]!;
     expect(request).toEqual({ program: '5-3-1', goal: 'peak my squat', cycleNum: 2 });
-    expect(repos.cycleDashboard).toBeDefined();
-    expect(repos.programPhilosophy).toBeDefined();
+    expect(repos).toBe(MOCK_BUNDLE);
     expect(result).toEqual({
       proposedChanges: [
         {
@@ -103,7 +80,7 @@ describe('CyclePlanController', () => {
       program: '5-3-1',
       goal: 'lean out',
       cycleNum: 3,
-    });
+    }, MOCK_USER);
 
     expect(result.partial).toBe(true);
     expect(result.partialReason).toBe('deadline');
@@ -122,7 +99,7 @@ describe('CyclePlanController', () => {
       program: '5-3-1',
       goal: 'add 50 lbs to squat',
       cycleNum: 5,
-    });
+    }, MOCK_USER);
 
     expect(result.partial).toBe(true);
     expect(result.partialReason).toBe('budget');

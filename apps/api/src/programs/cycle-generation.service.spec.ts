@@ -1,15 +1,10 @@
 import { BadRequestException } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import { Weekday } from '@lifting-logbook/core';
 import {
   ICycleDashboardRepository,
   ILiftRecordRepository,
   ILiftingProgramSpecRepository,
   ITrainingMaxRepository,
-  CYCLE_DASHBOARD_REPOSITORY,
-  LIFT_RECORD_REPOSITORY,
-  LIFTING_PROGRAM_SPEC_REPOSITORY,
-  TRAINING_MAX_REPOSITORY,
 } from '../ports';
 import { CycleGenerationService } from './cycle-generation.service';
 
@@ -68,8 +63,14 @@ describe('CycleGenerationService', () => {
   let programSpecRepo: jest.Mocked<ILiftingProgramSpecRepository>;
   let trainingMaxRepo: jest.Mocked<ITrainingMaxRepository>;
   let liftRecordRepo: jest.Mocked<ILiftRecordRepository>;
+  let repos: {
+    cycleDashboard: jest.Mocked<ICycleDashboardRepository>;
+    liftingProgramSpec: jest.Mocked<ILiftingProgramSpecRepository>;
+    trainingMax: jest.Mocked<ITrainingMaxRepository>;
+    liftRecord: jest.Mocked<ILiftRecordRepository>;
+  };
 
-  beforeEach(async () => {
+  beforeEach(() => {
     cycleDashboardRepo = {
       getCycleDashboard: jest.fn(),
       saveCycleDashboard: jest.fn().mockResolvedValue(undefined),
@@ -85,21 +86,13 @@ describe('CycleGenerationService', () => {
       getLiftRecords: jest.fn(),
       appendLiftRecords: jest.fn().mockResolvedValue(undefined),
     };
-
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        CycleGenerationService,
-        { provide: CYCLE_DASHBOARD_REPOSITORY, useValue: cycleDashboardRepo },
-        {
-          provide: LIFTING_PROGRAM_SPEC_REPOSITORY,
-          useValue: programSpecRepo,
-        },
-        { provide: TRAINING_MAX_REPOSITORY, useValue: trainingMaxRepo },
-        { provide: LIFT_RECORD_REPOSITORY, useValue: liftRecordRepo },
-      ],
-    }).compile();
-
-    service = module.get(CycleGenerationService);
+    repos = {
+      cycleDashboard: cycleDashboardRepo,
+      liftingProgramSpec: programSpecRepo,
+      trainingMax: trainingMaxRepo,
+      liftRecord: liftRecordRepo,
+    };
+    service = new CycleGenerationService();
   });
 
   describe('startNewCycle', () => {
@@ -109,22 +102,19 @@ describe('CycleGenerationService', () => {
       trainingMaxRepo.getTrainingMaxes.mockResolvedValue(stubTrainingMaxes());
       liftRecordRepo.getLiftRecords.mockResolvedValue(stubLiftRecords());
 
-      const result = await service.startNewCycle(PROGRAM);
+      const result = await service.startNewCycle(repos, PROGRAM);
 
-      // Cycle number must advance by 1
       expect(result.cycleNum).toBe(2);
       expect(result.program).toBe(PROGRAM);
 
-      // Dashboard saved with the new cycle
       expect(cycleDashboardRepo.saveCycleDashboard).toHaveBeenCalledWith(
         expect.objectContaining({ cycleNum: 2 }),
       );
 
-      // Training maxes saved — Squat record has reps >= spec and date after current max
       expect(trainingMaxRepo.saveTrainingMaxes).toHaveBeenCalledWith(
         PROGRAM,
         expect.arrayContaining([
-          expect.objectContaining({ lift: 'Squat', weight: 270 }), // 265 + 5 increment
+          expect.objectContaining({ lift: 'Squat', weight: 270 }),
         ]),
       );
     });
@@ -135,7 +125,7 @@ describe('CycleGenerationService', () => {
       trainingMaxRepo.getTrainingMaxes.mockResolvedValue(stubTrainingMaxes());
       liftRecordRepo.getLiftRecords.mockResolvedValue([]);
 
-      await service.startNewCycle(PROGRAM);
+      await service.startNewCycle(repos, PROGRAM);
 
       expect(liftRecordRepo.getLiftRecords).toHaveBeenCalledWith(PROGRAM, 1);
     });
@@ -145,21 +135,20 @@ describe('CycleGenerationService', () => {
         new Error('Program not found'),
       );
 
-      await expect(service.startNewCycle('unknown')).rejects.toThrow(
+      await expect(service.startNewCycle(repos, 'unknown')).rejects.toThrow(
         'Program not found',
       );
     });
 
     it('fetches records for fromCycleNum when provided and advances from that cycle', async () => {
-      cycleDashboardRepo.getCycleDashboard.mockResolvedValue(stubDashboard()); // cycleNum: 1
+      cycleDashboardRepo.getCycleDashboard.mockResolvedValue(stubDashboard());
       programSpecRepo.getProgramSpec.mockResolvedValue(stubProgramSpec());
       trainingMaxRepo.getTrainingMaxes.mockResolvedValue(stubTrainingMaxes());
       liftRecordRepo.getLiftRecords.mockResolvedValue(stubLiftRecords());
 
-      const result = await service.startNewCycle(PROGRAM, { fromCycleNum: 3 });
+      const result = await service.startNewCycle(repos, PROGRAM, { fromCycleNum: 3 });
 
       expect(liftRecordRepo.getLiftRecords).toHaveBeenCalledWith(PROGRAM, 3);
-      // Advances from cycle 3 → 4, not from current dashboard cycle 1 → 2
       expect(result.cycleNum).toBe(4);
     });
 
@@ -170,7 +159,7 @@ describe('CycleGenerationService', () => {
       liftRecordRepo.getLiftRecords.mockResolvedValue([]);
 
       await expect(
-        service.startNewCycle(PROGRAM, { fromCycleNum: 5 }),
+        service.startNewCycle(repos, PROGRAM, { fromCycleNum: 5 }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -180,7 +169,7 @@ describe('CycleGenerationService', () => {
       trainingMaxRepo.getTrainingMaxes.mockResolvedValue(stubTrainingMaxes());
       liftRecordRepo.getLiftRecords.mockResolvedValue(stubLiftRecords());
 
-      const result = await service.startNewCycle(PROGRAM, { cycleDate: '2026-06-01' });
+      const result = await service.startNewCycle(repos, PROGRAM, { cycleDate: '2026-06-01' });
 
       expect(result.cycleDate).toEqual(new Date('2026-06-01T00:00:00.000Z'));
     });
@@ -193,17 +182,14 @@ describe('CycleGenerationService', () => {
       trainingMaxRepo.getTrainingMaxes.mockResolvedValue(stubTrainingMaxes());
       liftRecordRepo.getLiftRecords.mockResolvedValue(stubLiftRecords());
 
-      const result = await service.recalculateMaxes(PROGRAM);
+      const result = await service.recalculateMaxes(repos, PROGRAM);
 
       expect(result).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ lift: 'Squat', weight: 270 }),
         ]),
       );
-      expect(trainingMaxRepo.saveTrainingMaxes).toHaveBeenCalledWith(
-        PROGRAM,
-        result,
-      );
+      expect(trainingMaxRepo.saveTrainingMaxes).toHaveBeenCalledWith(PROGRAM, result);
     });
 
     it('does not call saveCycleDashboard', async () => {
@@ -212,7 +198,7 @@ describe('CycleGenerationService', () => {
       trainingMaxRepo.getTrainingMaxes.mockResolvedValue(stubTrainingMaxes());
       liftRecordRepo.getLiftRecords.mockResolvedValue([]);
 
-      await service.recalculateMaxes(PROGRAM);
+      await service.recalculateMaxes(repos, PROGRAM);
 
       expect(cycleDashboardRepo.saveCycleDashboard).not.toHaveBeenCalled();
     });
@@ -223,7 +209,7 @@ describe('CycleGenerationService', () => {
       trainingMaxRepo.getTrainingMaxes.mockResolvedValue(stubTrainingMaxes());
       liftRecordRepo.getLiftRecords.mockResolvedValue([]);
 
-      const result = await service.recalculateMaxes(PROGRAM);
+      const result = await service.recalculateMaxes(repos, PROGRAM);
 
       expect(result).toEqual(
         expect.arrayContaining([

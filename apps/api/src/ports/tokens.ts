@@ -11,3 +11,4 @@ export const PROGRAM_PHILOSOPHY_REPOSITORY = Symbol(
 );
 export const CYCLE_PLANNING_AGENT = Symbol('ICyclePlanningAgent');
 export const AUTH_PROVIDER = Symbol('IAuthProvider');
+export const REPOSITORY_FACTORY = Symbol('IRepositoryFactory');

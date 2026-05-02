@@ -22,12 +22,14 @@
     "fastify": "^4.0.0",
     "openai": "^6.35.0",
     "reflect-metadata": "^0.2.0",
+    "pg": "^8.13.0",
     "rxjs": "^7.8.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.0.0",
     "@nestjs/schematics": "^10.0.0",
     "@nestjs/testing": "^10.0.0",
+    "@types/pg": "^8.11.0",
     "ts-node": "^10.9.0",
     "tsconfig-paths": "^4.2.0"
   }
