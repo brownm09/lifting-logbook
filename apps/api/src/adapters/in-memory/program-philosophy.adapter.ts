@@ -1,4 +1,3 @@
-import { Injectable } from '@nestjs/common';
 import {
   IProgramPhilosophyRepository,
   ProgramPhilosophy,
@@ -101,7 +100,6 @@ const PHILOSOPHIES: ProgramPhilosophy[] = [
   },
 ];
 
-@Injectable()
 export class InMemoryProgramPhilosophyRepository
   implements IProgramPhilosophyRepository
 {

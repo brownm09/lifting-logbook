@@ -8,19 +8,24 @@ import { InMemoryProgramPhilosophyRepository } from '../in-memory/program-philos
 import { InMemoryTrainingMaxRepository } from '../in-memory/training-max.adapter';
 import { InMemoryWorkoutRepository } from '../in-memory/workout.adapter';
 
+// The dev seed user gets pre-populated training maxes so existing tests that
+// rely on seeded data continue to work without additional setup.
+const SEED_USER_ID = process.env.DEV_USER_ID ?? 'dev-token';
+
 @Injectable()
 export class InMemoryRepositoryFactory implements IRepositoryFactory {
   private readonly bundles = new Map<string, RepositoryBundle>();
 
   async forUser(user: AuthUser): Promise<RepositoryBundle> {
     if (!this.bundles.has(user.id)) {
+      const preSeed = user.id === SEED_USER_ID;
       this.bundles.set(user.id, {
-        cycleDashboard: new InMemoryCycleDashboardRepository(),
-        liftingProgramSpec: new InMemoryLiftingProgramSpecRepository(),
-        liftRecord: new InMemoryLiftRecordRepository(),
+        cycleDashboard: new InMemoryCycleDashboardRepository(preSeed),
+        liftingProgramSpec: new InMemoryLiftingProgramSpecRepository(preSeed),
+        liftRecord: new InMemoryLiftRecordRepository(preSeed),
         programPhilosophy: new InMemoryProgramPhilosophyRepository(),
-        trainingMax: new InMemoryTrainingMaxRepository(),
-        workout: new InMemoryWorkoutRepository(),
+        trainingMax: new InMemoryTrainingMaxRepository(preSeed),
+        workout: new InMemoryWorkoutRepository(preSeed),
       });
     }
     return this.bundles.get(user.id)!;

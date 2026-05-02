@@ -1,4 +1,3 @@
-import { Injectable } from '@nestjs/common';
 import { LiftRecord } from '@lifting-logbook/core';
 import { IWorkoutRepository } from '../../ports/IWorkoutRepository';
 import { WorkoutNotFoundError } from '../../ports/errors';
@@ -7,13 +6,14 @@ import { SEED_PROGRAM, seedLiftRecords } from './fixtures';
 const workoutKey = (program: string, cycleNum: number, workoutNum: number) =>
   `${program}::${cycleNum}::${workoutNum}`;
 
-@Injectable()
 export class InMemoryWorkoutRepository implements IWorkoutRepository {
-  private workouts = new Map<string, LiftRecord[]>();
+  private workouts: Map<string, LiftRecord[]>;
 
-  constructor() {
-    const seed = seedLiftRecords();
-    this.workouts.set(workoutKey(SEED_PROGRAM, 1, 1), seed);
+  constructor(preSeed = false) {
+    this.workouts = new Map();
+    if (preSeed) {
+      this.workouts.set(workoutKey(SEED_PROGRAM, 1, 1), seedLiftRecords());
+    }
   }
 
   async getWorkout(
