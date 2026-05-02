@@ -109,14 +109,13 @@ First deployable version. Styled web app running against a real database, deploy
 |---|---|---|
 | Design system and styling | Global CSS reset, design tokens, and styled screens informed by Claude Design mockups | [#148](https://github.com/brownm09/lifting-logbook/issues/148) |
 | Deployment infrastructure | Cloud Run or GKE manifests, Terraform shared infra, CI/CD deploy on merge | [#149](https://github.com/brownm09/lifting-logbook/issues/149) |
-| Real database adapter | Prisma schema, `SystemDbRepositoryFactory` implementations, migration runner | [#150](https://github.com/brownm09/lifting-logbook/issues/150) |
 | Database integration tests | E2e suite against real Postgres; covers PATCH endpoint gap and row-level isolation | [#151](https://github.com/brownm09/lifting-logbook/issues/151) |
 
 ### Shipped
 
 | Work stream | Description | Issues |
 |---|---|---|
-| *(none yet)* | | |
+| Real database adapter | Prisma schema, `SystemDbRepositoryFactory` implementations, migration runner | [#150](https://github.com/brownm09/lifting-logbook/issues/150) |
 
 ### Proposals
 
