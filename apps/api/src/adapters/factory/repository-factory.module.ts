@@ -8,9 +8,10 @@ import { REPOSITORY_FACTORY } from '../../ports/tokens';
   providers: [
     {
       provide: REPOSITORY_FACTORY,
-      useClass: process.env.SYSTEM_DATABASE_URL
-        ? SystemDbRepositoryFactory
-        : InMemoryRepositoryFactory,
+      useFactory: () =>
+        process.env.SYSTEM_DATABASE_URL
+          ? new SystemDbRepositoryFactory()
+          : new InMemoryRepositoryFactory(),
     },
   ],
   exports: [REPOSITORY_FACTORY],

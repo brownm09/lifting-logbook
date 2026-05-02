@@ -1,8 +1,14 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
 import { AuthUser, IAuthProvider } from '../../ports/auth';
 
 @Injectable()
 export class DevAuthProvider implements IAuthProvider {
+  constructor() {
+    if (process.env.NODE_ENV === 'production') {
+      throw new InternalServerErrorException('DevAuthProvider must not run in production');
+    }
+  }
+
   async verifyToken(token: string): Promise<AuthUser> {
     if (!token) throw new UnauthorizedException();
     // Use the token value as the user ID so different tokens → different users,

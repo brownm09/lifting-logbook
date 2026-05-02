@@ -193,56 +193,38 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
   });
 
   it('isolates adapter state between users', async () => {
-    const inject = app.getHttpAdapter().getInstance().inject.bind(
+    const injectRaw = app.getHttpAdapter().getInstance().inject.bind(
       app.getHttpAdapter().getInstance(),
     );
 
     const AS_ALICE = { authorization: 'Bearer user-alice' };
-    const AS_BOB = { authorization: 'Bearer user-bob' };
+    const AS_BOB   = { authorization: 'Bearer user-bob'  };
 
-    // Alice reads her seeded training maxes (baseline)
-    const aliceBaseline = await inject({
-      method: 'GET',
-      url: `/programs/${SEED_PROGRAM}/training-maxes`,
-      headers: AS_ALICE,
-    });
-    expect(aliceBaseline.statusCode).toBe(200);
-    const aliceOriginalSquat = aliceBaseline
-      .json()
-      .find((m: { lift: string }) => m.lift === 'Squat').weight;
-
-    // Alice writes a distinctive training max value
-    const aliceSquatOverride = 999;
-    const patchRes = await inject({
+    // Alice writes a distinctive training max — her bundle starts empty, this creates it.
+    const patchRes = await injectRaw({
       method: 'PATCH',
       url: `/programs/${SEED_PROGRAM}/training-maxes`,
       headers: { 'content-type': 'application/json', ...AS_ALICE },
-      payload: JSON.stringify({ maxes: [{ lift: 'Squat', weight: aliceSquatOverride }] }),
+      payload: JSON.stringify({ maxes: [{ lift: 'Squat', weight: 999 }] }),
     });
     expect(patchRes.statusCode).toBe(200);
 
-    // Alice now sees her updated value
-    const aliceAfter = await inject({
+    // Alice sees her value.
+    const aliceRes = await injectRaw({
       method: 'GET',
       url: `/programs/${SEED_PROGRAM}/training-maxes`,
       headers: AS_ALICE,
     });
-    const aliceSquatAfter = aliceAfter
-      .json()
-      .find((m: { lift: string }) => m.lift === 'Squat').weight;
-    expect(aliceSquatAfter).toBe(aliceSquatOverride);
+    expect(aliceRes.json().find((m: { lift: string }) => m.lift === 'Squat')?.weight).toBe(999);
 
-    // Bob reads the same program — should see the seeded value, not Alice's write
-    const bobRes = await inject({
+    // Bob reads the same program — his bundle is independent; Alice's write must not appear.
+    const bobRes = await injectRaw({
       method: 'GET',
       url: `/programs/${SEED_PROGRAM}/training-maxes`,
       headers: AS_BOB,
     });
     expect(bobRes.statusCode).toBe(200);
-    const bobSquat = bobRes
-      .json()
-      .find((m: { lift: string }) => m.lift === 'Squat').weight;
-    expect(bobSquat).toBe(aliceOriginalSquat);
-    expect(bobSquat).not.toBe(aliceSquatOverride);
+    const bobSquat = bobRes.json().find((m: { lift: string }) => m.lift === 'Squat');
+    expect(bobSquat).toBeUndefined();
   });
 });

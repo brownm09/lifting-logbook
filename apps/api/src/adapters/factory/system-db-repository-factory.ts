@@ -14,36 +14,42 @@ interface UserDataSourceRow {
   adapter_config: unknown;
 }
 
-interface CachedEntry {
-  bundle: RepositoryBundle;
-  expiresAt: number;
-}
-
-const TTL_MS = 5 * 60 * 1000;
-
 @Injectable()
 export class SystemDbRepositoryFactory implements IRepositoryFactory, OnModuleDestroy {
   private readonly pool: Pool;
-  private readonly cache = new Map<string, CachedEntry>();
+  // Bundles are kept permanently — TTL eviction would discard mutable in-memory state.
+  // When real persistent adapters land, replace this with adapter handle caching.
+  private readonly bundles = new Map<string, RepositoryBundle>();
+  private readonly inFlight = new Map<string, Promise<RepositoryBundle>>();
 
   constructor() {
     this.pool = new Pool({ connectionString: process.env.SYSTEM_DATABASE_URL });
   }
 
   async forUser(user: AuthUser): Promise<RepositoryBundle> {
-    const cached = this.cache.get(user.id);
-    if (cached && cached.expiresAt > Date.now()) {
-      return cached.bundle;
-    }
+    const existing = this.bundles.get(user.id);
+    if (existing) return existing;
 
+    // Single-flight: coalesce concurrent first-time requests for the same user.
+    let pending = this.inFlight.get(user.id);
+    if (!pending) {
+      pending = this.createBundle(user.id).finally(() => {
+        this.inFlight.delete(user.id);
+      });
+      this.inFlight.set(user.id, pending);
+    }
+    return pending;
+  }
+
+  private async createBundle(userId: string): Promise<RepositoryBundle> {
     const result = await this.pool.query<UserDataSourceRow>(
       'SELECT adapter_type, adapter_config FROM user_data_source WHERE user_id = $1',
-      [user.id],
+      [userId],
     );
 
     const row = result.rows[0];
     const bundle = this.makeBundle(row?.adapter_type ?? 'in-memory', row?.adapter_config);
-    this.cache.set(user.id, { bundle, expiresAt: Date.now() + TTL_MS });
+    this.bundles.set(userId, bundle);
     return bundle;
   }
 
