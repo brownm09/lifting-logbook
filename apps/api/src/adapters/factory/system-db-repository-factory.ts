@@ -1,7 +1,12 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
 import { AuthUser } from '../../ports/auth';
 import { IRepositoryFactory, RepositoryBundle } from '../../ports/factory';
+import { PrismaLiftRecordRepository } from '../prisma/lift-record.repository';
+import { PrismaTrainingMaxRepository } from '../prisma/training-max.repository';
+import { PrismaCycleDashboardRepository } from '../prisma/cycle-dashboard.repository';
+import { PrismaWorkoutRepository } from '../prisma/workout.repository';
 import { InMemoryCycleDashboardRepository } from '../in-memory/cycle-dashboard.adapter';
 import { InMemoryLiftingProgramSpecRepository } from '../in-memory/lifting-program-spec.adapter';
 import { InMemoryLiftRecordRepository } from '../in-memory/lift-record.adapter';
@@ -18,9 +23,13 @@ interface UserDataSourceRow {
 export class SystemDbRepositoryFactory implements IRepositoryFactory, OnModuleDestroy {
   private readonly pool: Pool;
   // Bundles are kept permanently — TTL eviction would discard mutable in-memory state.
-  // When real persistent adapters land, replace this with adapter handle caching.
   private readonly bundles = new Map<string, RepositoryBundle>();
   private readonly inFlight = new Map<string, Promise<RepositoryBundle>>();
+  // Lazily initialised when the first 'postgres' adapter_type is encountered.
+  private prisma: PrismaClient | null = null;
+  // Static data repos are shared across all users — they hold no per-user mutable state.
+  private readonly programSpecRepo = new InMemoryLiftingProgramSpecRepository();
+  private readonly philosophyRepo = new InMemoryProgramPhilosophyRepository();
 
   constructor() {
     this.pool = new Pool({ connectionString: process.env.SYSTEM_DATABASE_URL });
@@ -48,24 +57,51 @@ export class SystemDbRepositoryFactory implements IRepositoryFactory, OnModuleDe
     );
 
     const row = result.rows[0];
-    const bundle = this.makeBundle(row?.adapter_type ?? 'in-memory', row?.adapter_config);
+    const bundle = this.makeBundle(userId, row?.adapter_type ?? 'in-memory', row?.adapter_config);
     this.bundles.set(userId, bundle);
     return bundle;
   }
 
-  // Only 'in-memory' is supported in v0.3; per-user adapter types (Sheets, Postgres) follow.
-  private makeBundle(_adapterType: string, _config: unknown): RepositoryBundle {
+  // _config is reserved for per-user connection overrides (e.g. separate Postgres instances per user).
+  // Currently all postgres users share USER_DATA_DATABASE_URL. Wire _config when per-user connections are needed.
+  private makeBundle(userId: string, adapterType: string, _config: unknown): RepositoryBundle {
+    if (adapterType === 'postgres') {
+      const prisma = this.getOrCreatePrisma();
+      return {
+        liftRecord: new PrismaLiftRecordRepository(prisma, userId),
+        trainingMax: new PrismaTrainingMaxRepository(prisma, userId),
+        cycleDashboard: new PrismaCycleDashboardRepository(prisma, userId),
+        workout: new PrismaWorkoutRepository(prisma, userId),
+        liftingProgramSpec: this.programSpecRepo,
+        programPhilosophy: this.philosophyRepo,
+      };
+    }
+
     return {
       cycleDashboard: new InMemoryCycleDashboardRepository(),
-      liftingProgramSpec: new InMemoryLiftingProgramSpecRepository(),
+      liftingProgramSpec: this.programSpecRepo,
       liftRecord: new InMemoryLiftRecordRepository(),
-      programPhilosophy: new InMemoryProgramPhilosophyRepository(),
+      programPhilosophy: this.philosophyRepo,
       trainingMax: new InMemoryTrainingMaxRepository(),
       workout: new InMemoryWorkoutRepository(),
     };
   }
 
+  private getOrCreatePrisma(): PrismaClient {
+    if (!this.prisma) {
+      const url = process.env.USER_DATA_DATABASE_URL;
+      if (!url) {
+        throw new Error(
+          'USER_DATA_DATABASE_URL must be set when adapter_type=postgres is configured in user_data_source. ' +
+            'This env var is separate from DATABASE_URL (the shared-DB / PrismaRepositoryFactory path).',
+        );
+      }
+      this.prisma = new PrismaClient({ datasources: { db: { url } } });
+    }
+    return this.prisma;
+  }
+
   async onModuleDestroy() {
-    await this.pool.end();
+    await Promise.all([this.pool.end(), this.prisma?.$disconnect()]);
   }
 }
