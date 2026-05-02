@@ -9,7 +9,7 @@ import { AuthUser, IAuthProvider } from '../../ports/auth';
 @Injectable()
 export class ClerkAuthProvider implements IAuthProvider {
   private readonly client = createClerkClient({
-    secretKey: process.env.CLERK_SECRET_KEY,
+    secretKey: process.env.CLERK_SECRET_KEY!,
   });
 
   async verifyToken(token: string): Promise<AuthUser> {
@@ -30,12 +30,13 @@ export class ClerkAuthProvider implements IAuthProvider {
     // Step 2: fetch user profile — throws ServiceUnavailableException on Clerk API error
     try {
       const user = await this.client.users.getUser(sub);
-      return {
+      const result: AuthUser = {
         id: user.id,
         email: user.primaryEmailAddress?.emailAddress ?? '',
         provider: 'clerk',
-        displayName: user.fullName ?? undefined,
       };
+      if (user.fullName) result.displayName = user.fullName;
+      return result;
     } catch {
       throw new ServiceUnavailableException('Auth service unavailable');
     }
