@@ -8,11 +8,15 @@ import { REPOSITORY_FACTORY } from '../../ports/tokens';
 @Global()
 @Module({
   providers: [
-    PrismaService,
+    // Only instantiate PrismaService (and load the Prisma engine binary) when DATABASE_URL is set.
+    {
+      provide: PrismaService,
+      useFactory: () => (process.env.DATABASE_URL ? new PrismaService() : null),
+    },
     {
       provide: REPOSITORY_FACTORY,
-      useFactory: (prisma: PrismaService) => {
-        if (process.env.DATABASE_URL) {
+      useFactory: (prisma: PrismaService | null) => {
+        if (process.env.DATABASE_URL && prisma) {
           return new PrismaRepositoryFactory(prisma);
         }
         if (process.env.SYSTEM_DATABASE_URL) {
@@ -20,7 +24,7 @@ import { REPOSITORY_FACTORY } from '../../ports/tokens';
         }
         return new InMemoryRepositoryFactory();
       },
-      inject: [PrismaService],
+      inject: [{ token: PrismaService, optional: true }],
     },
   ],
   exports: [REPOSITORY_FACTORY],
