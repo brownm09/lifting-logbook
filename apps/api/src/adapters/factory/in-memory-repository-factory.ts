@@ -8,6 +8,10 @@ import { InMemoryProgramPhilosophyRepository } from '../in-memory/program-philos
 import { InMemoryTrainingMaxRepository } from '../in-memory/training-max.adapter';
 import { InMemoryWorkoutRepository } from '../in-memory/workout.adapter';
 
+// The dev seed user gets pre-populated training maxes so existing tests that
+// rely on seeded data continue to work without additional setup.
+const SEED_USER_ID = process.env.DEV_USER_ID ?? 'dev-token';
+
 @Injectable()
 export class InMemoryRepositoryFactory implements IRepositoryFactory {
   private readonly bundles = new Map<string, RepositoryBundle>();
@@ -19,7 +23,7 @@ export class InMemoryRepositoryFactory implements IRepositoryFactory {
         liftingProgramSpec: new InMemoryLiftingProgramSpecRepository(),
         liftRecord: new InMemoryLiftRecordRepository(),
         programPhilosophy: new InMemoryProgramPhilosophyRepository(),
-        trainingMax: new InMemoryTrainingMaxRepository(),
+        trainingMax: new InMemoryTrainingMaxRepository(user.id === SEED_USER_ID),
         workout: new InMemoryWorkoutRepository(),
       });
     }

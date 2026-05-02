@@ -5,9 +5,13 @@ import { SEED_PROGRAM, seedTrainingMaxes } from './fixtures';
 
 @Injectable()
 export class InMemoryTrainingMaxRepository implements ITrainingMaxRepository {
-  private maxesByProgram = new Map<string, TrainingMax[]>([
-    [SEED_PROGRAM, seedTrainingMaxes()],
-  ]);
+  private maxesByProgram: Map<string, TrainingMax[]>;
+
+  constructor(preSeed = false) {
+    this.maxesByProgram = preSeed
+      ? new Map([[SEED_PROGRAM, seedTrainingMaxes()]])
+      : new Map();
+  }
 
   async getTrainingMaxes(program: string): Promise<TrainingMax[]> {
     return this.maxesByProgram.get(program) ?? [];
