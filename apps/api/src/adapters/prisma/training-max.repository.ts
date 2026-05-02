@@ -20,7 +20,7 @@ export class PrismaTrainingMaxRepository implements ITrainingMaxRepository {
   }
 
   async saveTrainingMaxes(program: string, maxes: TrainingMax[]): Promise<void> {
-    await Promise.all(
+    await this.prisma.$transaction(
       maxes.map((m) =>
         this.prisma.trainingMax.upsert({
           where: {

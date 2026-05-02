@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { LiftRecord } from '@lifting-logbook/core';
 import { IWorkoutRepository } from '../../ports/IWorkoutRepository';
 import { WorkoutNotFoundError } from '../../ports/errors';
+import { rowToLiftRecord } from './lift-record.repository';
 
 export class PrismaWorkoutRepository implements IWorkoutRepository {
   constructor(
@@ -15,17 +16,7 @@ export class PrismaWorkoutRepository implements IWorkoutRepository {
       orderBy: [{ lift: 'asc' }, { setNum: 'asc' }],
     });
     if (rows.length === 0) throw new WorkoutNotFoundError(program, cycleNum, workoutNum);
-    return rows.map((r) => ({
-      program: r.program,
-      cycleNum: r.cycleNum,
-      workoutNum: r.workoutNum,
-      date: r.date,
-      lift: r.lift,
-      setNum: r.setNum,
-      weight: r.weight,
-      reps: r.reps,
-      notes: r.notes,
-    }));
+    return rows.map(rowToLiftRecord);
   }
 
   async saveWorkout(
@@ -42,8 +33,8 @@ export class PrismaWorkoutRepository implements IWorkoutRepository {
         data: records.map((r) => ({
           userId: this.userId,
           program,
-          cycleNum: r.cycleNum,
-          workoutNum: r.workoutNum,
+          cycleNum,
+          workoutNum,
           date: r.date,
           lift: r.lift,
           setNum: r.setNum,

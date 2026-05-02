@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { LiftRecord } from '@lifting-logbook/core';
 import { ILiftRecordRepository } from '../../ports/ILiftRecordRepository';
 
@@ -41,26 +41,28 @@ export class PrismaLiftRecordRepository implements ILiftRecordRepository {
     const parsed = parseLiftRecordId(program, id);
     if (!parsed) return null;
 
-    const existing = await this.prisma.liftRecord.findUnique({
-      where: {
-        userId_program_cycleNum_workoutNum_lift_setNum: {
-          userId: this.userId,
-          program,
-          ...parsed,
+    try {
+      const updated = await this.prisma.liftRecord.update({
+        where: {
+          userId_program_cycleNum_workoutNum_lift_setNum: {
+            userId: this.userId,
+            program,
+            ...parsed,
+          },
         },
-      },
-    });
-    if (!existing) return null;
-
-    const updated = await this.prisma.liftRecord.update({
-      where: { id: existing.id },
-      data: {
-        ...(updates.weight !== undefined && { weight: updates.weight }),
-        ...(updates.reps !== undefined && { reps: updates.reps }),
-        ...(updates.notes !== undefined && { notes: updates.notes }),
-      },
-    });
-    return rowToLiftRecord(updated);
+        data: {
+          ...(updates.weight !== undefined && { weight: updates.weight }),
+          ...(updates.reps !== undefined && { reps: updates.reps }),
+          ...(updates.notes !== undefined && { notes: updates.notes }),
+        },
+      });
+      return rowToLiftRecord(updated);
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2025') {
+        return null;
+      }
+      throw e;
+    }
   }
 }
 
@@ -85,7 +87,7 @@ function parseLiftRecordId(
   return { cycleNum, workoutNum, lift, setNum };
 }
 
-function rowToLiftRecord(row: {
+export function rowToLiftRecord(row: {
   program: string;
   cycleNum: number;
   workoutNum: number;

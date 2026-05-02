@@ -62,6 +62,8 @@ export class SystemDbRepositoryFactory implements IRepositoryFactory, OnModuleDe
     return bundle;
   }
 
+  // _config is reserved for per-user connection overrides (e.g. separate Postgres instances per user).
+  // Currently all postgres users share USER_DATA_DATABASE_URL. Wire _config when per-user connections are needed.
   private makeBundle(userId: string, adapterType: string, _config: unknown): RepositoryBundle {
     if (adapterType === 'postgres') {
       const prisma = this.getOrCreatePrisma();
@@ -87,9 +89,14 @@ export class SystemDbRepositoryFactory implements IRepositoryFactory, OnModuleDe
 
   private getOrCreatePrisma(): PrismaClient {
     if (!this.prisma) {
-      this.prisma = new PrismaClient({
-        datasources: { db: { url: process.env.DATABASE_URL ?? '' } },
-      });
+      const url = process.env.USER_DATA_DATABASE_URL;
+      if (!url) {
+        throw new Error(
+          'USER_DATA_DATABASE_URL must be set when adapter_type=postgres is configured in user_data_source. ' +
+            'This env var is separate from DATABASE_URL (the shared-DB / PrismaRepositoryFactory path).',
+        );
+      }
+      this.prisma = new PrismaClient({ datasources: { db: { url } } });
     }
     return this.prisma;
   }
