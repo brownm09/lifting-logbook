@@ -18,13 +18,14 @@ export class InMemoryRepositoryFactory implements IRepositoryFactory {
 
   async forUser(user: AuthUser): Promise<RepositoryBundle> {
     if (!this.bundles.has(user.id)) {
+      const preSeed = user.id === SEED_USER_ID;
       this.bundles.set(user.id, {
-        cycleDashboard: new InMemoryCycleDashboardRepository(),
-        liftingProgramSpec: new InMemoryLiftingProgramSpecRepository(),
-        liftRecord: new InMemoryLiftRecordRepository(),
+        cycleDashboard: new InMemoryCycleDashboardRepository(preSeed),
+        liftingProgramSpec: new InMemoryLiftingProgramSpecRepository(preSeed),
+        liftRecord: new InMemoryLiftRecordRepository(preSeed),
         programPhilosophy: new InMemoryProgramPhilosophyRepository(),
-        trainingMax: new InMemoryTrainingMaxRepository(user.id === SEED_USER_ID),
-        workout: new InMemoryWorkoutRepository(),
+        trainingMax: new InMemoryTrainingMaxRepository(preSeed),
+        workout: new InMemoryWorkoutRepository(preSeed),
       });
     }
     return this.bundles.get(user.id)!;

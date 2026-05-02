@@ -1,9 +1,7 @@
-import { Injectable } from '@nestjs/common';
 import { TrainingMax } from '@lifting-logbook/core';
 import { ITrainingMaxRepository } from '../../ports/ITrainingMaxRepository';
 import { SEED_PROGRAM, seedTrainingMaxes } from './fixtures';
 
-@Injectable()
 export class InMemoryTrainingMaxRepository implements ITrainingMaxRepository {
   private maxesByProgram: Map<string, TrainingMax[]>;
 
