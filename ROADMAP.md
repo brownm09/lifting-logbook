@@ -86,6 +86,7 @@ Web and mobile clients functional end-to-end. Key user-facing features implement
 | Workout Logging Screen | Per-exercise logging with warm-ups, bodyweight gate, and whole-workout overview toggle; `POST /lift-records`, `PATCH /lift-records/:id`, `GET/POST /body-weight/latest` | [#133](https://github.com/brownm09/lifting-logbook/issues/133) |
 | Cycle planning — implementation | LLM-powered training cycle recommendations with swappable providers, using design from ADR-016 | [#54](https://github.com/brownm09/lifting-logbook/issues/54) |
 | A/B comparison documentation | Exit criteria and CI event taxonomy enforcement for Express/NestJS comparison | [#41](https://github.com/brownm09/lifting-logbook/issues/41) |
+| Per-user repository factory | `IRepositoryFactory` port with `forUser(AuthUser)`, `InMemoryRepositoryFactory` (per-user isolated bundles), `SystemDbRepositoryFactory` (adapter-type dispatch + single-flight cache); all 8 controllers threaded through factory; auth guard isolation E2E test | [#144](https://github.com/brownm09/lifting-logbook/issues/144) |
 
 ### Proposals
 
