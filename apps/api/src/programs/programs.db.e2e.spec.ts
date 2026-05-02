@@ -54,11 +54,11 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
       payload: JSON.stringify(body),
     });
 
-  const patchJson = (url: string, body: unknown, headers = AUTH) =>
+  const patchJson = (url: string, body: unknown) =>
     app.getHttpAdapter().getInstance().inject({
       method: 'PATCH',
       url,
-      headers: { 'content-type': 'application/json', ...headers },
+      headers: { 'content-type': 'application/json', ...AUTH },
       payload: JSON.stringify(body),
     });
 

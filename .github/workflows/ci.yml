@@ -79,6 +79,6 @@ jobs:
           DATABASE_URL: postgresql://lifting:lifting@localhost:5432/lifting_test
 
       - name: DB Integration Tests
-        run: npm run test:db -w @lifting-logbook/api
+        run: npx turbo run test --filter=@lifting-logbook/api -- --testPathPattern=db\\.e2e
         env:
           DATABASE_URL: postgresql://lifting:lifting@localhost:5432/lifting_test
