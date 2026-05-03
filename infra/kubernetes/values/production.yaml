@@ -1,0 +1,33 @@
+# Production overrides — applied on top of charts/*/values.yaml
+# Populated by CI/CD via helm upgrade --values infra/kubernetes/values/production.yaml
+# and --set image.tag=<sha>, image.repository=<gar-repo>/api|web
+
+api:
+  replicaCount: 2
+  image:
+    repository: ""   # set by CI/CD
+    tag: ""          # set by CI/CD: git SHA
+  env:
+    NODE_ENV: production
+  autoscaling:
+    minReplicas: 2
+    maxReplicas: 10
+  gcp:
+    projectId: "lifting-logbook-prod"
+    region: us-central1
+    kmsKeyName: ""      # set by CI/CD from terraform output
+    serviceAccountEmail: ""  # set by CI/CD from terraform output
+
+web:
+  replicaCount: 2
+  image:
+    repository: ""   # set by CI/CD
+    tag: ""          # set by CI/CD: git SHA
+  env:
+    NODE_ENV: production
+    API_URL: ""   # set by CI/CD
+  autoscaling:
+    minReplicas: 2
+    maxReplicas: 10
+  gcp:
+    projectId: "lifting-logbook-prod"

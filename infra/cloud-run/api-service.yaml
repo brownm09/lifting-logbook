@@ -1,0 +1,60 @@
+# Cloud Run service definition for the Lifting Logbook API.
+# Per ADR-009: Cloud Run receives 10% of traffic as the A/B comparison target.
+#
+# This file documents the intended service configuration. Actual deployment is
+# performed by the CI/CD workflow (see .github/workflows/deploy.yml) using
+# `gcloud run services replace` with environment-specific substitutions.
+#
+# Template variables (substituted by CI/CD):
+#   $PROJECT_ID   — GCP project ID
+#   $REGION       — GCP region (us-central1)
+#   $IMAGE_TAG    — Git SHA of the deployed image
+#   $ENVIRONMENT  — staging | production
+
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: lifting-logbook-api
+  labels:
+    cloud.googleapis.com/location: us-central1
+  annotations:
+    run.googleapis.com/ingress: all
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "1"   # 0 for staging, 1 for production
+        autoscaling.knative.dev/maxScale: "10"
+        run.googleapis.com/vpc-access-connector: projects/$PROJECT_ID/locations/$REGION/connectors/prod-connector
+        run.googleapis.com/vpc-access-egress: private-ranges-only
+    spec:
+      serviceAccountName: lifting-logbook-prod-api-wi@$PROJECT_ID.iam.gserviceaccount.com
+      containerConcurrency: 80
+      containers:
+        - image: us-central1-docker.pkg.dev/$PROJECT_ID/lifting-logbook/api:$IMAGE_TAG
+          ports:
+            - containerPort: 3000
+          resources:
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: PORT
+              value: "3000"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: lifting-logbook-prod-database-url
+                  key: latest
+            - name: SYSTEM_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: lifting-logbook-prod-system-database-url
+                  key: latest
+            - name: CLERK_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: lifting-logbook-prod-clerk-secret-key
+                  key: latest

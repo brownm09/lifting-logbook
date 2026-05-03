@@ -1,0 +1,62 @@
+# Default values — overridden by infra/kubernetes/values/{staging,production}.yaml
+
+replicaCount: 2
+
+image:
+  repository: ""   # set per-environment in values/{staging,production}.yaml
+  tag: "latest"
+  pullPolicy: Always
+
+nameOverride: ""
+fullnameOverride: "api"
+
+service:
+  type: ClusterIP
+  port: 3000
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+# Environment variables injected as a ConfigMap.
+# Secrets are pulled from Secret Manager via the workload identity SA.
+env:
+  NODE_ENV: production
+  PORT: "3000"
+
+# GCP-specific config
+gcp:
+  projectId: ""
+  region: us-central1
+  kmsKeyName: ""
+  serviceAccountEmail: ""   # workload identity SA email
+
+# Secret Manager secret IDs (not the secret values)
+secrets:
+  databaseUrl: ""
+  systemDatabaseUrl: ""
+  clerkSecretKey: ""
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 3000
+  initialDelaySeconds: 15
+  periodSeconds: 20
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 3000
+  initialDelaySeconds: 5
+  periodSeconds: 10

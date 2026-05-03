@@ -1,0 +1,10 @@
+# Production environment variable values
+# Replace project_id and billing_account with your actual values (see docs/deploy.md)
+
+project_id      = "lifting-logbook-prod"
+billing_account = "XXXXXX-XXXXXX-XXXXXX"
+region          = "us-central1"
+environment     = "production"
+app_name        = "lifting-logbook"
+db_tier         = "db-g1-small"
+db_name         = "lifting_logbook"

@@ -1,4 +1,17 @@
-name: Build & Push Docker Images
+name: Deploy
+
+# Runs on every push to main.
+# Pipeline: terraform staging → build images → deploy staging →
+#           smoke test → [manual approval] → terraform production → deploy production
+#
+# Required GitHub repository secrets (see docs/deploy.md):
+#   GCP_STAGING_PROJECT_ID
+#   GCP_PROD_PROJECT_ID
+#   GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER
+#   GCP_STAGING_SERVICE_ACCOUNT
+#   GCP_PROD_WORKLOAD_IDENTITY_PROVIDER
+#   GCP_PROD_SERVICE_ACCOUNT
+#   TF_STATE_BUCKET
 
 on:
   push:
@@ -7,25 +20,84 @@ on:
 
 env:
   REGISTRY: us-central1-docker.pkg.dev
-  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   ARTIFACT_REPO: lifting-logbook
+  REGION: us-central1
+  TF_DIR: infra/terraform
 
 jobs:
-  build-and-push:
-    name: Build & Push
+  # ── 1. Terraform: staging ────────────────────────────────────────────────
+  terraform-staging:
+    name: Terraform (staging)
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write   # required for Workload Identity Federation
+      id-token: write
+    outputs:
+      gke_cluster_name: ${{ steps.tf-outputs.outputs.gke_cluster_name }}
+      cloud_run_api_url: ${{ steps.tf-outputs.outputs.cloud_run_api_url }}
+      cloud_run_web_url: ${{ steps.tf-outputs.outputs.cloud_run_web_url }}
+      ar_repo: ${{ steps.tf-outputs.outputs.ar_repo }}
+      kms_key_name: ${{ steps.tf-outputs.outputs.kms_key_name }}
+      api_wi_sa: ${{ steps.tf-outputs.outputs.api_wi_sa }}
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Authenticate to GCP via Workload Identity Federation
+      - name: Authenticate to GCP (staging)
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ secrets.GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_STAGING_SERVICE_ACCOUNT }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.7"
+          terraform_wrapper: false
+
+      - name: Terraform init (staging)
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="prefix=terraform/state"
+          terraform workspace select staging || terraform workspace new staging
+
+      - name: Terraform apply (staging)
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform apply -auto-approve \
+            -var-file=terraform.tfvars.staging \
+            -var="image_tag=${{ github.sha }}"
+
+      - name: Capture Terraform outputs
+        id: tf-outputs
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          echo "gke_cluster_name=$(terraform output -raw gke_cluster_name)" >> "$GITHUB_OUTPUT"
+          echo "cloud_run_api_url=$(terraform output -raw cloud_run_api_url)" >> "$GITHUB_OUTPUT"
+          echo "cloud_run_web_url=$(terraform output -raw cloud_run_web_url)" >> "$GITHUB_OUTPUT"
+          echo "ar_repo=$(terraform output -raw artifact_registry_repo)" >> "$GITHUB_OUTPUT"
+          echo "kms_key_name=$(terraform output -raw kms_key_name)" >> "$GITHUB_OUTPUT"
+          echo "api_wi_sa=$(terraform output -raw cicd_service_account_email)" >> "$GITHUB_OUTPUT"
+
+  # ── 2. Build and push Docker images ─────────────────────────────────────
+  build-images:
+    name: Build & Push Images
+    runs-on: ubuntu-latest
+    needs: terraform-staging
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP (staging — where Artifact Registry lives)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_STAGING_SERVICE_ACCOUNT }}
 
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
@@ -33,15 +105,15 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and push api image
+      - name: Build and push API image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: apps/api/Dockerfile
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/api:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/api:latest
+            ${{ needs.terraform-staging.outputs.ar_repo }}/api:${{ github.sha }}
+            ${{ needs.terraform-staging.outputs.ar_repo }}/api:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -52,7 +124,288 @@ jobs:
           file: apps/web/Dockerfile
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/web:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/web:latest
+            ${{ needs.terraform-staging.outputs.ar_repo }}/web:${{ github.sha }}
+            ${{ needs.terraform-staging.outputs.ar_repo }}/web:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # ── 3. Deploy to staging ─────────────────────────────────────────────────
+  deploy-staging:
+    name: Deploy (staging)
+    runs-on: ubuntu-latest
+    needs: [terraform-staging, build-images]
+    permissions:
+      contents: read
+      id-token: write
+    environment: staging
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP (staging)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_STAGING_SERVICE_ACCOUNT }}
+
+      - name: Set up GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ needs.terraform-staging.outputs.gke_cluster_name }}
+          location: ${{ env.REGION }}
+          project_id: ${{ secrets.GCP_STAGING_PROJECT_ID }}
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Ensure staging namespace
+        run: kubectl create namespace staging --dry-run=client -o yaml | kubectl apply -f -
+
+      # Sync secrets from Secret Manager → Kubernetes Secrets
+      - name: Sync API secrets to Kubernetes
+        run: |
+          DB_URL=$(gcloud secrets versions access latest \
+            --secret="lifting-logbook-stg-database-url" \
+            --project="${{ secrets.GCP_STAGING_PROJECT_ID }}")
+          SYS_DB_URL=$(gcloud secrets versions access latest \
+            --secret="lifting-logbook-stg-system-database-url" \
+            --project="${{ secrets.GCP_STAGING_PROJECT_ID }}")
+          CLERK_KEY=$(gcloud secrets versions access latest \
+            --secret="lifting-logbook-stg-clerk-secret-key" \
+            --project="${{ secrets.GCP_STAGING_PROJECT_ID }}")
+          kubectl create secret generic api-secrets \
+            --namespace=staging \
+            --from-literal=database-url="$DB_URL" \
+            --from-literal=system-database-url="$SYS_DB_URL" \
+            --from-literal=clerk-secret-key="$CLERK_KEY" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Sync web secrets to Kubernetes
+        run: |
+          CLERK_PUB=$(gcloud secrets versions access latest \
+            --secret="lifting-logbook-stg-clerk-publishable-key" \
+            --project="${{ secrets.GCP_STAGING_PROJECT_ID }}")
+          kubectl create secret generic web-secrets \
+            --namespace=staging \
+            --from-literal=clerk-publishable-key="$CLERK_PUB" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Helm deploy API (GKE staging)
+        run: |
+          helm upgrade --install api ./infra/kubernetes/charts/api \
+            --namespace=staging \
+            --values=infra/kubernetes/values/staging.yaml \
+            --set image.repository="${{ needs.terraform-staging.outputs.ar_repo }}/api" \
+            --set image.tag="${{ github.sha }}" \
+            --set gcp.projectId="${{ secrets.GCP_STAGING_PROJECT_ID }}" \
+            --set gcp.kmsKeyName="${{ needs.terraform-staging.outputs.kms_key_name }}" \
+            --set gcp.serviceAccountEmail="${{ needs.terraform-staging.outputs.api_wi_sa }}" \
+            --set env.NODE_ENV=staging \
+            --wait --timeout=5m
+
+      - name: Helm deploy web (GKE staging)
+        run: |
+          API_CLUSTER_URL="http://api.staging.svc.cluster.local:3000"
+          helm upgrade --install web ./infra/kubernetes/charts/web \
+            --namespace=staging \
+            --values=infra/kubernetes/values/staging.yaml \
+            --set image.repository="${{ needs.terraform-staging.outputs.ar_repo }}/web" \
+            --set image.tag="${{ github.sha }}" \
+            --set gcp.projectId="${{ secrets.GCP_STAGING_PROJECT_ID }}" \
+            --set env.NODE_ENV=staging \
+            --set env.API_URL="$API_CLUSTER_URL" \
+            --wait --timeout=5m
+
+      # Cloud Run: A/B comparison target (10% traffic — ADR-009)
+      - name: Deploy API to Cloud Run (staging)
+        run: |
+          gcloud run deploy lifting-logbook-stg-api \
+            --image="${{ needs.terraform-staging.outputs.ar_repo }}/api:${{ github.sha }}" \
+            --region="${{ env.REGION }}" \
+            --project="${{ secrets.GCP_STAGING_PROJECT_ID }}" \
+            --platform=managed \
+            --no-allow-unauthenticated \
+            --quiet
+
+      - name: Deploy web to Cloud Run (staging)
+        run: |
+          gcloud run deploy lifting-logbook-stg-web \
+            --image="${{ needs.terraform-staging.outputs.ar_repo }}/web:${{ github.sha }}" \
+            --region="${{ env.REGION }}" \
+            --project="${{ secrets.GCP_STAGING_PROJECT_ID }}" \
+            --platform=managed \
+            --allow-unauthenticated \
+            --set-env-vars="API_URL=${{ needs.terraform-staging.outputs.cloud_run_api_url }}" \
+            --quiet
+
+  # ── 4. Smoke test staging ────────────────────────────────────────────────
+  smoke-test:
+    name: Smoke Test (staging)
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, terraform-staging]
+
+    steps:
+      - name: Wait for GKE ingress IP
+        run: |
+          # Allow up to 3 minutes for the GKE LB to become healthy
+          for i in $(seq 1 18); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              "https://${{ needs.terraform-staging.outputs.cloud_run_web_url }}/" || true)
+            if [ "$STATUS" = "200" ] || [ "$STATUS" = "307" ]; then
+              echo "Staging web returned $STATUS — OK"
+              exit 0
+            fi
+            echo "Attempt $i: got $STATUS, retrying in 10s..."
+            sleep 10
+          done
+          echo "Staging smoke test timed out" && exit 1
+
+      - name: API health check (Cloud Run staging)
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "${{ needs.terraform-staging.outputs.cloud_run_api_url }}/health")
+          if [ "$STATUS" != "200" ]; then
+            echo "API health check failed: $STATUS" && exit 1
+          fi
+          echo "API health check passed"
+
+  # ── 5. Deploy to production (requires manual approval) ───────────────────
+  deploy-production:
+    name: Deploy (production)
+    runs-on: ubuntu-latest
+    needs: [smoke-test]
+    permissions:
+      contents: read
+      id-token: write
+    environment: production   # triggers GitHub required-reviewer gate
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP (production)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_PROD_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_PROD_SERVICE_ACCOUNT }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.7"
+          terraform_wrapper: false
+
+      - name: Terraform apply (production)
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="prefix=terraform/state"
+          terraform workspace select production || terraform workspace new production
+          terraform apply -auto-approve \
+            -var-file=terraform.tfvars.production \
+            -var="image_tag=${{ github.sha }}"
+
+      - name: Capture production Terraform outputs
+        id: tf-prod
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          echo "gke_cluster_name=$(terraform output -raw gke_cluster_name)" >> "$GITHUB_OUTPUT"
+          echo "cloud_run_api_url=$(terraform output -raw cloud_run_api_url)" >> "$GITHUB_OUTPUT"
+          echo "cloud_run_web_url=$(terraform output -raw cloud_run_web_url)" >> "$GITHUB_OUTPUT"
+          echo "ar_repo=$(terraform output -raw artifact_registry_repo)" >> "$GITHUB_OUTPUT"
+          echo "kms_key_name=$(terraform output -raw kms_key_name)" >> "$GITHUB_OUTPUT"
+          echo "api_wi_sa=$(terraform output -raw cicd_service_account_email)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up GKE credentials (production)
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ steps.tf-prod.outputs.gke_cluster_name }}
+          location: ${{ env.REGION }}
+          project_id: ${{ secrets.GCP_PROD_PROJECT_ID }}
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Ensure production namespace
+        run: kubectl create namespace production --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Sync API secrets to Kubernetes (production)
+        run: |
+          DB_URL=$(gcloud secrets versions access latest \
+            --secret="lifting-logbook-prod-database-url" \
+            --project="${{ secrets.GCP_PROD_PROJECT_ID }}")
+          SYS_DB_URL=$(gcloud secrets versions access latest \
+            --secret="lifting-logbook-prod-system-database-url" \
+            --project="${{ secrets.GCP_PROD_PROJECT_ID }}")
+          CLERK_KEY=$(gcloud secrets versions access latest \
+            --secret="lifting-logbook-prod-clerk-secret-key" \
+            --project="${{ secrets.GCP_PROD_PROJECT_ID }}")
+          kubectl create secret generic api-secrets \
+            --namespace=production \
+            --from-literal=database-url="$DB_URL" \
+            --from-literal=system-database-url="$SYS_DB_URL" \
+            --from-literal=clerk-secret-key="$CLERK_KEY" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Sync web secrets to Kubernetes (production)
+        run: |
+          CLERK_PUB=$(gcloud secrets versions access latest \
+            --secret="lifting-logbook-prod-clerk-publishable-key" \
+            --project="${{ secrets.GCP_PROD_PROJECT_ID }}")
+          kubectl create secret generic web-secrets \
+            --namespace=production \
+            --from-literal=clerk-publishable-key="$CLERK_PUB" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Helm deploy API (GKE production)
+        run: |
+          helm upgrade --install api ./infra/kubernetes/charts/api \
+            --namespace=production \
+            --values=infra/kubernetes/values/production.yaml \
+            --set image.repository="${{ steps.tf-prod.outputs.ar_repo }}/api" \
+            --set image.tag="${{ github.sha }}" \
+            --set gcp.projectId="${{ secrets.GCP_PROD_PROJECT_ID }}" \
+            --set gcp.kmsKeyName="${{ steps.tf-prod.outputs.kms_key_name }}" \
+            --set gcp.serviceAccountEmail="${{ steps.tf-prod.outputs.api_wi_sa }}" \
+            --set env.NODE_ENV=production \
+            --wait --timeout=5m
+
+      - name: Helm deploy web (GKE production)
+        run: |
+          API_CLUSTER_URL="http://api.production.svc.cluster.local:3000"
+          helm upgrade --install web ./infra/kubernetes/charts/web \
+            --namespace=production \
+            --values=infra/kubernetes/values/production.yaml \
+            --set image.repository="${{ steps.tf-prod.outputs.ar_repo }}/web" \
+            --set image.tag="${{ github.sha }}" \
+            --set gcp.projectId="${{ secrets.GCP_PROD_PROJECT_ID }}" \
+            --set env.NODE_ENV=production \
+            --set env.API_URL="$API_CLUSTER_URL" \
+            --wait --timeout=5m
+
+      - name: Deploy API to Cloud Run (production)
+        run: |
+          gcloud run deploy lifting-logbook-prod-api \
+            --image="${{ steps.tf-prod.outputs.ar_repo }}/api:${{ github.sha }}" \
+            --region="${{ env.REGION }}" \
+            --project="${{ secrets.GCP_PROD_PROJECT_ID }}" \
+            --platform=managed \
+            --no-allow-unauthenticated \
+            --quiet
+
+      - name: Deploy web to Cloud Run (production)
+        run: |
+          gcloud run deploy lifting-logbook-prod-web \
+            --image="${{ steps.tf-prod.outputs.ar_repo }}/web:${{ github.sha }}" \
+            --region="${{ env.REGION }}" \
+            --project="${{ secrets.GCP_PROD_PROJECT_ID }}" \
+            --platform=managed \
+            --allow-unauthenticated \
+            --set-env-vars="API_URL=${{ steps.tf-prod.outputs.cloud_run_api_url }}" \
+            --quiet
+
+      - name: Print deployment URLs
+        run: |
+          echo "## Production deployment complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Cloud Run web: ${{ steps.tf-prod.outputs.cloud_run_web_url }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Cloud Run API: ${{ steps.tf-prod.outputs.cloud_run_api_url }}" >> "$GITHUB_STEP_SUMMARY"

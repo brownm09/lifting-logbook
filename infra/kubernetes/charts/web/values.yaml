@@ -1,0 +1,58 @@
+replicaCount: 2
+
+image:
+  repository: ""
+  tag: "latest"
+  pullPolicy: Always
+
+nameOverride: ""
+fullnameOverride: "web"
+
+service:
+  type: ClusterIP
+  port: 3001
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+env:
+  NODE_ENV: production
+  PORT: "3001"
+  # API_URL is set per-environment in values/{staging,production}.yaml
+  API_URL: ""
+
+gcp:
+  projectId: ""
+  clerkPublishableKeySecretId: ""
+
+ingress:
+  enabled: true
+  className: ""   # GKE uses "gce" ingress class
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+  host: ""   # generated URL — empty means use the LB IP
+
+livenessProbe:
+  httpGet:
+    path: /
+    port: 3001
+  initialDelaySeconds: 15
+  periodSeconds: 20
+
+readinessProbe:
+  httpGet:
+    path: /
+    port: 3001
+  initialDelaySeconds: 5
+  periodSeconds: 10

@@ -1,0 +1,33 @@
+# Staging overrides — applied on top of charts/*/values.yaml
+# Populated by CI/CD via helm upgrade --values infra/kubernetes/values/staging.yaml
+# and --set image.tag=<sha>, image.repository=<gar-repo>/api|web
+
+api:
+  replicaCount: 1
+  image:
+    repository: ""   # set by CI/CD: us-central1-docker.pkg.dev/<project>/lifting-logbook/api
+    tag: ""          # set by CI/CD: git SHA
+  env:
+    NODE_ENV: staging
+  autoscaling:
+    minReplicas: 1
+    maxReplicas: 3
+  gcp:
+    projectId: "lifting-logbook-staging"
+    region: us-central1
+    kmsKeyName: ""      # set by CI/CD from terraform output
+    serviceAccountEmail: ""  # set by CI/CD from terraform output
+
+web:
+  replicaCount: 1
+  image:
+    repository: ""   # set by CI/CD: us-central1-docker.pkg.dev/<project>/lifting-logbook/web
+    tag: ""          # set by CI/CD: git SHA
+  env:
+    NODE_ENV: staging
+    API_URL: ""   # set by CI/CD: GKE api service cluster-internal URL
+  autoscaling:
+    minReplicas: 1
+    maxReplicas: 3
+  gcp:
+    projectId: "lifting-logbook-staging"
