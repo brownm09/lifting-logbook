@@ -90,6 +90,13 @@ resource "google_cloud_run_v2_service" "api" {
     }
   }
 
+  # Image and template updates are managed exclusively by gcloud run deploy in CI/CD.
+  # Terraform creates the service on first apply; subsequent image/env/scale changes
+  # are applied by the deploy-staging / deploy-production jobs, not Terraform.
+  lifecycle {
+    ignore_changes = [template]
+  }
+
   depends_on = [google_project_service.required_apis]
 }
 
@@ -132,7 +139,7 @@ resource "google_cloud_run_v2_service" "web" {
 
       env {
         name  = "API_URL"
-        value = "https://${google_cloud_run_v2_service.api.uri}"
+        value = google_cloud_run_v2_service.api.uri
       }
 
       env {
@@ -147,21 +154,26 @@ resource "google_cloud_run_v2_service" "web" {
     }
   }
 
+  # Image and template updates managed by CI/CD (see lifecycle note on api service above).
+  lifecycle {
+    ignore_changes = [template]
+  }
+
   depends_on = [
     google_project_service.required_apis,
     google_cloud_run_v2_service.api,
   ]
 }
 
-# ─── Allow unauthenticated access ────────────────────────────────────────────
-
-resource "google_cloud_run_v2_service_iam_member" "api_public" {
-  project  = google_cloud_run_v2_service.api.project
-  location = google_cloud_run_v2_service.api.location
-  name     = google_cloud_run_v2_service.api.name
-  role     = "roles/run.invoker"
-  member   = "allUsers"
-}
+# ─── Access control ───────────────────────────────────────────────────────────
+#
+# Web service is publicly accessible (serves the Next.js frontend to browsers).
+# API service requires Cloud Run IAM authentication — allUsers is NOT granted.
+#
+# TODO: grant the web Cloud Run service account roles/run.invoker on the API service
+# to enable service-to-service auth. The Next.js app must also attach GCP identity
+# tokens to server-side API calls until that is wired up.
+# See: https://cloud.google.com/run/docs/authenticating/service-to-service
 
 resource "google_cloud_run_v2_service_iam_member" "web_public" {
   project  = google_cloud_run_v2_service.web.project

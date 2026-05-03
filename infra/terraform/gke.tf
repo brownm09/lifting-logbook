@@ -32,7 +32,7 @@ resource "google_container_cluster" "main" {
   master_authorized_networks_config {
     cidr_blocks {
       cidr_block   = "0.0.0.0/0"
-      display_name = "all (tighten for production)"
+      display_name = "all — intentional portfolio trade-off; restrict to GitHub Actions IP ranges before hardening"
     }
   }
 

@@ -1,0 +1,21 @@
+# Staging overrides for charts/api — applied on top of charts/api/values.yaml
+# Used by: helm upgrade api ./infra/kubernetes/charts/api --values infra/kubernetes/values/staging-api.yaml
+
+replicaCount: 1
+
+image:
+  repository: ""   # set by CI/CD: us-central1-docker.pkg.dev/<project>/lifting-logbook/api
+  tag: ""          # set by CI/CD: git SHA
+
+env:
+  NODE_ENV: staging
+
+autoscaling:
+  minReplicas: 1
+  maxReplicas: 3
+
+gcp:
+  projectId: "lifting-logbook-staging"
+  region: us-central1
+  kmsKeyName: ""         # set by CI/CD from terraform output
+  serviceAccountEmail: "" # set by CI/CD from terraform output

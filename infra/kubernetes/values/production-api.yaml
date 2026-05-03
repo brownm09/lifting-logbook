@@ -1,0 +1,21 @@
+# Production overrides for charts/api — applied on top of charts/api/values.yaml
+# Used by: helm upgrade api ./infra/kubernetes/charts/api --values infra/kubernetes/values/production-api.yaml
+
+replicaCount: 2
+
+image:
+  repository: ""   # set by CI/CD
+  tag: ""          # set by CI/CD: git SHA
+
+env:
+  NODE_ENV: production
+
+autoscaling:
+  minReplicas: 2
+  maxReplicas: 10
+
+gcp:
+  projectId: "lifting-logbook-prod"
+  region: us-central1
+  kmsKeyName: ""         # set by CI/CD from terraform output
+  serviceAccountEmail: "" # set by CI/CD from terraform output

@@ -1,0 +1,19 @@
+# Staging overrides for charts/web — applied on top of charts/web/values.yaml
+# Used by: helm upgrade web ./infra/kubernetes/charts/web --values infra/kubernetes/values/staging-web.yaml
+
+replicaCount: 1
+
+image:
+  repository: ""   # set by CI/CD: us-central1-docker.pkg.dev/<project>/lifting-logbook/web
+  tag: ""          # set by CI/CD: git SHA
+
+env:
+  NODE_ENV: staging
+  API_URL: ""      # set by CI/CD: GKE api service cluster-internal URL
+
+autoscaling:
+  minReplicas: 1
+  maxReplicas: 3
+
+gcp:
+  projectId: "lifting-logbook-staging"

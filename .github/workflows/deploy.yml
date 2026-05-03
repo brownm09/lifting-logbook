@@ -67,8 +67,7 @@ jobs:
         working-directory: ${{ env.TF_DIR }}
         run: |
           terraform apply -auto-approve \
-            -var-file=terraform.tfvars.staging \
-            -var="image_tag=${{ github.sha }}"
+            -var-file=terraform.tfvars.staging
 
       - name: Capture Terraform outputs
         id: tf-outputs
@@ -194,7 +193,7 @@ jobs:
         run: |
           helm upgrade --install api ./infra/kubernetes/charts/api \
             --namespace=staging \
-            --values=infra/kubernetes/values/staging.yaml \
+            --values=infra/kubernetes/values/staging-api.yaml \
             --set image.repository="${{ needs.terraform-staging.outputs.ar_repo }}/api" \
             --set image.tag="${{ github.sha }}" \
             --set gcp.projectId="${{ secrets.GCP_STAGING_PROJECT_ID }}" \
@@ -208,7 +207,7 @@ jobs:
           API_CLUSTER_URL="http://api.staging.svc.cluster.local:3000"
           helm upgrade --install web ./infra/kubernetes/charts/web \
             --namespace=staging \
-            --values=infra/kubernetes/values/staging.yaml \
+            --values=infra/kubernetes/values/staging-web.yaml \
             --set image.repository="${{ needs.terraform-staging.outputs.ar_repo }}/web" \
             --set image.tag="${{ github.sha }}" \
             --set gcp.projectId="${{ secrets.GCP_STAGING_PROJECT_ID }}" \
@@ -245,9 +244,9 @@ jobs:
     needs: [deploy-staging, terraform-staging]
 
     steps:
-      - name: Wait for GKE ingress IP
+      - name: Smoke test Cloud Run staging (web)
         run: |
-          # Allow up to 3 minutes for the GKE LB to become healthy
+          # Allow up to 3 minutes for Cloud Run to become healthy
           for i in $(seq 1 18); do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
               "https://${{ needs.terraform-staging.outputs.cloud_run_web_url }}/" || true)
@@ -260,14 +259,18 @@ jobs:
           done
           echo "Staging smoke test timed out" && exit 1
 
-      - name: API health check (Cloud Run staging)
+      - name: Smoke test Cloud Run staging (API auth check)
         run: |
+          # API requires Cloud Run IAM auth — a 403 confirms it is up and rejecting
+          # unauthenticated requests correctly. A 200 is also acceptable (e.g., if
+          # service-to-service auth is later wired up via a service account).
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
             "${{ needs.terraform-staging.outputs.cloud_run_api_url }}/health")
-          if [ "$STATUS" != "200" ]; then
-            echo "API health check failed: $STATUS" && exit 1
+          if [ "$STATUS" = "403" ] || [ "$STATUS" = "200" ]; then
+            echo "API smoke test passed (status=$STATUS)"
+          else
+            echo "API smoke test failed: expected 200 or 403, got $STATUS" && exit 1
           fi
-          echo "API health check passed"
 
   # ── 5. Deploy to production (requires manual approval) ───────────────────
   deploy-production:
@@ -302,8 +305,7 @@ jobs:
             -backend-config="prefix=terraform/state"
           terraform workspace select production || terraform workspace new production
           terraform apply -auto-approve \
-            -var-file=terraform.tfvars.production \
-            -var="image_tag=${{ github.sha }}"
+            -var-file=terraform.tfvars.production
 
       - name: Capture production Terraform outputs
         id: tf-prod
@@ -361,7 +363,7 @@ jobs:
         run: |
           helm upgrade --install api ./infra/kubernetes/charts/api \
             --namespace=production \
-            --values=infra/kubernetes/values/production.yaml \
+            --values=infra/kubernetes/values/production-api.yaml \
             --set image.repository="${{ steps.tf-prod.outputs.ar_repo }}/api" \
             --set image.tag="${{ github.sha }}" \
             --set gcp.projectId="${{ secrets.GCP_PROD_PROJECT_ID }}" \
@@ -375,7 +377,7 @@ jobs:
           API_CLUSTER_URL="http://api.production.svc.cluster.local:3000"
           helm upgrade --install web ./infra/kubernetes/charts/web \
             --namespace=production \
-            --values=infra/kubernetes/values/production.yaml \
+            --values=infra/kubernetes/values/production-web.yaml \
             --set image.repository="${{ steps.tf-prod.outputs.ar_repo }}/web" \
             --set image.tag="${{ github.sha }}" \
             --set gcp.projectId="${{ secrets.GCP_PROD_PROJECT_ID }}" \
