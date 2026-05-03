@@ -1,3 +1,6 @@
+import 'server-only';
+
+import { GoogleAuth } from 'google-auth-library';
 import type {
   BodyWeightResponse,
   CreateLiftRecordRequest,
@@ -12,9 +15,27 @@ import type {
 } from '@lifting-logbook/types';
 
 const API_URL = process.env.API_URL ?? 'http://localhost:3001';
+const isCloudRun = API_URL.startsWith('https://');
+
+let _auth: GoogleAuth | undefined;
+
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  if (!isCloudRun) return {};
+  try {
+    _auth ??= new GoogleAuth();
+    const client = await _auth.getIdTokenClient(API_URL);
+    return (await client.getRequestHeaders()) as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, init);
+  const authHeaders = await getAuthHeaders();
+  const res = await fetch(`${API_URL}${path}`, {
+    ...init,
+    headers: { ...authHeaders, ...(init?.headers as Record<string, string> | undefined) },
+  });
   if (!res.ok) {
     throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
   }
@@ -67,7 +88,11 @@ export async function fetchWorkout(
   workoutNum: number,
 ): Promise<WorkoutResponse | null> {
   const path = `/programs/${encodeURIComponent(program)}/workouts/${workoutNum}`;
-  const res = await fetch(`${API_URL}${path}`, { cache: 'no-store' });
+  const authHeaders = await getAuthHeaders();
+  const res = await fetch(`${API_URL}${path}`, {
+    cache: 'no-store',
+    headers: authHeaders,
+  });
   if (res.status === 404) return null;
   if (!res.ok) {
     throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
@@ -134,7 +159,11 @@ export async function fetchLatestBodyWeight(
   program: string,
 ): Promise<BodyWeightResponse | null> {
   const path = `/programs/${encodeURIComponent(program)}/body-weight/latest`;
-  const res = await fetch(`${API_URL}${path}`, { cache: 'no-store' });
+  const authHeaders = await getAuthHeaders();
+  const res = await fetch(`${API_URL}${path}`, {
+    cache: 'no-store',
+    headers: authHeaders,
+  });
   if (res.status === 404) return null;
   if (!res.ok) {
     throw new Error(`API ${res.status} ${res.statusText} for ${path}`);

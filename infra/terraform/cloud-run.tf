@@ -107,6 +107,8 @@ resource "google_cloud_run_v2_service" "web" {
   location = var.region
 
   template {
+    service_account = google_service_account.web_workload.email
+
     scaling {
       min_instance_count = var.environment == "production" ? 1 : 0
       max_instance_count = var.environment == "production" ? 10 : 3
@@ -165,14 +167,18 @@ resource "google_cloud_run_v2_service" "web" {
   ]
 }
 
+# ─── Cloud Run workload identities ────────────────────────────────────────────
+
+resource "google_service_account" "web_workload" {
+  account_id   = "${local.name_prefix}-web-wi"
+  display_name = "${var.app_name} web workload identity (${var.environment})"
+}
+
 # ─── Access control ───────────────────────────────────────────────────────────
 #
 # Web service is publicly accessible (serves the Next.js frontend to browsers).
-# API service requires Cloud Run IAM authentication — allUsers is NOT granted.
-#
-# TODO: grant the web Cloud Run service account roles/run.invoker on the API service
-# to enable service-to-service auth. The Next.js app must also attach GCP identity
-# tokens to server-side API calls until that is wired up.
+# API service requires Cloud Run IAM authentication — only the web workload SA
+# is granted roles/run.invoker so server-side API calls from Next.js succeed.
 # See: https://cloud.google.com/run/docs/authenticating/service-to-service
 
 resource "google_cloud_run_v2_service_iam_member" "web_public" {
@@ -181,6 +187,14 @@ resource "google_cloud_run_v2_service_iam_member" "web_public" {
   name     = google_cloud_run_v2_service.web.name
   role     = "roles/run.invoker"
   member   = "allUsers"
+}
+
+resource "google_cloud_run_v2_service_iam_member" "web_invoker_on_api" {
+  project  = google_cloud_run_v2_service.api.project
+  location = google_cloud_run_v2_service.api.location
+  name     = google_cloud_run_v2_service.api.name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.web_workload.email}"
 }
 
 # ─── Serverless VPC Connector (private Cloud SQL access from Cloud Run) ───────
