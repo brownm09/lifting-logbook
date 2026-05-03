@@ -25,7 +25,8 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
     _auth ??= new GoogleAuth();
     const client = await _auth.getIdTokenClient(API_URL);
     return (await client.getRequestHeaders()) as Record<string, string>;
-  } catch {
+  } catch (e) {
+    console.error('[getAuthHeaders] GCP token acquisition failed:', e);
     return {};
   }
 }
@@ -34,7 +35,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const authHeaders = await getAuthHeaders();
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
-    headers: { ...authHeaders, ...(init?.headers as Record<string, string> | undefined) },
+    headers: { ...(init?.headers as Record<string, string> | undefined), ...authHeaders },
   });
   if (!res.ok) {
     throw new Error(`API ${res.status} ${res.statusText} for ${path}`);

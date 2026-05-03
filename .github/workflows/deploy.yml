@@ -129,6 +129,8 @@ jobs:
           tags: |
             ${{ needs.terraform-staging.outputs.ar_repo }}/web:${{ github.sha }}
             ${{ needs.terraform-staging.outputs.ar_repo }}/web:latest
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ needs.terraform-staging.outputs.cloud_run_api_url }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

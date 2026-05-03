@@ -21,6 +21,7 @@ RUN npm ci
 
 # Copy full source and build.
 COPY --from=installer /app/out/full/ .
+ARG NEXT_PUBLIC_API_URL
 RUN npx turbo run build --filter=@lifting-logbook/web
 
 # ── Stage 3: runner ──────────────────────────────────────────────────────────
