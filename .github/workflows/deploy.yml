@@ -12,6 +12,7 @@ name: Deploy
 #   GCP_PROD_WORKLOAD_IDENTITY_PROVIDER
 #   GCP_PROD_SERVICE_ACCOUNT
 #   TF_STATE_BUCKET
+#   GCP_BILLING_ACCOUNT   — never commit real value to tfvars; pass here instead
 
 on:
   push:
@@ -39,6 +40,7 @@ jobs:
       ar_repo: ${{ steps.tf-outputs.outputs.ar_repo }}
       kms_key_name: ${{ steps.tf-outputs.outputs.kms_key_name }}
       api_wi_sa: ${{ steps.tf-outputs.outputs.api_wi_sa }}
+      web_workload_sa: ${{ steps.tf-outputs.outputs.web_workload_sa }}
 
     steps:
       - uses: actions/checkout@v4
@@ -67,7 +69,8 @@ jobs:
         working-directory: ${{ env.TF_DIR }}
         run: |
           terraform apply -auto-approve \
-            -var-file=terraform.tfvars.staging
+            -var-file=terraform.tfvars.staging \
+            -var="billing_account=${{ secrets.GCP_BILLING_ACCOUNT }}"
 
       - name: Capture Terraform outputs
         id: tf-outputs
@@ -79,6 +82,7 @@ jobs:
           echo "ar_repo=$(terraform output -raw artifact_registry_repo)" >> "$GITHUB_OUTPUT"
           echo "kms_key_name=$(terraform output -raw kms_key_name)" >> "$GITHUB_OUTPUT"
           echo "api_wi_sa=$(terraform output -raw cicd_service_account_email)" >> "$GITHUB_OUTPUT"
+          echo "web_workload_sa=$(terraform output -raw web_workload_sa)" >> "$GITHUB_OUTPUT"
 
   # ── 2. Build and push Docker images ─────────────────────────────────────
   build-images:
@@ -125,6 +129,8 @@ jobs:
           tags: |
             ${{ needs.terraform-staging.outputs.ar_repo }}/web:${{ github.sha }}
             ${{ needs.terraform-staging.outputs.ar_repo }}/web:latest
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ needs.terraform-staging.outputs.cloud_run_api_url }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -234,6 +240,7 @@ jobs:
             --project="${{ secrets.GCP_STAGING_PROJECT_ID }}" \
             --platform=managed \
             --allow-unauthenticated \
+            --service-account="${{ needs.terraform-staging.outputs.web_workload_sa }}" \
             --set-env-vars="API_URL=${{ needs.terraform-staging.outputs.cloud_run_api_url }}" \
             --quiet
 
@@ -305,7 +312,8 @@ jobs:
             -backend-config="prefix=terraform/state"
           terraform workspace select production || terraform workspace new production
           terraform apply -auto-approve \
-            -var-file=terraform.tfvars.production
+            -var-file=terraform.tfvars.production \
+            -var="billing_account=${{ secrets.GCP_BILLING_ACCOUNT }}"
 
       - name: Capture production Terraform outputs
         id: tf-prod
@@ -317,6 +325,7 @@ jobs:
           echo "ar_repo=$(terraform output -raw artifact_registry_repo)" >> "$GITHUB_OUTPUT"
           echo "kms_key_name=$(terraform output -raw kms_key_name)" >> "$GITHUB_OUTPUT"
           echo "api_wi_sa=$(terraform output -raw cicd_service_account_email)" >> "$GITHUB_OUTPUT"
+          echo "web_workload_sa=$(terraform output -raw web_workload_sa)" >> "$GITHUB_OUTPUT"
 
       - name: Set up GKE credentials (production)
         uses: google-github-actions/get-gke-credentials@v2
@@ -403,6 +412,7 @@ jobs:
             --project="${{ secrets.GCP_PROD_PROJECT_ID }}" \
             --platform=managed \
             --allow-unauthenticated \
+            --service-account="${{ steps.tf-prod.outputs.web_workload_sa }}" \
             --set-env-vars="API_URL=${{ steps.tf-prod.outputs.cloud_run_api_url }}" \
             --quiet
 

@@ -7,7 +7,7 @@ import {
   createLiftRecord,
   recordBodyWeight,
   updateLiftRecord,
-} from '@/lib/api';
+} from '@/lib/client-api';
 import styles from './WorkoutLogger.module.css';
 import type { LiftData, WorkingSetData, WorkoutLoggerProps } from './types';
 

@@ -1,5 +1,7 @@
 # Production environment variable values
-# Replace project_id and billing_account with your actual values (see docs/deploy.md)
+# Replace project_id with your actual value (see docs/deploy.md)
+# billing_account: do NOT commit a real value here — pass via CI/CD secret instead:
+#   terraform apply -var="billing_account=$GCP_BILLING_ACCOUNT"
 
 project_id      = "lifting-logbook-prod"
 billing_account = "XXXXXX-XXXXXX-XXXXXX"

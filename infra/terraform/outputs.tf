@@ -47,3 +47,8 @@ output "kms_key_name" {
   description = "Cloud KMS crypto key name for credential encryption (ADR-014)"
   value       = google_kms_crypto_key.user_data_source.id
 }
+
+output "web_workload_sa" {
+  description = "Web Cloud Run workload identity service account email"
+  value       = google_service_account.web_workload.email
+}

@@ -38,9 +38,8 @@ gcp:
 
 ingress:
   enabled: true
-  className: ""   # GKE uses "gce" ingress class
-  annotations:
-    kubernetes.io/ingress.class: "gce"
+  className: "gce"
+  annotations: {}
   host: ""   # generated URL — empty means use the LB IP
 
 livenessProbe:
