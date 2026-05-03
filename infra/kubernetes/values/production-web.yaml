@@ -1,0 +1,19 @@
+# Production overrides for charts/web — applied on top of charts/web/values.yaml
+# Used by: helm upgrade web ./infra/kubernetes/charts/web --values infra/kubernetes/values/production-web.yaml
+
+replicaCount: 2
+
+image:
+  repository: ""   # set by CI/CD
+  tag: ""          # set by CI/CD: git SHA
+
+env:
+  NODE_ENV: production
+  API_URL: ""      # set by CI/CD: GKE api service cluster-internal URL
+
+autoscaling:
+  minReplicas: 2
+  maxReplicas: 10
+
+gcp:
+  projectId: "lifting-logbook-prod"

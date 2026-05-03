@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "lifting-logbook-api.fullname" . }}
+  labels:
+    app: {{ include "lifting-logbook-api.fullname" . }}
+    version: {{ .Values.image.tag | quote }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app: {{ include "lifting-logbook-api.fullname" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "lifting-logbook-api.fullname" . }}
+        version: {{ .Values.image.tag | quote }}
+      annotations:
+        # Force a rollout when the ConfigMap changes
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "lifting-logbook-api.fullname" . }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: api
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.service.port }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "lifting-logbook-api.fullname" . }}-config
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "lifting-logbook-api.fullname" . }}-secrets
+                  key: database-url
+            - name: SYSTEM_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "lifting-logbook-api.fullname" . }}-secrets
+                  key: system-database-url
+            - name: CLERK_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "lifting-logbook-api.fullname" . }}-secrets
+                  key: clerk-secret-key
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
