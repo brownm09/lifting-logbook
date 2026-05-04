@@ -192,6 +192,125 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
     });
   });
 
+  // -------------------------------------------------------------------------
+  // Multi-workout progression scenario — order-sensitive, continues from the
+  // state left by 'write operations' above: cycleNum=3, dev-token user.
+  //
+  // Seeded maxes after write operations (deterministic trace):
+  //   Squat:          210 lbs  (record weight 205 + increment 5; dateUpdated 2026-04-20)
+  //   Bench Press:    225 lbs  (no cycle-1 Bench records; unchanged from seed)
+  //   Deadlift:       405 lbs  (no cycle-1 DL records; unchanged from seed)
+  //   Overhead Press: 145 lbs  (no cycle-1 OHP records; unchanged from seed)
+  //
+  // Cycle 3 records logged below use dates newer than every dateUpdated above,
+  // so the progression gate (record.date > max.dateUpdated) passes for hits.
+  // -------------------------------------------------------------------------
+
+  describe('multi-workout progression scenario', () => {
+    it('logs bodyweight at session start', async () => {
+      const res = await postJson(`/programs/${SEED_PROGRAM}/body-weight`, {
+        date: '2026-07-01',
+        weight: 190,
+        unit: 'lbs',
+      });
+      expect(res.statusCode).toBe(201);
+    });
+
+    it('logs workout 1 — Squat hits target, Bench Press misses', async () => {
+      // Squat set 1: reps=5 >= spec.reps=5 → progression gate passes
+      const squatRes = await postJson(`/programs/${SEED_PROGRAM}/lift-records`, {
+        cycleNum: 3,
+        workoutNum: 1,
+        date: '2026-07-01',
+        lift: 'Squat',
+        setNum: 1,
+        weight: 200,
+        reps: 5,
+        notes: '',
+      });
+      expect(squatRes.statusCode).toBe(201);
+
+      // Bench Press set 1: reps=3 < spec.reps=5 → progression gate fails
+      const benchRes = await postJson(`/programs/${SEED_PROGRAM}/lift-records`, {
+        cycleNum: 3,
+        workoutNum: 1,
+        date: '2026-07-01',
+        lift: 'Bench Press',
+        setNum: 1,
+        weight: 160,
+        reps: 3,
+        notes: '',
+      });
+      expect(benchRes.statusCode).toBe(201);
+    });
+
+    it('logs workout 2 — Deadlift hits target, Overhead Press misses', async () => {
+      // Deadlift set 1: reps=5 >= spec.reps=5 → progression gate passes
+      const dlRes = await postJson(`/programs/${SEED_PROGRAM}/lift-records`, {
+        cycleNum: 3,
+        workoutNum: 2,
+        date: '2026-07-08',
+        lift: 'Deadlift',
+        setNum: 1,
+        weight: 300,
+        reps: 5,
+        notes: '',
+      });
+      expect(dlRes.statusCode).toBe(201);
+
+      // Overhead Press set 1: reps=2 < spec.reps=5 → progression gate fails
+      const ohpRes = await postJson(`/programs/${SEED_PROGRAM}/lift-records`, {
+        cycleNum: 3,
+        workoutNum: 2,
+        date: '2026-07-08',
+        lift: 'Overhead Press',
+        setNum: 1,
+        weight: 100,
+        reps: 2,
+        notes: '',
+      });
+      expect(ohpRes.statusCode).toBe(201);
+    });
+
+    it('GET /workouts/1 reflects completion status after workout 1 is logged', async () => {
+      const res = await get(`/programs/${SEED_PROGRAM}/workouts/1`);
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.cycleNum).toBe(3);
+      expect(body.workoutNum).toBe(1);
+      const liftNames = body.lifts.map((l: { lift: string }) => l.lift);
+      expect(liftNames).toContain('Squat');
+      expect(liftNames).toContain('Bench Press');
+    });
+
+    it('GET /workouts/2 reflects completion status after workout 2 is logged', async () => {
+      const res = await get(`/programs/${SEED_PROGRAM}/workouts/2`);
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.cycleNum).toBe(3);
+      expect(body.workoutNum).toBe(2);
+      const liftNames = body.lifts.map((l: { lift: string }) => l.lift);
+      expect(liftNames).toContain('Deadlift');
+      expect(liftNames).toContain('Overhead Press');
+    });
+
+    it('POST /training-maxes/recalculate updates only lifts that hit their targets', async () => {
+      const res = await post(`/programs/${SEED_PROGRAM}/training-maxes/recalculate`);
+      expect(res.statusCode).toBe(200);
+      const maxes = res.json() as Array<{ lift: string; weight: number }>;
+      const find = (lift: string) => maxes.find((m) => m.lift === lift)!;
+
+      // Squat hit target (200 lbs × 5 reps): new max = 200 + increment(5) = 205
+      expect(find('Squat').weight).toBe(205);
+      // Bench Press missed (3 reps < 5): max unchanged
+      expect(find('Bench Press').weight).toBe(225);
+      // Deadlift hit target (300 lbs × 5 reps): new max = 300 + increment(10) = 310
+      expect(find('Deadlift').weight).toBe(310);
+      // Overhead Press missed (2 reps < 5): max unchanged
+      expect(find('Overhead Press').weight).toBe(145);
+    });
+  });
+
   it('isolates adapter state between users', async () => {
     const injectRaw = app.getHttpAdapter().getInstance().inject.bind(
       app.getHttpAdapter().getInstance(),

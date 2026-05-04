@@ -1,24 +1,16 @@
 import { LiftRecord } from '@lifting-logbook/core';
 import { ILiftRecordRepository } from '../../ports/ILiftRecordRepository';
-import { SEED_PROGRAM, seedLiftRecords } from './fixtures';
 
 export class InMemoryLiftRecordRepository implements ILiftRecordRepository {
-  private recordsByProgram: Map<string, LiftRecord[]>;
-
-  constructor(preSeed = false) {
-    this.recordsByProgram = preSeed
-      ? new Map([[SEED_PROGRAM, seedLiftRecords()]])
-      : new Map();
-  }
+  constructor(private readonly store: Map<string, LiftRecord[]>) {}
 
   async getLiftRecords(program: string, cycleNum: number): Promise<LiftRecord[]> {
-    const records = this.recordsByProgram.get(program) ?? [];
-    return records.filter((r) => r.cycleNum === cycleNum);
+    return (this.store.get(program) ?? []).filter((r) => r.cycleNum === cycleNum);
   }
 
   async appendLiftRecords(program: string, records: LiftRecord[]): Promise<void> {
-    const existing = this.recordsByProgram.get(program) ?? [];
-    this.recordsByProgram.set(program, [...existing, ...records]);
+    const existing = this.store.get(program) ?? [];
+    this.store.set(program, [...existing, ...records]);
   }
 
   async updateLiftRecord(
@@ -26,7 +18,7 @@ export class InMemoryLiftRecordRepository implements ILiftRecordRepository {
     id: string,
     updates: Partial<Pick<LiftRecord, 'weight' | 'reps' | 'notes'>>,
   ): Promise<LiftRecord | null> {
-    const records = this.recordsByProgram.get(program) ?? [];
+    const records = this.store.get(program) ?? [];
     const idx = records.findIndex(
       (r) => `${r.program}-${r.cycleNum}-${r.workoutNum}-${r.lift}-${r.setNum}` === id,
     );
@@ -40,7 +32,7 @@ export class InMemoryLiftRecordRepository implements ILiftRecordRepository {
     };
     const next = [...records];
     next[idx] = updated;
-    this.recordsByProgram.set(program, next);
+    this.store.set(program, next);
     return updated;
   }
 }
