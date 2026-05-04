@@ -49,6 +49,8 @@ export class CycleGenerationService {
       : {};
 
     const newCycle = updateCycle(prevDashboard, cycleOverrides);
+    // Deliberate: flagged reductions are silently blocked here — they are not surfaced
+    // to the caller when advancing a cycle. Use recalculateMaxes to review flagged reductions.
     const { maxes: newMaxes } = updateMaxes(programSpec, trainingMaxes, liftRecords);
 
     // Write order: maxes before dashboard — if dashboard write fails, cycle counter
