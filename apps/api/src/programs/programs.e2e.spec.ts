@@ -350,6 +350,10 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
   // -------------------------------------------------------------------------
 
   describe('multi-cycle progression scenario (issue #142)', () => {
+    // Tests in this block are order-dependent — do not reorder. Each `it`
+    // mutates adapter state (cycleNum, training maxes, dateUpdated) that the
+    // next one reads. Reordering will silently break expected-weight assertions
+    // because the TM/dateUpdated gates in updateMaxes depend on prior state.
     it('advances cycle 3 → 4 to clear prior-scenario state; TMs unchanged', async () => {
       // Existing cycle-3 records were all flagged → updateMaxes leaves TMs at
       // 315/225/405/145. Advancing now just bumps cycleNum.
