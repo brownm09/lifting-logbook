@@ -1,0 +1,99 @@
+.page {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6) var(--space-4);
+}
+
+.card {
+  width: 100%;
+  max-width: 480px;
+  background: var(--color-bg);
+  border-radius: var(--radius-lg);
+  padding: var(--space-8) var(--space-6);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-6);
+}
+
+.brand {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.wordmark {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, var(--color-header-from), var(--color-header-to));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  margin: 0;
+}
+
+.tagline {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-base);
+  margin: 0;
+}
+
+.ctaList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-accent);
+  color: #fff;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+  min-height: 56px;
+  border-left: 3px solid var(--color-accent-hover);
+}
+
+.cta:hover {
+  background: var(--color-accent-hover);
+}
+
+.cta:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.ctaSecondary {
+  background: var(--color-surface);
+  color: var(--color-text-heading);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-accent);
+}
+
+.ctaSecondary:hover {
+  background: var(--color-surface-alt);
+}
+
+.ctaArrow {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+}
+
+@media (min-width: 720px) {
+  .card {
+    box-shadow: var(--shadow-md);
+    background: var(--color-surface);
+    padding: var(--space-10) var(--space-8);
+  }
+}
