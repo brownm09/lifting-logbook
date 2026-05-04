@@ -260,7 +260,7 @@
 
 .logBtn {
   background: var(--color-text);
-  color: #fff;
+  color: var(--color-text-inverted);
 }
 
 .logBtn:disabled {
@@ -353,7 +353,7 @@
   min-height: 44px;
   padding: 0 var(--space-5);
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-on-accent);
   border: none;
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
@@ -426,7 +426,7 @@
 .gateSubmit {
   min-height: 52px;
   background: var(--color-text);
-  color: #fff;
+  color: var(--color-text-inverted);
   border: none;
   border-radius: var(--radius-lg);
   font-size: var(--font-size-base);

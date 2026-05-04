@@ -14,7 +14,7 @@
 
 .header {
   background: linear-gradient(135deg, var(--color-header-from), var(--color-header-to));
-  color: #fff;
+  color: var(--color-text-inverted);
   padding: var(--space-6) var(--space-5);
   display: flex;
   flex-direction: column;
@@ -25,7 +25,7 @@
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
   margin: 0;
-  color: #fff;
+  color: var(--color-text-inverted);
 }
 
 .headerSubtitle {
@@ -231,7 +231,7 @@
 .filterChipActive {
   background: var(--color-accent);
   border-color: var(--color-accent);
-  color: #fff;
+  color: var(--color-on-accent);
 }
 
 .programList {
@@ -323,7 +323,7 @@
   min-height: 48px;
   padding: 0 var(--space-5);
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-on-accent);
   border: none;
   border-radius: var(--radius-md);
   font-size: var(--font-size-base);
@@ -346,7 +346,7 @@
   min-height: 48px;
   padding: 0 var(--space-5);
   background: var(--color-success);
-  color: #fff;
+  color: var(--color-on-success);
   border: none;
   border-radius: var(--radius-md);
   font-size: var(--font-size-base);

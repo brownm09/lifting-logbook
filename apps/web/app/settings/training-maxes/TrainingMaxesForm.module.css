@@ -99,7 +99,7 @@
   min-height: 44px;
   font-size: var(--font-size-base);
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-on-accent);
   border: none;
   border-radius: var(--radius-sm);
   cursor: pointer;
