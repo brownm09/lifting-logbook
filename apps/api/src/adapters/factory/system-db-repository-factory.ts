@@ -1,6 +1,7 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
+import { LiftRecord } from '@lifting-logbook/core';
 import { AuthUser } from '../../ports/auth';
 import { IRepositoryFactory, RepositoryBundle } from '../../ports/factory';
 import { PrismaLiftRecordRepository } from '../prisma/lift-record.repository';
@@ -77,13 +78,17 @@ export class SystemDbRepositoryFactory implements IRepositoryFactory, OnModuleDe
       };
     }
 
+    // liftRecord and workout share one backing store so POSTed records are
+    // immediately visible via GET /workouts/:workoutNum (mirrors Prisma behavior
+    // and matches InMemoryRepositoryFactory).
+    const sharedRecords: Map<string, LiftRecord[]> = new Map();
     return {
       cycleDashboard: new InMemoryCycleDashboardRepository(),
       liftingProgramSpec: this.programSpecRepo,
-      liftRecord: new InMemoryLiftRecordRepository(),
+      liftRecord: new InMemoryLiftRecordRepository(sharedRecords),
       programPhilosophy: this.philosophyRepo,
       trainingMax: new InMemoryTrainingMaxRepository(),
-      workout: new InMemoryWorkoutRepository(),
+      workout: new InMemoryWorkoutRepository(sharedRecords),
     };
   }
 
