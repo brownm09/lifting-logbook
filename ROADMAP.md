@@ -99,7 +99,7 @@ Web and mobile clients functional end-to-end. Key user-facing features implement
 
 ---
 
-## v0.4 — Alpha Release `[Current]`
+## v0.4 — Alpha Release `[Shipped]`
 
 First deployable version. Styled web app running against a real database, deployed and accessible to known users. Mobile deferred to v1.0.
 
@@ -107,15 +107,16 @@ First deployable version. Styled web app running against a real database, deploy
 
 | Work stream | Description | Issues |
 |---|---|---|
-| Deployment infrastructure | Cloud Run or GKE manifests, Terraform shared infra, CI/CD deploy on merge | [#149](https://github.com/brownm09/lifting-logbook/issues/149) |
-| Real database adapter | Prisma schema, `SystemDbRepositoryFactory` implementations, migration runner | [#150](https://github.com/brownm09/lifting-logbook/issues/150) |
-| Database integration tests | E2e suite against real Postgres; covers PATCH endpoint gap and row-level isolation | [#151](https://github.com/brownm09/lifting-logbook/issues/151) |
+| *(all shipped)* | | |
 
 ### Shipped
 
 | Work stream | Description | Issues |
 |---|---|---|
 | Design system and styling | Global CSS reset, design tokens, and styled screens informed by Claude Design mockups | [#148](https://github.com/brownm09/lifting-logbook/issues/148) |
+| Deployment infrastructure | Cloud Run or GKE manifests, Terraform shared infra, CI/CD deploy on merge | [#149](https://github.com/brownm09/lifting-logbook/issues/149) |
+| Real database adapter | Prisma schema, `SystemDbRepositoryFactory` implementations, migration runner | [#150](https://github.com/brownm09/lifting-logbook/issues/150) |
+| Database integration tests | E2e suite against real Postgres; covers PATCH endpoint gap and row-level isolation | [#151](https://github.com/brownm09/lifting-logbook/issues/151) |
 
 ### Proposals
 
