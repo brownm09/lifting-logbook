@@ -7,7 +7,8 @@ export const metadata: Metadata = {
 };
 
 const themeInitScript =
-  "(function(){try{var t=localStorage.getItem('theme')||'navy';" +
+  "(function(){try{var t=localStorage.getItem('theme');" +
+  "if(t!=='navy'&&t!=='iron')t='navy';" +
   "document.documentElement.setAttribute('data-theme',t);}catch(e){" +
   "document.documentElement.setAttribute('data-theme','navy');}})();";
 
