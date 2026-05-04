@@ -86,22 +86,26 @@ describe('CycleGenerationController', () => {
   });
 
   describe('recalculateMaxes', () => {
-    it('calls service with repos and program, returns mapped maxes', async () => {
-      service.recalculateMaxes.mockResolvedValue([
-        {
-          lift: 'Squat',
-          weight: 270,
-          dateUpdated: new Date('2026-04-27T00:00:00.000Z'),
-        },
-      ]);
+    it('calls service with repos and program, returns mapped maxes and flagged', async () => {
+      service.recalculateMaxes.mockResolvedValue({
+        maxes: [
+          {
+            lift: 'Squat',
+            weight: 270,
+            dateUpdated: new Date('2026-04-27T00:00:00.000Z'),
+          },
+        ],
+        flagged: [],
+      });
 
       const result = await controller.recalculateMaxes(PROGRAM, MOCK_USER);
 
       expect(factory.forUser).toHaveBeenCalledWith(MOCK_USER);
       expect(service.recalculateMaxes).toHaveBeenCalledWith(MOCK_BUNDLE, PROGRAM);
-      expect(result).toEqual([
-        { lift: 'Squat', weight: 270, unit: 'lbs', dateUpdated: '2026-04-27' },
-      ]);
+      expect(result).toEqual({
+        maxes: [{ lift: 'Squat', weight: 270, unit: 'lbs', dateUpdated: '2026-04-27' }],
+        flagged: [],
+      });
     });
   });
 });

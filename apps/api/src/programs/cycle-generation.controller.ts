@@ -1,7 +1,7 @@
 import { Body, Controller, HttpCode, HttpStatus, Inject, Param, Post } from '@nestjs/common';
 import {
   CycleDashboardResponse,
-  TrainingMaxResponse,
+  RecalculateMaxesResponse,
 } from '@lifting-logbook/types';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthUser } from '../ports/auth';
@@ -35,9 +35,9 @@ export class CycleGenerationController {
   async recalculateMaxes(
     @Param('program', ParseProgramPipe) program: string,
     @CurrentUser() user: AuthUser,
-  ): Promise<TrainingMaxResponse[]> {
+  ): Promise<RecalculateMaxesResponse> {
     const repos = await this.factory.forUser(user);
-    const maxes = await this.cycleGenerationService.recalculateMaxes(repos, program);
-    return maxes.map(toTrainingMaxResponse);
+    const { maxes, flagged } = await this.cycleGenerationService.recalculateMaxes(repos, program);
+    return { maxes: maxes.map(toTrainingMaxResponse), flagged };
   }
 }

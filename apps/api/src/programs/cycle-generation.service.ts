@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import {
   CycleDashboard,
+  MaxReductionFlag,
   TrainingMax,
   updateCycle,
   updateMaxes,
@@ -48,7 +49,9 @@ export class CycleGenerationService {
       : {};
 
     const newCycle = updateCycle(prevDashboard, cycleOverrides);
-    const newMaxes = updateMaxes(programSpec, trainingMaxes, liftRecords);
+    // Deliberate: flagged reductions are silently blocked here — they are not surfaced
+    // to the caller when advancing a cycle. Use recalculateMaxes to review flagged reductions.
+    const { maxes: newMaxes } = updateMaxes(programSpec, trainingMaxes, liftRecords);
 
     // Write order: maxes before dashboard — if dashboard write fails, cycle counter
     // hasn't advanced and a retry is safe. True atomicity requires a transaction.
@@ -58,7 +61,10 @@ export class CycleGenerationService {
     return newCycle;
   }
 
-  async recalculateMaxes(repos: CycleRepos, program: string): Promise<TrainingMax[]> {
+  async recalculateMaxes(
+    repos: CycleRepos,
+    program: string,
+  ): Promise<{ maxes: TrainingMax[]; flagged: MaxReductionFlag[] }> {
     const dashboard = await repos.cycleDashboard.getCycleDashboard(program);
     const [programSpec, trainingMaxes, liftRecords] = await Promise.all([
       repos.liftingProgramSpec.getProgramSpec(program),
@@ -66,9 +72,9 @@ export class CycleGenerationService {
       repos.liftRecord.getLiftRecords(program, dashboard.cycleNum),
     ]);
 
-    const newMaxes = updateMaxes(programSpec, trainingMaxes, liftRecords);
-    await repos.trainingMax.saveTrainingMaxes(program, newMaxes);
+    const result = updateMaxes(programSpec, trainingMaxes, liftRecords);
+    await repos.trainingMax.saveTrainingMaxes(program, result.maxes);
 
-    return newMaxes;
+    return result;
   }
 }

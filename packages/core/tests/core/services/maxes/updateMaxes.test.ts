@@ -18,12 +18,11 @@ describe("updateMaxes", () => {
     const expectedMaxes = parseTrainingMaxes(newTmData);
     const programSpec = parseLiftingProgramSpec(specData);
     const liftRecords = parseLiftRecords(liftData);
-    const updatedMaxes = updateMaxes(programSpec, trainingMaxes, liftRecords);
+    const { maxes: updatedMaxes, flagged } = updateMaxes(programSpec, trainingMaxes, liftRecords);
     expect(Array.isArray(updatedMaxes)).toBe(true);
     expect(updatedMaxes.length).toBe(trainingMaxes.length);
+    expect(Array.isArray(flagged)).toBe(true);
 
-    expect(Array.isArray(updatedMaxes)).toBe(true);
-    expect(updatedMaxes.length).toBe(trainingMaxes.length);
     // Check that at least one max was updated (date or weight changed)
     const changed = updatedMaxes.some(
       (um, i) =>
@@ -32,19 +31,25 @@ describe("updateMaxes", () => {
     );
     expect(changed).toBe(true);
 
-    // Lifts expected to be updated, with their new values
+    // Lifts whose computed new TM is an increase — applied directly
     const expectedUpdates: TrainingMax[] = [
       { lift: "BB Row", dateUpdated: new Date("2026-01-05"), weight: 180 },
       { lift: "Calf Raise", dateUpdated: new Date("2026-01-05"), weight: 220 },
-      {
-        lift: "C. Lat Raise",
-        dateUpdated: new Date("2026-01-05"),
-        weight: 13.75,
-      },
-      { lift: "Chin-up", dateUpdated: new Date("2026-01-07"), weight: 227.5 },
-      { lift: "Dip", dateUpdated: new Date("2026-01-07"), weight: 227.5 },
-      { lift: "Deadlift", dateUpdated: new Date("2026-01-13"), weight: 267.5 },
+      { lift: "C. Lat Raise", dateUpdated: new Date("2026-01-05"), weight: 13.75 },
     ];
+
+    // Lifts whose computed new TM would be a reduction — flagged, not applied
+    const expectedFlagged = [
+      { lift: "Chin-up",  currentWeight: 245,   proposedWeight: 227.5 },
+      { lift: "Dip",      currentWeight: 237.5,  proposedWeight: 227.5 },
+      { lift: "Deadlift", currentWeight: 275,    proposedWeight: 267.5 },
+    ];
+    for (const ef of expectedFlagged) {
+      const entry = flagged.find((f) => f.lift === ef.lift);
+      expect(entry).toBeDefined();
+      expect(entry!.currentWeight).toBe(ef.currentWeight);
+      expect(entry!.proposedWeight).toBe(ef.proposedWeight);
+    }
 
     // Check each lift
     trainingMaxes.forEach((orig, i) => {
@@ -69,7 +74,7 @@ describe("updateMaxes", () => {
     });
     expect(updatedMaxes).toEqual(expectedMaxes);
     // Test for idempotency by re-running with updated maxes
-    expect(updateMaxes(programSpec, updatedMaxes, liftRecords)).toEqual(
+    expect(updateMaxes(programSpec, updatedMaxes, liftRecords).maxes).toEqual(
       expectedMaxes,
     );
   });
@@ -84,7 +89,7 @@ describe("updateMaxes", () => {
     const liftRecords = parseLiftRecords(liftData);
     const expectedMaxes = parseTrainingMaxes(expectedData);
 
-    const updated = updateMaxes(programSpec, trainingMaxes, liftRecords);
+    const { maxes: updated } = updateMaxes(programSpec, trainingMaxes, liftRecords);
     expect(updated).toEqual(expectedMaxes);
 
     // Specifically verify no increment was applied
@@ -111,7 +116,7 @@ describe("updateMaxes", () => {
       notes: "injury",
     }));
 
-    const updated = updateMaxes(programSpec, trainingMaxes, liftRecords);
+    const { maxes: updated } = updateMaxes(programSpec, trainingMaxes, liftRecords);
     const benchMax = updated.find((m) => m.lift === "Bench P.")!;
     const originalBenchMax = trainingMaxes.find((m) => m.lift === "Bench P.")!;
     expect(benchMax.weight).toBe(originalBenchMax.weight); // unchanged
@@ -136,7 +141,7 @@ describe("updateMaxes", () => {
       notes: "",
     }));
 
-    const updated = updateMaxes(programSpec, trainingMaxes, liftRecords);
+    const { maxes: updated } = updateMaxes(programSpec, trainingMaxes, liftRecords);
     const benchMax = updated.find((m) => m.lift === "Bench P.")!;
     const originalBenchMax = trainingMaxes.find((m) => m.lift === "Bench P.")!;
     expect(benchMax.weight).toBe(originalBenchMax.weight);
