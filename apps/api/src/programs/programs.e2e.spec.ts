@@ -329,6 +329,173 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
     });
   });
 
+  // -------------------------------------------------------------------------
+  // Multi-cycle progression scenario — issue #142.
+  //
+  // Order-sensitive, continues from the state left by the multi-workout
+  // scenario above:
+  //   cycleNum:   3
+  //   TMs:        Squat 315, Bench 225, Deadlift 405, Overhead Press 145
+  //               (all dateUpdated 2026-04-13 — none updated by prior recalc)
+  //   records:    cycle-3 set-1 entries for all 4 lifts (none updated TMs)
+  //
+  // Goal: drive at least one lift through a genuine TM increase across two
+  // cycle-advance boundaries and assert the updated maxes persist into the
+  // next cycle (the carry-forward chain that makes new-cycle planned
+  // weights derive from prior-cycle outcomes).
+  //
+  // Logged set-1 weights are engineered at-or-near current TMs (not realistic
+  // 5/3/1 loading) so the progression branch fires deterministically:
+  //   record.reps >= spec.reps AND record.weight + spec.increment > current TM.
+  // -------------------------------------------------------------------------
+
+  describe('multi-cycle progression scenario (issue #142)', () => {
+    it('advances cycle 3 → 4 to clear prior-scenario state; TMs unchanged', async () => {
+      // Existing cycle-3 records were all flagged → updateMaxes leaves TMs at
+      // 315/225/405/145. Advancing now just bumps cycleNum.
+      const advanceRes = await post(`/programs/${SEED_PROGRAM}/cycles`);
+      expect(advanceRes.statusCode).toBe(201);
+      expect(advanceRes.json().cycleNum).toBe(4);
+
+      const tmRes = await get(`/programs/${SEED_PROGRAM}/training-maxes`);
+      expect(tmRes.statusCode).toBe(200);
+      const findTm = (lift: string) =>
+        tmRes.json().find((m: { lift: string }) => m.lift === lift)!;
+      expect(findTm('Squat').weight).toBe(315);
+      expect(findTm('Bench Press').weight).toBe(225);
+      expect(findTm('Deadlift').weight).toBe(405);
+      expect(findTm('Overhead Press').weight).toBe(145);
+    });
+
+    it('cycle 4: logs records that drive Squat + Bench progression, leaves DL + OHP unchanged', async () => {
+      // Date 2026-08-03 > all current TMs' dateUpdated (2026-04-13) → gate passes on date.
+      // Squat: 315 + 5 = 320 > current TM 315 → applies (TM → 320).
+      const squat = await postJson(`/programs/${SEED_PROGRAM}/lift-records`, {
+        cycleNum: 4, workoutNum: 1, date: '2026-08-03',
+        lift: 'Squat', setNum: 1, weight: 315, reps: 5, notes: '',
+      });
+      expect(squat.statusCode).toBe(201);
+
+      // Bench: 225 + 5 = 230 > current TM 225 → applies (TM → 230).
+      const bench = await postJson(`/programs/${SEED_PROGRAM}/lift-records`, {
+        cycleNum: 4, workoutNum: 1, date: '2026-08-03',
+        lift: 'Bench Press', setNum: 1, weight: 225, reps: 5, notes: '',
+      });
+      expect(bench.statusCode).toBe(201);
+
+      // Deadlift: reps 3 < spec.reps 5 → gate fails (TM unchanged at 405).
+      const dl = await postJson(`/programs/${SEED_PROGRAM}/lift-records`, {
+        cycleNum: 4, workoutNum: 1, date: '2026-08-03',
+        lift: 'Deadlift', setNum: 1, weight: 300, reps: 3, notes: '',
+      });
+      expect(dl.statusCode).toBe(201);
+
+      // OHP: reps 2 < spec.reps 5 → gate fails (TM unchanged at 145).
+      const ohp = await postJson(`/programs/${SEED_PROGRAM}/lift-records`, {
+        cycleNum: 4, workoutNum: 1, date: '2026-08-03',
+        lift: 'Overhead Press', setNum: 1, weight: 100, reps: 2, notes: '',
+      });
+      expect(ohp.statusCode).toBe(201);
+    });
+
+    it('cycle 4 → 5: recalculate applies Squat + Bench increases with no flags', async () => {
+      const res = await post(`/programs/${SEED_PROGRAM}/training-maxes/recalculate`);
+      expect(res.statusCode).toBe(200);
+      const body = res.json() as {
+        maxes: Array<{ lift: string; weight: number }>;
+        flagged: Array<{ lift: string }>;
+      };
+      const findMax = (lift: string) => body.maxes.find((m) => m.lift === lift)!;
+
+      expect(findMax('Squat').weight).toBe(320);          // 315 + 5
+      expect(findMax('Bench Press').weight).toBe(230);    // 225 + 5
+      expect(findMax('Deadlift').weight).toBe(405);       // unchanged
+      expect(findMax('Overhead Press').weight).toBe(145); // unchanged
+      expect(body.flagged).toEqual([]);
+    });
+
+    it('cycle 4 → 5: POST /cycles persists updated maxes into cycle 5 (carry-forward)', async () => {
+      const advanceRes = await post(`/programs/${SEED_PROGRAM}/cycles`);
+      expect(advanceRes.statusCode).toBe(201);
+      expect(advanceRes.json().cycleNum).toBe(5);
+
+      // Carry-forward assertion: the maxes that downstream cycle-5 planned
+      // weights will be computed from must reflect cycle-4 outcomes.
+      const tmRes = await get(`/programs/${SEED_PROGRAM}/training-maxes`);
+      expect(tmRes.statusCode).toBe(200);
+      const findTm = (lift: string) =>
+        tmRes.json().find((m: { lift: string }) => m.lift === lift)!;
+      expect(findTm('Squat').weight).toBe(320);
+      expect(findTm('Bench Press').weight).toBe(230);
+      expect(findTm('Deadlift').weight).toBe(405);
+      expect(findTm('Overhead Press').weight).toBe(145);
+    });
+
+    it('cycle 5: logs records with different per-lift outcomes than cycle 4', async () => {
+      // Date 2026-09-07 > all current TMs' dateUpdated (Squat/Bench: 2026-08-03;
+      // DL/OHP: 2026-04-13) → gate passes on date for every lift.
+
+      // Squat: reps 3 < 5 → gate fails (TM unchanged at 320).
+      const squat = await postJson(`/programs/${SEED_PROGRAM}/lift-records`, {
+        cycleNum: 5, workoutNum: 1, date: '2026-09-07',
+        lift: 'Squat', setNum: 1, weight: 322, reps: 3, notes: '',
+      });
+      expect(squat.statusCode).toBe(201);
+
+      // Bench: 232 + 5 = 237 > current TM 230 → applies (TM → 237).
+      const bench = await postJson(`/programs/${SEED_PROGRAM}/lift-records`, {
+        cycleNum: 5, workoutNum: 1, date: '2026-09-07',
+        lift: 'Bench Press', setNum: 1, weight: 232, reps: 5, notes: '',
+      });
+      expect(bench.statusCode).toBe(201);
+
+      // Deadlift: 410 + 10 = 420 > current TM 405 → applies (TM → 420).
+      const dl = await postJson(`/programs/${SEED_PROGRAM}/lift-records`, {
+        cycleNum: 5, workoutNum: 1, date: '2026-09-07',
+        lift: 'Deadlift', setNum: 1, weight: 410, reps: 5, notes: '',
+      });
+      expect(dl.statusCode).toBe(201);
+
+      // OHP: 145 + 5 = 150 > current TM 145 → applies (TM → 150).
+      const ohp = await postJson(`/programs/${SEED_PROGRAM}/lift-records`, {
+        cycleNum: 5, workoutNum: 1, date: '2026-09-07',
+        lift: 'Overhead Press', setNum: 1, weight: 145, reps: 5, notes: '',
+      });
+      expect(ohp.statusCode).toBe(201);
+    });
+
+    it('cycle 5 → 6: recalculate composes correctly across the second boundary', async () => {
+      const res = await post(`/programs/${SEED_PROGRAM}/training-maxes/recalculate`);
+      expect(res.statusCode).toBe(200);
+      const body = res.json() as {
+        maxes: Array<{ lift: string; weight: number }>;
+        flagged: Array<{ lift: string }>;
+      };
+      const findMax = (lift: string) => body.maxes.find((m) => m.lift === lift)!;
+
+      expect(findMax('Squat').weight).toBe(320);          // unchanged (reps<5)
+      expect(findMax('Bench Press').weight).toBe(237);    // 232 + 5
+      expect(findMax('Deadlift').weight).toBe(420);       // 410 + 10
+      expect(findMax('Overhead Press').weight).toBe(150); // 145 + 5
+      expect(body.flagged).toEqual([]);
+    });
+
+    it('cycle 5 → 6: POST /cycles persists final composed maxes into cycle 6', async () => {
+      const advanceRes = await post(`/programs/${SEED_PROGRAM}/cycles`);
+      expect(advanceRes.statusCode).toBe(201);
+      expect(advanceRes.json().cycleNum).toBe(6);
+
+      const tmRes = await get(`/programs/${SEED_PROGRAM}/training-maxes`);
+      expect(tmRes.statusCode).toBe(200);
+      const findTm = (lift: string) =>
+        tmRes.json().find((m: { lift: string }) => m.lift === lift)!;
+      expect(findTm('Squat').weight).toBe(320);
+      expect(findTm('Bench Press').weight).toBe(237);
+      expect(findTm('Deadlift').weight).toBe(420);
+      expect(findTm('Overhead Press').weight).toBe(150);
+    });
+  });
+
   it('isolates adapter state between users', async () => {
     const injectRaw = app.getHttpAdapter().getInstance().inject.bind(
       app.getHttpAdapter().getInstance(),
