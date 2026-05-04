@@ -22,6 +22,7 @@ const stubDashboard = () => ({
 
 const stubProgramSpec = () => [
   {
+    week: 1,
     lift: 'Squat',
     order: 1,
     offset: 0,
@@ -38,7 +39,7 @@ const stubProgramSpec = () => [
 const stubTrainingMaxes = () => [
   {
     lift: 'Squat',
-    weight: 315,
+    weight: 250,
     dateUpdated: new Date('2026-04-18T00:00:00.000Z'),
   },
 ];
@@ -184,12 +185,13 @@ describe('CycleGenerationService', () => {
 
       const result = await service.recalculateMaxes(repos, PROGRAM);
 
-      expect(result).toEqual(
+      expect(result.maxes).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ lift: 'Squat', weight: 270 }),
         ]),
       );
-      expect(trainingMaxRepo.saveTrainingMaxes).toHaveBeenCalledWith(PROGRAM, result);
+      expect(result.flagged).toEqual([]);
+      expect(trainingMaxRepo.saveTrainingMaxes).toHaveBeenCalledWith(PROGRAM, result.maxes);
     });
 
     it('does not call saveCycleDashboard', async () => {
@@ -211,9 +213,9 @@ describe('CycleGenerationService', () => {
 
       const result = await service.recalculateMaxes(repos, PROGRAM);
 
-      expect(result).toEqual(
+      expect(result.maxes).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({ lift: 'Squat', weight: 315 }),
+          expect.objectContaining({ lift: 'Squat', weight: 250 }),
         ]),
       );
     });

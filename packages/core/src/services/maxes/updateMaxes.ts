@@ -7,6 +7,18 @@ function isAbnormal(notes: string): boolean {
   return ABNORMAL_KEYWORDS.some((kw) => lower.includes(kw));
 }
 
+/** A computed TM update that would reduce the current max — requires explicit user review. */
+export interface MaxReductionFlag {
+  lift: string;
+  currentWeight: number;
+  proposedWeight: number;
+}
+
+export interface UpdateMaxesResult {
+  maxes: TrainingMax[];
+  flagged: MaxReductionFlag[];
+}
+
 /**
  * Updates training maxes based on lift records and program spec.
  *
@@ -15,13 +27,18 @@ function isAbnormal(notes: string): boolean {
  *  - 'test': uses final set (setNum === spec.sets); any non-zero reps without abnormal notes → new TM = weight (no increment).
  *            Abnormal-notes fallback: walk backwards through sets until an unaffected set is found.
  *  - 'deload': no progression — returns input maxes unchanged.
+ *
+ * In both training and test weeks, if the computed new TM would be lower than the current TM,
+ * the update is NOT applied. Instead the lift is added to `flagged` so the caller can surface
+ * the proposed reduction for explicit user review.
  */
 export function updateMaxes(
   programSpec: LiftingProgramSpec[],
   trainingMaxes: TrainingMax[],
   liftRecords: LiftRecord[],
-): TrainingMax[] {
+): UpdateMaxesResult {
   const newMaxes: TrainingMax[] = trainingMaxes.map((tm) => ({ ...tm }));
+  const flagged: MaxReductionFlag[] = [];
 
   liftRecords.forEach((record) => {
     const liftName = record.lift;
@@ -52,8 +69,12 @@ export function updateMaxes(
         candidate &&
         new Date(candidate.date).getTime() > new Date(currentMax.dateUpdated).getTime()
       ) {
-        currentMax.weight = candidate.weight; // no increment for test weeks
-        currentMax.dateUpdated = candidate.date;
+        if (candidate.weight < currentMax.weight) {
+          flagged.push({ lift: liftName, currentWeight: currentMax.weight, proposedWeight: candidate.weight });
+        } else {
+          currentMax.weight = candidate.weight;
+          currentMax.dateUpdated = candidate.date;
+        }
       }
       return;
     }
@@ -69,10 +90,14 @@ export function updateMaxes(
       if (typeof updatedWeight !== "number" || isNaN(updatedWeight)) {
         throw new Error(`Updated weight for ${liftName} is not a valid number: ${updatedWeight}`);
       }
-      currentMax.weight = updatedWeight;
-      currentMax.dateUpdated = record.date;
+      if (updatedWeight < currentMax.weight) {
+        flagged.push({ lift: liftName, currentWeight: currentMax.weight, proposedWeight: updatedWeight });
+      } else {
+        currentMax.weight = updatedWeight;
+        currentMax.dateUpdated = record.date;
+      }
     }
   });
 
-  return newMaxes;
+  return { maxes: newMaxes, flagged };
 }

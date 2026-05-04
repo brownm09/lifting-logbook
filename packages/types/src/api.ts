@@ -12,6 +12,13 @@ export interface TrainingMaxResponse {
   dateUpdated: string; // ISO 8601 date string
 }
 
+/** Response from POST /training-maxes/recalculate. */
+export interface RecalculateMaxesResponse {
+  maxes: TrainingMaxResponse[];
+  /** Lifts whose computed new TM would be lower than the current TM — not auto-applied. */
+  flagged: Array<{ lift: LiftName; currentWeight: number; proposedWeight: number }>;
+}
+
 /** Request body for updating one or more training maxes. */
 export interface UpdateTrainingMaxesRequest {
   maxes: Array<{

@@ -116,7 +116,7 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
   // -------------------------------------------------------------------------
 
   describe('write operations', () => {
-    it('POST /programs/:program/training-maxes/recalculate updates maxes from lift records', async () => {
+    it('POST /programs/:program/training-maxes/recalculate flags reductions and returns { maxes, flagged }', async () => {
       // Capture seeded Squat max before recalculate (cycle 1 has Squat records)
       const beforeRes = await get(`/programs/${SEED_PROGRAM}/training-maxes`);
       const squatBefore = beforeRes
@@ -126,9 +126,10 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
       const res = await post(`/programs/${SEED_PROGRAM}/training-maxes/recalculate`);
       expect(res.statusCode).toBe(200);
       const body = res.json();
-      expect(Array.isArray(body)).toBe(true);
-      expect(body.length).toBeGreaterThan(0);
-      for (const m of body) {
+      expect(Array.isArray(body.maxes)).toBe(true);
+      expect(body.maxes.length).toBeGreaterThan(0);
+      expect(Array.isArray(body.flagged)).toBe(true);
+      for (const m of body.maxes) {
         expect(m).toMatchObject({
           lift: expect.any(String),
           weight: expect.any(Number),
@@ -136,9 +137,14 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
           dateUpdated: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
         });
       }
-      // Squat has cycle-1 records — verify the max actually changed
-      const squatAfter = body.find((m: { lift: string }) => m.lift === 'Squat').weight;
-      expect(squatAfter).not.toBe(squatBefore);
+      // Cycle-1 Squat set 1 was logged at 205 lbs → proposed max 210 < seeded TM 315.
+      // Reduction must be flagged, not auto-applied; TM is unchanged.
+      const squatFlag = body.flagged.find((f: { lift: string }) => f.lift === 'Squat');
+      expect(squatFlag).toBeDefined();
+      expect(squatFlag.currentWeight).toBe(squatBefore);
+      expect(squatFlag.proposedWeight).toBe(210); // 205 + increment 5
+      const squatAfter = body.maxes.find((m: { lift: string }) => m.lift === 'Squat').weight;
+      expect(squatAfter).toBe(squatBefore); // max unchanged
     });
 
     it('POST /programs/:program/cycles advances cycleNum and persists new maxes', async () => {
@@ -196,14 +202,16 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
   // Multi-workout progression scenario — order-sensitive, continues from the
   // state left by 'write operations' above: cycleNum=3, dev-token user.
   //
-  // Seeded maxes after write operations (deterministic trace):
-  //   Squat:          210 lbs  (record weight 205 + increment 5; dateUpdated 2026-04-20)
+  // TMs after write operations (deterministic trace):
+  //   Squat:          315 lbs  (cycle-1 set-1 was 205 lbs → proposed 210 < 315 → flagged, not applied)
   //   Bench Press:    225 lbs  (no cycle-1 Bench records; unchanged from seed)
   //   Deadlift:       405 lbs  (no cycle-1 DL records; unchanged from seed)
   //   Overhead Press: 145 lbs  (no cycle-1 OHP records; unchanged from seed)
   //
-  // Cycle 3 records logged below use dates newer than every dateUpdated above,
+  // Cycle 3 records logged below use dates newer than the seed dateUpdated (2026-04-13),
   // so the progression gate (record.date > max.dateUpdated) passes for hits.
+  // Both Squat (200+5=205 < 315) and Deadlift (300+10=310 < 405) would be reductions
+  // → both flagged, not applied.
   // -------------------------------------------------------------------------
 
   describe('multi-workout progression scenario', () => {
@@ -294,20 +302,30 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
       expect(liftNames).toContain('Overhead Press');
     });
 
-    it('POST /training-maxes/recalculate updates only lifts that hit their targets', async () => {
+    it('POST /training-maxes/recalculate flags reductions; only genuine increases are applied', async () => {
       const res = await post(`/programs/${SEED_PROGRAM}/training-maxes/recalculate`);
       expect(res.statusCode).toBe(200);
-      const maxes = res.json() as Array<{ lift: string; weight: number }>;
-      const find = (lift: string) => maxes.find((m) => m.lift === lift)!;
+      const body = res.json() as { maxes: Array<{ lift: string; weight: number }>; flagged: Array<{ lift: string; proposedWeight: number }> };
+      const findMax = (lift: string) => body.maxes.find((m) => m.lift === lift)!;
+      const findFlag = (lift: string) => body.flagged.find((f) => f.lift === lift);
 
-      // Squat hit target (200 lbs × 5 reps): new max = 200 + increment(5) = 205
-      expect(find('Squat').weight).toBe(205);
-      // Bench Press missed (3 reps < 5): max unchanged
-      expect(find('Bench Press').weight).toBe(225);
-      // Deadlift hit target (300 lbs × 5 reps): new max = 300 + increment(10) = 310
-      expect(find('Deadlift').weight).toBe(310);
-      // Overhead Press missed (2 reps < 5): max unchanged
-      expect(find('Overhead Press').weight).toBe(145);
+      // Squat hit target (200 × 5) but 200+5=205 < current TM 315 → flagged, max unchanged
+      expect(findMax('Squat').weight).toBe(315);
+      expect(findFlag('Squat')).toBeDefined();
+      expect(findFlag('Squat')!.proposedWeight).toBe(205);
+
+      // Bench Press missed (3 reps < 5): no update, not flagged
+      expect(findMax('Bench Press').weight).toBe(225);
+      expect(findFlag('Bench Press')).toBeUndefined();
+
+      // Deadlift hit target (300 × 5) but 300+10=310 < current TM 405 → flagged, max unchanged
+      expect(findMax('Deadlift').weight).toBe(405);
+      expect(findFlag('Deadlift')).toBeDefined();
+      expect(findFlag('Deadlift')!.proposedWeight).toBe(310);
+
+      // Overhead Press missed (2 reps < 5): no update, not flagged
+      expect(findMax('Overhead Press').weight).toBe(145);
+      expect(findFlag('Overhead Press')).toBeUndefined();
     });
   });
 
