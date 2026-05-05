@@ -34,8 +34,8 @@ export class InMemoryTrainingMaxHistoryRepository implements ITrainingMaxHistory
     const current = entries[idx] as TrainingMaxHistoryEntry;
     const updated: TrainingMaxHistoryEntry = {
       ...current,
-      isPR: update.isPR ?? current.isPR,
-      goalMet: update.goalMet ?? current.goalMet,
+      ...(update.isPR !== undefined && { isPR: update.isPR }),
+      ...(update.goalMet !== undefined && { goalMet: update.goalMet }),
     };
     const next = [...entries];
     next[idx] = updated;

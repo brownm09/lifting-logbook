@@ -11,7 +11,7 @@ async function bootstrap() {
     new FastifyAdapter(),
   );
   app.useGlobalFilters(new DomainNotFoundFilter());
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }));
   const port = parseInt(process.env.PORT ?? '3004', 10);
   await app.listen(port, '0.0.0.0');
 }

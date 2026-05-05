@@ -43,7 +43,7 @@ describe('TrainingMaxHistoryController', () => {
     it('returns mapped entries with ISO date and unit', async () => {
       repo.getHistory.mockResolvedValue([ENTRY]);
 
-      const result = await controller.getHistory('5-3-1', undefined, undefined, undefined, MOCK_USER);
+      const result = await controller.getHistory('5-3-1', MOCK_USER, undefined, undefined, undefined);
 
       expect(factory.forUser).toHaveBeenCalledWith(MOCK_USER);
       expect(repo.getHistory).toHaveBeenCalledWith('5-3-1', { lift: undefined, source: undefined, isPR: undefined });
@@ -66,7 +66,7 @@ describe('TrainingMaxHistoryController', () => {
     it('passes lift filter to repository', async () => {
       repo.getHistory.mockResolvedValue([]);
 
-      await controller.getHistory('5-3-1', 'Squat', undefined, undefined, MOCK_USER);
+      await controller.getHistory('5-3-1', MOCK_USER, 'Squat', undefined, undefined);
 
       expect(repo.getHistory).toHaveBeenCalledWith('5-3-1', expect.objectContaining({ lift: 'Squat' }));
     });
@@ -74,7 +74,7 @@ describe('TrainingMaxHistoryController', () => {
     it('parses isPR=true string filter', async () => {
       repo.getHistory.mockResolvedValue([]);
 
-      await controller.getHistory('5-3-1', undefined, undefined, 'true', MOCK_USER);
+      await controller.getHistory('5-3-1', MOCK_USER, undefined, undefined, 'true');
 
       expect(repo.getHistory).toHaveBeenCalledWith('5-3-1', expect.objectContaining({ isPR: true }));
     });
@@ -82,7 +82,7 @@ describe('TrainingMaxHistoryController', () => {
     it('parses isPR=false string filter', async () => {
       repo.getHistory.mockResolvedValue([]);
 
-      await controller.getHistory('5-3-1', undefined, undefined, 'false', MOCK_USER);
+      await controller.getHistory('5-3-1', MOCK_USER, undefined, undefined, 'false');
 
       expect(repo.getHistory).toHaveBeenCalledWith('5-3-1', expect.objectContaining({ isPR: false }));
     });
@@ -90,7 +90,7 @@ describe('TrainingMaxHistoryController', () => {
     it('passes source filter to repository', async () => {
       repo.getHistory.mockResolvedValue([]);
 
-      await controller.getHistory('5-3-1', undefined, 'test', undefined, MOCK_USER);
+      await controller.getHistory('5-3-1', MOCK_USER, undefined, 'test', undefined);
 
       expect(repo.getHistory).toHaveBeenCalledWith('5-3-1', expect.objectContaining({ source: 'test' }));
     });

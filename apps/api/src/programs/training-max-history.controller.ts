@@ -10,8 +10,8 @@ import {
 import {
   TrainingMaxHistoryEntryResponse,
   TrainingMaxHistoryResponse,
-  UpdateTrainingMaxHistoryRequest,
 } from '@lifting-logbook/types';
+import { UpdateTrainingMaxHistoryDto } from './update-training-max-history.dto';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthUser } from '../ports/auth';
 import { IRepositoryFactory } from '../ports/factory';
@@ -27,12 +27,12 @@ export class TrainingMaxHistoryController {
   @Get('training-maxes/history')
   async getHistory(
     @Param('program') program: string,
+    @CurrentUser() user: AuthUser,
     @Query('lift') lift?: string,
     @Query('source') source?: 'test' | 'program',
     @Query('isPR') isPRStr?: string,
-    @CurrentUser() user?: AuthUser,
   ): Promise<TrainingMaxHistoryResponse> {
-    const { trainingMaxHistory } = await this.factory.forUser(user!);
+    const { trainingMaxHistory } = await this.factory.forUser(user);
     const isPR =
       isPRStr === 'true' ? true : isPRStr === 'false' ? false : undefined;
     const filters = {
@@ -48,10 +48,10 @@ export class TrainingMaxHistoryController {
   async updateEntry(
     @Param('program') program: string,
     @Param('id') id: string,
-    @Body() body: UpdateTrainingMaxHistoryRequest,
-    @CurrentUser() user?: AuthUser,
+    @Body() body: UpdateTrainingMaxHistoryDto,
+    @CurrentUser() user: AuthUser,
   ): Promise<TrainingMaxHistoryEntryResponse> {
-    const { trainingMaxHistory } = await this.factory.forUser(user!);
+    const { trainingMaxHistory } = await this.factory.forUser(user);
     const updated = await trainingMaxHistory.updateHistoryEntry(program, id, body);
     return toTrainingMaxHistoryEntryResponse(updated);
   }
