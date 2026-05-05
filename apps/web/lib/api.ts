@@ -8,6 +8,8 @@ import type {
   LiftingProgramSpecResponse,
   LiftRecordResponse,
   RecordBodyWeightRequest,
+  StrengthGoalResponse,
+  UpsertStrengthGoalRequest,
   TrainingMaxHistoryResponse,
   TrainingMaxResponse,
   UpdateLiftRecordRequest,
@@ -196,4 +198,51 @@ export async function fetchLatestBodyWeight(
     throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
   }
   return res.json() as Promise<BodyWeightResponse>;
+}
+
+export async function fetchStrengthGoals(
+  program: string,
+): Promise<StrengthGoalResponse[]> {
+  const path = `/programs/${encodeURIComponent(program)}/strength-goals`;
+  const authHeaders = await getAuthHeaders();
+  const res = await fetch(`${API_URL}${path}`, {
+    cache: 'no-store',
+    headers: authHeaders,
+  });
+  if (!res.ok) throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
+  return res.json() as Promise<StrengthGoalResponse[]>;
+}
+
+export async function upsertStrengthGoal(
+  program: string,
+  lift: string,
+  body: UpsertStrengthGoalRequest,
+): Promise<StrengthGoalResponse> {
+  const path = `/programs/${encodeURIComponent(program)}/strength-goals/${encodeURIComponent(lift)}`;
+  const authHeaders = await getAuthHeaders();
+  const res = await fetch(`${API_URL}${path}`, {
+    method: 'PUT',
+    cache: 'no-store',
+    headers: { 'Content-Type': 'application/json', ...authHeaders },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
+  return res.json() as Promise<StrengthGoalResponse>;
+}
+
+export async function deleteStrengthGoal(
+  program: string,
+  lift: string,
+): Promise<void> {
+  const path = `/programs/${encodeURIComponent(program)}/strength-goals/${encodeURIComponent(lift)}`;
+  const authHeaders = await getAuthHeaders();
+  const res = await fetch(`${API_URL}${path}`, {
+    method: 'DELETE',
+    cache: 'no-store',
+    headers: authHeaders,
+  });
+  // 404 is treated as success: the goal is already absent, which is the desired end state.
+  if (!res.ok && res.status !== 404) {
+    throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
+  }
 }

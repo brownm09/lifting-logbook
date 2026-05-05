@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import type { WeekRow, WorkoutCell } from '@/lib/workoutPlan';
 import styles from './CycleDashboardGrid.module.css';
@@ -72,6 +73,9 @@ export default function CycleDashboardGrid({
   return (
     <section className={styles.container}>
       <h2 className={styles.heading}>Cycle {cycleNum}</h2>
+      <div style={{ marginBottom: '1rem' }}>
+        <Link href="/settings/strength-goals">🎯 Strength Goals</Link>
+      </div>
       <div className={styles.grid}>
         {weeks.map((row) => {
           const isExpanded = expanded[row.week] ?? row.week === currentWeek;

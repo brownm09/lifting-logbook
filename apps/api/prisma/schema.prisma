@@ -73,3 +73,19 @@ model TrainingMaxHistory {
   @@index([userId, program, lift])
   @@map("training_max_history")
 }
+
+model StrengthGoal {
+  id        String   @id @default(cuid())
+  userId    String
+  program   String
+  lift      String
+  goalType  String   @default("relative")
+  target    Float?
+  unit      String
+  ratio     Float?
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, program, lift])
+  @@index([userId, program])
+  @@map("strength_goal")
+}

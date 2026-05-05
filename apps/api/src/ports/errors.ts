@@ -31,3 +31,10 @@ export class HistoryEntryNotFoundError extends Error {
     this.name = 'HistoryEntryNotFoundError';
   }
 }
+
+export class StrengthGoalNotFoundError extends Error {
+  constructor(public readonly lift: string) {
+    super(`Strength goal for lift '${lift}' not found`);
+    this.name = 'StrengthGoalNotFoundError';
+  }
+}

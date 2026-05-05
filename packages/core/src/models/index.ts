@@ -1,4 +1,5 @@
 export * from "./CycleDashboard";
+export * from "./StrengthGoalEntry";
 export * from "./LiftingProgramSpec";
 export * from "./LiftRecord";
 export * from "./SpreadsheetCell";
