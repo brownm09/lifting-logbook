@@ -1,4 +1,5 @@
-import { Prisma, PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaLiftRecordRepository } from './lift-record.repository';
 
 const BASE_ROW = {
@@ -104,7 +105,7 @@ describe('PrismaLiftRecordRepository', () => {
 
     it('returns null when the record does not exist in the DB (P2025)', async () => {
       const prisma = makePrisma();
-      const p2025 = new Prisma.PrismaClientKnownRequestError('Record not found', {
+      const p2025 = new PrismaClientKnownRequestError('Record not found', {
         code: 'P2025',
         clientVersion: '5.0.0',
       });
@@ -118,7 +119,7 @@ describe('PrismaLiftRecordRepository', () => {
 
     it('re-throws non-P2025 Prisma errors', async () => {
       const prisma = makePrisma();
-      const dbError = new Prisma.PrismaClientKnownRequestError('Connection error', {
+      const dbError = new PrismaClientKnownRequestError('Connection error', {
         code: 'P1001',
         clientVersion: '5.0.0',
       });
