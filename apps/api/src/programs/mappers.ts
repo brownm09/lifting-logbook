@@ -3,6 +3,7 @@ import {
   LiftRecord,
   LiftingProgramSpec,
   TrainingMax,
+  TrainingMaxHistoryEntry,
 } from '@lifting-logbook/core';
 import {
   CycleDashboardResponse,
@@ -10,6 +11,7 @@ import {
   LiftRecordResponse,
   LiftingProgramSpecResponse,
   SetResponse,
+  TrainingMaxHistoryEntryResponse,
   TrainingMaxResponse,
   WeekNumber,
   WorkoutLiftResponse,
@@ -27,6 +29,19 @@ export const toTrainingMaxResponse = (m: TrainingMax): TrainingMaxResponse => ({
   weight: m.weight,
   unit: 'lbs',
   dateUpdated: isoDate(m.dateUpdated),
+});
+
+export const toTrainingMaxHistoryEntryResponse = (
+  e: TrainingMaxHistoryEntry,
+): TrainingMaxHistoryEntryResponse => ({
+  id: e.id,
+  lift: e.lift,
+  weight: e.weight,
+  unit: 'lbs',
+  date: isoDate(e.date),
+  isPR: e.isPR,
+  source: e.source,
+  goalMet: e.goalMet,
 });
 
 export const toLiftRecordResponse = (r: LiftRecord): LiftRecordResponse => ({

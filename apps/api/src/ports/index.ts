@@ -8,5 +8,6 @@ export * from './ICyclePlanningAgent';
 export * from './ILiftingProgramSpecRepository';
 export * from './ILiftRecordRepository';
 export * from './IProgramPhilosophyRepository';
+export * from './ITrainingMaxHistoryRepository';
 export * from './ITrainingMaxRepository';
 export * from './IWorkoutRepository';

@@ -8,6 +8,7 @@ import type {
   LiftingProgramSpecResponse,
   LiftRecordResponse,
   RecordBodyWeightRequest,
+  TrainingMaxHistoryResponse,
   TrainingMaxResponse,
   UpdateLiftRecordRequest,
   UpdateTrainingMaxesRequest,
@@ -66,6 +67,31 @@ export function fetchTrainingMaxes(
   return apiFetch(
     `/programs/${encodeURIComponent(program)}/training-maxes`,
     { cache: 'no-store' },
+  );
+}
+
+export function fetchTrainingMaxHistory(
+  program: string,
+): Promise<TrainingMaxHistoryResponse> {
+  return apiFetch(
+    `/programs/${encodeURIComponent(program)}/training-maxes/history`,
+    { cache: 'no-store' },
+  );
+}
+
+export function updateTrainingMaxHistoryEntry(
+  program: string,
+  id: string,
+  body: { isPR?: boolean; goalMet?: boolean },
+): Promise<TrainingMaxHistoryResponse['entries'][number]> {
+  return apiFetch(
+    `/programs/${encodeURIComponent(program)}/training-maxes/history/${encodeURIComponent(id)}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      cache: 'no-store',
+    },
   );
 }
 

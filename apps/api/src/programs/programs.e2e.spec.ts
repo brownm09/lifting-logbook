@@ -500,6 +500,76 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
     });
   });
 
+  // -------------------------------------------------------------------------
+  // Training max history — order-sensitive, continues from multi-cycle scenario.
+  // At this point cycle advances and recalculates have written history entries.
+  // -------------------------------------------------------------------------
+
+  describe('training max history', () => {
+    it('GET /training-maxes/history returns entries after cycle advances', async () => {
+      const res = await get(`/programs/${SEED_PROGRAM}/training-maxes/history`);
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(Array.isArray(body.entries)).toBe(true);
+      expect(body.entries.length).toBeGreaterThan(0);
+      for (const e of body.entries) {
+        expect(e).toMatchObject({
+          id: expect.any(String),
+          lift: expect.any(String),
+          weight: expect.any(Number),
+          unit: 'lbs',
+          date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+          isPR: expect.any(Boolean),
+          source: expect.stringMatching(/^(test|program)$/),
+          goalMet: expect.any(Boolean),
+        });
+      }
+    });
+
+    it('GET /training-maxes/history?lift=Bench+Press filters to that lift', async () => {
+      const res = await get(
+        `/programs/${SEED_PROGRAM}/training-maxes/history?lift=${encodeURIComponent('Bench Press')}`,
+      );
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.entries.every((e: { lift: string }) => e.lift === 'Bench Press')).toBe(true);
+    });
+
+    it('GET /training-maxes/history?isPR=true returns empty before any entry is marked', async () => {
+      const res = await get(`/programs/${SEED_PROGRAM}/training-maxes/history?isPR=true`);
+      expect(res.statusCode).toBe(200);
+      expect(res.json().entries).toEqual([]);
+    });
+
+    it('PATCH /training-maxes/history/:id marks an entry as PR', async () => {
+      const listRes = await get(`/programs/${SEED_PROGRAM}/training-maxes/history`);
+      const firstId = listRes.json().entries[0].id as string;
+
+      const patchRes = await app.getHttpAdapter().getInstance().inject({
+        method: 'PATCH',
+        url: `/programs/${SEED_PROGRAM}/training-maxes/history/${firstId}`,
+        headers: { 'content-type': 'application/json', authorization: 'Bearer dev-token' },
+        payload: JSON.stringify({ isPR: true }),
+      });
+      expect(patchRes.statusCode).toBe(200);
+      expect(patchRes.json()).toMatchObject({ id: firstId, isPR: true });
+
+      // Verify persistence: GET ?isPR=true now includes the entry
+      const prRes = await get(`/programs/${SEED_PROGRAM}/training-maxes/history?isPR=true`);
+      expect(prRes.json().entries.some((e: { id: string }) => e.id === firstId)).toBe(true);
+    });
+
+    it('PATCH /training-maxes/history/:id with unknown id returns 404', async () => {
+      const res = await app.getHttpAdapter().getInstance().inject({
+        method: 'PATCH',
+        url: `/programs/${SEED_PROGRAM}/training-maxes/history/nonexistent-id`,
+        headers: { 'content-type': 'application/json', authorization: 'Bearer dev-token' },
+        payload: JSON.stringify({ isPR: true }),
+      });
+      expect(res.statusCode).toBe(404);
+    });
+  });
+
   it('isolates adapter state between users', async () => {
     const injectRaw = app.getHttpAdapter().getInstance().inject.bind(
       app.getHttpAdapter().getInstance(),

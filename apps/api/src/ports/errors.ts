@@ -24,3 +24,10 @@ export class WorkoutNotFoundError extends Error {
     this.name = 'WorkoutNotFoundError';
   }
 }
+
+export class HistoryEntryNotFoundError extends Error {
+  constructor(public readonly id: string) {
+    super(`History entry '${id}' not found`);
+    this.name = 'HistoryEntryNotFoundError';
+  }
+}

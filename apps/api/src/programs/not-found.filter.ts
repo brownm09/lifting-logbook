@@ -6,18 +6,19 @@ import {
 } from '@nestjs/common';
 import { FastifyReply } from 'fastify';
 import {
+  HistoryEntryNotFoundError,
   ProgramNotFoundError,
   WorkoutNotFoundError,
 } from '../ports/errors';
 
-type DomainNotFound = ProgramNotFoundError | WorkoutNotFoundError;
+type DomainNotFound = ProgramNotFoundError | WorkoutNotFoundError | HistoryEntryNotFoundError;
 
 /**
  * Translates framework-agnostic domain "not found" errors raised by port
  * adapters into HTTP 404 responses. Keeps adapters free of `@nestjs/common`
  * HTTP dependencies so they can be reused by non-HTTP callers.
  */
-@Catch(ProgramNotFoundError, WorkoutNotFoundError)
+@Catch(ProgramNotFoundError, WorkoutNotFoundError, HistoryEntryNotFoundError)
 export class DomainNotFoundFilter implements ExceptionFilter {
   catch(err: DomainNotFound, host: ArgumentsHost): void {
     const res = host.switchToHttp().getResponse<FastifyReply>();
