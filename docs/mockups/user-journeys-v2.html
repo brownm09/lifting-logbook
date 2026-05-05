@@ -1,0 +1,3519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lifting Logbook - User Journeys</title>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      background: #fafaf8;
+      color: #1a1a1a;
+      line-height: 1.5;
+    }
+
+    .container {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+      padding: 24px;
+      max-width: 100%;
+    }
+
+    .journey {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      aspect-ratio: 9/16;
+      max-height: 900px;
+    }
+
+    .journey-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1a1a1a;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0 16px;
+    }
+
+    .screen {
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      transition: all 0.3s ease;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .screen:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+      transform: translateY(-2px);
+    }
+
+    .screen-header {
+      background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+      color: white;
+      padding: 12px 16px;
+      border-bottom: 1px solid #ecf0f1;
+      flex-shrink: 0;
+    }
+
+    .screen-header h3 {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 2px;
+      opacity: 0.95;
+    }
+
+    .screen-header p {
+      font-size: 11px;
+      opacity: 0.7;
+    }
+
+    .screen-content {
+      padding: 16px;
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      font-size: 13px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #2c3e50;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .form-input {
+      padding: 8px 12px;
+      border: 1px solid #ecf0f1;
+      border-radius: 6px;
+      font-size: 13px;
+      transition: border-color 0.2s ease;
+      min-height: 36px;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: #3498db;
+      box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+    }
+
+    .button {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .button-primary {
+      background: #3498db;
+      color: white;
+    }
+
+    .button-primary:hover {
+      background: #2980b9;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
+    }
+
+    .button-secondary {
+      background: #ecf0f1;
+      color: #2c3e50;
+    }
+
+    .button-secondary:hover {
+      background: #bdc3c7;
+    }
+
+    .button-success {
+      background: #27ae60;
+      color: white;
+    }
+
+    .button-success:hover {
+      background: #229954;
+    }
+
+    .data-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 10px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      border-left: 3px solid #3498db;
+      font-size: 12px;
+    }
+
+    .data-label {
+      font-size: 10px;
+      color: #7f8c8d;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .data-value {
+      font-size: 13px;
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+
+    .set-item {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 12px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      font-size: 12px;
+      border-left: 3px solid #ecf0f1;
+    }
+
+    .set-item.logged {
+      background: #a8e6cf;
+      border-left-color: #27ae60;
+    }
+
+    .set-number {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #ecf0f1;
+      border-radius: 50%;
+      font-weight: 600;
+      color: #2c3e50;
+      flex-shrink: 0;
+    }
+
+    .set-number.complete {
+      background: #27ae60;
+      color: white;
+    }
+
+    .set-inputs {
+      display: flex;
+      gap: 6px;
+      flex: 1;
+      align-items: center;
+    }
+
+    .set-inputs input {
+      width: 50px;
+      padding: 4px 8px;
+      border: 1px solid #bdc3c7;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .set-inputs span {
+      color: #7f8c8d;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .amrap-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      background: #fff3cd;
+      color: #856404;
+      border-radius: 3px;
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-left: 4px;
+    }
+
+    .set-status {
+      font-size: 10px;
+      color: #27ae60;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 6px;
+      background: #ecf0f1;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #3498db, #2980b9);
+      transition: width 0.3s ease;
+    }
+
+    .exercise-item {
+      padding: 10px 12px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      border-left: 3px solid #3498db;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      min-height: 44px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .exercise-item:active {
+      background: #ecf0f1;
+    }
+
+    .exercise-name {
+      font-weight: 600;
+      color: #1a1a1a;
+      margin-bottom: 2px;
+    }
+
+    .exercise-sets {
+      font-size: 11px;
+      color: #7f8c8d;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      flex-shrink: 0;
+    }
+
+    .status-upcoming {
+      background: #ffeaa7;
+      color: #d63031;
+    }
+
+    .status-completed {
+      background: #a8e6cf;
+      color: #00b894;
+    }
+
+    .status-missed {
+      background: #ffcccc;
+      color: #d63031;
+    }
+
+    .week-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .week-cell {
+      padding: 12px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 2px solid transparent;
+    }
+
+    .week-cell:hover {
+      background: #ecf0f1;
+      border-color: #3498db;
+    }
+
+    .week-label {
+      font-weight: 600;
+      color: #2c3e50;
+      margin-bottom: 4px;
+    }
+
+    .week-date {
+      font-size: 11px;
+      color: #7f8c8d;
+      margin-bottom: 6px;
+    }
+
+    .week-lifts {
+      font-size: 11px;
+      color: #1a1a1a;
+      line-height: 1.4;
+    }
+
+    .nav-dots {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+      justify-content: center;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ecf0f1;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .dot.active {
+      background: #3498db;
+      width: 24px;
+      border-radius: 4px;
+    }
+
+    .option-group {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .option-btn {
+      flex: 1;
+      padding: 8px 12px;
+      border: 2px solid #ecf0f1;
+      border-radius: 6px;
+      background: white;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      text-align: center;
+    }
+
+    .option-btn.selected {
+      border-color: #3498db;
+      background: #ecf0f1;
+    }
+
+    .input-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .note-input {
+      grid-column: 1 / -1;
+      padding: 8px 12px;
+      border: 1px solid #ecf0f1;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: inherit;
+      resize: none;
+      min-height: 48px;
+    }
+
+    .info-box {
+      padding: 10px 12px;
+      background: #e8f4f8;
+      border-left: 3px solid #3498db;
+      border-radius: 6px;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    .info-box strong {
+      color: #2c3e50;
+    }
+
+    .edit-set-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: flex-end;
+      z-index: 1000;
+    }
+
+    .edit-set-panel {
+      background: white;
+      width: 100%;
+      border-radius: 12px 12px 0 0;
+      padding: 20px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .edit-set-panel h4 {
+      margin-bottom: 16px;
+      font-size: 14px;
+    }
+
+    .input-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .note-input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #ecf0f1;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: inherit;
+      resize: none;
+      min-height: 60px;
+      margin-bottom: 12px;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .modal-actions button {
+      flex: 1;
+    }
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: #7f8c8d;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-top: 12px;
+      margin-bottom: 8px;
+    }
+
+    @media (max-width: 1400px) {
+      .container {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // ============ ONBOARDING JOURNEY ============
+    function OnboardingJourney() {
+      const [step, setStep] = useState(0);
+      const [onboardingComplete, setOnboardingComplete] = useState(false);
+      const [experienceLevel, setExperienceLevel] = useState('beginner'); // 'beginner' | 'intermediate' | 'advanced'
+      const [selectedProgram, setSelectedProgram] = useState(null);
+      const [viewingProgramDetail, setViewingProgramDetail] = useState(null);
+      const [viewFullCatalog, setViewFullCatalog] = useState(false);
+      const [catalogGoalFilter, setCatalogGoalFilter] = useState('all'); // 'all' | 'strength' | 'muscle-gain' | 'body-composition' | 'fat-loss'
+
+      const steps = ['Choose Method', 'Enter Data', 'Confirm Maxes', 'Choose Program'];
+
+      const goalLabels = {
+        'strength': '💪 Strength',
+        'muscle-gain': '📈 Muscle Gain',
+        'body-composition': '⚖️ Body Composition',
+        'fat-loss': '🔥 Fat Loss'
+      };
+
+      const programs = {
+        beginner: [
+          {
+            id: 'ss',
+            name: 'Starting Strength',
+            description: 'Classic linear progression program for absolute beginners. Three full-body workouts per week focusing on five core compound lifts.',
+            weeks: 12,
+            daysPerWeek: 3,
+            progression: 'Add 5 lbs each workout (upper body) or 10 lbs (lower body)',
+            deloads: 'No formal deload weeks; program resets if stalled 3 sessions in a row',
+            cycles: 'Continuous linear progression; no built-in cycles',
+            purposes: ['Strength', 'Beginner'],
+            goals: ['strength', 'muscle-gain'],
+            lifts: ['Squat', 'Bench Press', 'Deadlift', 'Barbell Row', 'Overhead Press'],
+            schedule: [
+              { day: 'Monday', lifts: ['Squat 3×5', 'Bench Press 3×5', 'Deadlift 1×5'] },
+              { day: 'Wednesday', lifts: ['Squat 3×5', 'Overhead Press 3×5', 'Deadlift 1×5'] },
+              { day: 'Friday', lifts: ['Squat 3×5', 'Bench Press 3×5', 'Deadlift 1×5'] }
+            ]
+          },
+          {
+            id: 'stronglifts',
+            name: 'StrongLifts 5×5',
+            description: 'Straightforward 5×5 program with alternating upper/lower days. Mobile-friendly and perfect for beginners transitioning to intermediate.',
+            weeks: 12,
+            daysPerWeek: 3,
+            progression: 'Add 5 lbs when all sets are completed',
+            deloads: 'No formal deload weeks; deload automatically when failing lifts',
+            cycles: 'Continuous progression with automatic resets',
+            purposes: ['Strength', 'Beginner'],
+            goals: ['strength', 'muscle-gain'],
+            lifts: ['Squat', 'Bench Press', 'Deadlift', 'Barbell Row', 'Overhead Press'],
+            schedule: [
+              { day: 'A Workout', lifts: ['Squat 5×5', 'Bench Press 5×5', 'Barbell Row 5×5'] },
+              { day: 'B Workout', lifts: ['Squat 5×5', 'Overhead Press 5×5', 'Deadlift 1×5'] }
+            ]
+          }
+        ],
+        intermediate: [
+          {
+            id: 'rpt',
+            name: 'Reverse Pyramid Training',
+            description: 'Advanced fatigue management through descending sets and strategic deloads. Excellent for managing volume while maintaining strength progression.',
+            weeks: 12,
+            daysPerWeek: 3,
+            progression: 'Heavy single, then 2–3 declining sets; increase top weight when RPE ≤ 7',
+            deloads: 'Week 4 & Week 8 — full deload weeks at 50-60% intensity',
+            cycles: 'Three 4-week cycles: accumulation (moderate), intensification (heavy), realization (peak)',
+            purposes: ['Strength', 'Hypertrophy', 'Intermediate'],
+            goals: ['strength', 'muscle-gain', 'body-composition'],
+            lifts: ['Bench Press', 'Barbell Row', 'Overhead Press', 'Squat', 'Deadlift', 'Leg Press'],
+            schedule: [
+              { day: 'Week 1-3', lifts: ['Accumulation: Moderate intensity, higher volume'] },
+              { day: 'Week 4', lifts: ['Deload: 50-60% intensity'] },
+              { day: 'Week 5-7', lifts: ['Intensification: Heavier loads'] }
+            ]
+          },
+          {
+            id: 'ppl',
+            name: 'Push/Pull/Legs',
+            description: 'Balanced 6-day split with dedicated muscle group days. Maximize volume and frequency for hypertrophy while managing fatigue.',
+            weeks: 12,
+            daysPerWeek: 6,
+            progression: 'Add reps to target sets; increase weight when hitting rep ranges',
+            deloads: 'Recommended: 1 deload week every 4-5 weeks at 60-70% intensity',
+            cycles: 'Continuous with recommended periodic deloads; can be run in 4-week blocks',
+            purposes: ['Hypertrophy', 'Bodybuilding', 'Intermediate'],
+            goals: ['muscle-gain', 'body-composition'],
+            lifts: ['Bench Press', 'Overhead Press', 'Barbell Row', 'Deadlift', 'Squat'],
+            schedule: [
+              { day: 'Push', lifts: ['Bench Press 4×6-8', 'Overhead Press 3×8-10', 'Dumbbell Bench 3×8-10'] },
+              { day: 'Pull', lifts: ['Barbell Row 4×6-8', 'Pull-ups 3×6-10', 'Barbell Curl 3×8-10'] },
+              { day: 'Legs', lifts: ['Squat 4×6-8', 'Romanian Deadlift 3×8-10', 'Leg Press 3×8-10'] }
+            ]
+          },
+          {
+            id: 'upper-lower',
+            name: 'Upper/Lower Split',
+            description: 'Balanced 4-day split maximizing compound frequency and volume. Ideal for balanced strength and hypertrophy development.',
+            weeks: 12,
+            daysPerWeek: 4,
+            progression: 'Drive strength on main lifts; hit rep ranges on accessories',
+            deloads: 'Recommended: Week 4 and Week 8 at 60-70% intensity',
+            cycles: 'Continuous with periodic 1-week deloads every 3-4 weeks',
+            purposes: ['Strength', 'Hypertrophy', 'Intermediate'],
+            goals: ['strength', 'muscle-gain', 'body-composition'],
+            lifts: ['Bench Press', 'Barbell Row', 'Squat', 'Deadlift'],
+            schedule: [
+              { day: 'Upper A', lifts: ['Bench Press 4×5-6', 'Weighted Dips 3×6-8', 'Barbell Row 3×8-10'] },
+              { day: 'Lower A', lifts: ['Squat 4×5-6', 'Leg Press 3×8-10', 'Leg Curl 3×8-10'] },
+              { day: 'Upper B', lifts: ['Deadlift 3×3-5', 'Overhead Press 3×6-8', 'Chin-ups 3×6-10'] },
+              { day: 'Lower B', lifts: ['Squat 3×6-8', 'Hack Squat 3×8-10', 'Leg Extension 3×10-12'] }
+            ]
+          },
+          {
+            id: '531',
+            name: '5/3/1',
+            description: 'Jim Wendler\'s bulletproof strength and conditioning program. Proven for decades with built-in periodization and autoregulation.',
+            weeks: 12,
+            daysPerWeek: 4,
+            progression: 'Weekly waves (5s, 3s, 1s) with 90% FSL; increase TM by 5 lbs (lower) or 2.5 lbs (upper) every cycle',
+            deloads: 'Deload week every 4 weeks (Week 4) at reduced intensity and volume',
+            cycles: 'Four-week microcycles repeating throughout the program; continuous progression',
+            purposes: ['Strength', 'Intermediate'],
+            goals: ['strength'],
+            lifts: ['Squat', 'Bench Press', 'Deadlift', 'Overhead Press'],
+            schedule: [
+              { day: 'Day 1', lifts: ['Squat: 5/3/1, 5×FSL', 'Accessory work'] },
+              { day: 'Day 2', lifts: ['Bench Press: 5/3/1, 5×FSL', 'Accessory work'] },
+              { day: 'Day 3', lifts: ['Deadlift: 5/3/1, 5×FSL', 'Accessory work'] },
+              { day: 'Day 4', lifts: ['Overhead Press: 5/3/1, 5×FSL', 'Accessory work'] }
+            ]
+          },
+          {
+            id: '531-bbb',
+            name: '5/3/1 BBB (Boring But Big)',
+            description: 'Wendler\'s high-volume variation combining strength and hypertrophy. Excellent for lifters seeking size with strength progression.',
+            weeks: 12,
+            daysPerWeek: 4,
+            progression: 'Main lift 5/3/1; BBB sets at 50% TM, 10 sets of 5 reps for each lift',
+            deloads: 'Deload week every 4 weeks with reduced volume and intensity',
+            cycles: 'Four-week microcycles; accumulation of volume drives hypertrophy',
+            purposes: ['Strength', 'Hypertrophy', 'Intermediate'],
+            goals: ['strength', 'muscle-gain'],
+            lifts: ['Squat', 'Bench Press', 'Deadlift', 'Overhead Press'],
+            schedule: [
+              { day: 'Day 1', lifts: ['Squat 5/3/1 + 10×5 @ 50%', 'Assistance work'] },
+              { day: 'Day 2', lifts: ['Bench Press 5/3/1 + 10×5 @ 50%', 'Assistance work'] },
+              { day: 'Day 3', lifts: ['Deadlift 5/3/1 + 10×5 @ 50%', 'Assistance work'] },
+              { day: 'Day 4', lifts: ['Overhead Press 5/3/1 + 10×5 @ 50%', 'Assistance work'] }
+            ]
+          },
+          {
+            id: '531-forever',
+            name: '5/3/1 Forever (Full Body)',
+            description: 'Wendler\'s flexible full-body variation with daily undulating intensity. Adjusts based on how you feel each day.',
+            weeks: 12,
+            daysPerWeek: 4,
+            progression: 'Autoregulated: select your own supplemental work based on session quality and RPE',
+            deloads: 'Deload week every 4 weeks; can also deload individual lifts as needed',
+            cycles: 'Four-week microcycles with flexibility to repeat or reset based on progress',
+            purposes: ['Strength', 'Hypertrophy', 'Intermediate'],
+            goals: ['strength', 'muscle-gain', 'body-composition'],
+            lifts: ['Squat', 'Bench Press', 'Deadlift', 'Overhead Press'],
+            schedule: [
+              { day: 'Day 1', lifts: ['Main Lift: 5/3/1 + Supplemental + Assistance'] },
+              { day: 'Day 2', lifts: ['Main Lift: 5/3/1 + Supplemental + Assistance'] },
+              { day: 'Day 3', lifts: ['Main Lift: 5/3/1 + Supplemental + Assistance'] },
+              { day: 'Day 4', lifts: ['Main Lift: 5/3/1 + Supplemental + Assistance'] }
+            ]
+          },
+          {
+            id: 'leangains',
+            name: 'Leangains',
+            description: 'Martin Berkhan\'s intermittent fasting + strength protocol. Perfect for body composition and strength with minimal time commitment.',
+            weeks: 12,
+            daysPerWeek: 3,
+            progression: 'Linear progression: add weight when you hit rep targets; eat surplus on training days, deficit on rest days',
+            deloads: 'Deload every 8 weeks by reducing volume 40-50%; intensity stays high',
+            cycles: 'Eight-week accumulation block followed by 1-week deload; cycles repeat',
+            purposes: ['Strength', 'Intermediate'],
+            goals: ['strength', 'body-composition', 'fat-loss'],
+            lifts: ['Squat', 'Deadlift', 'Bench Press', 'Barbell Row'],
+            schedule: [
+              { day: 'Day A (Mon)', lifts: ['Squat 4-6 reps', 'Bench Press 6-8 reps', 'Dumbbell Row 6-8 reps'] },
+              { day: 'Day B (Wed)', lifts: ['Deadlift 3-5 reps', 'Pull-ups 6-8 reps', 'Dips 6-8 reps'] },
+              { day: 'Day C (Fri)', lifts: ['Squat 4-6 reps', 'Bench Press 6-8 reps', 'Barbell Row 6-8 reps'] }
+            ]
+          }
+        ],
+        advanced: [
+          {
+            id: 'conjugate',
+            name: 'Conjugate Method',
+            description: 'Westside Barbell-style periodization with concurrent training of strength, hypertrophy, and speed. For serious strength athletes.',
+            weeks: 12,
+            daysPerWeek: 4,
+            progression: 'Rotate competition lifts, accessory exercises, and training methods every 3 weeks',
+            deloads: 'Built-in throughout program via rotation; recovery week every 4 weeks',
+            cycles: 'Three 4-week microcycles per 12-week block; rotating methods prevent stagnation',
+            purposes: ['Strength', 'Powerlifting', 'Advanced'],
+            goals: ['strength'],
+            lifts: ['Squat', 'Bench Press', 'Deadlift', 'Barbell Row'],
+            schedule: [
+              { day: 'Max Effort Lower', lifts: ['Max effort squat variant 1×2-3', 'Speed deadlift 8×2', 'Leg work'] },
+              { day: 'Dynamic Effort Upper', lifts: ['Dynamic bench 8×3', 'Speed row 8×3', 'Upper accessory'] },
+              { day: 'Max Effort Upper', lifts: ['Max effort bench variant 1×2-3', 'Speed row 8×2', 'Upper accessory'] },
+              { day: 'Dynamic Effort Lower', lifts: ['Dynamic squat 8×3', 'Speed deadlift 8×2', 'Leg accessory'] }
+            ]
+          },
+          {
+            id: 'smolov',
+            name: 'Smolov Squat Program',
+            description: 'Intense 13-week Russian periodized program for dramatic squat strength gains. Requires commitment and injury prevention.',
+            weeks: 13,
+            daysPerWeek: 4,
+            progression: 'Carefully planned volume and intensity waves; average daily volume increases over 13 weeks',
+            deloads: 'Week 2 is a deload week; final week is test week at 100%',
+            cycles: 'Single 13-week block: preparatory (4w), base (5w), intensification (3w), peaking (1w)',
+            purposes: ['Strength', 'Powerlifting', 'Advanced'],
+            goals: ['strength'],
+            lifts: ['Squat'],
+            schedule: [
+              { day: 'Preparatory Phase (4 weeks)', lifts: ['Squat 6×6 at 65-75% (M/W)', 'Squat 3×6 at 75-80% (F)', 'Squat 4×5 at 75-85% (Sa)'] },
+              { day: 'Base Phase (5 weeks)', lifts: ['Heavy singles & doubles at 85-95%', 'Volume work 4-8 reps at 70-80%'] },
+              { day: 'Intensification (3 weeks)', lifts: ['Heavy singles & doubles 90-100%', 'Minimal volume'] }
+            ]
+          },
+          {
+            id: 'juggernaut',
+            name: 'Juggernaut Method',
+            description: 'Block periodization with daily undulating intensity. Combines strength, hypertrophy, and conditioning in rotating blocks.',
+            weeks: 12,
+            daysPerWeek: 4,
+            progression: 'Block-based progression: accumulation (rep ranges 6-8) → intensification (3-5) → realization (1-3)',
+            deloads: 'Built into block transitions; 1 week deload every 3-4 weeks between blocks',
+            cycles: 'Three 4-week blocks per program; alternating rep ranges prevent accommodation',
+            purposes: ['Strength', 'Hypertrophy', 'Powerlifting', 'Advanced'],
+            goals: ['strength', 'muscle-gain'],
+            lifts: ['Squat', 'Bench Press', 'Deadlift', 'Barbell Row'],
+            schedule: [
+              { day: 'Block 1: Accumulation (4w)', lifts: ['Main lift 6×3 at 75-80%', 'Secondary 4×6-8', 'Accessory work'] },
+              { day: 'Block 2: Intensification (4w)', lifts: ['Main lift 5×2 at 85-90%', 'Secondary 3×3-5', 'Accessory work'] },
+              { day: 'Block 3: Realization (4w)', lifts: ['Main lift 3×1 at 90-95%', 'Secondary 2×1-3', 'Accessory work'] }
+            ]
+          },
+          {
+            id: 'creeping-death',
+            name: 'Creeping Death II',
+            description: 'Advanced hypertrophy program with high-frequency compound lifts and strategic deloads. Massive volume and muscle growth.',
+            weeks: 12,
+            daysPerWeek: 5,
+            progression: 'Add reps first, then weight; multiple main lifts per session with declining intensity',
+            deloads: 'Week 4 & Week 8 at reduced volume and intensity',
+            cycles: 'Three 4-week cycles; volume increases each cycle; intensity controlled by RPE',
+            purposes: ['Hypertrophy', 'Bodybuilding', 'Advanced'],
+            goals: ['muscle-gain'],
+            lifts: ['Squat', 'Bench Press', 'Deadlift', 'Barbell Row', 'Overhead Press'],
+            schedule: [
+              { day: 'Squat Focus', lifts: ['Squat 5×5 at RPE 7', 'Leg Press 4×8-10', 'Accessories'] },
+              { day: 'Bench Focus', lifts: ['Bench 5×5 at RPE 7', 'Incline Press 4×8-10', 'Accessories'] },
+              { day: 'Deadlift Focus', lifts: ['Deadlift 4×3-5 at RPE 7', 'Back work', 'Accessories'] },
+              { day: 'OHP/Row Focus', lifts: ['Overhead Press 4×6-8', 'Barbell Row 4×6-8', 'Accessories'] },
+              { day: 'Volume Day', lifts: ['Compound lifts 4×8-10 at RPE 6', 'High-rep accessories'] }
+            ]
+          }
+        ]
+      };
+
+      const generateSampleSchedule = (programId, trainingMaxes) => {
+        const program = [...programs.beginner, ...programs.intermediate].find(p => p.id === programId);
+        if (!program) return [];
+
+        return program.schedule.map((dayData, idx) => ({
+          ...dayData,
+          lifts: dayData.lifts.map(lift => {
+            const liftName = lift.split(' ')[0];
+            const max = trainingMaxes[liftName];
+            if (max) {
+              return lift.replace(/^\w+/, `${liftName} (${max})`);
+            }
+            return lift + ' (???)';
+          })
+        }));
+      };
+
+      const renderStep = () => {
+        switch (step) {
+          case 0:
+            return (
+              <div className="screen-content">
+                <div className="info-box">
+                  <strong>Find training maxes</strong> — weight for 1 rep at your best.
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Discovery Method</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <button
+                      className="button button-secondary"
+                      style={{
+                        justifyContent: 'flex-start',
+                        padding: '10px 12px',
+                        textAlign: 'left',
+                        border: '2px solid #3498db',
+                        background: '#ecf0f1'
+                      }}
+                    >
+                      <strong style={{ fontSize: '12px' }}>📊 Estimate from recent lift</strong>
+                      <div style={{ fontSize: '10px', fontWeight: 'normal', marginTop: '3px', opacity: 0.7 }}>
+                        Enter weight & reps you did recently
+                      </div>
+                    </button>
+                    <button
+                      className="button button-secondary"
+                      style={{
+                        justifyContent: 'flex-start',
+                        padding: '10px 12px',
+                        textAlign: 'left',
+                      }}
+                      onClick={() => setStep(1)}
+                    >
+                      <strong style={{ fontSize: '12px' }}>🏋️ Test Week</strong>
+                      <div style={{ fontSize: '10px', fontWeight: 'normal', marginTop: '3px', opacity: 0.7 }}>
+                        Perform a ramp-up to find your actual 1RM
+                      </div>
+                    </button>
+                    <button
+                      className="button button-secondary"
+                      style={{
+                        justifyContent: 'flex-start',
+                        padding: '10px 12px',
+                        textAlign: 'left',
+                      }}
+                      onClick={() => setStep(1)}
+                    >
+                      <strong style={{ fontSize: '12px' }}>⚡ Manual Entry</strong>
+                      <div style={{ fontSize: '10px', fontWeight: 'normal', marginTop: '3px', opacity: 0.7 }}>
+                        You already know your 1RM
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+
+          case 1:
+            return (
+              <div className="screen-content">
+                <div className="form-group">
+                  <label className="form-label">Bench Press</label>
+                  <div className="input-row">
+                    <input type="number" className="form-input" defaultValue="225" placeholder="Weight" />
+                    <input type="number" className="form-input" defaultValue="5" placeholder="Reps" />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Squat</label>
+                  <div className="input-row">
+                    <input type="number" className="form-input" defaultValue="315" placeholder="Weight" />
+                    <input type="number" className="form-input" defaultValue="3" placeholder="Reps" />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Deadlift</label>
+                  <div className="input-row">
+                    <input type="number" className="form-input" defaultValue="405" placeholder="Weight" />
+                    <input type="number" className="form-input" defaultValue="1" placeholder="Reps" />
+                  </div>
+                </div>
+
+                <button className="button button-primary" onClick={() => setStep(2)} style={{ marginTop: 'auto' }}>
+                  Calculate Maxes
+                </button>
+              </div>
+            );
+
+          case 2:
+            return (
+              <div className="screen-content">
+                <div className="info-box">
+                  <strong>✓ Calculated</strong> using Brzycki formula
+                </div>
+
+                <div className="data-row">
+                  <div className="data-label">Bench</div>
+                  <div className="data-value">265 lbs</div>
+                </div>
+
+                <div className="data-row">
+                  <div className="data-label">Squat</div>
+                  <div className="data-value">356 lbs</div>
+                </div>
+
+                <div className="data-row">
+                  <div className="data-label">Deadlift</div>
+                  <div className="data-value">405 lbs</div>
+                </div>
+
+                <button className="button button-primary" onClick={() => setStep(3)} style={{ marginTop: 'auto' }}>
+                  Continue to Programs
+                </button>
+              </div>
+            );
+
+          case 3:
+            // Full catalog view
+            if (viewFullCatalog) {
+              const allPrograms = [...programs.beginner, ...programs.intermediate, ...programs.advanced];
+              const filteredPrograms = catalogGoalFilter === 'all' 
+                ? allPrograms 
+                : allPrograms.filter(p => p.goals.includes(catalogGoalFilter));
+
+              if (viewingProgramDetail) {
+                const program = allPrograms.find(p => p.id === viewingProgramDetail);
+                const sampleSchedule = generateSampleSchedule(viewingProgramDetail, { 'Bench': 265, 'Squat': 356, 'Deadlift': 405, 'Row': 275, 'OHP': 185 });
+                
+                return (
+                  <div className="screen-content">
+                    <div style={{ marginBottom: 12 }}>
+                      <div className="exercise-name" style={{ fontSize: '14px', marginBottom: 8 }}>{program.name}</div>
+                      <div style={{ fontSize: '11px', color: '#7f8c8d', lineHeight: '1.5', marginBottom: 8 }}>
+                        {program.description}
+                      </div>
+
+                      {/* Purpose tags */}
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                        {program.purposes.map(purpose => (
+                          <span key={purpose} style={{
+                            fontSize: '9px',
+                            fontWeight: 600,
+                            color: 'white',
+                            background: purpose === 'Strength' ? '#e74c3c' : 
+                                       purpose === 'Hypertrophy' ? '#3498db' :
+                                       purpose === 'Bodybuilding' ? '#9b59b6' :
+                                       purpose === 'Powerlifting' ? '#c0392b' :
+                                       purpose === 'Sports' ? '#27ae60' :
+                                       purpose === 'Beginner' ? '#27ae60' :
+                                       purpose === 'Intermediate' ? '#f39c12' :
+                                       '#95a5a6',
+                            padding: '4px 8px',
+                            borderRadius: 3
+                          }}>
+                            {purpose}
+                          </span>
+                        ))}
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+                        <div className="data-row" style={{ margin: 0 }}>
+                          <div className="data-label">Duration</div>
+                          <div className="data-value">{program.weeks}w</div>
+                        </div>
+                        <div className="data-row" style={{ margin: 0 }}>
+                          <div className="data-label">Frequency</div>
+                          <div className="data-value">{program.daysPerWeek}x/week</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="section-label">Progression</div>
+                    <div style={{ fontSize: '11px', color: '#2c3e50', background: '#f8f9fa', padding: 10, borderRadius: 6, marginBottom: 12 }}>
+                      {program.progression}
+                    </div>
+
+                    <div className="section-label">Deload Strategy</div>
+                    <div style={{ fontSize: '11px', color: '#2c3e50', background: '#f8f9fa', padding: 10, borderRadius: 6, marginBottom: 12 }}>
+                      {program.deloads}
+                    </div>
+
+                    <div className="section-label">Periodization</div>
+                    <div style={{ fontSize: '11px', color: '#2c3e50', background: '#f8f9fa', padding: 10, borderRadius: 6, marginBottom: 12 }}>
+                      {program.cycles}
+                    </div>
+
+                    <div className="section-label">Sample Schedule</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {sampleSchedule.map((day, i) => (
+                        <div key={i} className="exercise-item" style={{ borderLeft: '3px solid #3498db' }}>
+                          <div className="exercise-name">{day.day}</div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>
+                            {day.lifts.map((lift, j) => (
+                              <div key={j} style={{ fontSize: '11px', color: '#7f8c8d' }}>
+                                • {lift}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button 
+                      className="button button-success" 
+                      onClick={() => setOnboardingComplete(true)}
+                      style={{ marginTop: 16 }}
+                    >
+                      Choose This Program
+                    </button>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="screen-content">
+                  <div className="info-box">
+                    <strong>Full Program Catalog</strong> — Browse all programs across all experience levels
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Filter by Goal</label>
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      {['all', 'strength', 'muscle-gain', 'body-composition', 'fat-loss'].map(goal => (
+                        <button
+                          key={goal}
+                          onClick={() => setCatalogGoalFilter(goal)}
+                          style={{
+                            padding: '6px 10px',
+                            fontSize: '10px',
+                            borderRadius: 4,
+                            border: catalogGoalFilter === goal ? '2px solid #3498db' : '1px solid #bdc3c7',
+                            background: catalogGoalFilter === goal ? '#ecf0f1' : '#f8f9fa',
+                            color: '#2c3e50',
+                            cursor: 'pointer',
+                            fontWeight: 600
+                          }}
+                        >
+                          {goal === 'all' ? 'All Goals' : goalLabels[goal]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="section-label">Programs ({filteredPrograms.length})</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 400, overflowY: 'auto' }}>
+                    {filteredPrograms.length > 0 ? (
+                      filteredPrograms.map((program) => (
+                        <div
+                          key={program.id}
+                          className="exercise-item"
+                          onClick={() => setViewingProgramDetail(program.id)}
+                          style={{ cursor: 'pointer', borderLeft: '3px solid #3498db' }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: 8 }}>
+                            <div style={{ flex: 1 }}>
+                              <div className="exercise-name">{program.name}</div>
+                              <div className="exercise-sets" style={{ fontSize: '10px', marginTop: 4 }}>{program.description}</div>
+                              <div style={{ fontSize: '9px', color: '#7f8c8d', marginTop: 6, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                                <span>{program.weeks}w</span>
+                                <span>•</span>
+                                <span>{program.daysPerWeek}x/week</span>
+                              </div>
+                            </div>
+                            <span style={{ fontSize: '14px' }}>→</span>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{ textAlign: 'center', color: '#7f8c8d', padding: '20px 0', fontSize: '12px' }}>
+                        No programs match this goal
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            }
+
+            // Program selection step (filtered by experience level)
+            if (viewingProgramDetail) {
+              const program = [...programs.beginner, ...programs.intermediate, ...programs.advanced].find(p => p.id === viewingProgramDetail);
+              const sampleSchedule = generateSampleSchedule(viewingProgramDetail, { 'Bench': 265, 'Squat': 356, 'Deadlift': 405, 'Row': 275, 'OHP': 185 });
+              
+              return (
+                <div className="screen-content">
+                  <div style={{ marginBottom: 12 }}>
+                    <div className="exercise-name" style={{ fontSize: '14px', marginBottom: 8 }}>{program.name}</div>
+                    <div style={{ fontSize: '11px', color: '#7f8c8d', lineHeight: '1.5', marginBottom: 8 }}>
+                      {program.description}
+                    </div>
+
+                    {/* Purpose tags */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                      {program.purposes.map(purpose => (
+                        <span key={purpose} style={{
+                          fontSize: '9px',
+                          fontWeight: 600,
+                          color: 'white',
+                          background: purpose === 'Strength' ? '#e74c3c' : 
+                                     purpose === 'Hypertrophy' ? '#3498db' :
+                                     purpose === 'Bodybuilding' ? '#9b59b6' :
+                                     purpose === 'Powerlifting' ? '#c0392b' :
+                                     purpose === 'Sports' ? '#27ae60' :
+                                     purpose === 'Beginner' ? '#27ae60' :
+                                     purpose === 'Intermediate' ? '#f39c12' :
+                                     '#95a5a6',
+                          padding: '4px 8px',
+                          borderRadius: 3
+                        }}>
+                          {purpose}
+                        </span>
+                      ))}
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+                      <div className="data-row" style={{ margin: 0 }}>
+                        <div className="data-label">Duration</div>
+                        <div className="data-value">{program.weeks}w</div>
+                      </div>
+                      <div className="data-row" style={{ margin: 0 }}>
+                        <div className="data-label">Frequency</div>
+                        <div className="data-value">{program.daysPerWeek}x/week</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="section-label">Progression</div>
+                  <div style={{ fontSize: '11px', color: '#2c3e50', background: '#f8f9fa', padding: 10, borderRadius: 6, marginBottom: 12 }}>
+                    {program.progression}
+                  </div>
+
+                  <div className="section-label">Deload Strategy</div>
+                  <div style={{ fontSize: '11px', color: '#2c3e50', background: '#f8f9fa', padding: 10, borderRadius: 6, marginBottom: 12 }}>
+                    {program.deloads}
+                  </div>
+
+                  <div className="section-label">Periodization</div>
+                  <div style={{ fontSize: '11px', color: '#2c3e50', background: '#f8f9fa', padding: 10, borderRadius: 6, marginBottom: 12 }}>
+                    {program.cycles}
+                  </div>
+
+                  <div className="section-label">Sample Schedule</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {sampleSchedule.map((day, i) => (
+                      <div key={i} className="exercise-item" style={{ borderLeft: '3px solid #3498db' }}>
+                        <div className="exercise-name">{day.day}</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>
+                          {day.lifts.map((lift, j) => (
+                            <div key={j} style={{ fontSize: '11px', color: '#7f8c8d' }}>
+                              • {lift}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button 
+                    className="button button-success" 
+                    onClick={() => setOnboardingComplete(true)}
+                    style={{ marginTop: 16 }}
+                  >
+                    Choose This Program
+                  </button>
+                </div>
+              );
+            }
+
+            return (
+              <div className="screen-content">
+                <div className="info-box">
+                  <strong>Select a program</strong> — Choose based on your experience and goals
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Your Experience</label>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {['beginner', 'intermediate', 'advanced'].map(level => (
+                      <button
+                        key={level}
+                        onClick={() => setExperienceLevel(level)}
+                        style={{
+                          flex: 'auto',
+                          padding: '8px 12px',
+                          fontSize: '11px',
+                          borderRadius: 4,
+                          border: experienceLevel === level ? '2px solid #3498db' : '1px solid #bdc3c7',
+                          background: experienceLevel === level ? '#ecf0f1' : '#f8f9fa',
+                          cursor: 'pointer',
+                          fontWeight: 600
+                        }}
+                      >
+                        {level === 'beginner' ? '🟢 Beginner' : level === 'intermediate' ? '🔵 Intermediate' : '🔴 Advanced'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="section-label">Programs</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {programs[experienceLevel].map((program) => (
+                    <div
+                      key={program.id}
+                      className="exercise-item"
+                      onClick={() => setViewingProgramDetail(program.id)}
+                      style={{ cursor: 'pointer', borderLeft: '3px solid #3498db' }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: 8 }}>
+                        <div style={{ flex: 1 }}>
+                          <div className="exercise-name">{program.name}</div>
+                          <div className="exercise-sets" style={{ fontSize: '10px', marginTop: 4 }}>{program.description}</div>
+                          <div style={{ fontSize: '9px', color: '#7f8c8d', marginTop: 6, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                            <span>{program.weeks}w</span>
+                            <span>•</span>
+                            <span>{program.daysPerWeek}x/week</span>
+                            <span>•</span>
+                            {program.purposes.map((p, idx) => (
+                              <span key={p}>{p}{idx < program.purposes.length - 1 ? ',' : ''}</span>
+                            ))}
+                          </div>
+                        </div>
+                        <span style={{ fontSize: '14px' }}>→</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <button 
+                  className="button button-secondary" 
+                  onClick={() => setViewFullCatalog(true)}
+                  style={{ marginTop: 12, width: '100%', fontSize: '11px' }}
+                >
+                  📚 View Full Catalog
+                </button>
+              </div>
+            );
+        }
+      };
+
+      if (onboardingComplete) {
+        return null; // Hide onboarding, show dashboard
+      }
+
+      return (
+        <div className="journey">
+          <h2 className="journey-title">🚀 Onboard</h2>
+          <div className="screen">
+            <div className="screen-header">
+              <h3>{step === 3 && !viewingProgramDetail && !viewFullCatalog ? 'Choose Program' : step === 3 && viewFullCatalog ? 'Full Catalog' : step === 3 ? 'Program Details' : 'Training Max Discovery'}</h3>
+              <p>{step === 3 && !viewingProgramDetail && !viewFullCatalog ? 'Step ' + (step + 1) + ' of ' + steps.length : step === 3 ? (viewFullCatalog ? 'Browse all programs' : 'Program details') : 'Step ' + (step + 1) + ' of ' + steps.length}</p>
+            </div>
+            {renderStep()}
+            <div style={{
+              padding: '12px 16px',
+              borderTop: '1px solid #ecf0f1',
+              display: 'flex',
+              gap: 8,
+              justifyContent: 'space-between'
+            }}>
+              <button
+                className="button button-secondary"
+                onClick={() => {
+                  if (viewingProgramDetail) {
+                    setViewingProgramDetail(null);
+                  } else if (viewFullCatalog) {
+                    setViewFullCatalog(false);
+                  } else {
+                    setStep(Math.max(0, step - 1));
+                  }
+                }}
+                disabled={step === 0 && !viewingProgramDetail && !viewFullCatalog}
+                style={{ opacity: (step === 0 && !viewingProgramDetail && !viewFullCatalog) ? 0.5 : 1, flex: 0 }}
+              >
+                Back
+              </button>
+              {!(step === 3 && viewingProgramDetail) && !viewFullCatalog && (
+                <button
+                  className="button button-primary"
+                  onClick={() => setStep(Math.min(steps.length - 1, step + 1))}
+                  disabled={step === steps.length - 1}
+                  style={{ opacity: step === steps.length - 1 ? 0.5 : 1, flex: 0 }}
+                >
+                  Next
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ============ CYCLE DASHBOARD JOURNEY ============
+    function CycleDashboardJourney() {
+      const [view, setView] = useState('dashboard'); // 'dashboard' | 'plan' | 'reschedule' | 'program' | 'workout-detail' | 'lift-history' | 'manage-lifts' | 'lift-db' | 'training-maxes'
+      const [selectedWorkout, setSelectedWorkout] = useState(null);
+      const [selectedLift, setSelectedLift] = useState(null);
+      const [rescheduleDate, setRescheduleDate] = useState('');
+      const [filterWeight, setFilterWeight] = useState('');
+      const [filterDate, setFilterDate] = useState('');
+      const [liftAction, setLiftAction] = useState(null); // 'add' | 'remove' | 'replace'
+      const [selectedLiftInManage, setSelectedLiftInManage] = useState(null);
+      const [editingLift, setEditingLift] = useState(null);
+      const [loggingLift, setLoggingLift] = useState(null);
+      const [loggedSets, setLoggedSets] = useState({});
+      const [editName, setEditName] = useState('');
+      const [editMuscles, setEditMuscles] = useState('');
+      const [editSubs, setEditSubs] = useState('');
+      const [newWeight, setNewWeight] = useState('');
+      const [newReps, setNewReps] = useState('');
+      const [newNotes, setNewNotes] = useState('');
+      const [liftMetadata, setLiftMetadata] = useState({
+        'Bench Press': { muscleGroups: ['Chest', 'Shoulders', 'Triceps'], substitutions: ['Dumbbell Bench', 'Machine Bench'], foundational: 'Bench Press' },
+        'Barbell Row': { muscleGroups: ['Back', 'Biceps'], substitutions: ['Dumbbell Row', 'Machine Row'], foundational: 'Barbell Row' },
+        'Overhead Press': { muscleGroups: ['Shoulders', 'Triceps'], substitutions: ['Dumbbell Press'], foundational: 'Overhead Press' },
+        'Squat': { muscleGroups: ['Quadriceps', 'Glutes'], substitutions: ['Leg Press', 'Smith Machine'], foundational: 'Squat' },
+        'Deadlift': { muscleGroups: ['Back', 'Glutes', 'Hamstrings'], substitutions: ['Trap Bar', 'Sumo'], foundational: 'Deadlift' }
+      });
+      const [editingProgram, setEditingProgram] = useState(false);
+      const [programScope, setProgramScope] = useState('future'); // 'future' | 'all' | 'definition'
+      const [editProgramName, setEditProgramName] = useState('');
+      const [editProgramWeeks, setEditProgramWeeks] = useState('');
+      const [editProgramFreq, setEditProgramFreq] = useState('');
+      const [editWeekType, setEditWeekType] = useState('');
+      const [editWarmupSets, setEditWarmupSets] = useState('');
+      const [editWorkingSets, setEditWorkingSets] = useState('');
+      const [viewingMaxes, setViewingMaxes] = useState(false);
+      const [maxesLift, setMaxesLift] = useState(null); // which lift's maxes we're viewing
+      const [maxesFilterType, setMaxesFilterType] = useState('all'); // 'all' | 'pr' | 'testWeek' | 'goalMet'
+      const [maxesFilterDate, setMaxesFilterDate] = useState('');
+      const [maxesViewType, setMaxesViewType] = useState('timeline'); // 'timeline' | 'list'
+      const [bodyWeight, setBodyWeight] = useState(185);
+      const [editingBodyWeight, setEditingBodyWeight] = useState(false);
+      const [bodyWeightInput, setBodyWeightInput] = useState('185');
+      const [viewingStrengthGoals, setViewingStrengthGoals] = useState(false);
+      const [strengthGoalsTab, setStrengthGoalsTab] = useState('current'); // 'current' | 'history'
+      const [strengthGoals, setStrengthGoals] = useState({
+        'Bench Press': { target: 315, unit: 'lbs', relativeTo: 'bodyweight', ratio: 1.7 },
+        'Squat': { target: 405, unit: 'lbs', relativeTo: 'bodyweight', ratio: 2.2 },
+        'Deadlift': { target: 495, unit: 'lbs', relativeTo: 'bodyweight', ratio: 2.7 },
+        'Barbell Row': { target: 365, unit: 'lbs', relativeTo: 'bodyweight', ratio: 2.0 },
+        'Overhead Press': { target: 225, unit: 'lbs', relativeTo: 'bodyweight', ratio: 1.2 }
+      });
+      const [editingGoal, setEditingGoal] = useState(null);
+      const [editingGoalValue, setEditingGoalValue] = useState('');
+      const [trainingMaxes, setTrainingMaxes] = useState({
+        'Bench Press': [
+          { date: 'May 10', weight: 265, reps: 1, isPR: true, type: 'test', goalMet: true },
+          { date: 'May 3', weight: 260, reps: 1, isPR: false, type: 'program', goalMet: true },
+          { date: 'Apr 26', weight: 260, reps: 1, isPR: false, type: 'program', goalMet: false },
+          { date: 'Apr 19', weight: 255, reps: 2, isPR: false, type: 'program', goalMet: true },
+          { date: 'Apr 12', weight: 250, reps: 2, isPR: true, type: 'test', goalMet: true }
+        ],
+        'Barbell Row': [
+          { date: 'May 8', weight: 315, reps: 1, isPR: true, type: 'test', goalMet: true },
+          { date: 'May 1', weight: 310, reps: 1, isPR: false, type: 'program', goalMet: true },
+          { date: 'Apr 24', weight: 305, reps: 2, isPR: false, type: 'program', goalMet: false }
+        ]
+      });
+
+      const [workouts, setWorkouts] = useState([
+        { id: 0, week: 'W1', date: 'Mon, May 6', status: 'completed', lifts: ['Bench: 225×5', 'Row: 185×6', 'OHP: 135×4'] },
+        { id: 1, week: 'W1', date: 'Wed, May 8', status: 'completed', lifts: ['Squat: 315×5', 'Leg Press: 405×8'] },
+        { id: 2, week: 'W1', date: 'Fri, May 10', status: 'completed', lifts: ['Deadlift: 405×3', 'Back Ext: 135×10'] },
+        { id: 3, week: 'W2', date: 'Mon, May 13', status: 'upcoming', lifts: ['Bench: 235×5', 'Row: 195×6', 'OHP: 140×4'] },
+        { id: 4, week: 'W2', date: 'Wed, May 15', status: 'upcoming', lifts: ['Squat: 325×5', 'Leg Press: 415×8'] },
+        { id: 5, week: 'W2', date: 'Fri, May 17', status: 'upcoming', lifts: ['Deadlift: 415×3', 'Back Ext: 140×10'] },
+        { id: 6, week: 'W3', date: 'Mon, May 20', status: 'upcoming', lifts: ['Bench: 245×5', 'Row: 205×6', 'OHP: 145×4'] },
+        { id: 7, week: 'W3', date: 'Wed, May 22', status: 'upcoming', lifts: ['Squat: 335×5', 'Leg Press: 425×8'] },
+      ]);
+
+      const programPlan = {
+        name: 'Reverse Pyramid Training — 12 Week Block',
+        totalWeeks: 12,
+        startDate: 'May 6, 2026',
+        estimatedCompletion: 'Jul 28, 2026',
+        cycles: [
+          { 
+            num: 1, 
+            weeks: 'W1–W3', 
+            workouts: 9, 
+            type: 'training',
+            description: 'Accumulation phase — moderate intensity',
+            status: 'in-progress'
+          },
+          { 
+            num: 2, 
+            weeks: 'W4', 
+            workouts: 3, 
+            type: 'deload',
+            description: 'Deload week — recover & consolidate',
+            status: 'upcoming'
+          },
+          { 
+            num: 3, 
+            weeks: 'W5–W7', 
+            workouts: 9, 
+            type: 'training',
+            description: 'Intensification phase — heavier loads',
+            status: 'upcoming'
+          },
+          { 
+            num: 4, 
+            weeks: 'W8', 
+            workouts: 3, 
+            type: 'deload',
+            description: 'Deload week — recover & consolidate',
+            status: 'upcoming'
+          },
+          { 
+            num: 5, 
+            weeks: 'W9–W11', 
+            workouts: 9, 
+            type: 'training',
+            description: 'Realization phase — peak intensity',
+            status: 'upcoming'
+          },
+          { 
+            num: 6, 
+            weeks: 'W12', 
+            workouts: 3, 
+            type: 'test',
+            description: 'Test week — assess new maxes',
+            status: 'upcoming'
+          },
+        ]
+      };
+
+      const cycleProgram = {
+        name: 'Reverse Pyramid Training',
+        weeks: 4,
+        workoutsPerWeek: 3,
+        lifts: ['Bench Press', 'Barbell Row', 'Overhead Press', 'Squat', 'Leg Press', 'Deadlift', 'Back Extension'],
+        warmupSets: 3,
+        workingSets: 3,
+        weekType: 'training'
+      };
+
+      const handleReschedule = () => {
+        if (rescheduleDate.trim()) {
+          setWorkouts(workouts.map(w => 
+            w.id === selectedWorkout ? { ...w, date: rescheduleDate } : w
+          ));
+          setRescheduleDate('');
+          setView('dashboard');
+          setSelectedWorkout(null);
+        }
+      };
+
+      const getFilteredMaxes = () => {
+        let maxes = [];
+        if (maxesLift) {
+          maxes = (trainingMaxes[maxesLift] || []).map((m, idx) => ({ ...m, lift: maxesLift, index: idx }));
+        } else {
+          Object.keys(trainingMaxes).forEach(liftName => {
+            trainingMaxes[liftName].forEach((m, idx) => {
+              maxes.push({ ...m, lift: liftName, index: idx });
+            });
+          });
+        }
+
+        // Apply filters
+        if (maxesFilterType === 'pr') {
+          maxes = maxes.filter(m => m.isPR);
+        } else if (maxesFilterType === 'testWeek') {
+          maxes = maxes.filter(m => m.type === 'test');
+        } else if (maxesFilterType === 'goalMet') {
+          maxes = maxes.filter(m => m.goalMet);
+        }
+
+        if (maxesFilterDate) {
+          maxes = maxes.filter(m => m.date.includes(maxesFilterDate));
+        }
+
+        return maxes.sort((a, b) => new Date(b.date) - new Date(a.date));
+      };
+
+      const toggleMaxPR = (liftName, index) => {
+        setTrainingMaxes(prev => ({
+          ...prev,
+          [liftName]: prev[liftName].map((m, i) => 
+            i === index ? { ...m, isPR: !m.isPR } : m
+          )
+        }));
+      };
+
+      if (view === 'program') {
+        return (
+          <div className="journey">
+            <h2 className="journey-title">🎯 Program</h2>
+            <div className="screen">
+              <div className="screen-header">
+                <h3>Program Plan</h3>
+                <p>{programPlan.totalWeeks} weeks</p>
+              </div>
+              <div className="screen-content">
+                <div className="data-row">
+                  <div className="data-label">Start</div>
+                  <div className="data-value">{programPlan.startDate}</div>
+                </div>
+
+                <div className="data-row">
+                  <div className="data-label">Est. End</div>
+                  <div className="data-value">{programPlan.estimatedCompletion}</div>
+                </div>
+
+                <div className="section-label" style={{ marginTop: 12 }}>Cycles</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {programPlan.cycles.map((cycle, i) => (
+                    <div
+                      key={i}
+                      className="exercise-item"
+                      style={{
+                        borderLeft: 
+                          cycle.type === 'deload' ? '3px solid #f39c12' :
+                          cycle.type === 'test' ? '3px solid #e74c3c' :
+                          '3px solid #3498db',
+                        background:
+                          cycle.status === 'in-progress' ? '#ecf0f1' :
+                          cycle.status === 'completed' ? '#a8e6cf' :
+                          '#f8f9fa'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, width: '100%' }}>
+                        <div style={{ flex: 1 }}>
+                          <div className="exercise-name">Cycle {cycle.num} • {cycle.weeks}</div>
+                          <div className="exercise-sets">{cycle.workouts} workouts • {cycle.type.toUpperCase()}</div>
+                          <div style={{ fontSize: '10px', color: '#7f8c8d', marginTop: 3 }}>{cycle.description}</div>
+                        </div>
+                        <span className={`status-badge status-${cycle.status}`} style={{ marginTop: 2, fontSize: '9px' }}>
+                          {cycle.status === 'completed' ? '✓' : cycle.status === 'in-progress' ? '◆' : '→'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div style={{
+                padding: '12px 16px',
+                borderTop: '1px solid #ecf0f1',
+              }}>
+                <button
+                  className="button button-secondary"
+                  onClick={() => setView('dashboard')}
+                  style={{ width: '100%' }}
+                >
+                  Back to Cycle
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // Lift history and database data (shared across all views)
+      const liftHistory = {
+        'Bench Press': {
+          maxes: [265, 260, 260, 255, 250],
+          dates: ['May 10', 'May 3', 'Apr 26', 'Apr 19', 'Apr 12'],
+          sets: [
+            { date: 'May 10', weight: 225, reps: 5, notes: 'RPE 7' },
+            { date: 'May 10', weight: 185, reps: 6, notes: '' },
+            { date: 'May 10', weight: 155, reps: 8, notes: '' },
+            { date: 'May 3', weight: 220, reps: 5, notes: 'RPE 8' },
+            { date: 'May 3', weight: 180, reps: 7, notes: 'felt strong' },
+          ]
+        },
+        'Barbell Row': {
+          maxes: [315, 310, 305, 300, 295],
+          dates: ['May 8', 'May 1', 'Apr 24', 'Apr 17', 'Apr 10'],
+          sets: [
+            { date: 'May 8', weight: 185, reps: 6, notes: '' },
+            { date: 'May 8', weight: 165, reps: 8, notes: 'grip was strong' },
+            { date: 'May 1', weight: 180, reps: 6, notes: '' },
+          ]
+        }
+      };
+
+      const liftDatabase = [
+        'Bench Press', 'Barbell Row', 'Overhead Press', 'Squat', 'Leg Press', 'Deadlift',
+        'Back Extension', 'Weighted Dips', 'Weighted Chin-ups', 'Incline Dumbbell Press',
+        'Dumbbell Row', 'Machine Leg Press', 'Smith Machine Squat', 'T-Bar Row', 'Cable Row'
+      ];
+
+      if (view === 'reschedule' && selectedWorkout !== null) {
+        const workout = workouts.find(w => w.id === selectedWorkout);
+        return (
+          <div className="journey">
+            <h2 className="journey-title">📅 Move</h2>
+            <div className="screen">
+              <div className="screen-header">
+                <h3>Reschedule Workout</h3>
+                <p>{workout.week}</p>
+              </div>
+              <div className="screen-content">
+                <div className="info-box">
+                  Move this workout to a different day. Lifts stay the same.
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Current Date</label>
+                  <div style={{ padding: '8px 12px', background: '#ecf0f1', borderRadius: 6, fontSize: 12 }}>
+                    {workout.date}
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">New Date</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={rescheduleDate}
+                    onChange={(e) => setRescheduleDate(e.target.value)}
+                    placeholder="e.g., Tue, May 14"
+                  />
+                </div>
+
+                <div className="section-label">Lifts (unchanged)</div>
+                {workout.lifts.map((lift, i) => (
+                  <div key={i} className="exercise-item">
+                    <div className="exercise-name">{lift}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{
+                padding: '12px 16px',
+                borderTop: '1px solid #ecf0f1',
+                display: 'flex',
+                gap: 8,
+              }}>
+                <button
+                  className="button button-secondary"
+                  onClick={() => { setView('dashboard'); setSelectedWorkout(null); setRescheduleDate(''); }}
+                  style={{ flex: 1 }}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="button button-primary"
+                  onClick={handleReschedule}
+                  style={{ flex: 1 }}
+                  disabled={!rescheduleDate.trim()}
+                >
+                  Move
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // Lift editor view
+      if (editingLift) {
+        const metadata = liftMetadata[editingLift] || { muscleGroups: [], substitutions: [], foundational: editingLift };
+        
+        // Initialize edit state when opening editor
+        if (!editName || editName !== editingLift) {
+          setEditName(editingLift);
+          setEditMuscles(metadata.muscleGroups.join(', '));
+          setEditSubs(metadata.substitutions.join(', '));
+        }
+
+        return (
+          <div className="journey">
+            <h2 className="journey-title">⚙️ Edit</h2>
+            <div className="screen">
+              <div className="screen-header">
+                <h3>Edit Lift</h3>
+                <p>{editingLift}</p>
+              </div>
+              <div className="screen-content">
+                <div className="form-group">
+                  <label className="form-label">Lift Name</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    placeholder="e.g., Bench Press"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Target Muscle Groups</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={editMuscles}
+                    onChange={(e) => setEditMuscles(e.target.value)}
+                    placeholder="e.g., Chest, Shoulders, Triceps"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Substitutions</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={editSubs}
+                    onChange={(e) => setEditSubs(e.target.value)}
+                    placeholder="e.g., Dumbbell Bench, Machine Bench"
+                  />
+                </div>
+
+                <div className="info-box">
+                  💡 Foundational lift: <strong>{metadata.foundational}</strong>
+                </div>
+
+                <button
+                  className="button button-secondary"
+                  onClick={() => {
+                    setLiftMetadata({
+                      ...liftMetadata,
+                      [editingLift]: {
+                        muscleGroups: editMuscles.split(',').map(m => m.trim()),
+                        substitutions: editSubs.split(',').map(s => s.trim()),
+                        foundational: metadata.foundational
+                      }
+                    });
+                    setEditingLift(null);
+                  }}
+                  style={{ width: '100%', marginTop: 'auto' }}
+                >
+                  ✓ Save Changes
+                </button>
+
+                <button
+                  className="button button-secondary"
+                  onClick={() => setEditingLift(null)}
+                  style={{ width: '100%', fontSize: '11px' }}
+                >
+                  ↺ Reset to Foundational
+                </button>
+              </div>
+              <div style={{
+                padding: '12px 16px',
+                borderTop: '1px solid #ecf0f1',
+              }}>
+                <button
+                  className="button button-secondary"
+                  onClick={() => setEditingLift(null)}
+                  style={{ width: '100%' }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // Logging view
+      if (view === 'logging' && selectedWorkout !== null && loggingLift) {
+        let liftName = loggingLift;
+        if (liftName.includes(':')) {
+          liftName = liftName.split(':')[0].trim();
+        }
+        const liftNameMap = {
+          'Bench': 'Bench Press',
+          'Row': 'Barbell Row',
+          'OHP': 'Overhead Press',
+          'Squat': 'Squat',
+          'Deadlift': 'Deadlift'
+        };
+        const fullLiftName = liftNameMap[liftName] || liftName;
+        const history = liftHistory[fullLiftName] || { maxes: [], dates: [], sets: [] };
+
+        return (
+          <div className="journey">
+            <h2 className="journey-title">📝 Log</h2>
+            <div className="screen">
+              <div className="screen-header">
+                <h3>Log Set</h3>
+                <p>{fullLiftName}</p>
+              </div>
+              <div className="screen-content">
+                <div className="section-label">New Set</div>
+                <div className="form-group">
+                  <label className="form-label">Weight (lbs)</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={newWeight}
+                    onChange={(e) => setNewWeight(e.target.value)}
+                    placeholder="e.g., 225"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Reps</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={newReps}
+                    onChange={(e) => setNewReps(e.target.value)}
+                    placeholder="e.g., 5"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Notes (optional)</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={newNotes}
+                    onChange={(e) => setNewNotes(e.target.value)}
+                    placeholder="e.g., RPE 7, felt strong"
+                  />
+                </div>
+
+                <button
+                  className="button button-primary"
+                  onClick={() => {
+                    if (newWeight && newReps) {
+                      const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                      const newSet = { weight: parseInt(newWeight), reps: parseInt(newReps), date: today, notes: newNotes };
+                      setLoggedSets({
+                        ...loggedSets,
+                        [fullLiftName]: [...(loggedSets[fullLiftName] || []), newSet]
+                      });
+                      setNewWeight('');
+                      setNewReps('');
+                      setNewNotes('');
+                    }
+                  }}
+                  style={{ width: '100%' }}
+                >
+                  ✓ Log Set
+                </button>
+
+                <div className="section-label" style={{ marginTop: 16 }}>Previous Sets</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 300, overflowY: 'auto' }}>
+                  {(loggedSets[fullLiftName] || history.sets).map((set, i) => (
+                    <div key={i} style={{
+                      background: '#f8f9fa',
+                      border: '1px solid #ecf0f1',
+                      borderRadius: 6,
+                      padding: '10px 12px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: 4 }}>{set.date}</div>
+                        <div style={{ fontSize: '13px', color: '#1a1a1a' }}>{set.weight}×{set.reps}</div>
+                        {set.notes && <div style={{ fontSize: '10px', color: '#7f8c8d', marginTop: 4 }}>📝 {set.notes}</div>}
+                      </div>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button
+                          className="button button-secondary"
+                          onClick={() => {
+                            setNewWeight(String(set.weight));
+                            setNewReps(String(set.reps));
+                          }}
+                          style={{ padding: '4px 8px', fontSize: '9px' }}
+                          title="Copy to form"
+                        >
+                          📋
+                        </button>
+                        <button
+                          className="button button-secondary"
+                          onClick={() => {
+                            setNewWeight(String(set.weight));
+                            setNewReps(String(set.reps));
+                            setNewNotes(set.notes);
+                          }}
+                          style={{ padding: '4px 8px', fontSize: '9px' }}
+                          title="Edit this set"
+                        >
+                          ✎
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div style={{
+                padding: '12px 16px',
+                borderTop: '1px solid #ecf0f1',
+                display: 'flex',
+                gap: 8,
+              }}>
+                <button
+                  className="button button-secondary"
+                  onClick={() => { setView('workout-detail'); setLoggingLift(null); }}
+                  style={{ flex: 1 }}
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      if (view === 'workout-detail' && selectedWorkout !== null) {
+        const workout = workouts.find(w => w.id === selectedWorkout);
+        
+        // Lift history view
+        if (selectedLift) {
+          // Extract lift name from the selectedLift string (e.g., "Bench: 235×5" → "Bench Press")
+          let liftName = selectedLift;
+          if (liftName.includes(':')) {
+            liftName = liftName.split(':')[0].trim();
+          }
+          
+          // Map simplified names to full lift names in history
+          const liftNameMap = {
+            'Bench': 'Bench Press',
+            'Barbell Row': 'Barbell Row',
+            'Overhead Press': 'Overhead Press',
+            'Squat': 'Squat',
+            'Deadlift': 'Deadlift'
+          };
+          
+          const fullLiftName = liftNameMap[liftName] || liftName;
+          const history = liftHistory[fullLiftName] || { maxes: [], dates: [], sets: [] };
+
+          let filteredSets = history.sets;
+          if (filterWeight) {
+            filteredSets = filteredSets.filter(s => s.weight >= parseInt(filterWeight) || !filterWeight);
+          }
+          if (filterDate) {
+            filteredSets = filteredSets.filter(s => s.date.includes(filterDate));
+          }
+
+          return (
+            <div className="journey">
+              <h2 className="journey-title">📈 History</h2>
+              <div className="screen">
+                <div className="screen-header">
+                  <h3>{fullLiftName}</h3>
+                  <p>Training Max: {history.maxes[0] || '—'} lbs</p>
+                </div>
+                <div className="screen-content">
+                  <div className="section-label">Max History</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+                    {history.maxes.map((max, i) => (
+                      <div key={i} className="data-row">
+                        <div className="data-label">{history.dates[i]}</div>
+                        <div className="data-value">{max} lbs</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="section-label">Filters</div>
+                  <div className="form-group" style={{ marginBottom: 12 }}>
+                    <label className="form-label">Min Weight (lbs)</label>
+                    <input
+                      type="number"
+                      className="form-input"
+                      value={filterWeight}
+                      onChange={(e) => setFilterWeight(e.target.value)}
+                      placeholder="e.g., 200"
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: 12 }}>
+                    <label className="form-label">Date</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={filterDate}
+                      onChange={(e) => setFilterDate(e.target.value)}
+                      placeholder="e.g., May"
+                    />
+                  </div>
+
+                  <div className="section-label">Sets ({filteredSets.length})</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {filteredSets.map((set, i) => (
+                      <div key={i} className="set-item">
+                        <div className="set-number" style={{ flex: 0 }}>{i + 1}</div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '11px', fontWeight: 600 }}>{set.date}</div>
+                          <div style={{ fontSize: '12px', color: '#1a1a1a' }}>{set.weight}×{set.reps}</div>
+                        </div>
+                        {set.notes && <div style={{ fontSize: '10px', color: '#7f8c8d' }}>📝 {set.notes}</div>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div style={{
+                  padding: '12px 16px',
+                  borderTop: '1px solid #ecf0f1',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8
+                }}>
+                  <button
+                    className="button button-secondary"
+                    onClick={() => { setViewingMaxes(true); setMaxesLift(fullLiftName); setMaxesViewType('timeline'); setMaxesFilterType('all'); }}
+                    style={{ width: '100%', fontSize: '11px' }}
+                  >
+                    💪 View Training Maxes
+                  </button>
+                  <button
+                    className="button button-secondary"
+                    onClick={() => setSelectedLift(null)}
+                    style={{ width: '100%' }}
+                  >
+                    Back to Workout
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        // Manage lifts view
+        if (view === 'manage-lifts') {
+          return (
+            <div className="journey">
+              <h2 className="journey-title">✏️ Manage</h2>
+              <div className="screen">
+                <div className="screen-header">
+                  <h3>Manage Lifts</h3>
+                  <p>{workout.week}</p>
+                </div>
+                <div className="screen-content">
+                  <div className="info-box">
+                    Add, remove, or replace lifts in this workout.
+                  </div>
+
+                  <div className="section-label">Current Lifts</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+                    {workout.lifts.map((lift, i) => (
+                      <div
+                        key={i}
+                        className="exercise-item"
+                        style={{
+                          background: selectedLiftInManage === i ? '#ecf0f1' : '#f8f9fa',
+                          borderLeft: selectedLiftInManage === i ? '3px solid #3498db' : '3px solid #bdc3c7'
+                        }}
+                        onClick={() => setSelectedLiftInManage(selectedLiftInManage === i ? null : i)}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                          <div className="exercise-name">{lift}</div>
+                          {selectedLiftInManage === i && (
+                            <div style={{ display: 'flex', gap: 4 }}>
+                              <button
+                                className="button button-secondary"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const liftStr = workout.lifts[i];
+                                  let liftName = liftStr.split(':')[0].trim();
+                                  const liftNameMap = {
+                                    'Bench': 'Bench Press',
+                                    'Row': 'Barbell Row',
+                                    'OHP': 'Overhead Press',
+                                    'Squat': 'Squat',
+                                    'Deadlift': 'Deadlift'
+                                  };
+                                  setEditingLift(liftNameMap[liftName] || liftName);
+                                }}
+                                style={{ padding: '4px 8px', fontSize: '9px' }}
+                              >
+                                ⚙️
+                              </button>
+                              <button
+                                className="button button-secondary"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setLiftAction('replace');
+                                  setView('lift-db');
+                                }}
+                                style={{ padding: '4px 8px', fontSize: '9px' }}
+                              >
+                                🔄
+                              </button>
+                              <button
+                                className="button button-secondary"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setLiftAction('remove');
+                                }}
+                                style={{ padding: '4px 8px', fontSize: '9px', color: '#c0392b' }}
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    className="button button-secondary"
+                    onClick={() => {
+                      setLiftAction('add');
+                      setView('lift-db');
+                    }}
+                    style={{ width: '100%', fontSize: '11px', marginBottom: 'auto' }}
+                  >
+                    ➕ Add Lift
+                  </button>
+                </div>
+                <div style={{
+                  padding: '12px 16px',
+                  borderTop: '1px solid #ecf0f1',
+                  display: 'flex',
+                  gap: 8,
+                }}>
+                  <button
+                    className="button button-secondary"
+                    onClick={() => setView('workout-detail')}
+                    style={{ flex: 1 }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="button button-primary"
+                    onClick={() => setView('workout-detail')}
+                    style={{ flex: 1 }}
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        // Lift database view
+        if (view === 'lift-db') {
+          return (
+            <div className="journey">
+              <h2 className="journey-title">🏋️ Lifts</h2>
+              <div className="screen">
+                <div className="screen-header">
+                  <h3>Lift Database</h3>
+                  <p>{liftAction === 'add' ? 'Add a lift' : 'Replace selected lift'}</p>
+                </div>
+                <div className="screen-content">
+                  <div className="info-box">
+                    {liftAction === 'add' 
+                      ? 'Select a lift to add to this workout.' 
+                      : 'Select a replacement lift.'}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {liftDatabase.map((lift, i) => (
+                      <div
+                        key={i}
+                        className="exercise-item"
+                        onClick={() => {
+                          // Action would be performed here (add/replace)
+                          setView('manage-lifts');
+                        }}
+                      >
+                        <div className="exercise-name">{lift}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div style={{
+                  padding: '12px 16px',
+                  borderTop: '1px solid #ecf0f1',
+                }}>
+                  <button
+                    className="button button-secondary"
+                    onClick={() => setView('manage-lifts')}
+                    style={{ width: '100%' }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        // Main workout detail view
+        return (
+          <div className="journey">
+            <h2 className="journey-title">📊 Detail</h2>
+            <div className="screen">
+              <div className="screen-header">
+                <h3>Workout Details</h3>
+                <p>{workout.date}</p>
+              </div>
+              <div className="screen-content">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <span className="exercise-name">{workout.week}</span>
+                  <span className={`status-badge status-${workout.status}`}>
+                    {workout.status === 'completed' ? '✓ Done' : 'Upcoming'}
+                  </span>
+                </div>
+
+                <div className="section-label">Planned Lifts</div>
+                {workout.lifts.map((lift, i) => (
+                  <div
+                    key={i}
+                    className="exercise-item"
+                    onClick={() => setSelectedLift(lift)}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <div className="exercise-name">{lift}</div>
+                      <div className="exercise-sets">3 warm-up • 3 working</div>
+                    </div>
+                    <span style={{ fontSize: '12px', color: '#3498db', fontWeight: 600 }}>→</span>
+                  </div>
+                ))}
+
+                <button
+                  className="button button-secondary"
+                  onClick={() => setView('manage-lifts')}
+                  style={{ width: '100%', fontSize: '11px', marginTop: 12 }}
+                >
+                  ✏️ Manage Lifts
+                </button>
+
+                <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {workout.status === 'upcoming' && (
+                    <>
+                      <button 
+                        className="button button-primary" 
+                        style={{ width: '100%' }}
+                        onClick={() => { setView('logging'); setLoggingLift(workout.lifts[0]); }}
+                      >
+                        Start Logging
+                      </button>
+                      <button
+                        className="button button-secondary"
+                        onClick={() => setView('reschedule')}
+                        style={{ width: '100%', fontSize: '11px' }}
+                      >
+                        📅 Reschedule
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+              <div style={{
+                padding: '12px 16px',
+                borderTop: '1px solid #ecf0f1',
+              }}>
+                <button
+                  className="button button-secondary"
+                  onClick={() => setView('dashboard')}
+                  style={{ width: '100%' }}
+                >
+                  Back to Dashboard
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // Program editor view
+      if (editingProgram) {
+        // Count affected workouts based on scope
+        const completedCount = workouts.filter(w => w.status === 'completed').length;
+        const upcomingCount = workouts.filter(w => w.status === 'upcoming').length;
+        
+        let affectedSummary = '';
+        if (programScope === 'future') {
+          affectedSummary = `${upcomingCount} upcoming workouts`;
+        } else if (programScope === 'all') {
+          affectedSummary = `${workouts.length} total workouts (${completedCount} completed, ${upcomingCount} upcoming)`;
+        } else {
+          affectedSummary = 'Future program runs only';
+        }
+
+        return (
+          <div className="journey">
+            <h2 className="journey-title">📋 Program</h2>
+            <div className="screen">
+              <div className="screen-header">
+                <h3>Edit Program</h3>
+                <p>{editProgramName || 'Reverse Pyramid Training'}</p>
+              </div>
+              <div className="screen-content">
+                <div className="form-group">
+                  <label className="form-label">Program Name</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={editProgramName}
+                    onChange={(e) => setEditProgramName(e.target.value)}
+                    placeholder="e.g., Reverse Pyramid Training"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Duration (weeks)</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={editProgramWeeks}
+                    onChange={(e) => setEditProgramWeeks(e.target.value)}
+                    placeholder="e.g., 4"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Workouts Per Week</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={editProgramFreq}
+                    onChange={(e) => setEditProgramFreq(e.target.value)}
+                    placeholder="e.g., 3"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Week Type</label>
+                  <select
+                    className="form-input"
+                    value={editWeekType}
+                    onChange={(e) => setEditWeekType(e.target.value)}
+                  >
+                    <option value="">Select week type...</option>
+                    <option value="linear">Linear (increasing difficulty)</option>
+                    <option value="undulating">Undulating (varies each workout)</option>
+                    <option value="block">Block (phases of focus)</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Warmup Sets</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={editWarmupSets}
+                    onChange={(e) => setEditWarmupSets(e.target.value)}
+                    placeholder="e.g., 3"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Working Sets</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={editWorkingSets}
+                    onChange={(e) => setEditWorkingSets(e.target.value)}
+                    placeholder="e.g., 3"
+                  />
+                </div>
+
+                <div className="section-label">Apply Changes To</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="scope"
+                      value="future"
+                      checked={programScope === 'future'}
+                      onChange={(e) => setProgramScope(e.target.value)}
+                    />
+                    <span>This & Future ({upcomingCount} upcoming)</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="scope"
+                      value="all"
+                      checked={programScope === 'all'}
+                      onChange={(e) => setProgramScope(e.target.value)}
+                    />
+                    <span>All Workouts ({workouts.length} total)</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="scope"
+                      value="definition"
+                      checked={programScope === 'definition'}
+                      onChange={(e) => setProgramScope(e.target.value)}
+                    />
+                    <span>Program Definition Only (future runs)</span>
+                  </label>
+                </div>
+
+                <div className="info-box">
+                  📌 {affectedSummary}
+                </div>
+
+                <button
+                  className="button button-primary"
+                  onClick={() => setEditingProgram(false)}
+                  style={{ width: '100%', marginTop: 'auto' }}
+                >
+                  ✓ Save Changes
+                </button>
+              </div>
+              <div style={{
+                padding: '12px 16px',
+                borderTop: '1px solid #ecf0f1',
+              }}>
+                <button
+                  className="button button-secondary"
+                  onClick={() => setEditingProgram(false)}
+                  style={{ width: '100%' }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      if (view === 'plan') {
+        return (
+          <div className="journey">
+            <h2 className="journey-title">📋 Plan</h2>
+            <div className="screen">
+              <div className="screen-header">
+                <h3>Cycle Program</h3>
+                <p>{cycleProgram.name}</p>
+                <button
+                  onClick={() => {
+                    setEditProgramName(cycleProgram.name);
+                    setEditProgramWeeks(String(cycleProgram.weeks));
+                    setEditProgramFreq(String(cycleProgram.workoutsPerWeek));
+                    setEditWeekType(cycleProgram.weekType);
+                    setEditWarmupSets(String(cycleProgram.warmupSets));
+                    setEditWorkingSets(String(cycleProgram.workingSets));
+                    setProgramScope('future');
+                    setEditingProgram(true);
+                  }}
+                  style={{
+                    position: 'absolute',
+                    top: 12,
+                    right: 16,
+                    background: 'none',
+                    border: 'none',
+                    color: 'white',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    padding: '4px 8px',
+                    borderRadius: 4,
+                    hover: { background: 'rgba(255,255,255,0.1)' }
+                  }}
+                  title="Edit program"
+                >
+                  ✎
+                </button>
+              </div>
+              <div className="screen-content">
+                <div className="data-row">
+                  <div className="data-label">Duration</div>
+                  <div className="data-value">{cycleProgram.weeks} weeks</div>
+                </div>
+
+                <div className="data-row">
+                  <div className="data-label">Frequency</div>
+                  <div className="data-value">{cycleProgram.workoutsPerWeek}x/week</div>
+                </div>
+
+                <div className="data-row">
+                  <div className="data-label">Week Type</div>
+                  <div className="data-value" style={{ textTransform: 'capitalize' }}>{cycleProgram.weekType}</div>
+                </div>
+
+                <div className="data-row">
+                  <div className="data-label">Sets Structure</div>
+                  <div className="data-value">{cycleProgram.warmupSets}W + {cycleProgram.workingSets}WS</div>
+                </div>
+
+                <div className="section-label">Exercises</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {cycleProgram.lifts.map((lift, i) => (
+                    <div key={i} className="exercise-item">
+                      <div className="exercise-name">{lift}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div style={{
+                padding: '12px 16px',
+                borderTop: '1px solid #ecf0f1',
+              }}>
+                <button
+                  className="button button-secondary"
+                  onClick={() => setView('dashboard')}
+                  style={{ width: '100%' }}
+                >
+                  Back
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // Strength Goals view
+      if (viewingStrengthGoals) {
+        const allMaxes = Object.keys(trainingMaxes).flatMap(lift => 
+          (trainingMaxes[lift] || []).map(m => ({ ...m, lift }))
+        ).sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        const prsByLift = {};
+        Object.keys(strengthGoals).forEach(lift => {
+          prsByLift[lift] = allMaxes.filter(m => m.lift === lift).sort((a, b) => new Date(b.date) - new Date(a.date));
+        });
+
+        return (
+          <div className="journey">
+            <h2 className="journey-title">🎯 Strength Goals</h2>
+            <div className="screen">
+              <div className="screen-header">
+                <h3>Strength Targets</h3>
+                <p>Bodyweight: {bodyWeight} lbs</p>
+              </div>
+              <div className="screen-content">
+                {/* Tabs */}
+                <div style={{ display: 'flex', gap: 4, marginBottom: 12, borderBottom: '1px solid #ecf0f1', paddingBottom: 8 }}>
+                  <button
+                    onClick={() => setStrengthGoalsTab('current')}
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      fontSize: '11px',
+                      borderRadius: '4px 4px 0 0',
+                      border: strengthGoalsTab === 'current' ? '1px solid #3498db' : '1px solid #ecf0f1',
+                      borderBottom: strengthGoalsTab === 'current' ? '2px solid #3498db' : '1px solid #ecf0f1',
+                      background: strengthGoalsTab === 'current' ? '#ecf0f1' : '#f8f9fa',
+                      cursor: 'pointer',
+                      fontWeight: 600
+                    }}
+                  >
+                    Current Goals
+                  </button>
+                  <button
+                    onClick={() => setStrengthGoalsTab('history')}
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      fontSize: '11px',
+                      borderRadius: '4px 4px 0 0',
+                      border: strengthGoalsTab === 'history' ? '1px solid #3498db' : '1px solid #ecf0f1',
+                      borderBottom: strengthGoalsTab === 'history' ? '2px solid #3498db' : '1px solid #ecf0f1',
+                      background: strengthGoalsTab === 'history' ? '#ecf0f1' : '#f8f9fa',
+                      cursor: 'pointer',
+                      fontWeight: 600
+                    }}
+                  >
+                    History
+                  </button>
+                </div>
+
+                {strengthGoalsTab === 'current' ? (
+                  <>
+                    {/* Bodyweight section */}
+                    <div className="form-group">
+                      <label className="form-label">Current Bodyweight</label>
+                      {editingBodyWeight ? (
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <input
+                            type="number"
+                            className="form-input"
+                            value={bodyWeightInput}
+                            onChange={(e) => setBodyWeightInput(e.target.value)}
+                            autoFocus
+                            style={{ flex: 1 }}
+                          />
+                          <button
+                            className="button button-success"
+                            onClick={() => {
+                              setBodyWeight(parseInt(bodyWeightInput) || bodyWeight);
+                              setEditingBodyWeight(false);
+                            }}
+                            style={{ flex: 0, padding: '8px 12px', fontSize: '11px' }}
+                          >
+                            ✓
+                          </button>
+                        </div>
+                      ) : (
+                        <div
+                          onClick={() => { setEditingBodyWeight(true); setBodyWeightInput(String(bodyWeight)); }}
+                          style={{
+                            padding: '10px 12px',
+                            background: '#f8f9fa',
+                            borderRadius: 6,
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            cursor: 'pointer',
+                            border: '1px solid #ecf0f1'
+                          }}
+                        >
+                          <span style={{ fontWeight: 600, fontSize: '12px' }}>{bodyWeight} lbs</span>
+                          <span style={{ fontSize: '12px', color: '#7f8c8d' }}>✎</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="section-label">Strength Goals</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {Object.keys(strengthGoals).map((lift) => {
+                        const goal = strengthGoals[lift];
+                        const lastMax = prsByLift[lift]?.[0];
+                        const progress = lastMax ? Math.round((lastMax.weight / goal.target) * 100) : 0;
+                        const isEditing = editingGoal === lift;
+
+                        return (
+                          <div key={lift} className="exercise-item" style={{ borderLeft: '3px solid #3498db' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: 8 }}>
+                              <div style={{ flex: 1 }}>
+                                <div className="exercise-name">{lift}</div>
+                                <div style={{ fontSize: '11px', color: '#7f8c8d', marginTop: 4 }}>
+                                  Current: {lastMax ? `${lastMax.weight} lbs` : 'No max recorded'} • {goal.ratio}x BW
+                                </div>
+                                <div style={{ marginTop: 6 }}>
+                                  <div style={{ fontSize: '10px', color: '#7f8c8d', marginBottom: 3 }}>
+                                    {progress}% to goal
+                                  </div>
+                                  <div style={{
+                                    width: '100%',
+                                    height: 6,
+                                    background: '#ecf0f1',
+                                    borderRadius: 3,
+                                    overflow: 'hidden'
+                                  }}>
+                                    <div style={{
+                                      height: '100%',
+                                      width: `${Math.min(progress, 100)}%`,
+                                      background: progress >= 100 ? '#27ae60' : '#3498db',
+                                      transition: 'width 0.3s'
+                                    }}></div>
+                                  </div>
+                                </div>
+                              </div>
+                              {isEditing ? (
+                                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                  <input
+                                    type="number"
+                                    className="form-input"
+                                    value={editingGoalValue}
+                                    onChange={(e) => setEditingGoalValue(e.target.value)}
+                                    autoFocus
+                                    style={{ width: 70, padding: '6px 8px', fontSize: '11px' }}
+                                  />
+                                  <button
+                                    className="button button-success"
+                                    onClick={() => {
+                                      setStrengthGoals(prev => ({
+                                        ...prev,
+                                        [lift]: { ...prev[lift], target: parseInt(editingGoalValue) || prev[lift].target }
+                                      }));
+                                      setEditingGoal(null);
+                                    }}
+                                    style={{ padding: '4px 8px', fontSize: '10px', flex: 0 }}
+                                  >
+                                    ✓
+                                  </button>
+                                </div>
+                              ) : (
+                                <div
+                                  onClick={() => { setEditingGoal(lift); setEditingGoalValue(String(goal.target)); }}
+                                  style={{
+                                    textAlign: 'right',
+                                    cursor: 'pointer',
+                                    padding: '4px 8px'
+                                  }}
+                                >
+                                  <div className="data-value">{goal.target} lbs</div>
+                                  <div style={{ fontSize: '9px', color: '#7f8c8d', marginTop: 2 }}>✎ Edit</div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* History tab - Last PRs */}
+                    <div className="section-label">Last PRs by Lift</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 400, overflowY: 'auto' }}>
+                      {allMaxes.length > 0 ? (
+                        allMaxes.map((max, i) => (
+                          <div key={i} className="data-row">
+                            <div>
+                              <div className="data-label">{max.lift}</div>
+                              <div style={{ fontSize: '10px', color: '#7f8c8d', marginTop: 2 }}>
+                                {max.date} {max.isPR && '🏆'}
+                              </div>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              <div className="data-value">{max.weight} lbs × {max.reps}</div>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div style={{ textAlign: 'center', color: '#7f8c8d', padding: '20px 0', fontSize: '12px' }}>
+                          No PRs recorded yet
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+              <div style={{
+                padding: '12px 16px',
+                borderTop: '1px solid #ecf0f1'
+              }}>
+                <button
+                  className="button button-secondary"
+                  onClick={() => setViewingStrengthGoals(false)}
+                  style={{ width: '100%' }}
+                >
+                  Back
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // Training Maxes view
+      if (viewingMaxes) {
+        const filteredMaxes = getFilteredMaxes();
+
+        if (maxesViewType === 'timeline') {
+          return (
+            <div className="journey">
+              <h2 className="journey-title">💪 Training Maxes</h2>
+              <div className="screen">
+                <div className="screen-header">
+                  <h3>{maxesLift ? maxesLift : 'All Lifts'}</h3>
+                  <p>Timeline view</p>
+                </div>
+                <div className="screen-content">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+                    <div>
+                      <label className="form-label">Filter by Type</label>
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                        {['all', 'pr', 'testWeek', 'goalMet'].map(type => (
+                          <button
+                            key={type}
+                            onClick={() => setMaxesFilterType(type)}
+                            style={{
+                              padding: '6px 12px',
+                              fontSize: '10px',
+                              borderRadius: 4,
+                              border: '1px solid #bdc3c7',
+                              background: maxesFilterType === type ? '#3498db' : '#f8f9fa',
+                              color: maxesFilterType === type ? 'white' : '#2c3e50',
+                              cursor: 'pointer',
+                              fontWeight: 600
+                            }}
+                          >
+                            {type === 'all' ? 'All' : type === 'pr' ? 'PRs' : type === 'testWeek' ? 'Test Week' : 'Goal Met'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {maxesLift && (
+                      <button
+                        className="button button-secondary"
+                        onClick={() => setMaxesLift(null)}
+                        style={{ fontSize: '11px' }}
+                      >
+                        ← View All Lifts
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="section-label">Timeline</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {filteredMaxes.length > 0 ? (
+                      filteredMaxes.map((max, i) => (
+                        <div
+                          key={i}
+                          className="exercise-item"
+                          style={{
+                            borderLeft: max.isPR ? '3px solid #e74c3c' : max.type === 'test' ? '3px solid #f39c12' : '3px solid #3498db'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: 8 }}>
+                            <div style={{ flex: 1 }}>
+                              <div className="exercise-name">
+                                {max.lift} {max.isPR && '🏆'}
+                              </div>
+                              <div className="exercise-sets" style={{ fontSize: '11px', marginTop: 2 }}>
+                                {max.weight} lbs × {max.reps} • {max.date}
+                              </div>
+                              <div style={{ fontSize: '10px', color: '#7f8c8d', marginTop: 4 }}>
+                                {max.type === 'test' && 'Test Week'}
+                                {max.type === 'program' && (max.goalMet ? '✓ Goal Met' : '✗ Goal Missed')}
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => toggleMaxPR(max.lift, max.index)}
+                              style={{
+                                background: max.isPR ? '#e74c3c' : '#ecf0f1',
+                                color: max.isPR ? 'white' : '#7f8c8d',
+                                border: 'none',
+                                padding: '4px 8px',
+                                borderRadius: 4,
+                                fontSize: '10px',
+                                cursor: 'pointer',
+                                fontWeight: 600
+                              }}
+                            >
+                              {max.isPR ? '★ PR' : 'Mark PR'}
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{ textAlign: 'center', color: '#7f8c8d', padding: '20px 0', fontSize: '12px' }}>
+                        No maxes match your filters
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div style={{
+                  padding: '12px 16px',
+                  borderTop: '1px solid #ecf0f1',
+                  display: 'flex',
+                  gap: 8
+                }}>
+                  <button
+                    className="button button-secondary"
+                    onClick={() => setMaxesViewType('list')}
+                    style={{ flex: 1, fontSize: '11px' }}
+                  >
+                    📊 List View
+                  </button>
+                  <button
+                    className="button button-secondary"
+                    onClick={() => setViewingStrengthGoals(true)}
+                    style={{ flex: 1, fontSize: '11px' }}
+                  >
+                    🎯 Goals
+                  </button>
+                  <button
+                    className="button button-secondary"
+                    onClick={() => setViewingMaxes(false)}
+                    style={{ flex: 1, fontSize: '11px' }}
+                  >
+                    Back
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        } else {
+          // List view
+          return (
+            <div className="journey">
+              <h2 className="journey-title">💪 Training Maxes</h2>
+              <div className="screen">
+                <div className="screen-header">
+                  <h3>{maxesLift ? maxesLift : 'All Lifts'}</h3>
+                  <p>List view</p>
+                </div>
+                <div className="screen-content">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+                    <div>
+                      <label className="form-label">Filter by Type</label>
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                        {['all', 'pr', 'testWeek', 'goalMet'].map(type => (
+                          <button
+                            key={type}
+                            onClick={() => setMaxesFilterType(type)}
+                            style={{
+                              padding: '6px 12px',
+                              fontSize: '10px',
+                              borderRadius: 4,
+                              border: '1px solid #bdc3c7',
+                              background: maxesFilterType === type ? '#3498db' : '#f8f9fa',
+                              color: maxesFilterType === type ? 'white' : '#2c3e50',
+                              cursor: 'pointer',
+                              fontWeight: 600
+                            }}
+                          >
+                            {type === 'all' ? 'All' : type === 'pr' ? 'PRs' : type === 'testWeek' ? 'Test Week' : 'Goal Met'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="form-label">Filter by Lift</label>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                        <button
+                          onClick={() => setMaxesLift(null)}
+                          style={{
+                            padding: '8px',
+                            fontSize: '10px',
+                            borderRadius: 4,
+                            border: maxesLift === null ? '2px solid #3498db' : '1px solid #bdc3c7',
+                            background: maxesLift === null ? '#ecf0f1' : '#f8f9fa',
+                            cursor: 'pointer',
+                            fontWeight: 600
+                          }}
+                        >
+                          All Lifts
+                        </button>
+                        {Object.keys(trainingMaxes).map(lift => (
+                          <button
+                            key={lift}
+                            onClick={() => setMaxesLift(lift)}
+                            style={{
+                              padding: '8px',
+                              fontSize: '10px',
+                              borderRadius: 4,
+                              border: maxesLift === lift ? '2px solid #3498db' : '1px solid #bdc3c7',
+                              background: maxesLift === lift ? '#ecf0f1' : '#f8f9fa',
+                              cursor: 'pointer',
+                              fontWeight: 600
+                            }}
+                          >
+                            {lift}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="section-label">All Training Maxes</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {filteredMaxes.length > 0 ? (
+                      filteredMaxes.map((max, i) => (
+                        <div key={i} className="data-row">
+                          <div>
+                            <div className="data-label">{max.lift}</div>
+                            <div style={{ fontSize: '11px', color: '#7f8c8d', marginTop: 2 }}>
+                              {max.type === 'test' ? '🧪 Test' : '💪 Program'} • {max.goalMet ? '✓ Goal Met' : '✗ Goal Missed'}
+                            </div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <div className="data-value">{max.weight} lbs × {max.reps}</div>
+                            <div style={{ fontSize: '10px', color: '#7f8c8d', marginTop: 2 }}>
+                              {max.date} {max.isPR && '🏆'}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{ textAlign: 'center', color: '#7f8c8d', padding: '20px 0', fontSize: '12px' }}>
+                        No maxes match your filters
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div style={{
+                  padding: '12px 16px',
+                  borderTop: '1px solid #ecf0f1',
+                  display: 'flex',
+                  gap: 8
+                }}>
+                  <button
+                    className="button button-secondary"
+                    onClick={() => setMaxesViewType('timeline')}
+                    style={{ flex: 1, fontSize: '11px' }}
+                  >
+                    📈 Timeline View
+                  </button>
+                  <button
+                    className="button button-secondary"
+                    onClick={() => setViewingStrengthGoals(true)}
+                    style={{ flex: 1, fontSize: '11px' }}
+                  >
+                    🎯 Goals
+                  </button>
+                  <button
+                    className="button button-secondary"
+                    onClick={() => setViewingMaxes(false)}
+                    style={{ flex: 1, fontSize: '11px' }}
+                  >
+                    Back
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        }
+      }
+
+      return (
+        <div className="journey">
+          <h2 className="journey-title">📊 Dashboard</h2>
+          <div className="screen">
+            <div className="screen-header">
+              <h3>Cycle 1 — Week 2</h3>
+              <p>Reverse Pyramid Training</p>
+            </div>
+            <div className="screen-content">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <div className="form-label">Progress</div>
+                <div style={{ fontSize: '11px', color: '#7f8c8d' }}>3 of 12</div>
+              </div>
+              <div className="progress-bar" style={{ marginBottom: 12 }}>
+                <div className="progress-fill" style={{ width: '25%' }}></div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+                <button 
+                  className="button button-secondary" 
+                  onClick={() => setView('plan')}
+                  style={{ fontSize: '11px' }}
+                >
+                  📋 Cycle Program
+                </button>
+                <button 
+                  className="button button-secondary" 
+                  onClick={() => setView('program')}
+                  style={{ fontSize: '11px' }}
+                >
+                  🎯 View Program Plan
+                </button>
+                <button 
+                  className="button button-secondary" 
+                  onClick={() => { setViewingMaxes(true); setMaxesLift(null); setMaxesViewType('timeline'); setMaxesFilterType('all'); }}
+                  style={{ fontSize: '11px' }}
+                >
+                  💪 Training Maxes
+                </button>
+                <button 
+                  className="button button-secondary" 
+                  onClick={() => setViewingStrengthGoals(true)}
+                  style={{ fontSize: '11px' }}
+                >
+                  🎯 Strength Goals
+                </button>
+              </div>
+
+              <div className="section-label">Workouts</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {workouts.map((w) => (
+                  <div
+                    key={w.id}
+                    className="exercise-item"
+                    onClick={() => { setSelectedWorkout(w.id); setView('workout-detail'); }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                      <div style={{ flex: 1 }}>
+                        <div className="exercise-name">{w.week} • {w.date}</div>
+                        <div className="exercise-sets">{w.lifts.length} lifts</div>
+                      </div>
+                      <span className={`status-badge status-${w.status}`} style={{ marginTop: 2, fontSize: '9px' }}>
+                        {w.status === 'completed' ? '✓' : '→'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ============ WORKOUT LOGGING JOURNEY ============
+    function WorkoutLoggingJourney() {
+      const [step, setStep] = useState(0);
+      const [bodyWeight, setBodyWeight] = useState('185');
+      const [exerciseIdx, setExerciseIdx] = useState(0);
+      const [showAddExercise, setShowAddExercise] = useState(false);
+      const [newExerciseName, setNewExerciseName] = useState('');
+      const [exercises, setExercises] = useState([
+        { 
+          name: 'Bench Press', 
+          warmups: ['95×5', '135×3', '185×2'], 
+          amrap: false,
+          tempo: '2-1-2',
+          restSecs: 180,
+          workPeriod: '5-8 min'
+        },
+        { 
+          name: 'Barbell Row', 
+          warmups: ['95×5', '135×3', '165×2'], 
+          amrap: true,
+          tempo: '2-0-2',
+          restSecs: 120,
+          workPeriod: '4-6 min'
+        },
+      ]);
+      
+      const [sets, setSets] = useState({
+        0: [
+          { weight: 225, reps: 5, logged: true, notes: 'RPE 7' },
+          { weight: 185, reps: 6, logged: true, notes: '' },
+          { weight: 155, reps: 8, logged: false, notes: '' }
+        ],
+        1: [
+          { weight: 185, reps: 5, logged: false, notes: '' },
+          { weight: 155, reps: 7, logged: false, notes: '' },
+          { weight: 125, reps: 9, logged: false, notes: '' }
+        ]
+      });
+
+      const currentExercise = exercises[exerciseIdx];
+      const completedSets = sets[exerciseIdx]?.filter(s => s.logged).length || 0;
+      const totalSets = sets[exerciseIdx]?.length || 0;
+
+      const handleSetChange = (setIdx, field, value) => {
+        setSets(prev => ({
+          ...prev,
+          [exerciseIdx]: prev[exerciseIdx].map((s, i) => 
+            i === setIdx ? { ...s, [field]: value } : s
+          )
+        }));
+      };
+
+      const handleLogSet = (setIdx) => {
+        setSets(prev => ({
+          ...prev,
+          [exerciseIdx]: prev[exerciseIdx].map((s, i) => 
+            i === setIdx ? { ...s, logged: true } : s
+          )
+        }));
+      };
+
+      const handleAddExercise = () => {
+        if (newExerciseName.trim()) {
+          const newIdx = exercises.length;
+          setExercises([...exercises, { name: newExerciseName, warmups: [], amrap: false }]);
+          setSets(prev => ({
+            ...prev,
+            [newIdx]: [
+              { weight: 0, reps: 0, logged: false, notes: '' },
+              { weight: 0, reps: 0, logged: false, notes: '' },
+              { weight: 0, reps: 0, logged: false, notes: '' }
+            ]
+          }));
+          setNewExerciseName('');
+          setShowAddExercise(false);
+          setExerciseIdx(newIdx);
+        }
+      };
+
+      const handleRemoveExercise = (idx) => {
+        const newExercises = exercises.filter((_, i) => i !== idx);
+        const newSets = {};
+        Object.entries(sets).forEach(([k, v]) => {
+          const oldIdx = parseInt(k);
+          if (oldIdx < idx) newSets[oldIdx] = v;
+          else if (oldIdx > idx) newSets[oldIdx - 1] = v;
+        });
+        setExercises(newExercises);
+        setSets(newSets);
+        if (exerciseIdx >= newExercises.length) setExerciseIdx(Math.max(0, newExercises.length - 1));
+      };
+
+      if (showAddExercise) {
+        return (
+          <div className="journey">
+            <h2 className="journey-title">➕ Add</h2>
+            <div className="screen">
+              <div className="screen-header">
+                <h3>Add Exercise</h3>
+                <p>Mid-workout addition</p>
+              </div>
+              <div className="screen-content">
+                <div className="info-box">
+                  Add an exercise not in the original plan. You can set working sets manually.
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Exercise Name</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={newExerciseName}
+                    onChange={(e) => setNewExerciseName(e.target.value)}
+                    placeholder="e.g., Incline Dumbbell Press"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">AMRAP (as many reps as possible)?</label>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      className="option-btn"
+                      onClick={() => {}}
+                      style={{ borderColor: '#ecf0f1', background: 'white' }}
+                    >
+                      No
+                    </button>
+                    <button
+                      className="option-btn selected"
+                      onClick={() => {}}
+                      style={{ borderColor: '#3498db', background: '#ecf0f1' }}
+                    >
+                      Yes
+                    </button>
+                  </div>
+                </div>
+
+                <div className="info-box" style={{ marginTop: 'auto' }}>
+                  <strong>Note:</strong> If this lift doesn't have a training max, you'll enter target weights manually.
+                </div>
+              </div>
+              <div style={{
+                padding: '12px 16px',
+                borderTop: '1px solid #ecf0f1',
+                display: 'flex',
+                gap: 8,
+              }}>
+                <button
+                  className="button button-secondary"
+                  onClick={() => setShowAddExercise(false)}
+                  style={{ flex: 1 }}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="button button-primary"
+                  onClick={handleAddExercise}
+                  style={{ flex: 1 }}
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      if (step === 0) {
+        return (
+          <div className="journey">
+            <h2 className="journey-title">⚙️ Setup</h2>
+            <div className="screen">
+              <div className="screen-header">
+                <h3>Today's Workout</h3>
+                <p>Enter your bodyweight</p>
+              </div>
+              <div className="screen-content">
+                <div className="info-box">
+                  Weighted dips & chin-ups use your bodyweight to calculate added weight.
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Bodyweight</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8 }}>
+                    <input
+                      type="number"
+                      className="form-input"
+                      value={bodyWeight}
+                      onChange={(e) => setBodyWeight(e.target.value)}
+                    />
+                    <span style={{ display: 'flex', alignItems: 'center', color: '#7f8c8d', fontSize: '11px', fontWeight: 600 }}>
+                      lbs
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  className="button button-primary"
+                  onClick={() => setStep(1)}
+                  style={{ marginTop: 'auto' }}
+                >
+                  Start Logging
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="journey">
+          <h2 className="journey-title">🏋️ Log</h2>
+          <div className="screen">
+            <div className="screen-header">
+              <h3>{currentExercise.name}</h3>
+              <p>Exercise {exerciseIdx + 1} of {exercises.length}</p>
+              <div style={{ marginTop: 6, display: 'flex', gap: 4 }}>
+                <button
+                  style={{
+                    background: 'rgba(255,255,255,0.2)',
+                    color: 'white',
+                    border: 'none',
+                    padding: '4px 8px',
+                    borderRadius: 4,
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => setStep(0)}
+                >
+                  Exit Workout
+                </button>
+              </div>
+            </div>
+            <div className="screen-content">
+              <div className="nav-dots" style={{ marginBottom: 8 }}>
+                {exercises.map((ex, i) => (
+                  <div
+                    key={i}
+                    className={`dot ${i === exerciseIdx ? 'active' : ''}`}
+                    onClick={() => setExerciseIdx(i)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                ))}
+              </div>
+
+              {currentExercise.warmups.length > 0 && (
+                <div style={{ paddingBottom: 8, borderBottom: '1px solid #ecf0f1', marginBottom: 8 }}>
+                  <div className="form-label">Warm-ups (read-only)</div>
+                  <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {currentExercise.warmups.map((w, i) => (
+                      <div key={i} className="set-item" style={{ background: '#ecf0f1', borderLeft: 'none' }}>
+                        <div className="set-number">{i + 1}</div>
+                        <span>{w}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ paddingBottom: 8, borderBottom: '1px solid #ecf0f1', marginBottom: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                  <div className="form-label">Tempo & Rest</div>
+                </div>
+                <div className="data-row" style={{ marginBottom: 6 }}>
+                  <div className="data-label">Tempo</div>
+                  <div className="data-value">{currentExercise.tempo}</div>
+                </div>
+                <div className="data-row" style={{ marginBottom: 6 }}>
+                  <div className="data-label">Rest</div>
+                  <div className="data-value">{currentExercise.restSecs}s</div>
+                </div>
+                <div className="data-row">
+                  <div className="data-label">Work Period</div>
+                  <div className="data-value">{currentExercise.workPeriod}</div>
+                </div>
+              </div>
+
+              <div style={{ paddingBottom: 8, borderBottom: '1px solid #ecf0f1', marginBottom: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                  <div className="form-label">Tempo & Rest</div>
+                </div>
+                <div className="data-row" style={{ marginBottom: 6 }}>
+                  <div className="data-label">Tempo</div>
+                  <div className="data-value">{currentExercise.tempo}</div>
+                </div>
+                <div className="data-row" style={{ marginBottom: 6 }}>
+                  <div className="data-label">Rest</div>
+                  <div className="data-value">{currentExercise.restSecs}s</div>
+                </div>
+                <div className="data-row">
+                  <div className="data-label">Work Period</div>
+                  <div className="data-value">{currentExercise.workPeriod}</div>
+                </div>
+              </div>
+
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                  <div className="form-label">Working Sets</div>
+                  {currentExercise.amrap && <span className="amrap-badge">AMRAP</span>}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {sets[exerciseIdx]?.map((s, i) => (
+                    <div key={i}>
+                      <div className={`set-item ${s.logged ? 'logged' : ''}`}>
+                        <div className={`set-number ${s.logged ? 'complete' : ''}`}>
+                          {s.logged ? '✓' : i + 1}
+                        </div>
+                        <div className="set-inputs">
+                          <input
+                            type="number"
+                            value={s.weight}
+                            onChange={(e) => handleSetChange(i, 'weight', parseInt(e.target.value) || 0)}
+                            disabled={s.logged}
+                            placeholder="Wt"
+                          />
+                          <span>×</span>
+                          <input
+                            type="number"
+                            value={s.reps}
+                            onChange={(e) => handleSetChange(i, 'reps', parseInt(e.target.value) || 0)}
+                            disabled={s.logged}
+                            placeholder="Reps"
+                          />
+                        </div>
+                        {s.logged ? (
+                          <span className="set-status">✓</span>
+                        ) : (
+                          <button
+                            className="button button-primary"
+                            style={{ padding: '6px 12px', fontSize: '10px', flex: 0 }}
+                            onClick={() => handleLogSet(i)}
+                          >
+                            Log
+                          </button>
+                        )}
+                      </div>
+                      {(s.logged || i === completedSets) && (
+                        <div style={{ fontSize: '10px', color: '#7f8c8d', paddingLeft: 10, marginBottom: 4 }}>
+                          {s.notes && <span>📝 {s.notes}</span>}
+                          <button
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: '#3498db',
+                              cursor: 'pointer',
+                              fontSize: '10px',
+                              fontWeight: 600,
+                              paddingLeft: s.notes ? 8 : 0
+                            }}
+                            onClick={() => {
+                              const note = prompt('Add note:', s.notes);
+                              if (note !== null) handleSetChange(i, 'notes', note);
+                            }}
+                          >
+                            {s.notes ? 'Edit note' : 'Add note'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ marginTop: 'auto', paddingTop: 8, borderTop: '1px solid #ecf0f1' }}>
+                <div className="form-label" style={{ marginBottom: 6 }}>Actions</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <button
+                    className="button button-secondary"
+                    onClick={() => setShowAddExercise(true)}
+                    style={{ width: '100%', fontSize: '11px' }}
+                  >
+                    ➕ Add Exercise
+                  </button>
+                  {exercises.length > 1 && (
+                    <button
+                      className="button button-secondary"
+                      onClick={() => handleRemoveExercise(exerciseIdx)}
+                      style={{ width: '100%', fontSize: '11px', color: '#c0392b' }}
+                    >
+                      ✕ Remove This Exercise
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div style={{
+              padding: '12px 16px',
+              borderTop: '1px solid #ecf0f1',
+              display: 'flex',
+              gap: 8,
+              justifyContent: 'space-between'
+            }}>
+              <button
+                className="button button-secondary"
+                onClick={() => {
+                  if (exerciseIdx > 0) setExerciseIdx(exerciseIdx - 1);
+                  else setStep(0);
+                }}
+                style={{ flex: 0 }}
+              >
+                Back
+              </button>
+              <button
+                className="button button-primary"
+                onClick={() => {
+                  if (exerciseIdx < exercises.length - 1) {
+                    setExerciseIdx(exerciseIdx + 1);
+                  } else {
+                    alert('✓ Workout complete!');
+                  }
+                }}
+                disabled={completedSets < totalSets}
+                style={{ opacity: completedSets < totalSets ? 0.5 : 1, flex: 0 }}
+              >
+                {exerciseIdx < exercises.length - 1 ? 'Next' : 'Finish'}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ============ MAIN APP ============
+    function App() {
+      return (
+        <div className="container">
+          <OnboardingJourney />
+          <CycleDashboardJourney />
+          <WorkoutLoggingJourney />
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
