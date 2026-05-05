@@ -1,4 +1,6 @@
-import { Prisma, PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+// Prisma 5.x — error classes moved off the Prisma namespace
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { LiftRecord } from '@lifting-logbook/core';
 import { ILiftRecordRepository } from '../../ports/ILiftRecordRepository';
 
@@ -58,7 +60,7 @@ export class PrismaLiftRecordRepository implements ILiftRecordRepository {
       });
       return rowToLiftRecord(updated);
     } catch (e) {
-      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2025') {
+      if (e instanceof PrismaClientKnownRequestError && e.code === 'P2025') {
         return null;
       }
       throw e;
