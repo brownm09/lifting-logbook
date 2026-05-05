@@ -3,4 +3,5 @@ export * from "./LiftingProgramSpec";
 export * from "./LiftRecord";
 export * from "./SpreadsheetCell";
 export * from "./TrainingMax";
+export * from "./TrainingMaxHistoryEntry";
 export * from "./UpdateCycleOverrides";

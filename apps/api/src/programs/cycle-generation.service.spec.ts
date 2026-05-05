@@ -4,6 +4,7 @@ import {
   ICycleDashboardRepository,
   ILiftRecordRepository,
   ILiftingProgramSpecRepository,
+  ITrainingMaxHistoryRepository,
   ITrainingMaxRepository,
 } from '../ports';
 import { CycleGenerationService } from './cycle-generation.service';
@@ -63,11 +64,13 @@ describe('CycleGenerationService', () => {
   let cycleDashboardRepo: jest.Mocked<ICycleDashboardRepository>;
   let programSpecRepo: jest.Mocked<ILiftingProgramSpecRepository>;
   let trainingMaxRepo: jest.Mocked<ITrainingMaxRepository>;
+  let trainingMaxHistoryRepo: jest.Mocked<ITrainingMaxHistoryRepository>;
   let liftRecordRepo: jest.Mocked<ILiftRecordRepository>;
   let repos: {
     cycleDashboard: jest.Mocked<ICycleDashboardRepository>;
     liftingProgramSpec: jest.Mocked<ILiftingProgramSpecRepository>;
     trainingMax: jest.Mocked<ITrainingMaxRepository>;
+    trainingMaxHistory: jest.Mocked<ITrainingMaxHistoryRepository>;
     liftRecord: jest.Mocked<ILiftRecordRepository>;
   };
 
@@ -83,6 +86,11 @@ describe('CycleGenerationService', () => {
       getTrainingMaxes: jest.fn(),
       saveTrainingMaxes: jest.fn().mockResolvedValue(undefined),
     };
+    trainingMaxHistoryRepo = {
+      getHistory: jest.fn().mockResolvedValue([]),
+      appendHistoryEntries: jest.fn().mockResolvedValue(undefined),
+      updateHistoryEntry: jest.fn(),
+    };
     liftRecordRepo = {
       getLiftRecords: jest.fn(),
       appendLiftRecords: jest.fn().mockResolvedValue(undefined),
@@ -91,6 +99,7 @@ describe('CycleGenerationService', () => {
       cycleDashboard: cycleDashboardRepo,
       liftingProgramSpec: programSpecRepo,
       trainingMax: trainingMaxRepo,
+      trainingMaxHistory: trainingMaxHistoryRepo,
       liftRecord: liftRecordRepo,
     };
     service = new CycleGenerationService();

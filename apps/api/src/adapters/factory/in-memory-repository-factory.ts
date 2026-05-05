@@ -7,6 +7,7 @@ import { InMemoryLiftingProgramSpecRepository } from '../in-memory/lifting-progr
 import { InMemoryLiftRecordRepository } from '../in-memory/lift-record.adapter';
 import { InMemoryProgramPhilosophyRepository } from '../in-memory/program-philosophy.adapter';
 import { InMemoryTrainingMaxRepository } from '../in-memory/training-max.adapter';
+import { InMemoryTrainingMaxHistoryRepository } from '../in-memory/training-max-history.adapter';
 import { InMemoryWorkoutRepository } from '../in-memory/workout.adapter';
 import { SEED_PROGRAM, seedLiftRecords } from '../in-memory/fixtures';
 
@@ -32,6 +33,7 @@ export class InMemoryRepositoryFactory implements IRepositoryFactory {
         liftRecord: new InMemoryLiftRecordRepository(sharedRecords),
         programPhilosophy: new InMemoryProgramPhilosophyRepository(),
         trainingMax: new InMemoryTrainingMaxRepository(preSeed),
+        trainingMaxHistory: new InMemoryTrainingMaxHistoryRepository(),
         workout: new InMemoryWorkoutRepository(sharedRecords),
       });
     }

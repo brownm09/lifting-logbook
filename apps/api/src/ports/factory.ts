@@ -3,6 +3,7 @@ import { ICycleDashboardRepository } from './ICycleDashboardRepository';
 import { ILiftingProgramSpecRepository } from './ILiftingProgramSpecRepository';
 import { ILiftRecordRepository } from './ILiftRecordRepository';
 import { IProgramPhilosophyRepository } from './IProgramPhilosophyRepository';
+import { ITrainingMaxHistoryRepository } from './ITrainingMaxHistoryRepository';
 import { ITrainingMaxRepository } from './ITrainingMaxRepository';
 import { IWorkoutRepository } from './IWorkoutRepository';
 
@@ -12,6 +13,7 @@ export interface RepositoryBundle {
   liftRecord: ILiftRecordRepository;
   programPhilosophy: IProgramPhilosophyRepository;
   trainingMax: ITrainingMaxRepository;
+  trainingMaxHistory: ITrainingMaxHistoryRepository;
   workout: IWorkoutRepository;
 }
 

@@ -29,6 +29,7 @@ async function cleanTestUsers(prisma: PrismaClient): Promise<void> {
   const users = [TEST_USER, USER_ALICE, USER_BOB];
   await prisma.liftRecord.deleteMany({ where: { userId: { in: users } } });
   await prisma.trainingMax.deleteMany({ where: { userId: { in: users } } });
+  await prisma.trainingMaxHistory.deleteMany({ where: { userId: { in: users } } });
   await prisma.cycleDashboard.deleteMany({ where: { userId: { in: users } } });
 }
 
@@ -275,6 +276,70 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
 
     it('POST /programs/unknown/cycles returns 404', async () => {
       const res = await post('/programs/does-not-exist/cycles');
+      expect(res.statusCode).toBe(404);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Training max history — order-sensitive, continues from write operations.
+  // At this point cycle advances have written history rows for changed lifts.
+  // -------------------------------------------------------------------------
+
+  describe('training max history', () => {
+    it('GET /training-maxes/history returns entries after cycle advances', async () => {
+      const res = await get(`/programs/${SEED_PROGRAM}/training-maxes/history`);
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(Array.isArray(body.entries)).toBe(true);
+      for (const e of body.entries) {
+        expect(e).toMatchObject({
+          id: expect.any(String),
+          lift: expect.any(String),
+          weight: expect.any(Number),
+          unit: 'lbs',
+          date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+          isPR: expect.any(Boolean),
+          source: expect.stringMatching(/^(test|program)$/),
+          goalMet: expect.any(Boolean),
+        });
+      }
+    });
+
+    it('GET /training-maxes/history?lift=Squat filters to that lift', async () => {
+      const res = await get(`/programs/${SEED_PROGRAM}/training-maxes/history?lift=Squat`);
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.entries.every((e: { lift: string }) => e.lift === 'Squat')).toBe(true);
+    });
+
+    it('PATCH /training-maxes/history/:id marks entry as PR and persists to DB', async () => {
+      const listRes = await get(`/programs/${SEED_PROGRAM}/training-maxes/history`);
+      const entries = listRes.json().entries as Array<{ id: string }>;
+      if (entries.length === 0) {
+        // No maxes changed — skip toggle test gracefully
+        return;
+      }
+      const firstId = entries[0].id;
+
+      const patchRes = await patchJson(
+        `/programs/${SEED_PROGRAM}/training-maxes/history/${firstId}`,
+        { isPR: true },
+      );
+      expect(patchRes.statusCode).toBe(200);
+      expect(patchRes.json()).toMatchObject({ id: firstId, isPR: true });
+
+      // DB-level assertion
+      const row = await prisma.trainingMaxHistory.findFirst({
+        where: { id: firstId, userId: TEST_USER },
+      });
+      expect(row?.isPR).toBe(true);
+    });
+
+    it('PATCH /training-maxes/history/:id with unknown id returns 404', async () => {
+      const res = await patchJson(
+        `/programs/${SEED_PROGRAM}/training-maxes/history/nonexistent-id`,
+        { isPR: true },
+      );
       expect(res.statusCode).toBe(404);
     });
   });

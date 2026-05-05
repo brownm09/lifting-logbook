@@ -55,3 +55,21 @@ model CycleDashboard {
   @@index([userId, program])
   @@map("cycle_dashboard")
 }
+
+model TrainingMaxHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  program   String
+  lift      String
+  weight    Float
+  reps      Int      @default(1)
+  date      DateTime
+  isPR      Boolean  @default(false)
+  source    String
+  goalMet   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, program])
+  @@index([userId, program, lift])
+  @@map("training_max_history")
+}

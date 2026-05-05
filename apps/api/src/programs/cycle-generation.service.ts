@@ -3,6 +3,7 @@ import {
   CycleDashboard,
   MaxReductionFlag,
   TrainingMax,
+  TrainingMaxHistoryEntry,
   updateCycle,
   updateMaxes,
 } from '@lifting-logbook/core';
@@ -11,8 +12,32 @@ import { StartNewCycleDto } from './start-new-cycle.dto';
 
 type CycleRepos = Pick<
   RepositoryBundle,
-  'cycleDashboard' | 'liftingProgramSpec' | 'trainingMax' | 'liftRecord'
+  'cycleDashboard' | 'liftingProgramSpec' | 'trainingMax' | 'trainingMaxHistory' | 'liftRecord'
 >;
+
+function round1dp(w: number): number {
+  return Math.round(w * 10) / 10;
+}
+
+function buildHistoryEntries(
+  prevMaxes: TrainingMax[],
+  newMaxes: TrainingMax[],
+  date: Date,
+  source: 'test' | 'program',
+): Omit<TrainingMaxHistoryEntry, 'id'>[] {
+  const prevMap = new Map(prevMaxes.map((m) => [m.lift, round1dp(m.weight)]));
+  return newMaxes
+    .filter((m) => prevMap.get(m.lift) !== round1dp(m.weight))
+    .map((m) => ({
+      lift: m.lift,
+      weight: m.weight,
+      reps: 1,
+      date,
+      isPR: false,
+      source,
+      goalMet: false,
+    }));
+}
 
 @Injectable()
 export class CycleGenerationService {
@@ -58,6 +83,12 @@ export class CycleGenerationService {
     await repos.trainingMax.saveTrainingMaxes(program, newMaxes);
     await repos.cycleDashboard.saveCycleDashboard(newCycle);
 
+    const source = dashboard.currentWeekType === 'test' ? 'test' : 'program';
+    const historyEntries = buildHistoryEntries(trainingMaxes, newMaxes, newCycle.cycleDate, source);
+    if (historyEntries.length > 0) {
+      await repos.trainingMaxHistory.appendHistoryEntries(program, historyEntries);
+    }
+
     return newCycle;
   }
 
@@ -74,6 +105,11 @@ export class CycleGenerationService {
 
     const result = updateMaxes(programSpec, trainingMaxes, liftRecords);
     await repos.trainingMax.saveTrainingMaxes(program, result.maxes);
+
+    const historyEntries = buildHistoryEntries(trainingMaxes, result.maxes, dashboard.cycleDate, 'program');
+    if (historyEntries.length > 0) {
+      await repos.trainingMaxHistory.appendHistoryEntries(program, historyEntries);
+    }
 
     return result;
   }

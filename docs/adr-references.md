@@ -183,6 +183,15 @@ References from [`docs/security-review-checklist.md`](security-review-checklist.
 
 ---
 
+## Data Design
+
+| Source | Cited In | Relevance |
+|---|---|---|
+| [Prisma — `createMany`](https://www.prisma.io/docs/orm/reference/prisma-client-reference#createmany) | [ADR-017](adr/ADR-017-training-max-history-table.md) | Batch insert API used by `PrismaTrainingMaxHistoryRepository.appendHistoryEntries`. |
+| [Martin Fowler — Event Sourcing](https://martinfowler.com/eaaDev/EventSourcing.html) | [ADR-017](adr/ADR-017-training-max-history-table.md) | Background pattern: storing state changes as a sequence of events rather than deriving history post-hoc from current state. The `training_max_history` table is a lightweight application of this principle. |
+
+---
+
 ## Case Studies
 
 Empirical evidence from practitioners. Full case studies are in [`docs/case-studies.md`](case-studies.md).

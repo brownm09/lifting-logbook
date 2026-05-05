@@ -5,7 +5,7 @@
  * If the mock is missing a required method or uses an incompatible signature,
  * the TypeScript compiler will error here — no runtime needed.
  */
-import { CycleDashboard, LiftRecord, LiftingProgramSpec, TrainingMax } from '@lifting-logbook/core';
+import { CycleDashboard, LiftRecord, LiftingProgramSpec, TrainingMax, TrainingMaxHistoryEntry } from '@lifting-logbook/core';
 import { BodyWeightEntry } from '@lifting-logbook/types';
 import { AuthUser, IAuthProvider } from './auth';
 import { IBodyWeightRepository } from './IBodyWeightRepository';
@@ -15,6 +15,7 @@ import { ILiftingProgramSpecRepository } from './ILiftingProgramSpecRepository';
 import { ILiftRecordRepository } from './ILiftRecordRepository';
 import { IProgramPhilosophyRepository } from './IProgramPhilosophyRepository';
 import { ITrainingMaxRepository } from './ITrainingMaxRepository';
+import { ITrainingMaxHistoryRepository } from './ITrainingMaxHistoryRepository';
 import { IWorkoutRepository } from './IWorkoutRepository';
 
 // ---------------------------------------------------------------------------
@@ -82,6 +83,16 @@ const _trainingMaxRepo: ITrainingMaxRepository = {
 };
 
 // ---------------------------------------------------------------------------
+// ITrainingMaxHistoryRepository
+// ---------------------------------------------------------------------------
+
+const _trainingMaxHistoryRepo: ITrainingMaxHistoryRepository = {
+  getHistory: (): Promise<TrainingMaxHistoryEntry[]> => Promise.resolve([]),
+  appendHistoryEntries: (): Promise<void> => Promise.resolve(),
+  updateHistoryEntry: (): Promise<TrainingMaxHistoryEntry> =>
+    Promise.resolve({ id: '', lift: '', weight: 0, reps: 1, date: new Date(), isPR: false, source: 'program', goalMet: false }),
+};
+
 // IWorkoutRepository
 // ---------------------------------------------------------------------------
 
@@ -107,6 +118,7 @@ const _repositoryBundle: RepositoryBundle = {
   liftRecord: _liftRecordRepo,
   programPhilosophy: _programPhilosophyRepo,
   trainingMax: _trainingMaxRepo,
+  trainingMaxHistory: _trainingMaxHistoryRepo,
   workout: _workoutRepo,
 };
 
@@ -122,6 +134,7 @@ void _cycleDashboardRepo;
 void _programSpecRepo;
 void _liftRecordRepo;
 void _trainingMaxRepo;
+void _trainingMaxHistoryRepo;
 void _workoutRepo;
 void _repositoryBundle;
 void _repositoryFactory;

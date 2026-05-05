@@ -36,6 +36,35 @@ export interface UpdateTrainingMaxesRequest {
 }
 
 // ---------------------------------------------------------------------------
+// Training Max History
+// ---------------------------------------------------------------------------
+
+export type TrainingMaxHistorySource = 'test' | 'program';
+
+/** A single entry in the training max history timeline. */
+export interface TrainingMaxHistoryEntryResponse {
+  id: string;
+  lift: LiftName;
+  weight: number;
+  unit: WeightUnit;
+  date: string; // ISO 8601 date string
+  isPR: boolean;
+  source: TrainingMaxHistorySource;
+  goalMet: boolean;
+}
+
+/** Response from GET /training-maxes/history. */
+export interface TrainingMaxHistoryResponse {
+  entries: TrainingMaxHistoryEntryResponse[];
+}
+
+/** Request body for PATCH /training-maxes/history/:id. */
+export interface UpdateTrainingMaxHistoryRequest {
+  isPR?: boolean;
+  goalMet?: boolean;
+}
+
+// ---------------------------------------------------------------------------
 // Workouts
 // ---------------------------------------------------------------------------
 

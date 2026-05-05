@@ -6,6 +6,7 @@ import { AuthUser } from '../../ports/auth';
 import { IRepositoryFactory, RepositoryBundle } from '../../ports/factory';
 import { PrismaLiftRecordRepository } from '../prisma/lift-record.repository';
 import { PrismaTrainingMaxRepository } from '../prisma/training-max.repository';
+import { PrismaTrainingMaxHistoryRepository } from '../prisma/training-max-history.repository';
 import { PrismaCycleDashboardRepository } from '../prisma/cycle-dashboard.repository';
 import { PrismaWorkoutRepository } from '../prisma/workout.repository';
 import { InMemoryCycleDashboardRepository } from '../in-memory/cycle-dashboard.adapter';
@@ -13,6 +14,7 @@ import { InMemoryLiftingProgramSpecRepository } from '../in-memory/lifting-progr
 import { InMemoryLiftRecordRepository } from '../in-memory/lift-record.adapter';
 import { InMemoryProgramPhilosophyRepository } from '../in-memory/program-philosophy.adapter';
 import { InMemoryTrainingMaxRepository } from '../in-memory/training-max.adapter';
+import { InMemoryTrainingMaxHistoryRepository } from '../in-memory/training-max-history.adapter';
 import { InMemoryWorkoutRepository } from '../in-memory/workout.adapter';
 
 interface UserDataSourceRow {
@@ -71,6 +73,7 @@ export class SystemDbRepositoryFactory implements IRepositoryFactory, OnModuleDe
       return {
         liftRecord: new PrismaLiftRecordRepository(prisma, userId),
         trainingMax: new PrismaTrainingMaxRepository(prisma, userId),
+        trainingMaxHistory: new PrismaTrainingMaxHistoryRepository(prisma, userId),
         cycleDashboard: new PrismaCycleDashboardRepository(prisma, userId),
         workout: new PrismaWorkoutRepository(prisma, userId),
         liftingProgramSpec: this.programSpecRepo,
@@ -88,6 +91,7 @@ export class SystemDbRepositoryFactory implements IRepositoryFactory, OnModuleDe
       liftRecord: new InMemoryLiftRecordRepository(sharedRecords),
       programPhilosophy: this.philosophyRepo,
       trainingMax: new InMemoryTrainingMaxRepository(),
+      trainingMaxHistory: new InMemoryTrainingMaxHistoryRepository(),
       workout: new InMemoryWorkoutRepository(sharedRecords),
     };
   }

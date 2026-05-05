@@ -10,6 +10,7 @@ import { CyclePlanController } from './cycle-plan.controller';
 import { LiftRecordsController } from './lift-records.controller';
 import { ProgramSpecController } from './program-spec.controller';
 import { TrainingMaxesController } from './training-maxes.controller';
+import { TrainingMaxHistoryController } from './training-max-history.controller';
 import { WorkoutsController } from './workouts.controller';
 
 @Module({
@@ -20,6 +21,7 @@ import { WorkoutsController } from './workouts.controller';
     CyclePlanController,
     WorkoutsController,
     TrainingMaxesController,
+    TrainingMaxHistoryController,
     LiftRecordsController,
     ProgramSpecController,
   ],
