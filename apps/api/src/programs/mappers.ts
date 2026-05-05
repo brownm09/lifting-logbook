@@ -2,6 +2,7 @@ import {
   CycleDashboard,
   LiftRecord,
   LiftingProgramSpec,
+  StrengthGoalEntry,
   TrainingMax,
   TrainingMaxHistoryEntry,
 } from '@lifting-logbook/core';
@@ -11,6 +12,7 @@ import {
   LiftRecordResponse,
   LiftingProgramSpecResponse,
   SetResponse,
+  StrengthGoalResponse,
   TrainingMaxHistoryEntryResponse,
   TrainingMaxResponse,
   WeekNumber,
@@ -23,6 +25,14 @@ import { CyclePlanResult } from '../ports/ICyclePlanningAgent';
 // values must be stored as UTC midnight; adapters parsing external sources
 // (e.g. Sheets) are responsible for normalizing before the mapper runs.
 const isoDate = (d: Date): string => d.toISOString().slice(0, 10);
+
+export const toStrengthGoalResponse = (g: StrengthGoalEntry): StrengthGoalResponse => ({
+  lift: g.lift,
+  target: g.target,
+  unit: g.unit,
+  ...(g.ratio !== undefined && { ratio: g.ratio }),
+  updatedAt: isoDate(g.updatedAt),
+});
 
 export const toTrainingMaxResponse = (m: TrainingMax): TrainingMaxResponse => ({
   lift: m.lift,

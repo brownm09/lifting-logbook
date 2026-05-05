@@ -9,5 +9,6 @@ export * from './ILiftingProgramSpecRepository';
 export * from './ILiftRecordRepository';
 export * from './IProgramPhilosophyRepository';
 export * from './ITrainingMaxHistoryRepository';
+export * from './IStrengthGoalRepository';
 export * from './ITrainingMaxRepository';
 export * from './IWorkoutRepository';

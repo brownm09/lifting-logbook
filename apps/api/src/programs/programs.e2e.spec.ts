@@ -52,6 +52,17 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
       payload: JSON.stringify(body),
     });
 
+  const putJson = (url: string, body: unknown) =>
+    app.getHttpAdapter().getInstance().inject({
+      method: 'PUT',
+      url,
+      headers: { 'content-type': 'application/json', ...AUTH },
+      payload: JSON.stringify(body),
+    });
+
+  const deleteReq = (url: string) =>
+    app.getHttpAdapter().getInstance().inject({ method: 'DELETE', url, headers: AUTH });
+
   it('GET /health returns ok without auth', async () => {
     const res = await app
       .getHttpAdapter()
@@ -604,5 +615,82 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
     expect(bobRes.statusCode).toBe(200);
     const bobSquat = bobRes.json().find((m: { lift: string }) => m.lift === 'Squat');
     expect(bobSquat).toBeUndefined();
+  });
+
+  describe('strength-goals write operations', () => {
+    const GOAL_URL = `/programs/${SEED_PROGRAM}/strength-goals`;
+
+    it('PUT → GET → DELETE lifecycle', async () => {
+      // PUT creates the goal
+      const putRes = await putJson(`${GOAL_URL}/Squat`, { target: 315, unit: 'lbs', ratio: 1.75 });
+      expect(putRes.statusCode).toBe(200);
+      const created = putRes.json();
+      expect(created.lift).toBe('Squat');
+      expect(created.target).toBe(315);
+      expect(created.unit).toBe('lbs');
+      expect(created.ratio).toBe(1.75);
+
+      // GET returns the goal
+      const getRes = await get(GOAL_URL);
+      expect(getRes.statusCode).toBe(200);
+      expect(getRes.json()).toEqual(expect.arrayContaining([
+        expect.objectContaining({ lift: 'Squat', target: 315 }),
+      ]));
+
+      // DELETE removes the goal
+      const delRes = await deleteReq(`${GOAL_URL}/Squat`);
+      expect(delRes.statusCode).toBe(204);
+
+      // GET after DELETE returns empty
+      const getAfterDel = await get(GOAL_URL);
+      const remaining = getAfterDel.json() as { lift: string }[];
+      expect(remaining.find((g) => g.lift === 'Squat')).toBeUndefined();
+    });
+
+    it('PUT same lift twice — only latest persists (idempotency)', async () => {
+      await putJson(`${GOAL_URL}/Deadlift`, { target: 400, unit: 'lbs' });
+      const secondPut = await putJson(`${GOAL_URL}/Deadlift`, { target: 450, unit: 'lbs' });
+      expect(secondPut.statusCode).toBe(200);
+      expect(secondPut.json().target).toBe(450);
+
+      const getRes = await get(GOAL_URL);
+      const goals = getRes.json() as { lift: string; target: number }[];
+      const deadlifts = goals.filter((g) => g.lift === 'Deadlift');
+      expect(deadlifts).toHaveLength(1);
+      expect(deadlifts[0].target).toBe(450);
+    });
+
+    it('DELETE unknown lift returns 404', async () => {
+      const res = await deleteReq(`${GOAL_URL}/UnknownLift`);
+      expect(res.statusCode).toBe(404);
+    });
+
+    it('isolates strength goals between users', async () => {
+      const injectRaw = app.getHttpAdapter().getInstance().inject.bind(
+        app.getHttpAdapter().getInstance(),
+      );
+
+      const AS_ALICE = { authorization: 'Bearer user-alice-goals' };
+      const AS_BOB   = { authorization: 'Bearer user-bob-goals' };
+
+      // Alice writes a strength goal
+      const alicePut = await injectRaw({
+        method: 'PUT',
+        url: `${GOAL_URL}/Bench Press`,
+        headers: { 'content-type': 'application/json', ...AS_ALICE },
+        payload: JSON.stringify({ target: 200, unit: 'lbs' }),
+      });
+      expect(alicePut.statusCode).toBe(200);
+
+      // Bob reads — must not see Alice's goal
+      const bobGet = await injectRaw({
+        method: 'GET',
+        url: GOAL_URL,
+        headers: AS_BOB,
+      });
+      expect(bobGet.statusCode).toBe(200);
+      const bobGoals = bobGet.json() as { lift: string }[];
+      expect(bobGoals.find((g) => g.lift === 'Bench Press')).toBeUndefined();
+    });
   });
 });

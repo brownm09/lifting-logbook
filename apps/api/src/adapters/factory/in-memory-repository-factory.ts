@@ -6,6 +6,7 @@ import { InMemoryCycleDashboardRepository } from '../in-memory/cycle-dashboard.a
 import { InMemoryLiftingProgramSpecRepository } from '../in-memory/lifting-program-spec.adapter';
 import { InMemoryLiftRecordRepository } from '../in-memory/lift-record.adapter';
 import { InMemoryProgramPhilosophyRepository } from '../in-memory/program-philosophy.adapter';
+import { InMemoryStrengthGoalRepository } from '../in-memory/strength-goal.adapter';
 import { InMemoryTrainingMaxRepository } from '../in-memory/training-max.adapter';
 import { InMemoryTrainingMaxHistoryRepository } from '../in-memory/training-max-history.adapter';
 import { InMemoryWorkoutRepository } from '../in-memory/workout.adapter';
@@ -32,6 +33,7 @@ export class InMemoryRepositoryFactory implements IRepositoryFactory {
         liftingProgramSpec: new InMemoryLiftingProgramSpecRepository(preSeed),
         liftRecord: new InMemoryLiftRecordRepository(sharedRecords),
         programPhilosophy: new InMemoryProgramPhilosophyRepository(),
+        strengthGoal: new InMemoryStrengthGoalRepository(),
         trainingMax: new InMemoryTrainingMaxRepository(preSeed),
         trainingMaxHistory: new InMemoryTrainingMaxHistoryRepository(),
         workout: new InMemoryWorkoutRepository(sharedRecords),
