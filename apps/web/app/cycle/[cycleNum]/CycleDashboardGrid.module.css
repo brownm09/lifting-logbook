@@ -9,6 +9,13 @@
   margin-bottom: var(--space-4);
 }
 
+.quickNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
 .grid {
   display: flex;
   flex-direction: column;
