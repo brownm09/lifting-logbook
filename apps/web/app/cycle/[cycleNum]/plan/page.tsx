@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { fetchCycleDashboard, fetchProgramSpec } from '@/lib/api';
 import { deriveProgramPhases, deriveProgramSummary } from '@/lib/programPlan';
 import styles from './plan.module.css';
@@ -11,7 +11,7 @@ const STATUS_ICON: Record<string, string> = {
 };
 
 function addDays(isoDate: string, days: number): string {
-  const d = new Date(`${isoDate}T00:00:00Z`);
+  const d = new Date(`${isoDate.slice(0, 10)}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
@@ -22,7 +22,8 @@ export default async function ProgramPlanPage({
   params: Promise<{ cycleNum: string }>;
 }) {
   const { cycleNum: cycleNumParam } = await params;
-  const requestedCycleNum = Number(cycleNumParam);
+  const requestedCycleNum = Number.parseInt(cycleNumParam, 10);
+  if (Number.isNaN(requestedCycleNum) || requestedCycleNum < 1) notFound();
   const program = process.env.NEXT_PUBLIC_DEFAULT_PROGRAM ?? '5-3-1';
 
   const [dashboard, specs] = await Promise.all([
@@ -31,7 +32,7 @@ export default async function ProgramPlanPage({
   ]);
 
   if (dashboard.cycleNum !== requestedCycleNum) {
-    notFound();
+    redirect(`/cycle/${dashboard.cycleNum}/plan`);
   }
 
   const { durationWeeks } = deriveProgramSummary(specs);

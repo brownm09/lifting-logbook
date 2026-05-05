@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { fetchCycleDashboard, fetchProgramSpec } from '@/lib/api';
 import { deriveProgramSummary } from '@/lib/programPlan';
 import styles from './program.module.css';
@@ -10,7 +10,8 @@ export default async function CycleProgramPage({
   params: Promise<{ cycleNum: string }>;
 }) {
   const { cycleNum: cycleNumParam } = await params;
-  const requestedCycleNum = Number(cycleNumParam);
+  const requestedCycleNum = Number.parseInt(cycleNumParam, 10);
+  if (Number.isNaN(requestedCycleNum) || requestedCycleNum < 1) notFound();
   const program = process.env.NEXT_PUBLIC_DEFAULT_PROGRAM ?? '5-3-1';
 
   const [dashboard, specs] = await Promise.all([
@@ -19,7 +20,7 @@ export default async function CycleProgramPage({
   ]);
 
   if (dashboard.cycleNum !== requestedCycleNum) {
-    notFound();
+    redirect(`/cycle/${dashboard.cycleNum}/program`);
   }
 
   const { durationWeeks, frequency, exercises, warmUpSets, workingSets } =

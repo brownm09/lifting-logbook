@@ -87,15 +87,10 @@ export function deriveProgramSummary(
   const week1Specs = specs.filter((s) => s.week === 1);
   const frequency = new Set(week1Specs.map((s) => s.offset)).size;
 
-  const exercises: string[] = [];
-  for (const s of specs) {
-    if (!exercises.includes(s.lift)) exercises.push(s.lift);
-  }
+  const exercises = [...new Set(specs.map((s) => s.lift))];
 
   const firstSpec = week1Specs[0];
-  const warmUpSets = firstSpec
-    ? firstSpec.warmUpPct.split(',').filter(Boolean).length
-    : 0;
+  const warmUpSets = firstSpec?.warmUpPct?.split(',').filter(Boolean).length ?? 0;
   const workingSets = firstSpec?.sets ?? 0;
 
   return { durationWeeks, frequency, exercises, warmUpSets, workingSets };

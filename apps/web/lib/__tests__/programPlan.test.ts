@@ -142,6 +142,11 @@ describe('deriveProgramSummary', () => {
     expect(deriveProgramSummary(specs).warmUpSets).toBe(0);
   });
 
+  it('returns 0 warmUpSets when warmUpPct is null (API omits field)', () => {
+    const specs = [makeSpec({ week: 1, warmUpPct: null as unknown as string })];
+    expect(deriveProgramSummary(specs).warmUpSets).toBe(0);
+  });
+
   it('returns working sets from first week-1 spec sets field', () => {
     const specs = [makeSpec({ week: 1, sets: 5 })];
     expect(deriveProgramSummary(specs).workingSets).toBe(5);
