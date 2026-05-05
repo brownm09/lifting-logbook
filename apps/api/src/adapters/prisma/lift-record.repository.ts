@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+// Prisma 5.x — error classes moved off the Prisma namespace
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { LiftRecord } from '@lifting-logbook/core';
 import { ILiftRecordRepository } from '../../ports/ILiftRecordRepository';
