@@ -241,6 +241,7 @@ export async function deleteStrengthGoal(
     cache: 'no-store',
     headers: authHeaders,
   });
+  // 404 is treated as success: the goal is already absent, which is the desired end state.
   if (!res.ok && res.status !== 404) {
     throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
   }
