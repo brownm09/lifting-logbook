@@ -73,9 +73,12 @@ export default function CycleDashboardGrid({
   return (
     <section className={styles.container}>
       <h2 className={styles.heading}>Cycle {cycleNum}</h2>
-      <div style={{ marginBottom: '1rem' }}>
+      <nav className={styles.quickNav}>
+        <Link href={`/cycle/${cycleNum}/program`}>📋 Cycle Program</Link>
+        <Link href={`/cycle/${cycleNum}/plan`}>🗓 Program Plan</Link>
+        <Link href="/settings/training-maxes">💪 Training Maxes</Link>
         <Link href="/settings/strength-goals">🎯 Strength Goals</Link>
-      </div>
+      </nav>
       <div className={styles.grid}>
         {weeks.map((row) => {
           const isExpanded = expanded[row.week] ?? row.week === currentWeek;

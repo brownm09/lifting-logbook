@@ -1,0 +1,98 @@
+.container {
+  padding: var(--space-4);
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.backRow {
+  margin-bottom: var(--space-4);
+  font-size: var(--font-size-sm);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-4);
+}
+
+.heading {
+  font-size: var(--font-size-xl);
+  margin: 0;
+}
+
+.editButton {
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  cursor: not-allowed;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.dataList {
+  margin: 0 0 var(--space-5) 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.dataRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.dataRow dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.dataRow dd {
+  margin: 0;
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  text-transform: capitalize;
+}
+
+.weekType_training {
+  color: var(--color-info-text, #1d4ed8);
+}
+
+.weekType_deload {
+  color: var(--color-warn-text);
+}
+
+.weekType_test {
+  color: var(--color-error-text, #b91c1c);
+}
+
+.sectionLabel {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-3);
+}
+
+.exerciseList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.exerciseItem {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  background: var(--color-surface);
+}
