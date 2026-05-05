@@ -620,21 +620,21 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
   describe('strength-goals write operations', () => {
     const GOAL_URL = `/programs/${SEED_PROGRAM}/strength-goals`;
 
-    it('PUT → GET → DELETE lifecycle', async () => {
-      // PUT creates the goal
-      const putRes = await putJson(`${GOAL_URL}/Squat`, { target: 315, unit: 'lbs', ratio: 1.75 });
+    it('PUT → GET → DELETE lifecycle (relative goal)', async () => {
+      // PUT creates a relative goal
+      const putRes = await putJson(`${GOAL_URL}/Squat`, { goalType: 'relative', ratio: 1.75, unit: 'lbs' });
       expect(putRes.statusCode).toBe(200);
       const created = putRes.json();
       expect(created.lift).toBe('Squat');
-      expect(created.target).toBe(315);
-      expect(created.unit).toBe('lbs');
+      expect(created.goalType).toBe('relative');
       expect(created.ratio).toBe(1.75);
+      expect(created.unit).toBe('lbs');
 
       // GET returns the goal
       const getRes = await get(GOAL_URL);
       expect(getRes.statusCode).toBe(200);
       expect(getRes.json()).toEqual(expect.arrayContaining([
-        expect.objectContaining({ lift: 'Squat', target: 315 }),
+        expect.objectContaining({ lift: 'Squat', goalType: 'relative', ratio: 1.75 }),
       ]));
 
       // DELETE removes the goal
@@ -647,9 +647,17 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
       expect(remaining.find((g) => g.lift === 'Squat')).toBeUndefined();
     });
 
+    it('PUT absolute goal stores target', async () => {
+      const putRes = await putJson(`${GOAL_URL}/Bench Press`, { goalType: 'absolute', target: 225, unit: 'lbs' });
+      expect(putRes.statusCode).toBe(200);
+      const created = putRes.json();
+      expect(created.goalType).toBe('absolute');
+      expect(created.target).toBe(225);
+    });
+
     it('PUT same lift twice — only latest persists (idempotency)', async () => {
-      await putJson(`${GOAL_URL}/Deadlift`, { target: 400, unit: 'lbs' });
-      const secondPut = await putJson(`${GOAL_URL}/Deadlift`, { target: 450, unit: 'lbs' });
+      await putJson(`${GOAL_URL}/Deadlift`, { goalType: 'absolute', target: 400, unit: 'lbs' });
+      const secondPut = await putJson(`${GOAL_URL}/Deadlift`, { goalType: 'absolute', target: 450, unit: 'lbs' });
       expect(secondPut.statusCode).toBe(200);
       expect(secondPut.json().target).toBe(450);
 
@@ -678,7 +686,7 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
         method: 'PUT',
         url: `${GOAL_URL}/Bench Press`,
         headers: { 'content-type': 'application/json', ...AS_ALICE },
-        payload: JSON.stringify({ target: 200, unit: 'lbs' }),
+        payload: JSON.stringify({ goalType: 'absolute', target: 200, unit: 'lbs' }),
       });
       expect(alicePut.statusCode).toBe(200);
 

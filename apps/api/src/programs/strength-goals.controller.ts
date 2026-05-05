@@ -43,6 +43,7 @@ export class StrengthGoalsController {
     const { strengthGoal } = await this.factory.forUser(user);
     const saved = await strengthGoal.upsertGoal(program, {
       lift,
+      goalType: body.goalType,
       target: body.target,
       unit: body.unit,
       ratio: body.ratio,

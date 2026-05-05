@@ -30,9 +30,9 @@ describe('StrengthGoalsController', () => {
   });
 
   describe('getGoals', () => {
-    it('returns mapped goals', async () => {
+    it('returns mapped relative goal', async () => {
       repo.getGoals.mockResolvedValue([
-        { lift: 'Squat', target: 315, unit: 'lbs', ratio: 1.75, updatedAt: new Date('2026-05-01T00:00:00.000Z') },
+        { lift: 'Squat', goalType: 'relative', ratio: 1.75, unit: 'lbs', updatedAt: new Date('2026-05-01T00:00:00.000Z') },
       ]);
 
       const result = await controller.getGoals(PROGRAM, MOCK_USER);
@@ -40,17 +40,18 @@ describe('StrengthGoalsController', () => {
       expect(factory.forUser).toHaveBeenCalledWith(MOCK_USER);
       expect(repo.getGoals).toHaveBeenCalledWith(PROGRAM);
       expect(result).toEqual([
-        { lift: 'Squat', target: 315, unit: 'lbs', ratio: 1.75, updatedAt: '2026-05-01' },
+        { lift: 'Squat', goalType: 'relative', ratio: 1.75, unit: 'lbs', updatedAt: '2026-05-01' },
       ]);
     });
 
-    it('omits ratio when undefined', async () => {
+    it('returns mapped absolute goal', async () => {
       repo.getGoals.mockResolvedValue([
-        { lift: 'Bench Press', target: 225, unit: 'lbs', updatedAt: new Date('2026-05-01T00:00:00.000Z') },
+        { lift: 'Bench Press', goalType: 'absolute', target: 225, unit: 'lbs', updatedAt: new Date('2026-05-01T00:00:00.000Z') },
       ]);
 
       const result = await controller.getGoals(PROGRAM, MOCK_USER);
 
+      expect(result[0]).toEqual({ lift: 'Bench Press', goalType: 'absolute', target: 225, unit: 'lbs', updatedAt: '2026-05-01' });
       expect(result[0]).not.toHaveProperty('ratio');
     });
 
@@ -62,17 +63,27 @@ describe('StrengthGoalsController', () => {
   });
 
   describe('upsertGoal', () => {
-    it('saves and returns the mapped goal', async () => {
-      const saved = { lift: 'Squat', target: 320, unit: 'lbs' as const, ratio: 1.8, updatedAt: new Date('2026-05-02T00:00:00.000Z') };
+    it('saves and returns a relative goal', async () => {
+      const saved = { lift: 'Squat', goalType: 'relative' as const, ratio: 1.8, unit: 'lbs' as const, updatedAt: new Date('2026-05-02T00:00:00.000Z') };
       repo.upsertGoal.mockResolvedValue(saved);
 
-      const result = await controller.upsertGoal(PROGRAM, 'Squat', { target: 320, unit: 'lbs', ratio: 1.8 }, MOCK_USER);
+      const result = await controller.upsertGoal(PROGRAM, 'Squat', { goalType: 'relative', ratio: 1.8, unit: 'lbs' }, MOCK_USER);
 
       expect(repo.upsertGoal).toHaveBeenCalledWith(
         PROGRAM,
-        expect.objectContaining({ lift: 'Squat', target: 320, unit: 'lbs', ratio: 1.8 }),
+        expect.objectContaining({ lift: 'Squat', goalType: 'relative', ratio: 1.8, unit: 'lbs' }),
       );
-      expect(result).toEqual({ lift: 'Squat', target: 320, unit: 'lbs', ratio: 1.8, updatedAt: '2026-05-02' });
+      expect(result).toEqual({ lift: 'Squat', goalType: 'relative', ratio: 1.8, unit: 'lbs', updatedAt: '2026-05-02' });
+    });
+
+    it('saves and returns an absolute goal', async () => {
+      const saved = { lift: 'Deadlift', goalType: 'absolute' as const, target: 495, unit: 'lbs' as const, updatedAt: new Date('2026-05-02T00:00:00.000Z') };
+      repo.upsertGoal.mockResolvedValue(saved);
+
+      const result = await controller.upsertGoal(PROGRAM, 'Deadlift', { goalType: 'absolute', target: 495, unit: 'lbs' }, MOCK_USER);
+
+      expect(result).toEqual({ lift: 'Deadlift', goalType: 'absolute', target: 495, unit: 'lbs', updatedAt: '2026-05-02' });
+      expect(result).not.toHaveProperty('ratio');
     });
   });
 

@@ -79,7 +79,8 @@ model StrengthGoal {
   userId    String
   program   String
   lift      String
-  target    Float
+  goalType  String   @default("relative")
+  target    Float?
   unit      String
   ratio     Float?
   updatedAt DateTime @updatedAt

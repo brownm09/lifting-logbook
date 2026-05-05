@@ -156,7 +156,8 @@ export interface BodyWeightResponse {
 /** Serialized strength goal as returned by the API. */
 export interface StrengthGoalResponse {
   lift: string;
-  target: number;
+  goalType: 'absolute' | 'relative';
+  target?: number;
   unit: 'lbs' | 'kg';
   ratio?: number;
   updatedAt: string; // ISO 8601 date string
@@ -164,7 +165,8 @@ export interface StrengthGoalResponse {
 
 /** Request body for PUT /programs/:program/strength-goals/:lift. */
 export interface UpsertStrengthGoalRequest {
-  target: number;
+  goalType: 'absolute' | 'relative';
+  target?: number;
   unit: 'lbs' | 'kg';
   ratio?: number;
 }

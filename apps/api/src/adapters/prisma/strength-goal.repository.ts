@@ -17,7 +17,8 @@ export class PrismaStrengthGoalRepository implements IStrengthGoalRepository {
     });
     return rows.map((r) => ({
       lift: r.lift,
-      target: r.target,
+      goalType: r.goalType as 'absolute' | 'relative',
+      target: r.target ?? undefined,
       unit: r.unit as 'lbs' | 'kg',
       ratio: r.ratio ?? undefined,
       updatedAt: r.updatedAt,
@@ -27,19 +28,21 @@ export class PrismaStrengthGoalRepository implements IStrengthGoalRepository {
   async upsertGoal(program: string, goal: StrengthGoalEntry): Promise<StrengthGoalEntry> {
     const row = await this.prisma.strengthGoal.upsert({
       where: { userId_program_lift: { userId: this.userId, program, lift: goal.lift } },
-      update: { target: goal.target, unit: goal.unit, ratio: goal.ratio ?? null },
+      update: { goalType: goal.goalType, target: goal.target ?? null, unit: goal.unit, ratio: goal.ratio ?? null },
       create: {
         userId: this.userId,
         program,
         lift: goal.lift,
-        target: goal.target,
+        goalType: goal.goalType,
+        target: goal.target ?? null,
         unit: goal.unit,
         ratio: goal.ratio ?? null,
       },
     });
     return {
       lift: row.lift,
-      target: row.target,
+      goalType: row.goalType as 'absolute' | 'relative',
+      target: row.target ?? undefined,
       unit: row.unit as 'lbs' | 'kg',
       ratio: row.ratio ?? undefined,
       updatedAt: row.updatedAt,
