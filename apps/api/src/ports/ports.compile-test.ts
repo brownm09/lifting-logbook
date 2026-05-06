@@ -16,6 +16,7 @@ import { ILiftRecordRepository } from './ILiftRecordRepository';
 import { IProgramPhilosophyRepository } from './IProgramPhilosophyRepository';
 import { ITrainingMaxRepository } from './ITrainingMaxRepository';
 import { ITrainingMaxHistoryRepository } from './ITrainingMaxHistoryRepository';
+import { IWorkoutDateOverrideRepository } from './IWorkoutDateOverrideRepository';
 import { IWorkoutRepository } from './IWorkoutRepository';
 
 // ---------------------------------------------------------------------------
@@ -112,6 +113,11 @@ const _programPhilosophyRepo: IProgramPhilosophyRepository = {
   listPrograms: () => Promise.resolve([]),
 };
 
+const _workoutDateOverrideRepo: IWorkoutDateOverrideRepository = {
+  getOverride: () => Promise.resolve(null),
+  upsertOverride: () => Promise.resolve(),
+};
+
 const _repositoryBundle: RepositoryBundle = {
   cycleDashboard: _cycleDashboardRepo,
   liftingProgramSpec: _programSpecRepo,
@@ -120,6 +126,7 @@ const _repositoryBundle: RepositoryBundle = {
   trainingMax: _trainingMaxRepo,
   trainingMaxHistory: _trainingMaxHistoryRepo,
   workout: _workoutRepo,
+  workoutDateOverride: _workoutDateOverrideRepo,
 };
 
 const _repositoryFactory: IRepositoryFactory = {
@@ -136,5 +143,6 @@ void _liftRecordRepo;
 void _trainingMaxRepo;
 void _trainingMaxHistoryRepo;
 void _workoutRepo;
+void _workoutDateOverrideRepo;
 void _repositoryBundle;
 void _repositoryFactory;

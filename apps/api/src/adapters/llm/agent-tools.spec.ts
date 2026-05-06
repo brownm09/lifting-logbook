@@ -32,6 +32,7 @@ const mkRepos = (): RepositoryBundle => ({
     getTrainingMaxes: jest.fn().mockResolvedValue([{ lift: 'Squat', weight: 315 }]),
   } as unknown as RepositoryBundle['trainingMax'],
   workout: {} as RepositoryBundle['workout'],
+  workoutDateOverride: {} as RepositoryBundle['workoutDateOverride'],
 });
 
 describe('agent-tools', () => {

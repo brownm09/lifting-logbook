@@ -50,6 +50,24 @@ export function updateLiftRecord(
   );
 }
 
+export async function rescheduleWorkout(
+  program: string,
+  cycleNum: number,
+  workoutNum: number,
+  newDate: string,
+): Promise<void> {
+  const path = `/programs/${encodeURIComponent(program)}/cycles/${cycleNum}/workouts/${workoutNum}/reschedule`;
+  const res = await fetch(`${API_URL}${path}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ newDate }),
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
+  }
+}
+
 export function recordBodyWeight(
   program: string,
   body: RecordBodyWeightRequest,

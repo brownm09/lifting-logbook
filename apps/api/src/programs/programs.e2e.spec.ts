@@ -121,6 +121,62 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
     expect(res.statusCode).toBe(404);
   });
 
+  // ---------------------------------------------------------------------------
+  // Workout reschedule (read-compatible: uses seeded cycle 1 data)
+  // Run before write operations so cycleNum is still 1.
+  // ---------------------------------------------------------------------------
+
+  describe('workout reschedule', () => {
+    const RESCHEDULE_URL = `/programs/${SEED_PROGRAM}/cycles/1/workouts/1/reschedule`;
+
+    it('PATCH reschedule returns 204 No Content', async () => {
+      const res = await _patchJson(RESCHEDULE_URL, { newDate: '2026-06-01' });
+      expect(res.statusCode).toBe(204);
+    });
+
+    it('GET workout after reschedule includes overrideDate', async () => {
+      await _patchJson(RESCHEDULE_URL, { newDate: '2026-06-01' });
+      const res = await get(`/programs/${SEED_PROGRAM}/workouts/1`);
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.overrideDate).toBe('2026-06-01');
+    });
+
+    it('PATCH reschedule with invalid date returns 400', async () => {
+      const res = await _patchJson(RESCHEDULE_URL, { newDate: 'not-a-date' });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('PATCH reschedule with invalid workoutNum returns 400', async () => {
+      const res = await _patchJson(
+        `/programs/${SEED_PROGRAM}/cycles/1/workouts/0/reschedule`,
+        { newDate: '2026-06-01' },
+      );
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('PATCH reschedule requires auth', async () => {
+      const injectRaw = app.getHttpAdapter().getInstance().inject.bind(
+        app.getHttpAdapter().getInstance(),
+      );
+      const res = await injectRaw({ method: 'PATCH', url: RESCHEDULE_URL });
+      expect(res.statusCode).toBe(401);
+    });
+
+    it('PATCH reschedule with unknown program returns 404', async () => {
+      const res = await _patchJson(
+        `/programs/no-such-program/cycles/1/workouts/1/reschedule`,
+        { newDate: '2026-06-01' },
+      );
+      expect(res.statusCode).toBe(404);
+    });
+
+    it('PATCH reschedule with datetime string returns 400', async () => {
+      const res = await _patchJson(RESCHEDULE_URL, { newDate: '2026-06-01T12:00:00Z' });
+      expect(res.statusCode).toBe(400);
+    });
+  });
+
   // -------------------------------------------------------------------------
   // Write endpoints — order-sensitive; each test mutates singleton adapter
   // state and the next test observes that state. Do not reorder or randomize.

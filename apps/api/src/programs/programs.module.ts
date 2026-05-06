@@ -12,6 +12,7 @@ import { ProgramSpecController } from './program-spec.controller';
 import { StrengthGoalsController } from './strength-goals.controller';
 import { TrainingMaxesController } from './training-maxes.controller';
 import { TrainingMaxHistoryController } from './training-max-history.controller';
+import { RescheduleController } from './reschedule.controller';
 import { WorkoutsController } from './workouts.controller';
 
 @Module({
@@ -20,6 +21,7 @@ import { WorkoutsController } from './workouts.controller';
     CycleDashboardController,
     CycleGenerationController,
     CyclePlanController,
+    RescheduleController,
     WorkoutsController,
     StrengthGoalsController,
     TrainingMaxesController,

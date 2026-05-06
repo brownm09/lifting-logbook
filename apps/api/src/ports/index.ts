@@ -11,4 +11,5 @@ export * from './IProgramPhilosophyRepository';
 export * from './ITrainingMaxHistoryRepository';
 export * from './IStrengthGoalRepository';
 export * from './ITrainingMaxRepository';
+export * from './IWorkoutDateOverrideRepository';
 export * from './IWorkoutRepository';

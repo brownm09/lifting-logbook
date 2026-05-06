@@ -28,7 +28,7 @@ export class WorkoutsController {
     if (!isValidWorkoutNum(workoutNum)) {
       throw new BadRequestException('workoutNum must be a positive integer');
     }
-    const { workout, cycleDashboard, liftingProgramSpec } = await this.factory.forUser(user);
+    const { workout, cycleDashboard, liftingProgramSpec, workoutDateOverride } = await this.factory.forUser(user);
     const [dashboard, spec] = await Promise.all([
       cycleDashboard.getCycleDashboard(program),
       liftingProgramSpec.getProgramSpec(program),
@@ -39,7 +39,10 @@ export class WorkoutsController {
         `workoutNum ${workoutNum} exceeds program spec (${new Set(spec.map((s) => s.offset)).size} workout days)`,
       );
     }
-    const records = await workout.getWorkout(program, dashboard.cycleNum, workoutNum);
-    return toWorkoutResponse(program, dashboard.cycleNum, workoutNum, week, records);
+    const [records, overrideDate] = await Promise.all([
+      workout.getWorkout(program, dashboard.cycleNum, workoutNum),
+      workoutDateOverride.getOverride(program, dashboard.cycleNum, workoutNum),
+    ]);
+    return toWorkoutResponse(program, dashboard.cycleNum, workoutNum, week, records, overrideDate ?? undefined);
   }
 }

@@ -9,6 +9,7 @@ import { PrismaStrengthGoalRepository } from '../prisma/strength-goal.repository
 import { PrismaTrainingMaxRepository } from '../prisma/training-max.repository';
 import { PrismaTrainingMaxHistoryRepository } from '../prisma/training-max-history.repository';
 import { PrismaCycleDashboardRepository } from '../prisma/cycle-dashboard.repository';
+import { PrismaWorkoutDateOverrideRepository } from '../prisma/workout-date-override.repository';
 import { PrismaWorkoutRepository } from '../prisma/workout.repository';
 import { InMemoryCycleDashboardRepository } from '../in-memory/cycle-dashboard.adapter';
 import { InMemoryLiftingProgramSpecRepository } from '../in-memory/lifting-program-spec.adapter';
@@ -17,6 +18,7 @@ import { InMemoryProgramPhilosophyRepository } from '../in-memory/program-philos
 import { InMemoryStrengthGoalRepository } from '../in-memory/strength-goal.adapter';
 import { InMemoryTrainingMaxRepository } from '../in-memory/training-max.adapter';
 import { InMemoryTrainingMaxHistoryRepository } from '../in-memory/training-max-history.adapter';
+import { InMemoryWorkoutDateOverrideRepository } from '../in-memory/workout-date-override.adapter';
 import { InMemoryWorkoutRepository } from '../in-memory/workout.adapter';
 
 interface UserDataSourceRow {
@@ -79,6 +81,7 @@ export class SystemDbRepositoryFactory implements IRepositoryFactory, OnModuleDe
         trainingMaxHistory: new PrismaTrainingMaxHistoryRepository(prisma, userId),
         cycleDashboard: new PrismaCycleDashboardRepository(prisma, userId),
         workout: new PrismaWorkoutRepository(prisma, userId),
+        workoutDateOverride: new PrismaWorkoutDateOverrideRepository(prisma, userId),
         liftingProgramSpec: this.programSpecRepo,
         programPhilosophy: this.philosophyRepo,
       };
@@ -97,6 +100,7 @@ export class SystemDbRepositoryFactory implements IRepositoryFactory, OnModuleDe
       trainingMax: new InMemoryTrainingMaxRepository(),
       trainingMaxHistory: new InMemoryTrainingMaxHistoryRepository(),
       workout: new InMemoryWorkoutRepository(sharedRecords),
+      workoutDateOverride: new InMemoryWorkoutDateOverrideRepository(),
     };
   }
 
