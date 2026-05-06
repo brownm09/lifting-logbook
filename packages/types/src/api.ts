@@ -80,6 +80,8 @@ export interface SetResponse {
 export interface WorkoutLiftResponse {
   lift: LiftName;
   sets: SetResponse[];
+  /** True when derived from the program spec with no logged sets yet; false when backed by real records. */
+  planned: boolean;
 }
 
 /** Serialized workout as returned by the API. */
@@ -210,6 +212,31 @@ export interface CyclePlanResponse {
   overallReasoning: string;
   partial: boolean;
   partialReason?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Lifting Program Spec
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Lift Overrides (Manage Lifts)
+// ---------------------------------------------------------------------------
+
+export type LiftOverrideAction = 'add' | 'remove' | 'replace';
+
+/** Request body for POST /programs/:program/cycles/:cycleNum/workouts/:workoutNum/lift-overrides. */
+export interface CreateLiftOverrideRequest {
+  action: LiftOverrideAction;
+  lift: string;
+  /** Required when action is 'replace'. */
+  replacedBy?: string;
+}
+
+/** A single lift override as returned by the API. */
+export interface LiftOverrideResponse {
+  action: LiftOverrideAction;
+  lift: string;
+  replacedBy?: string;
 }
 
 // ---------------------------------------------------------------------------

@@ -42,7 +42,7 @@ export default async function WorkoutDetailPage({
   }
 
   const effectiveDate = workout.overrideDate ?? workout.date;
-  const hasLogs = workout.lifts.length > 0;
+  const hasLogs = workout.lifts.some((l) => !l.planned);
   const status = workoutStatus(effectiveDate, hasLogs);
   const maxMap = new Map(maxes.map((m) => [m.lift, m.weight]));
 
@@ -100,9 +100,12 @@ export default async function WorkoutDetailPage({
       </section>
 
       <section className={styles.actions}>
-        <button type="button" className={styles.btnSecondary} disabled>
+        <Link
+          href={`/cycle/${cycleNum}/workout/${workoutNum}/detail/manage-lifts`}
+          className={styles.btnSecondary}
+        >
           ✏️ Manage Lifts
-        </button>
+        </Link>
         {status !== 'completed' && (
           <Link
             href={`/cycle/${cycleNum}/workout/${workoutNum}`}

@@ -10,6 +10,7 @@ import { InMemoryStrengthGoalRepository } from '../in-memory/strength-goal.adapt
 import { InMemoryTrainingMaxRepository } from '../in-memory/training-max.adapter';
 import { InMemoryTrainingMaxHistoryRepository } from '../in-memory/training-max-history.adapter';
 import { InMemoryWorkoutDateOverrideRepository } from '../in-memory/workout-date-override.adapter';
+import { InMemoryWorkoutLiftOverrideRepository } from '../in-memory/workout-lift-override.adapter';
 import { InMemoryWorkoutRepository } from '../in-memory/workout.adapter';
 import { SEED_PROGRAM, seedLiftRecords } from '../in-memory/fixtures';
 
@@ -39,6 +40,7 @@ export class InMemoryRepositoryFactory implements IRepositoryFactory {
         trainingMaxHistory: new InMemoryTrainingMaxHistoryRepository(),
         workout: new InMemoryWorkoutRepository(sharedRecords),
         workoutDateOverride: new InMemoryWorkoutDateOverrideRepository(),
+        workoutLiftOverride: new InMemoryWorkoutLiftOverrideRepository(),
       });
     }
     return this.bundles.get(user.id)!;

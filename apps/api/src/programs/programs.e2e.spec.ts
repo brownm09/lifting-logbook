@@ -757,4 +757,100 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
       expect(bobGoals.find((g) => g.lift === 'Bench Press')).toBeUndefined();
     });
   });
+
+  describe('manage lifts overrides', () => {
+    const PROGRAM = SEED_PROGRAM;
+    // Cycle 1, workout 1 is used for override tests. The seed data has records
+    // for the dev user so override operations run against a known baseline.
+    const OVERRIDE_URL = (cycleNum: number, workoutNum: number) =>
+      `/programs/${PROGRAM}/cycles/${cycleNum}/workouts/${workoutNum}/lift-overrides`;
+
+    it('GET /programs/:program/lifts returns the lift catalog', async () => {
+      const res = await get(`/programs/${PROGRAM}/lifts`);
+      expect(res.statusCode).toBe(200);
+      const lifts = res.json() as string[];
+      expect(Array.isArray(lifts)).toBe(true);
+      expect(lifts).toContain('Squat');
+      expect(lifts.length).toBeGreaterThan(0);
+    });
+
+    it('POST add override returns 201 with the override', async () => {
+      const res = await postJson(OVERRIDE_URL(1, 1), { action: 'add', lift: 'Chin-up' });
+      expect(res.statusCode).toBe(201);
+      expect(res.json()).toMatchObject({ action: 'add', lift: 'Chin-up' });
+    });
+
+    it('POST remove override and GET workout — lift absent from response', async () => {
+      // First confirm Squat is present in workout 1
+      const before = await get(`/programs/${PROGRAM}/workouts/1`);
+      expect(before.statusCode).toBe(200);
+      const liftsBefore = (before.json() as { lifts: { lift: string }[] }).lifts;
+      expect(liftsBefore.some((l) => l.lift === 'Squat')).toBe(true);
+
+      // Apply remove override using the current cycleNum from dashboard
+      const dashRes = await get(`/programs/${PROGRAM}/cycles/current`);
+      const { cycleNum } = dashRes.json() as { cycleNum: number };
+      await postJson(OVERRIDE_URL(cycleNum, 1), { action: 'remove', lift: 'Squat' });
+
+      // GET workout — Squat should now be absent
+      const after = await get(`/programs/${PROGRAM}/workouts/1`);
+      expect(after.statusCode).toBe(200);
+      const liftsAfter = (after.json() as { lifts: { lift: string }[] }).lifts;
+      expect(liftsAfter.some((l) => l.lift === 'Squat')).toBe(false);
+
+      // Cleanup: delete the override
+      const dashRes2 = await get(`/programs/${PROGRAM}/cycles/current`);
+      const { cycleNum: cn } = dashRes2.json() as { cycleNum: number };
+      await deleteReq(`${OVERRIDE_URL(cn, 1)}/Squat`);
+    });
+
+    it('POST replace override — old lift absent, new lift present', async () => {
+      const dashRes = await get(`/programs/${PROGRAM}/cycles/current`);
+      const { cycleNum } = dashRes.json() as { cycleNum: number };
+      await postJson(OVERRIDE_URL(cycleNum, 1), { action: 'replace', lift: 'Squat', replacedBy: 'Front Squat' });
+
+      const res = await get(`/programs/${PROGRAM}/workouts/1`);
+      const lifts = (res.json() as { lifts: { lift: string }[] }).lifts;
+      expect(lifts.some((l) => l.lift === 'Squat')).toBe(false);
+      expect(lifts.some((l) => l.lift === 'Front Squat')).toBe(true);
+
+      // Cleanup
+      await deleteReq(`${OVERRIDE_URL(cycleNum, 1)}/Squat`);
+    });
+
+    it('DELETE override is idempotent — returns 204 even when override absent', async () => {
+      const dashRes = await get(`/programs/${PROGRAM}/cycles/current`);
+      const { cycleNum } = dashRes.json() as { cycleNum: number };
+      const res = await deleteReq(`${OVERRIDE_URL(cycleNum, 99)}/NonExistentLift`);
+      expect(res.statusCode).toBe(204);
+    });
+
+    it('POST replace without replacedBy returns 400', async () => {
+      const res = await postJson(OVERRIDE_URL(1, 1), { action: 'replace', lift: 'Squat' });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('isolates lift overrides between users', async () => {
+      const injectRaw = app.getHttpAdapter().getInstance().inject.bind(
+        app.getHttpAdapter().getInstance(),
+      );
+      const AS_ALICE = { authorization: 'Bearer user-alice-lifts' };
+      const AS_BOB   = { authorization: 'Bearer user-bob-lifts' };
+
+      // Alice adds a Cable Curls override for cycle 1, workout 1.
+      // Use cycleNum=1 directly (Alice is a fresh user with no cycle dashboard).
+      await injectRaw({
+        method: 'POST',
+        url: OVERRIDE_URL(1, 1),
+        headers: { 'content-type': 'application/json', ...AS_ALICE },
+        payload: JSON.stringify({ action: 'add', lift: 'Cable Curls' }),
+      });
+
+      // Bob GETs workout 1 — should NOT see Cable Curls (Alice's override is isolated).
+      const bobWorkout = await injectRaw({ method: 'GET', url: `/programs/${PROGRAM}/workouts/1`, headers: AS_BOB });
+      expect(bobWorkout.statusCode).toBe(200);
+      const bobLifts = (bobWorkout.json() as { lifts: { lift: string }[] }).lifts;
+      expect(bobLifts.some((l) => l.lift === 'Cable Curls')).toBe(false);
+    });
+  });
 });
