@@ -87,6 +87,7 @@ Web and mobile clients functional end-to-end. Key user-facing features implement
 | Cycle planning — implementation | LLM-powered training cycle recommendations with swappable providers, using design from ADR-016 | [#54](https://github.com/brownm09/lifting-logbook/issues/54) |
 | A/B comparison documentation | Exit criteria and CI event taxonomy enforcement for Express/NestJS comparison | [#41](https://github.com/brownm09/lifting-logbook/issues/41) |
 | Per-user repository factory | `IRepositoryFactory` port with `forUser(AuthUser)`, `InMemoryRepositoryFactory` (per-user isolated bundles), `SystemDbRepositoryFactory` (adapter-type dispatch + single-flight cache); all 8 controllers threaded through factory; auth guard isolation E2E test | [#144](https://github.com/brownm09/lifting-logbook/issues/144) |
+| Workout detail and rescheduling | Per-workout detail screen (date, week, status, planned lifts with set counts, lift history drilldown); per-workout date override with `PATCH .../reschedule` endpoint; cycle dashboard cards now link to detail | [#177](https://github.com/brownm09/lifting-logbook/issues/177) |
 
 ### Proposals
 
