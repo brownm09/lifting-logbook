@@ -7,6 +7,7 @@ import { IStrengthGoalRepository } from './IStrengthGoalRepository';
 import { ITrainingMaxHistoryRepository } from './ITrainingMaxHistoryRepository';
 import { ITrainingMaxRepository } from './ITrainingMaxRepository';
 import { IWorkoutDateOverrideRepository } from './IWorkoutDateOverrideRepository';
+import { IWorkoutLiftOverrideRepository } from './IWorkoutLiftOverrideRepository';
 import { IWorkoutRepository } from './IWorkoutRepository';
 
 export interface RepositoryBundle {
@@ -19,6 +20,7 @@ export interface RepositoryBundle {
   trainingMaxHistory: ITrainingMaxHistoryRepository;
   workout: IWorkoutRepository;
   workoutDateOverride: IWorkoutDateOverrideRepository;
+  workoutLiftOverride: IWorkoutLiftOverrideRepository;
 }
 
 export interface IRepositoryFactory {

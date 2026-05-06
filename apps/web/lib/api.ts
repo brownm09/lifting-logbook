@@ -7,6 +7,7 @@ import type {
   CycleDashboardResponse,
   LiftingProgramSpecResponse,
   LiftRecordResponse,
+  LiftOverrideResponse,
   RecordBodyWeightRequest,
   StrengthGoalResponse,
   UpsertStrengthGoalRequest,
@@ -245,4 +246,25 @@ export async function deleteStrengthGoal(
   if (!res.ok && res.status !== 404) {
     throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
   }
+}
+
+export async function fetchLiftCatalog(program: string): Promise<string[]> {
+  const path = `/programs/${encodeURIComponent(program)}/lifts`;
+  const authHeaders = await getAuthHeaders();
+  const res = await fetch(`${API_URL}${path}`, { cache: 'no-store', headers: authHeaders });
+  if (!res.ok) throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
+  return res.json() as Promise<string[]>;
+}
+
+export async function fetchLiftOverrides(
+  program: string,
+  cycleNum: number,
+  workoutNum: number,
+): Promise<LiftOverrideResponse[]> {
+  const path = `/programs/${encodeURIComponent(program)}/cycles/${cycleNum}/workouts/${workoutNum}/lift-overrides`;
+  const authHeaders = await getAuthHeaders();
+  const res = await fetch(`${API_URL}${path}`, { cache: 'no-store', headers: authHeaders });
+  if (res.status === 404) return [];
+  if (!res.ok) throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
+  return res.json() as Promise<LiftOverrideResponse[]>;
 }

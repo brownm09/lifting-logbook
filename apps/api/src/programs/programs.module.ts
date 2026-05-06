@@ -8,6 +8,7 @@ import { CycleGenerationController } from './cycle-generation.controller';
 import { CycleGenerationService } from './cycle-generation.service';
 import { CyclePlanController } from './cycle-plan.controller';
 import { LiftRecordsController } from './lift-records.controller';
+import { ManageLiftsController } from './manage-lifts.controller';
 import { ProgramSpecController } from './program-spec.controller';
 import { StrengthGoalsController } from './strength-goals.controller';
 import { TrainingMaxesController } from './training-maxes.controller';
@@ -27,6 +28,7 @@ import { WorkoutsController } from './workouts.controller';
     TrainingMaxesController,
     TrainingMaxHistoryController,
     LiftRecordsController,
+    ManageLiftsController,
     ProgramSpecController,
   ],
   providers: [

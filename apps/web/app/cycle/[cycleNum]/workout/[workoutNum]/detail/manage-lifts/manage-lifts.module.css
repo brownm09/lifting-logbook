@@ -1,0 +1,61 @@
+.container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+}
+
+.backLink {
+  display: inline-block;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary, #666);
+  text-decoration: none;
+  margin-bottom: 1.25rem;
+}
+
+.backLink:hover {
+  text-decoration: underline;
+}
+
+.header {
+  margin-bottom: 1.5rem;
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0 0 0.25rem;
+}
+
+.subtitle {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary, #666);
+  margin: 0;
+}
+
+.liftsSection {
+  margin-bottom: 1.5rem;
+}
+
+.addLift {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.btnPrimary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 1rem;
+  background: var(--color-primary, #0070f3);
+  color: #fff;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+}
+
+.btnPrimary:hover {
+  opacity: 0.9;
+}

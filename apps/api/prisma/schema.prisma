@@ -103,3 +103,19 @@ model WorkoutDateOverride {
   @@index([userId, program, cycleNum])
   @@map("workout_date_override")
 }
+
+model WorkoutLiftOverride {
+  id         String   @id @default(cuid())
+  userId     String
+  program    String
+  cycleNum   Int
+  workoutNum Int
+  lift       String
+  action     String
+  replacedBy String?
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, program, cycleNum, workoutNum, lift])
+  @@index([userId, program, cycleNum, workoutNum])
+  @@map("workout_lift_override")
+}

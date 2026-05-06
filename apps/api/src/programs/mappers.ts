@@ -9,6 +9,7 @@ import {
 import {
   CycleDashboardResponse,
   CyclePlanResponse,
+  LiftOverrideResponse,
   LiftRecordResponse,
   LiftingProgramSpecResponse,
   SetResponse,
@@ -20,6 +21,7 @@ import {
   WorkoutResponse,
 } from '@lifting-logbook/types';
 import { CyclePlanResult } from '../ports/ICyclePlanningAgent';
+import { LiftOverride } from '../ports/IWorkoutLiftOverrideRepository';
 
 // All API date fields are emitted as `YYYY-MM-DD` in UTC. Domain `Date`
 // values must be stored as UTC midnight; adapters parsing external sources
@@ -112,6 +114,32 @@ export const toCyclePlanResponse = (r: CyclePlanResult): CyclePlanResponse => ({
   ...(r.partialReason !== undefined && { partialReason: r.partialReason }),
 });
 
+export const toLiftOverrideResponse = (o: LiftOverride): LiftOverrideResponse => ({
+  action: o.action,
+  lift: o.lift,
+  ...(o.replacedBy !== undefined && { replacedBy: o.replacedBy }),
+});
+
+/**
+ * Applies a list of lift overrides to the spec-derived planned lift list.
+ * - 'remove': drops the lift from the list.
+ * - 'replace': swaps the lift in-place, preserving order.
+ * - 'add': appends the lift if not already present.
+ */
+export function applyLiftOverrides(specLifts: string[], overrides: LiftOverride[]): string[] {
+  let lifts = [...specLifts];
+  for (const o of overrides) {
+    if (o.action === 'remove') {
+      lifts = lifts.filter((l) => l !== o.lift);
+    } else if (o.action === 'replace' && o.replacedBy) {
+      lifts = lifts.map((l) => (l === o.lift ? o.replacedBy! : l));
+    } else if (o.action === 'add') {
+      if (!lifts.includes(o.lift)) lifts.push(o.lift);
+    }
+  }
+  return lifts;
+}
+
 export const isValidWorkoutNum = (n: number): boolean =>
   Number.isInteger(n) && n >= 1;
 
@@ -137,6 +165,12 @@ export const weekForWorkoutNum = (
  * Groups a workout's lift records into the WorkoutResponse shape.
  * Caller must validate `workoutNum` with `isValidWorkoutNum` and derive
  * `week` via `weekForWorkoutNum` before invoking.
+ *
+ * When `plannedLifts` is provided (the spec-derived + override list), lifts are
+ * emitted in that order. Planned-but-unlogged lifts appear with `sets: []` and
+ * `planned: true`. Logged lifts not in the planned list are appended with
+ * `planned: false`. When `plannedLifts` is omitted, all logged lifts are emitted
+ * in record order with `planned: false` (preserves pre-override behaviour).
  */
 export const toWorkoutResponse = (
   program: string,
@@ -145,6 +179,7 @@ export const toWorkoutResponse = (
   week: WeekNumber,
   records: LiftRecord[],
   overrideDate?: Date,
+  plannedLifts?: string[],
 ): WorkoutResponse => {
   const liftMap = new Map<string, SetResponse[]>();
   for (const r of records) {
@@ -158,9 +193,29 @@ export const toWorkoutResponse = (
     if (sets) sets.push(set);
     else liftMap.set(r.lift, [set]);
   }
-  const lifts: WorkoutLiftResponse[] = Array.from(liftMap.entries()).map(
-    ([lift, sets]) => ({ lift, sets }),
-  );
+
+  let lifts: WorkoutLiftResponse[];
+  if (plannedLifts) {
+    const emitted = new Set<string>();
+    lifts = plannedLifts.map((lift) => {
+      emitted.add(lift);
+      const sets = liftMap.get(lift) ?? [];
+      return { lift, sets, planned: sets.length === 0 };
+    });
+    // Append any logged lifts not in the planned list (e.g. added ad-hoc during logging).
+    for (const [lift, sets] of liftMap.entries()) {
+      if (!emitted.has(lift)) {
+        lifts.push({ lift, sets, planned: false });
+      }
+    }
+  } else {
+    lifts = Array.from(liftMap.entries()).map(([lift, sets]) => ({
+      lift,
+      sets,
+      planned: false,
+    }));
+  }
+
   const date = records[0] ? isoDate(records[0].date) : isoDate(new Date());
   return {
     program,

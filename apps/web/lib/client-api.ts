@@ -3,6 +3,8 @@
 // In Cloud Run environments, browser-to-API auth is handled separately (e.g., JWT/Clerk).
 
 import type {
+  CreateLiftOverrideRequest,
+  LiftOverrideResponse,
   CreateLiftRecordRequest,
   LiftRecordResponse,
   RecordBodyWeightRequest,
@@ -81,4 +83,32 @@ export function recordBodyWeight(
       cache: 'no-store',
     },
   );
+}
+
+export function upsertLiftOverride(
+  program: string,
+  cycleNum: number,
+  workoutNum: number,
+  body: CreateLiftOverrideRequest,
+): Promise<LiftOverrideResponse> {
+  return clientFetch(
+    `/programs/${encodeURIComponent(program)}/cycles/${cycleNum}/workouts/${workoutNum}/lift-overrides`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      cache: 'no-store',
+    },
+  );
+}
+
+export async function deleteLiftOverride(
+  program: string,
+  cycleNum: number,
+  workoutNum: number,
+  lift: string,
+): Promise<void> {
+  const path = `/programs/${encodeURIComponent(program)}/cycles/${cycleNum}/workouts/${workoutNum}/lift-overrides/${encodeURIComponent(lift)}`;
+  const res = await fetch(`${API_URL}${path}`, { method: 'DELETE', cache: 'no-store' });
+  if (!res.ok) throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
 }

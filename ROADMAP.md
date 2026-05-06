@@ -88,6 +88,9 @@ Web and mobile clients functional end-to-end. Key user-facing features implement
 | A/B comparison documentation | Exit criteria and CI event taxonomy enforcement for Express/NestJS comparison | [#41](https://github.com/brownm09/lifting-logbook/issues/41) |
 | Per-user repository factory | `IRepositoryFactory` port with `forUser(AuthUser)`, `InMemoryRepositoryFactory` (per-user isolated bundles), `SystemDbRepositoryFactory` (adapter-type dispatch + single-flight cache); all 8 controllers threaded through factory; auth guard isolation E2E test | [#144](https://github.com/brownm09/lifting-logbook/issues/144) |
 | Workout detail and rescheduling | Per-workout detail screen (date, week, status, planned lifts with set counts, lift history drilldown); per-workout date override with `PATCH .../reschedule` endpoint; cycle dashboard cards now link to detail | [#177](https://github.com/brownm09/lifting-logbook/issues/177) |
+| Training max history | `training_max_history` table, GET/PATCH endpoints with date and PR filters, MaxHistory component on settings page, ADR-017 documented | [#174](https://github.com/brownm09/lifting-logbook/issues/174) |
+| Strength goal CRUD | `strength_goal` DB model, CRUD endpoints, `/settings/strength-goals` page with progress bars and quick-access dashboard button | [#175](https://github.com/brownm09/lifting-logbook/issues/175) |
+| Cycle Program and Plan views | Four quick-access buttons on cycle dashboard; `/cycle/:cycleNum/program` and `/cycle/:cycleNum/plan` pages for program spec and 6-phase plan overview | [#176](https://github.com/brownm09/lifting-logbook/issues/176) |
 
 ### Proposals
 

@@ -1,0 +1,27 @@
+.container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+}
+
+.backLink {
+  display: inline-block;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary, #666);
+  text-decoration: none;
+  margin-bottom: 1.25rem;
+}
+
+.backLink:hover {
+  text-decoration: underline;
+}
+
+.header {
+  margin-bottom: 1.25rem;
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+}

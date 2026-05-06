@@ -7,10 +7,9 @@ export class InMemoryLiftingProgramSpecRepository
 {
   private specByProgram: Map<string, LiftingProgramSpec[]>;
 
-  constructor(preSeed = false) {
-    this.specByProgram = preSeed
-      ? new Map([[SEED_PROGRAM, seedProgramSpec()]])
-      : new Map();
+  constructor(_preSeed = false) {
+    // Program specs are global (not per-user), so always seed them.
+    this.specByProgram = new Map([[SEED_PROGRAM, seedProgramSpec()]]);
   }
 
   async getProgramSpec(program: string): Promise<LiftingProgramSpec[]> {
