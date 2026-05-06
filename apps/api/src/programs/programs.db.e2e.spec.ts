@@ -397,7 +397,7 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
       app.getHttpAdapter().getInstance().inject({ method: 'DELETE', url, headers: AUTH });
 
     it('POST override persists to the database', async () => {
-      const dashRes = await get(`/programs/${SEED_PROGRAM}/cycle-dashboard`);
+      const dashRes = await get(`/programs/${SEED_PROGRAM}/cycles/current`);
       const { cycleNum } = dashRes.json() as { cycleNum: number };
 
       const res = await postJson(
@@ -414,7 +414,7 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
     });
 
     it('DELETE override removes the row', async () => {
-      const dashRes = await get(`/programs/${SEED_PROGRAM}/cycle-dashboard`);
+      const dashRes = await get(`/programs/${SEED_PROGRAM}/cycles/current`);
       const { cycleNum } = dashRes.json() as { cycleNum: number };
 
       // Create first
@@ -442,7 +442,7 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
       const AS_ALICE = { authorization: `Bearer ${USER_ALICE}` };
       const AS_BOB = { authorization: `Bearer ${USER_BOB}` };
 
-      const dashAlice = await injectRaw({ method: 'GET', url: `/programs/${SEED_PROGRAM}/cycle-dashboard`, headers: AS_ALICE });
+      const dashAlice = await injectRaw({ method: 'GET', url: `/programs/${SEED_PROGRAM}/cycles/current`, headers: AS_ALICE });
       const { cycleNum } = dashAlice.json() as { cycleNum: number };
 
       // Alice adds an override
@@ -455,12 +455,9 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
       expect(alicePost.statusCode).toBe(201);
 
       // Bob GETs the workout — should NOT contain Face Pulls
-      const dashBob = await injectRaw({ method: 'GET', url: `/programs/${SEED_PROGRAM}/cycle-dashboard`, headers: AS_BOB });
-      const { cycleNum: bobCycle } = dashBob.json() as { cycleNum: number };
       const bobWorkout = await injectRaw({ method: 'GET', url: `/programs/${SEED_PROGRAM}/workouts/1`, headers: AS_BOB });
       const bobLifts = (bobWorkout.json() as { lifts: { lift: string }[] }).lifts;
       expect(bobLifts.some((l) => l.lift === 'Face Pulls')).toBe(false);
-      void bobCycle;
 
       // DB layer — Alice's row exists, Bob's does not
       const aliceRow = await prisma.workoutLiftOverride.findFirst({

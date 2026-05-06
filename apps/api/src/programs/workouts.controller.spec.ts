@@ -6,7 +6,7 @@ import { ILiftingProgramSpecRepository } from '../ports/ILiftingProgramSpecRepos
 import { IWorkoutDateOverrideRepository } from '../ports/IWorkoutDateOverrideRepository';
 import { IWorkoutLiftOverrideRepository } from '../ports/IWorkoutLiftOverrideRepository';
 import { IWorkoutRepository } from '../ports/IWorkoutRepository';
-import { WorkoutNotFoundError } from '../ports/errors';
+import { ProgramNotFoundError, WorkoutNotFoundError } from '../ports/errors';
 import { IRepositoryFactory } from '../ports/factory';
 import { REPOSITORY_FACTORY } from '../ports/tokens';
 import { WorkoutsController } from './workouts.controller';
@@ -301,6 +301,17 @@ describe('WorkoutsController', () => {
       workoutRepo.getWorkout.mockRejectedValue(new Error('db connection lost'));
 
       await expect(controller.getWorkout('5-3-1', '1', MOCK_USER)).rejects.toThrow('db connection lost');
+    });
+
+    it('falls back to cycleNum 1 when getCycleDashboard throws ProgramNotFoundError', async () => {
+      dashboardRepo.getCycleDashboard.mockRejectedValue(new ProgramNotFoundError('5-3-1'));
+      specRepo.getProgramSpec.mockResolvedValue(twoLiftSpec);
+      workoutRepo.getWorkout.mockRejectedValue(new WorkoutNotFoundError('5-3-1', 1, 1));
+
+      const result = await controller.getWorkout('5-3-1', '1', MOCK_USER);
+
+      expect(result.lifts).toHaveLength(2);
+      expect(result.lifts[0]).toMatchObject({ lift: 'Squat', planned: true });
     });
   });
 });

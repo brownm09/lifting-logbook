@@ -1,8 +1,9 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { upsertLiftOverride, deleteLiftOverride } from '@/lib/client-api';
+import { upsertLiftOverride } from '@/lib/client-api';
 import type { WorkoutLiftResponse } from '@lifting-logbook/types';
 import styles from './ManageLiftsActions.module.css';
 
@@ -15,10 +16,21 @@ interface Props {
 
 export default function ManageLiftsActions({ program, cycleNum, workoutNum, lifts }: Props) {
   const router = useRouter();
+  const [pending, setPending] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleRemove(lift: string) {
-    await upsertLiftOverride(program, cycleNum, workoutNum, { action: 'remove', lift });
-    router.refresh();
+    setPending(lift);
+    setError(null);
+    try {
+      await upsertLiftOverride(program, cycleNum, workoutNum, { action: 'remove', lift });
+      router.refresh();
+    } catch (err) {
+      setError(`Failed to remove ${lift}. Please try again.`);
+      console.error(err);
+    } finally {
+      setPending(null);
+    }
   }
 
   const replaceUrl = (lift: string) =>
@@ -29,27 +41,31 @@ export default function ManageLiftsActions({ program, cycleNum, workoutNum, lift
   }
 
   return (
-    <ul className={styles.liftList}>
-      {lifts.map(({ lift, planned }) => (
-        <li key={lift} className={styles.liftItem}>
-          <span className={styles.liftName}>
-            {lift}
-            {planned && <span className={styles.plannedBadge}>planned</span>}
-          </span>
-          <span className={styles.actions}>
-            <Link href={replaceUrl(lift)} className={styles.btnSecondary}>
-              Replace
-            </Link>
-            <button
-              type="button"
-              className={styles.btnDanger}
-              onClick={() => void handleRemove(lift)}
-            >
-              Remove
-            </button>
-          </span>
-        </li>
-      ))}
-    </ul>
+    <>
+      {error && <p className={styles.error}>{error}</p>}
+      <ul className={styles.liftList}>
+        {lifts.map(({ lift, planned }) => (
+          <li key={lift} className={styles.liftItem}>
+            <span className={styles.liftName}>
+              {lift}
+              {planned && <span className={styles.plannedBadge}>planned</span>}
+            </span>
+            <span className={styles.actions}>
+              <Link href={replaceUrl(lift)} className={styles.btnSecondary}>
+                Replace
+              </Link>
+              <button
+                type="button"
+                className={styles.btnDanger}
+                disabled={pending !== null}
+                onClick={() => void handleRemove(lift)}
+              >
+                {pending === lift ? '…' : 'Remove'}
+              </button>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
