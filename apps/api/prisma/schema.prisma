@@ -89,3 +89,17 @@ model StrengthGoal {
   @@index([userId, program])
   @@map("strength_goal")
 }
+
+model WorkoutDateOverride {
+  id         String   @id @default(cuid())
+  userId     String
+  program    String
+  cycleNum   Int
+  workoutNum Int
+  newDate    DateTime
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, program, cycleNum, workoutNum])
+  @@index([userId, program, cycleNum])
+  @@map("workout_date_override")
+}

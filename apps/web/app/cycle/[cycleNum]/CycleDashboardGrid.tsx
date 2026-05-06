@@ -28,9 +28,18 @@ function StatusBadge({ status }: { status: WorkoutCell['status'] }) {
   );
 }
 
-function WorkoutCard({ cell }: { cell: WorkoutCell }) {
+function WorkoutCard({
+  cell,
+  cycleNum,
+}: {
+  cell: WorkoutCell;
+  cycleNum: number;
+}) {
   return (
-    <div className={`${styles.workoutCard} ${styles[`card_${cell.status}`]}`}>
+    <Link
+      href={`/cycle/${cycleNum}/workout/${cell.workoutNum}/detail`}
+      className={`${styles.workoutCard} ${styles[`card_${cell.status}`]}`}
+    >
       <div className={styles.cardHeader}>
         <time dateTime={cell.date}>{cell.date}</time>
         <StatusBadge status={cell.status} />
@@ -49,7 +58,7 @@ function WorkoutCard({ cell }: { cell: WorkoutCell }) {
           </li>
         ))}
       </ul>
-    </div>
+    </Link>
   );
 }
 
@@ -106,7 +115,7 @@ export default function CycleDashboardGrid({
               {isExpanded && (
                 <div className={styles.workouts}>
                   {row.workouts.map((cell) => (
-                    <WorkoutCard key={cell.workoutNum} cell={cell} />
+                    <WorkoutCard key={cell.workoutNum} cell={cell} cycleNum={cycleNum} />
                   ))}
                 </div>
               )}
