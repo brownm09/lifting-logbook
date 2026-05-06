@@ -162,6 +162,19 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
       const res = await injectRaw({ method: 'PATCH', url: RESCHEDULE_URL });
       expect(res.statusCode).toBe(401);
     });
+
+    it('PATCH reschedule with unknown program returns 404', async () => {
+      const res = await _patchJson(
+        `/programs/no-such-program/cycles/1/workouts/1/reschedule`,
+        { newDate: '2026-06-01' },
+      );
+      expect(res.statusCode).toBe(404);
+    });
+
+    it('PATCH reschedule with datetime string returns 400', async () => {
+      const res = await _patchJson(RESCHEDULE_URL, { newDate: '2026-06-01T12:00:00Z' });
+      expect(res.statusCode).toBe(400);
+    });
   });
 
   // -------------------------------------------------------------------------

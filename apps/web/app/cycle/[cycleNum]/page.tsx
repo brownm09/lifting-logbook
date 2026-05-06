@@ -52,14 +52,17 @@ export default async function CycleDashboardPage({
       .map((w): WorkoutCell => {
         const response = workoutResponseMap.get(w.workoutNum);
         const logged = response != null && response.lifts.length > 0;
+        // Prefer the user's overridden date when one exists; fall back to the computed schedule date.
+        // Status comparison uses UTC date strings (ISO YYYY-MM-DD) consistently across dashboard and detail page.
+        const effectiveDate = response?.overrideDate ?? w.date;
         const status: WorkoutCell['status'] = logged
           ? 'completed'
-          : w.date < today
+          : effectiveDate < today
             ? 'missed'
             : 'upcoming';
         return {
           workoutNum: w.workoutNum,
-          date: w.date,
+          date: effectiveDate,
           status,
           lifts: w.lifts.map((spec) => ({
             name: spec.lift,

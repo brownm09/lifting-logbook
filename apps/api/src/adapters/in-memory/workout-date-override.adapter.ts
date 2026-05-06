@@ -6,7 +6,9 @@ export class InMemoryWorkoutDateOverrideRepository
   private readonly store = new Map<string, Date>();
 
   private key(program: string, cycleNum: number, workoutNum: number): string {
-    return `${program}-${cycleNum}-${workoutNum}`;
+    // Use null byte as delimiter — program slugs cannot contain \0, so this is unambiguous
+    // even for slugs like "5-3-1" that contain hyphens.
+    return `${program}\0${cycleNum}\0${workoutNum}`;
   }
 
   async getOverride(

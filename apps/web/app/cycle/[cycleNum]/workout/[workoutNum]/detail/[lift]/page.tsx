@@ -32,6 +32,11 @@ export default async function LiftDetailPage({
     .filter((r) => r.lift === lift)
     .sort((a, b) => b.date.localeCompare(a.date));
 
+  // Unknown lift: no TM, no history, no sets — the URL is invalid or stale.
+  if (!currentMax && tmHistory.length === 0 && setHistory.length === 0) {
+    notFound();
+  }
+
   return (
     <main className={styles.container}>
       <Link

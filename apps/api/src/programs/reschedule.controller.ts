@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   Inject,
+  NotFoundException,
   Param,
   Patch,
 } from '@nestjs/common';
@@ -40,7 +41,20 @@ export class RescheduleController {
       throw new BadRequestException('workoutNum must be a positive integer');
     }
 
-    const { workoutDateOverride } = await this.factory.forUser(user);
-    await workoutDateOverride.upsertOverride(program, cycleNum, workoutNum, new Date(dto.newDate));
+    const { workoutDateOverride, liftingProgramSpec } = await this.factory.forUser(user);
+
+    const spec = await liftingProgramSpec.getProgramSpec(program);
+    if (spec.length === 0) {
+      throw new NotFoundException(`Program '${program}' not found`);
+    }
+
+    // Append explicit UTC midnight so the YYYY-MM-DD string is stored as the correct calendar day
+    // regardless of the server's local timezone.
+    await workoutDateOverride.upsertOverride(
+      program,
+      cycleNum,
+      workoutNum,
+      new Date(dto.newDate + 'T00:00:00Z'),
+    );
   }
 }
