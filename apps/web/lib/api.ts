@@ -5,6 +5,7 @@ import type {
   BodyWeightResponse,
   CreateLiftRecordRequest,
   CycleDashboardResponse,
+  LiftMetadataResponse,
   LiftingProgramSpecResponse,
   LiftRecordResponse,
   RecordBodyWeightRequest,
@@ -253,5 +254,12 @@ export async function fetchLiftCatalog(program: string): Promise<string[]> {
   const res = await fetch(`${API_URL}${path}`, { cache: 'no-store', headers: authHeaders });
   if (!res.ok) throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
   return res.json() as Promise<string[]>;
+}
+
+export function fetchLiftMetadata(lift: string): Promise<LiftMetadataResponse> {
+  return apiFetch<LiftMetadataResponse>(
+    `/lifts/${encodeURIComponent(lift)}/metadata`,
+    { cache: 'no-store' },
+  );
 }
 

@@ -8,6 +8,7 @@ import { PrismaTrainingMaxRepository } from './training-max.repository';
 import { PrismaTrainingMaxHistoryRepository } from './training-max-history.repository';
 import { PrismaCycleDashboardRepository } from './cycle-dashboard.repository';
 import { PrismaWorkoutDateOverrideRepository } from './workout-date-override.repository';
+import { PrismaLiftMetadataRepository } from './lift-metadata.repository';
 import { PrismaWorkoutLiftOverrideRepository } from './workout-lift-override.repository';
 import { PrismaWorkoutRepository } from './workout.repository';
 import { InMemoryLiftingProgramSpecRepository } from '../in-memory/lifting-program-spec.adapter';
@@ -23,6 +24,7 @@ export class PrismaRepositoryFactory implements IRepositoryFactory {
 
   async forUser(user: AuthUser): Promise<RepositoryBundle> {
     return {
+      liftMetadata: new PrismaLiftMetadataRepository(this.prisma, user.id),
       liftRecord: new PrismaLiftRecordRepository(this.prisma, user.id),
       strengthGoal: new PrismaStrengthGoalRepository(this.prisma, user.id),
       trainingMax: new PrismaTrainingMaxRepository(this.prisma, user.id),

@@ -3,6 +3,7 @@ import { LiftRecord } from '@lifting-logbook/core';
 import { AuthUser } from '../../ports/auth';
 import { IRepositoryFactory, RepositoryBundle } from '../../ports/factory';
 import { InMemoryCycleDashboardRepository } from '../in-memory/cycle-dashboard.adapter';
+import { InMemoryLiftMetadataRepository } from '../in-memory/lift-metadata.adapter';
 import { InMemoryLiftingProgramSpecRepository } from '../in-memory/lifting-program-spec.adapter';
 import { InMemoryLiftRecordRepository } from '../in-memory/lift-record.adapter';
 import { InMemoryProgramPhilosophyRepository } from '../in-memory/program-philosophy.adapter';
@@ -32,6 +33,7 @@ export class InMemoryRepositoryFactory implements IRepositoryFactory {
         : new Map();
       this.bundles.set(user.id, {
         cycleDashboard: new InMemoryCycleDashboardRepository(preSeed),
+        liftMetadata: new InMemoryLiftMetadataRepository(),
         liftingProgramSpec: new InMemoryLiftingProgramSpecRepository(preSeed),
         liftRecord: new InMemoryLiftRecordRepository(sharedRecords),
         programPhilosophy: new InMemoryProgramPhilosophyRepository(),

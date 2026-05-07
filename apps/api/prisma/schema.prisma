@@ -119,3 +119,16 @@ model WorkoutLiftOverride {
   @@index([userId, program, cycleNum, workoutNum])
   @@map("workout_lift_override")
 }
+
+model LiftMetadata {
+  id            String   @id @default(uuid())
+  userId        String
+  lift          String
+  muscleGroups  String[]
+  substitutions String[]
+  foundational  String   @default("")
+
+  @@unique([userId, lift])
+  @@index([userId])
+  @@map("lift_metadata")
+}

@@ -44,7 +44,7 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
       payload: JSON.stringify(body),
     });
 
-  const _patchJson = (url: string, body: unknown) =>
+  const patchJson = (url: string, body: unknown) =>
     app.getHttpAdapter().getInstance().inject({
       method: 'PATCH',
       url,
@@ -130,12 +130,12 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
     const RESCHEDULE_URL = `/programs/${SEED_PROGRAM}/cycles/1/workouts/1/reschedule`;
 
     it('PATCH reschedule returns 204 No Content', async () => {
-      const res = await _patchJson(RESCHEDULE_URL, { newDate: '2026-06-01' });
+      const res = await patchJson(RESCHEDULE_URL, { newDate: '2026-06-01' });
       expect(res.statusCode).toBe(204);
     });
 
     it('GET workout after reschedule includes overrideDate', async () => {
-      await _patchJson(RESCHEDULE_URL, { newDate: '2026-06-01' });
+      await patchJson(RESCHEDULE_URL, { newDate: '2026-06-01' });
       const res = await get(`/programs/${SEED_PROGRAM}/workouts/1`);
       expect(res.statusCode).toBe(200);
       const body = res.json();
@@ -143,12 +143,12 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
     });
 
     it('PATCH reschedule with invalid date returns 400', async () => {
-      const res = await _patchJson(RESCHEDULE_URL, { newDate: 'not-a-date' });
+      const res = await patchJson(RESCHEDULE_URL, { newDate: 'not-a-date' });
       expect(res.statusCode).toBe(400);
     });
 
     it('PATCH reschedule with invalid workoutNum returns 400', async () => {
-      const res = await _patchJson(
+      const res = await patchJson(
         `/programs/${SEED_PROGRAM}/cycles/1/workouts/0/reschedule`,
         { newDate: '2026-06-01' },
       );
@@ -164,7 +164,7 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
     });
 
     it('PATCH reschedule with unknown program returns 404', async () => {
-      const res = await _patchJson(
+      const res = await patchJson(
         `/programs/no-such-program/cycles/1/workouts/1/reschedule`,
         { newDate: '2026-06-01' },
       );
@@ -172,7 +172,7 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
     });
 
     it('PATCH reschedule with datetime string returns 400', async () => {
-      const res = await _patchJson(RESCHEDULE_URL, { newDate: '2026-06-01T12:00:00Z' });
+      const res = await patchJson(RESCHEDULE_URL, { newDate: '2026-06-01T12:00:00Z' });
       expect(res.statusCode).toBe(400);
     });
   });
@@ -851,6 +851,70 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
       expect(bobWorkout.statusCode).toBe(200);
       const bobLifts = (bobWorkout.json() as { lifts: { lift: string }[] }).lifts;
       expect(bobLifts.some((l) => l.lift === 'Cable Curls')).toBe(false);
+    });
+  });
+
+  describe('lift metadata', () => {
+    const AS_BOB = { authorization: 'Bearer user-b-token' };
+
+    it('GET /lifts/:lift/metadata requires auth', async () => {
+      const res = await app
+        .getHttpAdapter()
+        .getInstance()
+        .inject({ method: 'GET', url: '/lifts/Squat/metadata' });
+      expect(res.statusCode).toBe(401);
+    });
+
+    it('GET /lifts/:lift/metadata returns defaults when no record exists', async () => {
+      const res = await get('/lifts/Squat/metadata');
+      expect(res.statusCode).toBe(200);
+      const body = res.json() as { lift: string; muscleGroups: string[]; substitutions: string[]; foundational: string };
+      expect(body.lift).toBe('Squat');
+      expect(body.muscleGroups).toEqual([]);
+      expect(body.substitutions).toEqual([]);
+      expect(body.foundational).toBe('');
+    });
+
+    it('PATCH /lifts/:lift/metadata persists values and GET returns them', async () => {
+      const patchRes = await patchJson('/lifts/Squat/metadata', {
+        muscleGroups: ['Quads', 'Glutes'],
+        substitutions: ['Leg Press'],
+        foundational: 'Squat',
+      });
+      expect(patchRes.statusCode).toBe(200);
+      const patched = patchRes.json() as { muscleGroups: string[]; substitutions: string[]; foundational: string };
+      expect(patched.muscleGroups).toEqual(['Quads', 'Glutes']);
+      expect(patched.substitutions).toEqual(['Leg Press']);
+      expect(patched.foundational).toBe('Squat');
+
+      const getRes = await get('/lifts/Squat/metadata');
+      expect(getRes.statusCode).toBe(200);
+      const fetched = getRes.json() as typeof patched;
+      expect(fetched.muscleGroups).toEqual(['Quads', 'Glutes']);
+      expect(fetched.substitutions).toEqual(['Leg Press']);
+      expect(fetched.foundational).toBe('Squat');
+    });
+
+    it('PATCH /lifts/:lift/metadata is partial — unpatched fields retain prior values', async () => {
+      await patchJson('/lifts/Squat/metadata', { substitutions: ['Hack Squat'] });
+      const res = await get('/lifts/Squat/metadata');
+      expect(res.statusCode).toBe(200);
+      const body = res.json() as { muscleGroups: string[]; substitutions: string[]; foundational: string };
+      expect(body.muscleGroups).toEqual(['Quads', 'Glutes']);
+      expect(body.substitutions).toEqual(['Hack Squat']);
+      expect(body.foundational).toBe('Squat');
+    });
+
+    it('user isolation: User B gets empty defaults when User A has metadata', async () => {
+      const res = await app
+        .getHttpAdapter()
+        .getInstance()
+        .inject({ method: 'GET', url: '/lifts/Squat/metadata', headers: AS_BOB });
+      expect(res.statusCode).toBe(200);
+      const body = res.json() as { muscleGroups: string[]; substitutions: string[]; foundational: string };
+      expect(body.muscleGroups).toEqual([]);
+      expect(body.substitutions).toEqual([]);
+      expect(body.foundational).toBe('');
     });
   });
 });

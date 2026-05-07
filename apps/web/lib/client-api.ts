@@ -4,9 +4,11 @@
 
 import type {
   CreateLiftOverrideRequest,
+  LiftMetadataResponse,
   LiftOverrideResponse,
   CreateLiftRecordRequest,
   LiftRecordResponse,
+  PatchLiftMetadataRequest,
   RecordBodyWeightRequest,
   UpdateLiftRecordRequest,
 } from '@lifting-logbook/types';
@@ -95,6 +97,21 @@ export function upsertLiftOverride(
     `/programs/${encodeURIComponent(program)}/cycles/${cycleNum}/workouts/${workoutNum}/lift-overrides`,
     {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      cache: 'no-store',
+    },
+  );
+}
+
+export function patchLiftMetadata(
+  lift: string,
+  body: PatchLiftMetadataRequest,
+): Promise<LiftMetadataResponse> {
+  return clientFetch<LiftMetadataResponse>(
+    `/lifts/${encodeURIComponent(lift)}/metadata`,
+    {
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
       cache: 'no-store',

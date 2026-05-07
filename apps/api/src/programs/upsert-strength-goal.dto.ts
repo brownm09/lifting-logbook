@@ -3,7 +3,7 @@ import { IsIn, IsNumber, IsOptional, IsString } from 'class-validator';
 export class UpsertStrengthGoalDto {
   @IsString()
   @IsIn(['absolute', 'relative'])
-  goalType: 'absolute' | 'relative';
+  goalType!: 'absolute' | 'relative';
 
   @IsNumber()
   @IsOptional()
@@ -11,7 +11,7 @@ export class UpsertStrengthGoalDto {
 
   @IsString()
   @IsIn(['lbs', 'kg'])
-  unit: 'lbs' | 'kg';
+  unit!: 'lbs' | 'kg';
 
   @IsNumber()
   @IsOptional()
