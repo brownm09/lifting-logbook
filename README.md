@@ -54,12 +54,50 @@ runs only core's tests, with no knowledge of the rest of the monorepo.
 
 - Node.js >= 20.11.1 (use `.nvmrc`: `nvm use`)
 - npm >= 10 (bundled with Node 20)
+- Docker (for local Postgres)
 
-### Install
+### Local Development
 
 ```sh
+# 1. Install dependencies
 npm install
+
+# 2. Start Postgres
+docker compose up db -d
+
+# 3. Create env files from examples
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env
 ```
+
+Edit `apps/api/.env` and set:
+```
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/lifting_logbook
+SYSTEM_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/lifting_logbook
+# Leave CLERK_SECRET_KEY unset — DevAuthProvider is used automatically
+DEV_USER_ID=dev-user
+DEV_USER_EMAIL=dev@example.com
+```
+
+Edit `apps/web/.env` and set:
+```
+API_URL=http://localhost:3004
+NEXT_PUBLIC_API_URL=http://localhost:3004
+NEXT_PUBLIC_DEFAULT_PROGRAM=5-3-1
+DEV_AUTH_TOKEN=dev-user
+NEXT_PUBLIC_DEV_AUTH_TOKEN=dev-user
+```
+
+```sh
+# 4. Apply database migrations
+cd apps/api && npx prisma migrate dev && cd ../..
+
+# 5. Start all dev servers
+npm run dev
+```
+
+- Web: http://localhost:3000
+- API: http://localhost:3004
 
 ### Common Commands
 
