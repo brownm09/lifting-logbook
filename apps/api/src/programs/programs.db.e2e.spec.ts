@@ -32,6 +32,9 @@ async function cleanTestUsers(prisma: PrismaClient): Promise<void> {
   await prisma.trainingMaxHistory.deleteMany({ where: { userId: { in: users } } });
   await prisma.cycleDashboard.deleteMany({ where: { userId: { in: users } } });
   await prisma.workoutLiftOverride.deleteMany({ where: { userId: { in: users } } });
+  await prisma.workoutDateOverride.deleteMany({ where: { userId: { in: users } } });
+  await prisma.strengthGoal.deleteMany({ where: { userId: { in: users } } });
+  await prisma.liftMetadata.deleteMany({ where: { userId: { in: users } } });
 }
 
 const describeOrSkip = process.env.DATABASE_URL ? describe : describe.skip;
@@ -63,6 +66,17 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
       headers: { 'content-type': 'application/json', ...AUTH },
       payload: JSON.stringify(body),
     });
+
+  const putJson = (url: string, body: unknown) =>
+    app.getHttpAdapter().getInstance().inject({
+      method: 'PUT',
+      url,
+      headers: { 'content-type': 'application/json', ...AUTH },
+      payload: JSON.stringify(body),
+    });
+
+  const deleteReq = (url: string) =>
+    app.getHttpAdapter().getInstance().inject({ method: 'DELETE', url, headers: AUTH });
 
   beforeAll(async () => {
     prisma = new PrismaClient();
@@ -336,6 +350,15 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
       expect(row?.isPR).toBe(true);
     });
 
+    it('GET /training-maxes/history?isPR=true returns only PR-marked entries', async () => {
+      // Depends on the PATCH test above having marked the first entry.
+      const res = await get(`/programs/${SEED_PROGRAM}/training-maxes/history?isPR=true`);
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.entries.length).toBeGreaterThan(0);
+      expect(body.entries.every((e: { isPR: boolean }) => e.isPR === true)).toBe(true);
+    });
+
     it('PATCH /training-maxes/history/:id with unknown id returns 404', async () => {
       const res = await patchJson(
         `/programs/${SEED_PROGRAM}/training-maxes/history/nonexistent-id`,
@@ -467,6 +490,200 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
 
       const bobRow = await prisma.workoutLiftOverride.findFirst({
         where: { userId: USER_BOB, program: SEED_PROGRAM, lift: 'Face Pulls' },
+      });
+      expect(bobRow).toBeNull();
+    });
+  });
+
+  describe('workout rescheduling (DB)', () => {
+    it('PATCH reschedule persists override and GET workout returns overrideDate', async () => {
+      const dashRes = await get(`/programs/${SEED_PROGRAM}/cycles/current`);
+      const { cycleNum } = dashRes.json() as { cycleNum: number };
+
+      const patchRes = await patchJson(
+        `/programs/${SEED_PROGRAM}/cycles/${cycleNum}/workouts/1/reschedule`,
+        { newDate: '2026-09-01' },
+      );
+      expect(patchRes.statusCode).toBe(204);
+
+      const workoutRes = await get(`/programs/${SEED_PROGRAM}/workouts/1`);
+      expect(workoutRes.statusCode).toBe(200);
+      expect(workoutRes.json().overrideDate).toBe('2026-09-01');
+
+      const row = await prisma.workoutDateOverride.findFirst({
+        where: { userId: TEST_USER, program: SEED_PROGRAM, cycleNum, workoutNum: 1 },
+      });
+      expect(row).not.toBeNull();
+    });
+
+    it('user isolation — reschedule override is scoped to userId', async () => {
+      const injectRaw = app.getHttpAdapter().getInstance().inject.bind(
+        app.getHttpAdapter().getInstance(),
+      );
+      const AS_ALICE = { authorization: `Bearer ${USER_ALICE}` };
+      const AS_BOB = { authorization: `Bearer ${USER_BOB}` };
+
+      // Alice reschedules cycle 1, workout 2
+      const alicePatch = await injectRaw({
+        method: 'PATCH',
+        url: `/programs/${SEED_PROGRAM}/cycles/1/workouts/2/reschedule`,
+        headers: { 'content-type': 'application/json', ...AS_ALICE },
+        payload: JSON.stringify({ newDate: '2026-09-15' }),
+      });
+      expect(alicePatch.statusCode).toBe(204);
+
+      // Bob GETs workout 2 — overrideDate must be absent
+      const bobWorkout = await injectRaw({
+        method: 'GET',
+        url: `/programs/${SEED_PROGRAM}/workouts/2`,
+        headers: AS_BOB,
+      });
+      expect(bobWorkout.statusCode).toBe(200);
+      expect(bobWorkout.json().overrideDate).toBeUndefined();
+
+      // DB layer — Alice's row exists, Bob's does not
+      const aliceRow = await prisma.workoutDateOverride.findFirst({
+        where: { userId: USER_ALICE, program: SEED_PROGRAM, cycleNum: 1, workoutNum: 2 },
+      });
+      expect(aliceRow).not.toBeNull();
+
+      const bobRow = await prisma.workoutDateOverride.findFirst({
+        where: { userId: USER_BOB, program: SEED_PROGRAM, cycleNum: 1, workoutNum: 2 },
+      });
+      expect(bobRow).toBeNull();
+    });
+  });
+
+  describe('strength goals (DB)', () => {
+    const GOAL_URL = `/programs/${SEED_PROGRAM}/strength-goals`;
+
+    it('PUT → GET → DELETE lifecycle persists to and removes from the database', async () => {
+      const putRes = await putJson(`${GOAL_URL}/Squat`, { goalType: 'absolute', target: 405, unit: 'lbs' });
+      expect(putRes.statusCode).toBe(200);
+      expect(putRes.json()).toMatchObject({ lift: 'Squat', goalType: 'absolute', target: 405 });
+
+      const getRes = await get(GOAL_URL);
+      expect(getRes.statusCode).toBe(200);
+      const goals = getRes.json() as { lift: string; target: number }[];
+      expect(goals.some((g) => g.lift === 'Squat' && g.target === 405)).toBe(true);
+
+      const delRes = await deleteReq(`${GOAL_URL}/Squat`);
+      expect(delRes.statusCode).toBe(204);
+
+      const row = await prisma.strengthGoal.findFirst({
+        where: { userId: TEST_USER, program: SEED_PROGRAM, lift: 'Squat' },
+      });
+      expect(row).toBeNull();
+    });
+
+    it('PUT same lift twice — upsert; only one DB row and latest target wins', async () => {
+      await putJson(`${GOAL_URL}/Deadlift`, { goalType: 'absolute', target: 500, unit: 'lbs' });
+      const secondPut = await putJson(`${GOAL_URL}/Deadlift`, { goalType: 'absolute', target: 550, unit: 'lbs' });
+      expect(secondPut.statusCode).toBe(200);
+      expect(secondPut.json().target).toBe(550);
+
+      const rows = await prisma.strengthGoal.findMany({
+        where: { userId: TEST_USER, program: SEED_PROGRAM, lift: 'Deadlift' },
+      });
+      expect(rows).toHaveLength(1);
+      expect(rows[0].target).toBe(550);
+    });
+
+    it('user isolation — strength goals are scoped to userId', async () => {
+      const injectRaw = app.getHttpAdapter().getInstance().inject.bind(
+        app.getHttpAdapter().getInstance(),
+      );
+      const AS_ALICE = { authorization: `Bearer ${USER_ALICE}` };
+      const AS_BOB = { authorization: `Bearer ${USER_BOB}` };
+
+      // Alice sets a goal
+      const alicePut = await injectRaw({
+        method: 'PUT',
+        url: `${GOAL_URL}/Bench Press`,
+        headers: { 'content-type': 'application/json', ...AS_ALICE },
+        payload: JSON.stringify({ goalType: 'absolute', target: 225, unit: 'lbs' }),
+      });
+      expect(alicePut.statusCode).toBe(200);
+
+      // Bob lists goals — must not see Alice's Bench Press goal
+      const bobGet = await injectRaw({ method: 'GET', url: GOAL_URL, headers: AS_BOB });
+      expect(bobGet.statusCode).toBe(200);
+      const bobGoals = bobGet.json() as { lift: string }[];
+      expect(bobGoals.some((g) => g.lift === 'Bench Press')).toBe(false);
+
+      // DB layer — Alice's row exists, Bob's does not
+      const aliceRow = await prisma.strengthGoal.findFirst({
+        where: { userId: USER_ALICE, program: SEED_PROGRAM, lift: 'Bench Press' },
+      });
+      expect(aliceRow).not.toBeNull();
+
+      const bobRow = await prisma.strengthGoal.findFirst({
+        where: { userId: USER_BOB, program: SEED_PROGRAM, lift: 'Bench Press' },
+      });
+      expect(bobRow).toBeNull();
+    });
+  });
+
+  describe('lift metadata (DB)', () => {
+    it('PATCH metadata persists and GET returns updated values', async () => {
+      const patchRes = await patchJson('/lifts/Squat/metadata', {
+        muscleGroups: ['Quads', 'Glutes'],
+        substitutions: ['Leg Press'],
+        foundational: true,
+      });
+      expect(patchRes.statusCode).toBe(200);
+      expect(patchRes.json()).toMatchObject({
+        muscleGroups: ['Quads', 'Glutes'],
+        substitutions: ['Leg Press'],
+        foundational: true,
+      });
+
+      const getRes = await get('/lifts/Squat/metadata');
+      expect(getRes.statusCode).toBe(200);
+      expect(getRes.json()).toMatchObject({
+        muscleGroups: ['Quads', 'Glutes'],
+        substitutions: ['Leg Press'],
+        foundational: true,
+      });
+
+      const row = await prisma.liftMetadata.findFirst({
+        where: { userId: TEST_USER, lift: 'Squat' },
+      });
+      expect(row).not.toBeNull();
+      expect(row?.foundational).toBe(true);
+    });
+
+    it('user isolation — lift metadata is scoped to userId', async () => {
+      const injectRaw = app.getHttpAdapter().getInstance().inject.bind(
+        app.getHttpAdapter().getInstance(),
+      );
+      const AS_ALICE = { authorization: `Bearer ${USER_ALICE}` };
+      const AS_BOB = { authorization: `Bearer ${USER_BOB}` };
+
+      // Alice sets metadata for Deadlift
+      const alicePatch = await injectRaw({
+        method: 'PATCH',
+        url: '/lifts/Deadlift/metadata',
+        headers: { 'content-type': 'application/json', ...AS_ALICE },
+        payload: JSON.stringify({ muscleGroups: ['Hamstrings'], foundational: true }),
+      });
+      expect(alicePatch.statusCode).toBe(200);
+
+      // Bob GETs Deadlift metadata — must see empty defaults
+      const bobGet = await injectRaw({ method: 'GET', url: '/lifts/Deadlift/metadata', headers: AS_BOB });
+      expect(bobGet.statusCode).toBe(200);
+      const bobBody = bobGet.json() as { muscleGroups: string[]; foundational: boolean };
+      expect(bobBody.muscleGroups).toEqual([]);
+      expect(bobBody.foundational).toBe(false);
+
+      // DB layer — Alice's row exists, Bob's does not
+      const aliceRow = await prisma.liftMetadata.findFirst({
+        where: { userId: USER_ALICE, lift: 'Deadlift' },
+      });
+      expect(aliceRow).not.toBeNull();
+
+      const bobRow = await prisma.liftMetadata.findFirst({
+        where: { userId: USER_BOB, lift: 'Deadlift' },
       });
       expect(bobRow).toBeNull();
     });
