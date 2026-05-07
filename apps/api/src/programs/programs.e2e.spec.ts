@@ -896,12 +896,17 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
     });
 
     it('PATCH /lifts/:lift/metadata is partial — unpatched fields retain prior values', async () => {
-      await patchJson('/lifts/Squat/metadata', { substitutions: ['Hack Squat'] });
-      const res = await get('/lifts/Squat/metadata');
+      await patchJson('/lifts/Deadlift/metadata', {
+        muscleGroups: ['Hamstrings', 'Glutes'],
+        substitutions: ['Romanian Deadlift'],
+        foundational: true,
+      });
+      await patchJson('/lifts/Deadlift/metadata', { substitutions: ['Trap Bar Deadlift'] });
+      const res = await get('/lifts/Deadlift/metadata');
       expect(res.statusCode).toBe(200);
       const body = res.json() as { muscleGroups: string[]; substitutions: string[]; foundational: boolean };
-      expect(body.muscleGroups).toEqual(['Quads', 'Glutes']);
-      expect(body.substitutions).toEqual(['Hack Squat']);
+      expect(body.muscleGroups).toEqual(['Hamstrings', 'Glutes']);
+      expect(body.substitutions).toEqual(['Trap Bar Deadlift']);
       expect(body.foundational).toBe(true);
     });
 

@@ -12,28 +12,29 @@ interface Props {
   initialMetadata: LiftMetadataResponse;
 }
 
+function parseList(value: string): string[] {
+  return value
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 export default function LiftEditor({ cycleNum, workoutNum, initialMetadata }: Props) {
   const router = useRouter();
-  const [muscleGroups, setMuscleGroups] = useState(initialMetadata.muscleGroups.join(', '));
-  const [substitutions, setSubstitutions] = useState(initialMetadata.substitutions.join(', '));
+  // State is string[] matching the API contract; inputs display as comma-joined for editing.
+  const [muscleGroups, setMuscleGroups] = useState<string[]>(initialMetadata.muscleGroups);
+  const [substitutions, setSubstitutions] = useState<string[]>(initialMetadata.substitutions);
   const [foundational, setFoundational] = useState(initialMetadata.foundational);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  function parseList(value: string): string[] {
-    return value
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-  }
 
   async function handleSave() {
     setSaving(true);
     setError(null);
     try {
       await patchLiftMetadata(initialMetadata.lift, {
-        muscleGroups: parseList(muscleGroups),
-        substitutions: parseList(substitutions),
+        muscleGroups,
+        substitutions,
         foundational,
       });
       router.refresh();
@@ -49,8 +50,8 @@ export default function LiftEditor({ cycleNum, workoutNum, initialMetadata }: Pr
   }
 
   function handleReset() {
-    setMuscleGroups('');
-    setSubstitutions('');
+    setMuscleGroups([]);
+    setSubstitutions([]);
     setFoundational(false);
   }
 
@@ -63,27 +64,29 @@ export default function LiftEditor({ cycleNum, workoutNum, initialMetadata }: Pr
 
       <div className={styles.field}>
         <label className={styles.label} htmlFor="muscleGroups">
-          Muscle Groups (comma-separated)
+          Muscle Groups
         </label>
         <input
           id="muscleGroups"
           type="text"
           className={styles.input}
-          value={muscleGroups}
-          onChange={(e) => setMuscleGroups(e.target.value)}
+          placeholder="e.g. Quads, Glutes, Hamstrings"
+          value={muscleGroups.join(', ')}
+          onChange={(e) => setMuscleGroups(parseList(e.target.value))}
         />
       </div>
 
       <div className={styles.field}>
         <label className={styles.label} htmlFor="substitutions">
-          Substitutions (comma-separated)
+          Substitutions
         </label>
         <input
           id="substitutions"
           type="text"
           className={styles.input}
-          value={substitutions}
-          onChange={(e) => setSubstitutions(e.target.value)}
+          placeholder="e.g. Leg Press, Hack Squat"
+          value={substitutions.join(', ')}
+          onChange={(e) => setSubstitutions(parseList(e.target.value))}
         />
       </div>
 
