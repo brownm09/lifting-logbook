@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import styles from '../onboarding.module.css';
-import { PROGRAMS, type Experience, type Goal, type Program } from '../programs';
+import { PROGRAMS, type Experience, type Goal, type Program, type Purpose } from '../programs';
 
 const EXPERIENCE_LEVELS: Experience[] = ['beginner', 'intermediate', 'advanced'];
 
@@ -14,7 +14,7 @@ const GOAL_OPTIONS: { label: string; value: 'all' | Goal }[] = [
   { label: '🔥 Fat Loss', value: 'fat-loss' },
 ];
 
-const PURPOSE_COLORS: Record<string, string> = {
+const PURPOSE_COLORS: Record<Purpose, string> = {
   Strength: '#e74c3c',
   Hypertrophy: '#3498db',
   Bodybuilding: '#9b59b6',
@@ -24,16 +24,13 @@ const PURPOSE_COLORS: Record<string, string> = {
   Intermediate: '#f39c12',
 };
 
-function purposeColor(tag: string): string {
-  return PURPOSE_COLORS[tag] ?? '#95a5a6';
-}
-
 type View = 'list' | 'detail' | 'catalog';
 
 type Props = {
   experience: Experience;
   selectedProgramId: string | null;
   isPending: boolean;
+  cycleError?: string | null;
   onExperienceChange: (level: Experience) => void;
   onSelectProgram: (id: string) => void;
   onClearSelection: () => void;
@@ -44,6 +41,7 @@ export function StepProgram({
   experience,
   selectedProgramId,
   isPending,
+  cycleError,
   onExperienceChange,
   onSelectProgram,
   onClearSelection,
@@ -60,8 +58,18 @@ export function StepProgram({
     return programs.filter((p) => p.goals.includes(goalFilter));
   }
 
-  const visiblePrograms = filterByGoal(
-    PROGRAMS.filter((p) => p.experience === experience),
+  const visiblePrograms = useMemo(
+    () => filterByGoal(PROGRAMS.filter((p) => p.experience === experience)),
+    [experience, goalFilter],
+  );
+
+  const catalogByTier = useMemo(
+    () => ({
+      beginner: filterByGoal(PROGRAMS.filter((p) => p.experience === 'beginner')),
+      intermediate: filterByGoal(PROGRAMS.filter((p) => p.experience === 'intermediate')),
+      advanced: filterByGoal(PROGRAMS.filter((p) => p.experience === 'advanced')),
+    }),
+    [goalFilter],
   );
 
   function handleSelectProgram(id: string) {
@@ -146,7 +154,7 @@ export function StepProgram({
               <span
                 key={tag}
                 className={styles.purposeTag}
-                style={{ backgroundColor: purposeColor(tag) }}
+                style={{ backgroundColor: PURPOSE_COLORS[tag] }}
               >
                 {tag}
               </span>
@@ -177,6 +185,14 @@ export function StepProgram({
           <p className={styles.sectionLabel}>Periodization</p>
           <p className={styles.infoText}>{selectedProgram.cycles}</p>
 
+          {/* Core lifts */}
+          <p className={styles.sectionLabel}>Core Lifts</p>
+          <div className={styles.liftsList}>
+            {selectedProgram.lifts.map((lift) => (
+              <span key={lift} className={styles.liftChip}>{lift}</span>
+            ))}
+          </div>
+
           {/* Sample schedule */}
           <p className={styles.sectionLabel}>Sample Schedule</p>
           <div className={styles.scheduleList}>
@@ -195,7 +211,7 @@ export function StepProgram({
           </div>
 
           {/* Actions */}
-          <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
+          <div className={styles.detailActions}>
             <button
               type="button"
               className={styles.btnSecondary}
@@ -217,6 +233,9 @@ export function StepProgram({
           {!isAvailable && (
             <p className={styles.comingSoonNote}>⏳ Coming soon — not yet available</p>
           )}
+          {cycleError && (
+            <p className={styles.errorNote} role="alert">{cycleError}</p>
+          )}
         </div>
       </>
     );
@@ -224,11 +243,6 @@ export function StepProgram({
 
   // --- Full catalog view ---
   if (view === 'catalog') {
-    const catalogByTier: Record<Experience, Program[]> = {
-      beginner: filterByGoal(PROGRAMS.filter((p) => p.experience === 'beginner')),
-      intermediate: filterByGoal(PROGRAMS.filter((p) => p.experience === 'intermediate')),
-      advanced: filterByGoal(PROGRAMS.filter((p) => p.experience === 'advanced')),
-    };
 
     return (
       <>
@@ -256,8 +270,7 @@ export function StepProgram({
 
         <button
           type="button"
-          className={styles.btnSecondary}
-          style={{ marginTop: 'var(--space-3)' }}
+          className={`${styles.btnSecondary} ${styles.catalogBackBtn}`}
           onClick={handleBackFromCatalog}
         >
           Back
@@ -312,7 +325,7 @@ export function StepProgram({
             programListItem(p, () => handleSelectProgram(p.id)),
           )
         ) : (
-          <p className={styles.stepHint} style={{ textAlign: 'center', padding: 'var(--space-4) 0' }}>
+          <p className={`${styles.stepHint} ${styles.emptyState}`}>
             No programs match this filter.
           </p>
         )}
@@ -321,8 +334,7 @@ export function StepProgram({
       {/* View full catalog */}
       <button
         type="button"
-        className={styles.btnSecondary}
-        style={{ width: '100%', marginTop: 'var(--space-2)' }}
+        className={`${styles.btnSecondary} ${styles.catalogLaunchBtn}`}
         onClick={() => setView('catalog')}
       >
         📚 View Full Catalog

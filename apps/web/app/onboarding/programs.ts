@@ -1,5 +1,13 @@
 export type Experience = 'beginner' | 'intermediate' | 'advanced';
 export type Goal = 'strength' | 'muscle-gain' | 'body-composition' | 'fat-loss';
+export type Purpose =
+  | 'Strength'
+  | 'Hypertrophy'
+  | 'Bodybuilding'
+  | 'Powerlifting'
+  | 'Sports'
+  | 'Beginner'
+  | 'Intermediate';
 
 export type Program = {
   id: string;
@@ -12,7 +20,7 @@ export type Program = {
   progression: string;
   deloads: string;
   cycles: string;
-  purposes: string[];
+  purposes: Purpose[];
   goals: Goal[];
   lifts: string[];
   schedule: { day: string; lifts: string[] }[];

@@ -33,6 +33,7 @@ export function OnboardingFlow() {
   const [experience, setExperience] = useState<Experience>('beginner');
   const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [cycleError, setCycleError] = useState<string | null>(null);
 
   const canAdvanceFromLifts = (Object.keys(lifts) as LiftKey[]).every((k) => {
     const entry = lifts[k];
@@ -67,7 +68,13 @@ export function OnboardingFlow() {
 
   function handleConfirm() {
     if (!selectedProgramId) return;
-    startTransition(() => createFirstCycle(selectedProgramId));
+    setCycleError(null);
+    startTransition(async () => {
+      const result = await createFirstCycle(selectedProgramId);
+      if (result && !result.ok) {
+        setCycleError(result.error);
+      }
+    });
   }
 
   return (
@@ -110,6 +117,7 @@ export function OnboardingFlow() {
               experience={experience}
               selectedProgramId={selectedProgramId}
               isPending={isPending}
+              cycleError={cycleError}
               onExperienceChange={(level) => {
                 setExperience(level);
                 setSelectedProgramId(null);

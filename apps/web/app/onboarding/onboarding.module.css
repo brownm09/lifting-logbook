@@ -544,6 +544,60 @@
   cursor: not-allowed;
 }
 
+/* ── Detail view action row ─────────────────────────────────── */
+
+.detailActions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+/* ── Core lifts chips ────────────────────────────────────────── */
+
+.liftsList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.liftChip {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border, #dee2e6);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+}
+
+/* ── Catalog navigation buttons ─────────────────────────────── */
+
+.catalogBackBtn {
+  margin-top: var(--space-3);
+}
+
+.catalogLaunchBtn {
+  width: 100%;
+  margin-top: var(--space-2);
+}
+
+/* ── Empty program list state ────────────────────────────────── */
+
+.emptyState {
+  text-align: center;
+  padding: var(--space-4) 0;
+}
+
+/* ── Cycle start error note ──────────────────────────────────── */
+
+.errorNote {
+  font-size: var(--font-size-sm);
+  color: var(--color-error, #e74c3c);
+  text-align: center;
+  margin: var(--space-2) 0 0;
+}
+
 .successBanner {
   display: flex;
   flex-direction: column;
