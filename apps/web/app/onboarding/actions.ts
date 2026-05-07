@@ -1,0 +1,24 @@
+'use server';
+
+import { redirect } from 'next/navigation';
+import { isRedirectError } from 'next/dist/client/components/redirect';
+import { createCycle } from '@/lib/api';
+import { PROGRAMS } from './programs';
+
+export type CreateFirstCycleResult = { ok: false; error: string };
+
+export async function createFirstCycle(
+  programId: string,
+): Promise<CreateFirstCycleResult | never> {
+  const allowed = PROGRAMS.filter((p) => p.available).map((p) => p.id);
+  if (!allowed.includes(programId)) {
+    return { ok: false, error: 'That program is not yet available.' };
+  }
+  try {
+    await createCycle(programId);
+    redirect('/cycle/1');
+  } catch (e) {
+    if (isRedirectError(e)) throw e;
+    return { ok: false, error: 'Failed to start your program. Please try again.' };
+  }
+}

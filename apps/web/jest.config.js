@@ -3,11 +3,13 @@ const base = require('../../jest.config.base.js');
 /** @type {import('ts-jest').JestConfigWithTsJest} */
 module.exports = {
   ...base,
+  testEnvironment: 'jsdom',
   testMatch: ['**/*.test.ts', '**/*.test.tsx'],
   transform: {
     '^.+\\.tsx?$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.spec.json' }],
   },
   moduleNameMapper: {
+    '\\.module\\.css$': 'identity-obj-proxy',
     '^@src/core$': '<rootDir>/../../packages/core/src/index.ts',
     '^@src/core/(.*)$': '<rootDir>/../../packages/core/src/$1',
     '^@lifting-logbook/core$': '<rootDir>/../../packages/core/src/index.ts',

@@ -56,6 +56,14 @@ export function fetchCycleDashboard(
   );
 }
 
+export function createCycle(programId: string): Promise<CycleDashboardResponse> {
+  return apiFetch(`/programs/${encodeURIComponent(programId)}/cycles`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+}
+
 export function fetchProgramSpec(
   program: string,
 ): Promise<LiftingProgramSpecResponse[]> {
