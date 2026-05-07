@@ -126,7 +126,7 @@ model LiftMetadata {
   lift          String
   muscleGroups  String[]
   substitutions String[]
-  foundational  String   @default("")
+  foundational  Boolean  @default(false)
 
   @@unique([userId, lift])
   @@index([userId])

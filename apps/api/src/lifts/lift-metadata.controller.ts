@@ -35,7 +35,7 @@ export class LiftMetadataController {
           substitutions: meta.substitutions,
           foundational: meta.foundational,
         }
-      : { lift, muscleGroups: [], substitutions: [], foundational: '' };
+      : { lift, muscleGroups: [], substitutions: [], foundational: false };
   }
 
   @Patch(':lift/metadata')
@@ -46,7 +46,7 @@ export class LiftMetadataController {
     @CurrentUser() user: AuthUser,
   ): Promise<LiftMetadataResponse> {
     const { liftMetadata } = await this.factory.forUser(user);
-    const patch: { muscleGroups?: string[]; substitutions?: string[]; foundational?: string } = {};
+    const patch: { muscleGroups?: string[]; substitutions?: string[]; foundational?: boolean } = {};
     if (dto.muscleGroups !== undefined) patch.muscleGroups = dto.muscleGroups;
     if (dto.substitutions !== undefined) patch.substitutions = dto.substitutions;
     if (dto.foundational !== undefined) patch.foundational = dto.foundational;

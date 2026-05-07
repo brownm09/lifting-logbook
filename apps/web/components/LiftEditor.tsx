@@ -51,7 +51,7 @@ export default function LiftEditor({ cycleNum, workoutNum, initialMetadata }: Pr
   function handleReset() {
     setMuscleGroups('');
     setSubstitutions('');
-    setFoundational('');
+    setFoundational(false);
   }
 
   return (
@@ -87,17 +87,17 @@ export default function LiftEditor({ cycleNum, workoutNum, initialMetadata }: Pr
         />
       </div>
 
-      <div className={styles.field}>
-        <label className={styles.label} htmlFor="foundational">
-          Foundational Lift
-        </label>
+      <div className={styles.checkboxField}>
         <input
           id="foundational"
-          type="text"
-          className={styles.input}
-          value={foundational}
-          onChange={(e) => setFoundational(e.target.value)}
+          type="checkbox"
+          checked={foundational}
+          onChange={(e) => setFoundational(e.target.checked)}
+          disabled={saving}
         />
+        <label className={styles.label} htmlFor="foundational">
+          Foundational lift
+        </label>
       </div>
 
       {error && <p className={styles.error}>{error}</p>}
@@ -117,7 +117,7 @@ export default function LiftEditor({ cycleNum, workoutNum, initialMetadata }: Pr
           onClick={handleReset}
           disabled={saving}
         >
-          Reset to Foundational
+          Reset
         </button>
       </div>
     </div>

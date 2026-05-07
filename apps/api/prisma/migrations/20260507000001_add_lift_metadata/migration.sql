@@ -5,7 +5,7 @@ CREATE TABLE "lift_metadata" (
     "lift" TEXT NOT NULL,
     "muscleGroups" TEXT[],
     "substitutions" TEXT[],
-    "foundational" TEXT NOT NULL DEFAULT '',
+    "foundational" BOOLEAN NOT NULL DEFAULT false,
 
     CONSTRAINT "lift_metadata_pkey" PRIMARY KEY ("id")
 );

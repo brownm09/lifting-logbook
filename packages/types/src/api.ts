@@ -248,14 +248,14 @@ export interface LiftMetadataResponse {
   lift: string;
   muscleGroups: string[];
   substitutions: string[];
-  foundational: string;
+  foundational: boolean;
 }
 
 /** Request body for PATCH /lifts/:lift/metadata. */
 export interface PatchLiftMetadataRequest {
   muscleGroups?: string[];
   substitutions?: string[];
-  foundational?: string;
+  foundational?: boolean;
 }
 
 // ---------------------------------------------------------------------------

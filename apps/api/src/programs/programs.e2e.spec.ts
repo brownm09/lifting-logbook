@@ -868,41 +868,41 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
     it('GET /lifts/:lift/metadata returns defaults when no record exists', async () => {
       const res = await get('/lifts/Squat/metadata');
       expect(res.statusCode).toBe(200);
-      const body = res.json() as { lift: string; muscleGroups: string[]; substitutions: string[]; foundational: string };
+      const body = res.json() as { lift: string; muscleGroups: string[]; substitutions: string[]; foundational: boolean };
       expect(body.lift).toBe('Squat');
       expect(body.muscleGroups).toEqual([]);
       expect(body.substitutions).toEqual([]);
-      expect(body.foundational).toBe('');
+      expect(body.foundational).toBe(false);
     });
 
     it('PATCH /lifts/:lift/metadata persists values and GET returns them', async () => {
       const patchRes = await patchJson('/lifts/Squat/metadata', {
         muscleGroups: ['Quads', 'Glutes'],
         substitutions: ['Leg Press'],
-        foundational: 'Squat',
+        foundational: true,
       });
       expect(patchRes.statusCode).toBe(200);
-      const patched = patchRes.json() as { muscleGroups: string[]; substitutions: string[]; foundational: string };
+      const patched = patchRes.json() as { muscleGroups: string[]; substitutions: string[]; foundational: boolean };
       expect(patched.muscleGroups).toEqual(['Quads', 'Glutes']);
       expect(patched.substitutions).toEqual(['Leg Press']);
-      expect(patched.foundational).toBe('Squat');
+      expect(patched.foundational).toBe(true);
 
       const getRes = await get('/lifts/Squat/metadata');
       expect(getRes.statusCode).toBe(200);
       const fetched = getRes.json() as typeof patched;
       expect(fetched.muscleGroups).toEqual(['Quads', 'Glutes']);
       expect(fetched.substitutions).toEqual(['Leg Press']);
-      expect(fetched.foundational).toBe('Squat');
+      expect(fetched.foundational).toBe(true);
     });
 
     it('PATCH /lifts/:lift/metadata is partial — unpatched fields retain prior values', async () => {
       await patchJson('/lifts/Squat/metadata', { substitutions: ['Hack Squat'] });
       const res = await get('/lifts/Squat/metadata');
       expect(res.statusCode).toBe(200);
-      const body = res.json() as { muscleGroups: string[]; substitutions: string[]; foundational: string };
+      const body = res.json() as { muscleGroups: string[]; substitutions: string[]; foundational: boolean };
       expect(body.muscleGroups).toEqual(['Quads', 'Glutes']);
       expect(body.substitutions).toEqual(['Hack Squat']);
-      expect(body.foundational).toBe('Squat');
+      expect(body.foundational).toBe(true);
     });
 
     it('user isolation: User B gets empty defaults when User A has metadata', async () => {
@@ -911,10 +911,10 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
         .getInstance()
         .inject({ method: 'GET', url: '/lifts/Squat/metadata', headers: AS_BOB });
       expect(res.statusCode).toBe(200);
-      const body = res.json() as { muscleGroups: string[]; substitutions: string[]; foundational: string };
+      const body = res.json() as { muscleGroups: string[]; substitutions: string[]; foundational: boolean };
       expect(body.muscleGroups).toEqual([]);
       expect(body.substitutions).toEqual([]);
-      expect(body.foundational).toBe('');
+      expect(body.foundational).toBe(false);
     });
   });
 });

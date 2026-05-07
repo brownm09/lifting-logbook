@@ -22,18 +22,17 @@ export class PrismaLiftMetadataRepository implements ILiftMetadataRepository {
 
   async upsertMetadata(
     lift: string,
-    patch: { muscleGroups?: string[]; substitutions?: string[]; foundational?: string },
+    patch: { muscleGroups?: string[]; substitutions?: string[]; foundational?: boolean },
   ): Promise<LiftMetadata> {
-    const existing = await this.getMetadata(lift);
-    const next = {
-      muscleGroups: patch.muscleGroups ?? existing?.muscleGroups ?? [],
-      substitutions: patch.substitutions ?? existing?.substitutions ?? [],
-      foundational: patch.foundational ?? existing?.foundational ?? '',
+    const update = {
+      ...(patch.muscleGroups !== undefined ? { muscleGroups: patch.muscleGroups } : {}),
+      ...(patch.substitutions !== undefined ? { substitutions: patch.substitutions } : {}),
+      ...(patch.foundational !== undefined ? { foundational: patch.foundational } : {}),
     };
     const row = await this.prisma.liftMetadata.upsert({
       where: { userId_lift: { userId: this.userId, lift } },
-      update: next,
-      create: { userId: this.userId, lift, ...next },
+      update,
+      create: { userId: this.userId, lift, muscleGroups: [], substitutions: [], foundational: false, ...update },
     });
     return {
       lift: row.lift,

@@ -9,13 +9,13 @@ export class InMemoryLiftMetadataRepository implements ILiftMetadataRepository {
 
   async upsertMetadata(
     lift: string,
-    patch: { muscleGroups?: string[]; substitutions?: string[]; foundational?: string },
+    patch: { muscleGroups?: string[]; substitutions?: string[]; foundational?: boolean },
   ): Promise<LiftMetadata> {
     const existing = this.store.get(lift) ?? {
       lift,
       muscleGroups: [],
       substitutions: [],
-      foundational: '',
+      foundational: false,
     };
     const updated: LiftMetadata = {
       lift,

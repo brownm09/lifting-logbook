@@ -16,7 +16,7 @@ export default async function EditLiftPage({
     notFound();
   }
 
-  const lift = decodeURIComponent(liftParam);
+  const lift = liftParam;
   const metadata = await fetchLiftMetadata(lift);
 
   return (

@@ -124,7 +124,7 @@ const _workoutDateOverrideRepo: IWorkoutDateOverrideRepository = {
 const _liftMetadataRepo: ILiftMetadataRepository = {
   getMetadata: () => Promise.resolve(null),
   upsertMetadata: (_lift, _patch) =>
-    Promise.resolve({ lift: '', muscleGroups: [], substitutions: [], foundational: '' }),
+    Promise.resolve({ lift: '', muscleGroups: [], substitutions: [], foundational: false }),
 };
 
 const _strengthGoalRepo: IStrengthGoalRepository = {
