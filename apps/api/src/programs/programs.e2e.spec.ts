@@ -175,6 +175,32 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
       const res = await patchJson(RESCHEDULE_URL, { newDate: '2026-06-01T12:00:00Z' });
       expect(res.statusCode).toBe(400);
     });
+
+    it('isolates reschedule overrides between users', async () => {
+      const injectRaw = app.getHttpAdapter().getInstance().inject.bind(
+        app.getHttpAdapter().getInstance(),
+      );
+      const AS_ALICE = { authorization: 'Bearer user-alice-reschedule' };
+      const AS_BOB   = { authorization: 'Bearer user-bob-reschedule' };
+
+      // Alice reschedules workout 1 of cycle 1
+      const patchRes = await injectRaw({
+        method: 'PATCH',
+        url: RESCHEDULE_URL,
+        headers: { 'content-type': 'application/json', ...AS_ALICE },
+        payload: JSON.stringify({ newDate: '2026-08-15' }),
+      });
+      expect(patchRes.statusCode).toBe(204);
+
+      // Bob reads the same workout — his bundle is independent; Alice's override must not appear
+      const bobWorkout = await injectRaw({
+        method: 'GET',
+        url: `/programs/${SEED_PROGRAM}/workouts/1`,
+        headers: AS_BOB,
+      });
+      expect(bobWorkout.statusCode).toBe(200);
+      expect(bobWorkout.json().overrideDate).toBeUndefined();
+    });
   });
 
   // -------------------------------------------------------------------------
