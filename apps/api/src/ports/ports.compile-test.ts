@@ -16,7 +16,10 @@ import { ILiftRecordRepository } from './ILiftRecordRepository';
 import { IProgramPhilosophyRepository } from './IProgramPhilosophyRepository';
 import { ITrainingMaxRepository } from './ITrainingMaxRepository';
 import { ITrainingMaxHistoryRepository } from './ITrainingMaxHistoryRepository';
+import { ILiftMetadataRepository } from './ILiftMetadataRepository';
+import { IStrengthGoalRepository } from './IStrengthGoalRepository';
 import { IWorkoutDateOverrideRepository } from './IWorkoutDateOverrideRepository';
+import { IWorkoutLiftOverrideRepository } from './IWorkoutLiftOverrideRepository';
 import { IWorkoutRepository } from './IWorkoutRepository';
 
 // ---------------------------------------------------------------------------
@@ -118,15 +121,36 @@ const _workoutDateOverrideRepo: IWorkoutDateOverrideRepository = {
   upsertOverride: () => Promise.resolve(),
 };
 
+const _liftMetadataRepo: ILiftMetadataRepository = {
+  getMetadata: () => Promise.resolve(null),
+  upsertMetadata: (_lift, _patch) =>
+    Promise.resolve({ lift: '', muscleGroups: [], substitutions: [], foundational: false }),
+};
+
+const _strengthGoalRepo: IStrengthGoalRepository = {
+  getGoals: () => Promise.resolve([]),
+  upsertGoal: (_program, goal) => Promise.resolve(goal),
+  deleteGoal: () => Promise.resolve(),
+};
+
+const _workoutLiftOverrideRepo: IWorkoutLiftOverrideRepository = {
+  getOverrides: () => Promise.resolve([]),
+  upsertOverride: () => Promise.resolve(),
+  deleteOverride: () => Promise.resolve(),
+};
+
 const _repositoryBundle: RepositoryBundle = {
   cycleDashboard: _cycleDashboardRepo,
+  liftMetadata: _liftMetadataRepo,
   liftingProgramSpec: _programSpecRepo,
   liftRecord: _liftRecordRepo,
   programPhilosophy: _programPhilosophyRepo,
+  strengthGoal: _strengthGoalRepo,
   trainingMax: _trainingMaxRepo,
   trainingMaxHistory: _trainingMaxHistoryRepo,
   workout: _workoutRepo,
   workoutDateOverride: _workoutDateOverrideRepo,
+  workoutLiftOverride: _workoutLiftOverrideRepo,
 };
 
 const _repositoryFactory: IRepositoryFactory = {
@@ -143,6 +167,9 @@ void _liftRecordRepo;
 void _trainingMaxRepo;
 void _trainingMaxHistoryRepo;
 void _workoutRepo;
+void _liftMetadataRepo;
+void _strengthGoalRepo;
 void _workoutDateOverrideRepo;
+void _workoutLiftOverrideRepo;
 void _repositoryBundle;
 void _repositoryFactory;

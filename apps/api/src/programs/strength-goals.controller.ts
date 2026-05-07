@@ -44,10 +44,10 @@ export class StrengthGoalsController {
     const saved = await strengthGoal.upsertGoal(program, {
       lift,
       goalType: body.goalType,
-      target: body.target,
       unit: body.unit,
-      ratio: body.ratio,
       updatedAt: new Date(),
+      ...(body.target !== undefined ? { target: body.target } : {}),
+      ...(body.ratio !== undefined ? { ratio: body.ratio } : {}),
     });
     return toStrengthGoalResponse(saved);
   }

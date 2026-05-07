@@ -36,6 +36,9 @@ export default function ManageLiftsActions({ program, cycleNum, workoutNum, lift
   const replaceUrl = (lift: string) =>
     `/cycle/${cycleNum}/workout/${workoutNum}/detail/manage-lifts/pick?action=replace&replacing=${encodeURIComponent(lift)}`;
 
+  const editUrl = (lift: string) =>
+    `/cycle/${cycleNum}/workout/${workoutNum}/detail/manage-lifts/edit/${encodeURIComponent(lift)}`;
+
   if (lifts.length === 0) {
     return <p className={styles.empty}>No lifts planned for this workout.</p>;
   }
@@ -51,6 +54,9 @@ export default function ManageLiftsActions({ program, cycleNum, workoutNum, lift
               {planned && <span className={styles.plannedBadge}>planned</span>}
             </span>
             <span className={styles.actions}>
+              <Link href={editUrl(lift)} className={styles.btnSecondary}>
+                Edit
+              </Link>
               <Link href={replaceUrl(lift)} className={styles.btnSecondary}>
                 Replace
               </Link>

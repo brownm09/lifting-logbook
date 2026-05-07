@@ -1,5 +1,6 @@
 import { AuthUser } from './auth';
 import { ICycleDashboardRepository } from './ICycleDashboardRepository';
+import { ILiftMetadataRepository } from './ILiftMetadataRepository';
 import { ILiftingProgramSpecRepository } from './ILiftingProgramSpecRepository';
 import { ILiftRecordRepository } from './ILiftRecordRepository';
 import { IProgramPhilosophyRepository } from './IProgramPhilosophyRepository';
@@ -12,6 +13,7 @@ import { IWorkoutRepository } from './IWorkoutRepository';
 
 export interface RepositoryBundle {
   cycleDashboard: ICycleDashboardRepository;
+  liftMetadata: ILiftMetadataRepository;
   liftingProgramSpec: ILiftingProgramSpecRepository;
   liftRecord: ILiftRecordRepository;
   programPhilosophy: IProgramPhilosophyRepository;

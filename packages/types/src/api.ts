@@ -240,6 +240,25 @@ export interface LiftOverrideResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Lift Metadata
+// ---------------------------------------------------------------------------
+
+/** Per-user lift metadata as returned by GET /lifts/:lift/metadata. */
+export interface LiftMetadataResponse {
+  lift: string;
+  muscleGroups: string[];
+  substitutions: string[];
+  foundational: boolean;
+}
+
+/** Request body for PATCH /lifts/:lift/metadata. */
+export interface PatchLiftMetadataRequest {
+  muscleGroups?: string[];
+  substitutions?: string[];
+  foundational?: boolean;
+}
+
+// ---------------------------------------------------------------------------
 // Lifting Program Spec
 // ---------------------------------------------------------------------------
 

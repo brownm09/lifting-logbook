@@ -18,10 +18,10 @@ export class PrismaStrengthGoalRepository implements IStrengthGoalRepository {
     return rows.map((r) => ({
       lift: r.lift,
       goalType: r.goalType as 'absolute' | 'relative',
-      target: r.target ?? undefined,
       unit: r.unit as 'lbs' | 'kg',
-      ratio: r.ratio ?? undefined,
       updatedAt: r.updatedAt,
+      ...(r.target != null ? { target: r.target } : {}),
+      ...(r.ratio != null ? { ratio: r.ratio } : {}),
     }));
   }
 
@@ -42,10 +42,10 @@ export class PrismaStrengthGoalRepository implements IStrengthGoalRepository {
     return {
       lift: row.lift,
       goalType: row.goalType as 'absolute' | 'relative',
-      target: row.target ?? undefined,
       unit: row.unit as 'lbs' | 'kg',
-      ratio: row.ratio ?? undefined,
       updatedAt: row.updatedAt,
+      ...(row.target != null ? { target: row.target } : {}),
+      ...(row.ratio != null ? { ratio: row.ratio } : {}),
     };
   }
 
