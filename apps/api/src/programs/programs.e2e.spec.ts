@@ -183,6 +183,10 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
       const AS_ALICE = { authorization: 'Bearer user-alice-reschedule' };
       const AS_BOB   = { authorization: 'Bearer user-bob-reschedule' };
 
+      // Both are fresh users with no cycle dashboard. The reschedule controller
+      // does not require a dashboard entry — it upserts the override directly,
+      // same design as the lift-overrides controller.
+
       // Alice reschedules workout 1 of cycle 1
       const patchRes = await injectRaw({
         method: 'PATCH',

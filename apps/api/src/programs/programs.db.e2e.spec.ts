@@ -350,6 +350,15 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
       expect(row?.isPR).toBe(true);
     });
 
+    it('GET /training-maxes/history?isPR=true returns only PR-marked entries', async () => {
+      // Depends on the PATCH test above having marked the first entry.
+      const res = await get(`/programs/${SEED_PROGRAM}/training-maxes/history?isPR=true`);
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.entries.length).toBeGreaterThan(0);
+      expect(body.entries.every((e: { isPR: boolean }) => e.isPR === true)).toBe(true);
+    });
+
     it('PATCH /training-maxes/history/:id with unknown id returns 404', async () => {
       const res = await patchJson(
         `/programs/${SEED_PROGRAM}/training-maxes/history/nonexistent-id`,
