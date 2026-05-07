@@ -14,9 +14,17 @@ import type {
 } from '@lifting-logbook/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+const isCloudRun = API_URL.startsWith('https://');
+const devToken = !isCloudRun ? process.env.NEXT_PUBLIC_DEV_AUTH_TOKEN : undefined;
 
 async function clientFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, init);
+  const devAuthHeaders: Record<string, string> = devToken
+    ? { Authorization: `Bearer ${devToken}` }
+    : {};
+  const res = await fetch(`${API_URL}${path}`, {
+    ...init,
+    headers: { ...devAuthHeaders, ...(init?.headers as Record<string, string> | undefined) },
+  });
   if (!res.ok) {
     throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
   }
@@ -54,22 +62,21 @@ export function updateLiftRecord(
   );
 }
 
-export async function rescheduleWorkout(
+export function rescheduleWorkout(
   program: string,
   cycleNum: number,
   workoutNum: number,
   newDate: string,
 ): Promise<void> {
-  const path = `/programs/${encodeURIComponent(program)}/cycles/${cycleNum}/workouts/${workoutNum}/reschedule`;
-  const res = await fetch(`${API_URL}${path}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ newDate }),
-    cache: 'no-store',
-  });
-  if (!res.ok) {
-    throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
-  }
+  return clientFetch<void>(
+    `/programs/${encodeURIComponent(program)}/cycles/${cycleNum}/workouts/${workoutNum}/reschedule`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ newDate }),
+      cache: 'no-store',
+    },
+  );
 }
 
 export function recordBodyWeight(
@@ -119,13 +126,14 @@ export function patchLiftMetadata(
   );
 }
 
-export async function deleteLiftOverride(
+export function deleteLiftOverride(
   program: string,
   cycleNum: number,
   workoutNum: number,
   lift: string,
 ): Promise<void> {
-  const path = `/programs/${encodeURIComponent(program)}/cycles/${cycleNum}/workouts/${workoutNum}/lift-overrides/${encodeURIComponent(lift)}`;
-  const res = await fetch(`${API_URL}${path}`, { method: 'DELETE', cache: 'no-store' });
-  if (!res.ok) throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
+  return clientFetch<void>(
+    `/programs/${encodeURIComponent(program)}/cycles/${cycleNum}/workouts/${workoutNum}/lift-overrides/${encodeURIComponent(lift)}`,
+    { method: 'DELETE', cache: 'no-store' },
+  );
 }
