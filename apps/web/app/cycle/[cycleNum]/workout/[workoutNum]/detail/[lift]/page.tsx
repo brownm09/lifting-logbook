@@ -67,7 +67,6 @@ export default async function LiftDetailPage({
               <tr>
                 <th>Date</th>
                 <th>Weight</th>
-                <th>Reps</th>
                 <th></th>
               </tr>
             </thead>
@@ -81,7 +80,6 @@ export default async function LiftDetailPage({
                     <td>
                       {entry.weight} {entry.unit}
                     </td>
-                    <td>{entry.reps}</td>
                     <td>{entry.isPR && <span className={styles.prBadge}>PR</span>}</td>
                   </tr>
                 ))}
