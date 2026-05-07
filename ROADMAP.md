@@ -93,6 +93,7 @@ Web and mobile clients functional end-to-end. Key user-facing features implement
 | Cycle Program and Plan views | Four quick-access buttons on cycle dashboard; `/cycle/:cycleNum/program` and `/cycle/:cycleNum/plan` pages for program spec and 6-phase plan overview | [#176](https://github.com/brownm09/lifting-logbook/issues/176) |
 | Manage lifts | Per-workout add/remove/replace overrides stored in `workout_lift_override` table; `GET /workouts/:workoutNum` returns planned lifts for upcoming workouts; manage-lifts and lift-picker web pages | [#178](https://github.com/brownm09/lifting-logbook/issues/178) |
 | Lift metadata | Per-user, per-lift metadata: muscle groups (`string[]`), substitutions (`string[]`), foundational flag (`boolean`); `GET /lifts/:lift/metadata` + `PATCH /lifts/:lift/metadata`; `LiftEditor` component + edit page + Edit link in manage-lifts | [#179](https://github.com/brownm09/lifting-logbook/issues/179) |
+| Onboarding program catalog | Full 13-program catalog with `Purpose`/`Goal` union types, experience + goal filters, "View Full Catalog" cross-tier sub-view, rich detail view (purpose tags, Core Lifts, duration/frequency grid, sample schedule), server-side availability guard, `useTransition` + Server Action wiring → `/cycle/1` | [#180](https://github.com/brownm09/lifting-logbook/issues/180) |
 
 ### Proposals
 
