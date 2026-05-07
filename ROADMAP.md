@@ -92,6 +92,7 @@ Web and mobile clients functional end-to-end. Key user-facing features implement
 | Strength goal CRUD | `strength_goal` DB model, CRUD endpoints, `/settings/strength-goals` page with progress bars and quick-access dashboard button | [#175](https://github.com/brownm09/lifting-logbook/issues/175) |
 | Cycle Program and Plan views | Four quick-access buttons on cycle dashboard; `/cycle/:cycleNum/program` and `/cycle/:cycleNum/plan` pages for program spec and 6-phase plan overview | [#176](https://github.com/brownm09/lifting-logbook/issues/176) |
 | Manage lifts | Per-workout add/remove/replace overrides stored in `workout_lift_override` table; `GET /workouts/:workoutNum` returns planned lifts for upcoming workouts; manage-lifts and lift-picker web pages | [#178](https://github.com/brownm09/lifting-logbook/issues/178) |
+| Lift metadata | Per-user, per-lift metadata: muscle groups (`string[]`), substitutions (`string[]`), foundational flag (`boolean`); `GET /lifts/:lift/metadata` + `PATCH /lifts/:lift/metadata`; `LiftEditor` component + edit page + Edit link in manage-lifts | [#179](https://github.com/brownm09/lifting-logbook/issues/179) |
 
 ### Proposals
 
