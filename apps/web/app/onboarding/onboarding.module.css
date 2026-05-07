@@ -373,6 +373,177 @@
   background: var(--color-surface-alt);
 }
 
+/* ── Goal filter ───────────────────────────────────────────── */
+
+.goalFilter {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.goalChip {
+  padding: var(--space-1) var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs, 0.75rem);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.goalChip:hover {
+  background: var(--color-surface-alt);
+}
+
+.goalChipActive {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+/* ── Purpose tags ──────────────────────────────────────────── */
+
+.purposeTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.purposeTag {
+  display: inline-block;
+  padding: 3px var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs, 0.75rem);
+  font-weight: var(--font-weight-bold);
+  color: #fff;
+  letter-spacing: 0.02em;
+}
+
+/* ── Duration / frequency grid ─────────────────────────────── */
+
+.metaGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.metaCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3);
+  background: var(--color-surface);
+  border-left: 3px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+}
+
+.metaCellLabel {
+  font-size: var(--font-size-xs, 0.75rem);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.metaCellValue {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+
+/* ── Section labels & info text ────────────────────────────── */
+
+.sectionLabel {
+  font-size: var(--font-size-xs, 0.75rem);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+
+.infoText {
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  background: var(--color-surface);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* ── Sample schedule ───────────────────────────────────────── */
+
+.scheduleList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.scheduleDay {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  border-left: 3px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+}
+
+.scheduleDayName {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+
+.scheduleLiftList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.scheduleLift {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.scheduleLift::before {
+  content: '• ';
+}
+
+/* ── Coming soon note ──────────────────────────────────────── */
+
+.comingSoonNote {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  text-align: center;
+  margin: 0;
+}
+
+/* ── Catalog tier label ────────────────────────────────────── */
+
+.catalogTierLabel {
+  font-size: var(--font-size-xs, 0.75rem);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: var(--space-3) 0 var(--space-2);
+}
+
+/* ── btnSuccess disabled state ─────────────────────────────── */
+
+.btnSuccess:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .successBanner {
   display: flex;
   flex-direction: column;

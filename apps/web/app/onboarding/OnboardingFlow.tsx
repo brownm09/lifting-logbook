@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import styles from './onboarding.module.css';
 import {
   brzycki1RM,
@@ -13,6 +13,7 @@ import { StepMethod } from './steps/StepMethod';
 import { StepLifts } from './steps/StepLifts';
 import { StepConfirm } from './steps/StepConfirm';
 import { StepProgram } from './steps/StepProgram';
+import { createFirstCycle } from './actions';
 
 const STEP_LABELS = [
   'Choose Method',
@@ -31,7 +32,7 @@ export function OnboardingFlow() {
   });
   const [experience, setExperience] = useState<Experience>('beginner');
   const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
-  const [confirmed, setConfirmed] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
   const canAdvanceFromLifts = (Object.keys(lifts) as LiftKey[]).every((k) => {
     const entry = lifts[k];
@@ -62,6 +63,11 @@ export function OnboardingFlow() {
 
   function goBack() {
     setStep((s) => Math.max(s - 1, 0));
+  }
+
+  function handleConfirm() {
+    if (!selectedProgramId) return;
+    startTransition(() => createFirstCycle(selectedProgramId));
   }
 
   return (
@@ -103,40 +109,37 @@ export function OnboardingFlow() {
             <StepProgram
               experience={experience}
               selectedProgramId={selectedProgramId}
-              confirmed={confirmed}
+              isPending={isPending}
               onExperienceChange={(level) => {
                 setExperience(level);
                 setSelectedProgramId(null);
               }}
               onSelectProgram={(id) => {
                 setSelectedProgramId(id);
-                setConfirmed(false);
               }}
               onClearSelection={() => setSelectedProgramId(null)}
-              onConfirm={() => setConfirmed(true)}
+              onConfirm={handleConfirm}
             />
           )}
         </section>
 
-        {!(step === 3 && confirmed) && (
-          <div className={styles.actionRow}>
-            {step > 0 && (
-              <button type="button" className={styles.btnSecondary} onClick={goBack}>
-                Back
-              </button>
-            )}
-            {step < 3 && (
-              <button
-                type="button"
-                className={styles.btnPrimary}
-                onClick={goNext}
-                disabled={step === 1 ? !canAdvanceFromLifts : false}
-              >
-                {step === 2 ? 'Continue to Programs' : 'Next'}
-              </button>
-            )}
-          </div>
-        )}
+        <div className={styles.actionRow}>
+          {step > 0 && step < 3 && (
+            <button type="button" className={styles.btnSecondary} onClick={goBack}>
+              Back
+            </button>
+          )}
+          {step < 3 && (
+            <button
+              type="button"
+              className={styles.btnPrimary}
+              onClick={goNext}
+              disabled={step === 1 ? !canAdvanceFromLifts : false}
+            >
+              {step === 2 ? 'Continue to Programs' : 'Next'}
+            </button>
+          )}
+        </div>
       </div>
     </main>
   );
