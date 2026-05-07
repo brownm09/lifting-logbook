@@ -58,15 +58,9 @@ if grep -q 'USER:PASSWORD@HOST' apps/api/.env 2>/dev/null; then
     sed -i '' \
       's|DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/lifting_logbook|DATABASE_URL=postgresql://postgres:postgres@localhost:5432/lifting_logbook|' \
       apps/api/.env
-    sed -i '' \
-      's|SYSTEM_DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/lifting_logbook_system|SYSTEM_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/lifting_logbook|' \
-      apps/api/.env
   else
     sed -i \
       's|DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/lifting_logbook|DATABASE_URL=postgresql://postgres:postgres@localhost:5432/lifting_logbook|' \
-      apps/api/.env
-    sed -i \
-      's|SYSTEM_DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/lifting_logbook_system|SYSTEM_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/lifting_logbook|' \
       apps/api/.env
   fi
   ok "DATABASE_URL patched with local postgres credentials"
@@ -94,7 +88,7 @@ done
 
 # ── 5. Run migrations ─────────────────────────────────────────────────────────
 step "Running database migrations"
-(cd apps/api && npx prisma migrate dev --name init 2>&1 | grep -v "^$" || true)
+(cd apps/api && npx prisma migrate dev 2>&1 | grep -v "^$" || true)
 ok "Migrations applied"
 
 # ── Done ──────────────────────────────────────────────────────────────────────

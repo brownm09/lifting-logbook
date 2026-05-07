@@ -73,7 +73,6 @@ cp apps/web/.env.example apps/web/.env
 Edit `apps/api/.env` and set:
 ```
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/lifting_logbook
-SYSTEM_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/lifting_logbook
 # Leave CLERK_SECRET_KEY unset — DevAuthProvider is used automatically
 DEV_USER_ID=dev-user
 DEV_USER_EMAIL=dev@example.com
