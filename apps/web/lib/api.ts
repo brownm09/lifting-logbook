@@ -24,7 +24,10 @@ const isCloudRun = API_URL.startsWith('https://');
 let _auth: GoogleAuth | undefined;
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
-  if (!isCloudRun) return {};
+  if (!isCloudRun) {
+    const devToken = process.env.DEV_AUTH_TOKEN;
+    return devToken ? { Authorization: `Bearer ${devToken}` } : {};
+  }
   try {
     _auth ??= new GoogleAuth();
     const client = await _auth.getIdTokenClient(API_URL);

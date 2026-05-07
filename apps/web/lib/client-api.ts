@@ -14,9 +14,17 @@ import type {
 } from '@lifting-logbook/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+const isCloudRun = API_URL.startsWith('https://');
+const devToken = !isCloudRun ? process.env.NEXT_PUBLIC_DEV_AUTH_TOKEN : undefined;
 
 async function clientFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, init);
+  const devAuthHeaders: Record<string, string> = devToken
+    ? { Authorization: `Bearer ${devToken}` }
+    : {};
+  const res = await fetch(`${API_URL}${path}`, {
+    ...init,
+    headers: { ...devAuthHeaders, ...(init?.headers as Record<string, string> | undefined) },
+  });
   if (!res.ok) {
     throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
   }
