@@ -145,6 +145,11 @@ monorepo/
 | [ADR-011](adr/ADR-011-api-server-nestjs-and-express.md)       | API Server — NestJS Primary with Express Legacy Comparison    | Accepted |
 | [ADR-012](adr/ADR-012-analytics-and-ab-testing.md)            | Analytics and A/B Testing — Firebase Analytics and Optimizely | Accepted |
 | [ADR-013](adr/ADR-013-testing-strategy.md)                    | Testing Strategy                                              | Accepted |
+| [ADR-014](adr/ADR-014-credential-encryption-at-rest.md)       | Credential Encryption at Rest                                 | Accepted |
+| [ADR-015](adr/ADR-015-graphql-dataloader-design.md)           | GraphQL DataLoader Design                                     | Accepted |
+| [ADR-016](adr/ADR-016-cycle-planning-agent.md)                | Cycle Planning Agent                                          | Accepted |
+| [ADR-017](adr/ADR-017-training-max-history-table.md)          | Training Max History — Dedicated Table vs. Derived            | Accepted |
+| [ADR-018](adr/ADR-018-observability-stack.md)                 | Observability Stack — OpenTelemetry + Grafana Cloud           | Accepted |
 
 ---
 
