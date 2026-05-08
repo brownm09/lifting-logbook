@@ -192,6 +192,30 @@ References from [`docs/security-review-checklist.md`](security-review-checklist.
 
 ---
 
+## Observability
+
+| Source | Cited In | Relevance |
+|---|---|---|
+| [OpenTelemetry — Specification](https://opentelemetry.io/docs/specs/otel/) | [ADR-018](adr/ADR-018-observability-stack.md) | Normative OTel protocol and SDK contract; the wire format every exporter and collector implements. |
+| [OpenTelemetry — JavaScript / Node.js SDK](https://opentelemetry.io/docs/languages/js/) | [ADR-018](adr/ADR-018-observability-stack.md) | The `@opentelemetry/sdk-node` package documentation used by `apps/api/src/otel.ts`. |
+| [OpenTelemetry — Collector](https://opentelemetry.io/docs/collector/) | [ADR-018](adr/ADR-018-observability-stack.md) | Collector receiver/processor/exporter pipeline model; supports the DaemonSet vs. sidecar topology decision. |
+| [Grafana Cloud — Send data via OTLP](https://grafana.com/docs/grafana-cloud/send-data/otlp/) | [ADR-018](adr/ADR-018-observability-stack.md) | Ingestion contract for the chosen backend; defines the OTLP endpoint, authentication model, and per-signal limits. |
+| [Grafana Tempo — Documentation](https://grafana.com/docs/tempo/latest/) | [ADR-018](adr/ADR-018-observability-stack.md) | The trace store; covers OTLP ingest and Grafana integration used by the local docker-compose verification path. |
+| [Grafana Loki — Documentation](https://grafana.com/docs/loki/latest/) | [ADR-018](adr/ADR-018-observability-stack.md) | The log store; covers LogQL and the `traceID` derived field used to jump from log lines to traces. |
+| [Grafana Mimir — Documentation](https://grafana.com/docs/mimir/latest/) | [ADR-018](adr/ADR-018-observability-stack.md) | The Prometheus-compatible metrics store; alert rule format is identical to upstream Prometheus. |
+| [W3C — Trace Context](https://www.w3.org/TR/trace-context/) | [ADR-018](adr/ADR-018-observability-stack.md) | The `traceparent` / `tracestate` HTTP header format used to propagate trace context from `apps/web` to `apps/api`. |
+| [Prisma — OpenTelemetry tracing](https://www.prisma.io/docs/orm/prisma-client/observability-and-logging/opentelemetry-tracing) | [ADR-018](adr/ADR-018-observability-stack.md) | Documents `previewFeatures = ["tracing"]` in `schema.prisma`, required for `@prisma/instrumentation` to attach. |
+| [`nestjs-pino` README](https://github.com/iamolegga/nestjs-pino) | [ADR-018](adr/ADR-018-observability-stack.md) | The pino integration for NestJS; documents the `formatters` hook used to inject `trace_id` / `span_id`. |
+| [NestJS — Techniques: Logger](https://docs.nestjs.com/techniques/logger) | [ADR-018](adr/ADR-018-observability-stack.md) | Official NestJS guide for replacing the built-in logger, which is what `nestjs-pino` does. |
+| [Pino — Documentation](https://getpino.io/) | [ADR-018](adr/ADR-018-observability-stack.md) | The underlying JSON logger; covers serialization performance and the formatter API. |
+| [`@vercel/otel`](https://vercel.com/docs/observability/otel-overview) | [ADR-018](adr/ADR-018-observability-stack.md) | Next.js's officially-recommended OTel wrapper; integrates with Next.js's instrumentation hook. |
+| [Next.js — OpenTelemetry](https://nextjs.org/docs/app/building-your-application/optimizing/open-telemetry) | [ADR-018](adr/ADR-018-observability-stack.md) | The instrumentation API in Next.js 16 used by `apps/web/instrumentation.ts`. |
+| [Google SRE Book — Monitoring Distributed Systems](https://sre.google/sre-book/monitoring-distributed-systems/) | [ADR-018](adr/ADR-018-observability-stack.md) | The RED/USE framing the initial alert rules are built on. |
+| [Prometheus — Alerting Rules](https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/) | [ADR-018](adr/ADR-018-observability-stack.md) | The alert rule syntax used in `infra/observability/alerts/api.yaml`. |
+| [CNCF — OpenTelemetry project page](https://www.cncf.io/projects/opentelemetry/) | [ADR-018](adr/ADR-018-observability-stack.md) | Supports the "de facto standard" framing of the OTel decision. |
+
+---
+
 ## Case Studies
 
 Empirical evidence from practitioners. Full case studies are in [`docs/case-studies.md`](case-studies.md).
