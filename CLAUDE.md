@@ -63,12 +63,36 @@ All new issues must be added to the **Lifting Logbook** project and assigned an 
 
 | Name | Option ID |
 |---|---|
-| Monorepo Scaffolding | `974b67c1` |
-| Package & App Scaffolding | `26d27ab2` |
-| Port Interfaces | `9196ffd9` |
-| Shared Types | `42bf8843` |
-| CI/CD Foundation | `23133b3a` |
-| Architecture & Documentation | `656e470c` |
+| Monorepo Scaffolding | `21b4df76` |
+| Package & App Scaffolding | `93d9f110` |
+| Port Interfaces | `6a4461a3` |
+| Shared Types | `c994b610` |
+| CI/CD Foundation | `db69d376` |
+| Architecture & Documentation | `c67ce0db` |
+| Observability | `dcc4aeb8` |
+
+> **IDs regenerate on every option mutation.** `updateProjectV2Field` with `singleSelectOptions` is a full replacement — passing the existing options unchanged still produces new IDs and drops every item's prior assignment. Always follow the **Backup-and-restore procedure** below before any mutation, and update this table immediately after.
+
+**Backup-and-restore procedure (mandatory before adding/removing/renaming any single-select option):**
+
+1. Snapshot current Epic assignments to a git-tracked file:
+   ```bash
+   mkdir -p .claude/backups
+   STAMP=$(date +%Y-%m-%d-%H%M%S)
+   gh api graphql -f query='
+     query { node(id: "PVT_kwHOAjEKvM4BTuEF") { ... on ProjectV2 {
+       items(first: 200) { nodes { id content { ... on Issue { number title } }
+         fieldValues(first: 20) { nodes { ... on ProjectV2ItemFieldSingleSelectValue {
+           name field { ... on ProjectV2SingleSelectField { name } } } } } } } } } }' \
+     > .claude/backups/project-epic-snapshot-$STAMP.json
+   git add .claude/backups/project-epic-snapshot-$STAMP.json
+   git commit -m "[chore] Snapshot project Epic assignments before option mutation"
+   ```
+2. Run the `updateProjectV2Field` mutation with the full desired option list (existing names + new/changed).
+3. Capture the new option IDs from the mutation response and update the **Epic options** table above in the same PR as the snapshot.
+4. Restore assignments by reading the snapshot and re-issuing `gh project item-edit` for each item, mapping the snapshot's epic name → new option ID.
+
+If a mutation runs without a prior snapshot commit, stop and recover from the latest snapshot in `.claude/backups/` before continuing any other work.
 
 **Milestones:**
 
