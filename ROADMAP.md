@@ -28,9 +28,9 @@ is codified.
 
 ### Proposals
 
-| Proposal | Description | Issue |
-|---|---|---|
-| *(none yet)* | | |
+| Proposal | Description | Issue | Status |
+|---|---|---|---|
+| [Developer Onboarding Guide](docs/proposals/2026-05-08-onboarding-guide.md) | Single `docs/onboarding.md` walking new engineers from clone to first PR; sequences existing docs and ADRs | [#200](https://github.com/brownm09/lifting-logbook/issues/200) | draft |
 
 ---
 
@@ -59,6 +59,7 @@ Architecture decisions for data access and security documented.
 | Proposal | Description | Issue | Status |
 |---|---|---|---|
 | [Lift Library and Exercise Tagging](docs/proposals/2026-04-13-lift-library-exercise-tagging.md) | First-class `Lift` domain type with compound/accessory classification, movement tags, and configurable program exercise slots | [#64](https://github.com/brownm09/lifting-logbook/issues/64) | shipped |
+| [Grafana Cloud Observability Stack](docs/proposals/2026-05-08-grafana-cloud-observability-stack.md) | OpenTelemetry tracing, metrics, and logs in `apps/api` and `apps/web` exporting to Grafana Cloud, with RED-style alerts | [#199](https://github.com/brownm09/lifting-logbook/issues/199) | draft |
 
 ---
 
@@ -104,6 +105,7 @@ Web and mobile clients functional end-to-end. Key user-facing features implement
 | [Training Max Management Screen](docs/proposals/2026-04-29-training-max-management.md) | View and edit per-lift 1RMs at `/settings/training-maxes`; drives all working set calculations | [#108](https://github.com/brownm09/lifting-logbook/issues/108) | shipped |
 | [Strength Goal Tracking](docs/proposals/2026-04-29-strength-goal-tracking.md) | Per-lift, per-tier strength standards (intermediate/advanced/elite) with target and observed dates | [#111](https://github.com/brownm09/lifting-logbook/issues/111) | shipped |
 | [Initial Training Max Discovery](docs/proposals/2026-04-30-initial-training-max-discovery.md) | Estimation utility (Brzycki) and test-week cycle phase for users with no existing training maxes | [#129](https://github.com/brownm09/lifting-logbook/issues/129) | shipped |
+| [On-Call Readiness](docs/proposals/2026-05-08-on-call-readiness.md) | Runbooks, SLOs, incident response guide, and severity/escalation framework; sequences after #199 | [#201](https://github.com/brownm09/lifting-logbook/issues/201) | draft |
 
 ---
 
