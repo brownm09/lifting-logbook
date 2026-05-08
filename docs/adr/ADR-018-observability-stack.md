@@ -74,8 +74,8 @@ GCP's first-party stack would integrate trivially given the existing infrastruct
 ### Negative
 
 - **Five-service local stack.** docker-compose grows from one service (Postgres) to six (Postgres + Tempo + Loki + Prometheus + Grafana + otel-collector). Cold-start cost for `docker compose up` will increase noticeably; the runbook will document that the observability stack is opt-in via a profile.
-- **No SLOs yet.** Three RED alert rules ship in [#207](https://github.com/brownm09/lifting-logbook/issues/207) — error-rate > 1%, p95 > 1s, no-requests-10m — but proper SLOs and error budgets are explicitly deferred to [#201 (On-Call Readiness)](../proposals/2026-05-08-on-call-readiness.md). The initial alerts are coarse signals, not refined SLO violations.
-- **Head-based 100% sampling.** Will not scale to high-traffic production. Must be revisited before public launch; the threshold and policy live in a follow-up issue, not this ADR.
+- **No SLOs yet.** Three RED alert rules ship in [#207](https://github.com/brownm09/lifting-logbook/issues/207) — error-rate > 1%, p95 > 1s, no-requests-10m — but proper SLOs and error budgets are explicitly deferred to [#201 (On-Call Readiness)](../proposals/2026-05-08-on-call-readiness.md). The initial alerts are coarse signals, not refined SLO violations. The `no-requests-10m` rule in particular is known to fire spuriously on low-traffic services with diurnal patterns; [#207](https://github.com/brownm09/lifting-logbook/issues/207) must gate it to a known-traffic window (business hours, or a `for:` clause sized to the longest expected idle period) before the rule lands in production.
+- **Head-based 100% sampling.** Will not scale to high-traffic production. Tracked in [#210](https://github.com/brownm09/lifting-logbook/issues/210); revisit when sustained ingest crosses 1,000 spans/minute (24h avg) or monthly Grafana Cloud trace cost exceeds $25.
 - **Prisma autoinstrumentation has caveats.** It instruments Prisma Client calls but not raw `$queryRaw` / `$executeRaw` invocations. Code that uses raw SQL must add manual spans if those queries should be traced.
 
 ---
@@ -114,7 +114,7 @@ The five child PRs of [#199](https://github.com/brownm09/lifting-logbook/issues/
 | [Next.js — OpenTelemetry](https://nextjs.org/docs/app/building-your-application/optimizing/open-telemetry) | The instrumentation API in Next.js 16 used by `apps/web/instrumentation.ts`. |
 | [Google SRE Book — Monitoring Distributed Systems](https://sre.google/sre-book/monitoring-distributed-systems/) | The RED/USE framing the three alert rules in [#207](https://github.com/brownm09/lifting-logbook/issues/207) are built on. |
 | [Prometheus — Alerting Rules](https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/) | The alert rule syntax in `infra/observability/alerts/api.yaml`; Mimir's rule format is identical. |
-| [CNCF — OpenTelemetry graduation announcement](https://www.cncf.io/announcements/2024/01/22/opentelemetry-becomes-graduated-cncf-project/) | Documents OpenTelemetry's status as a graduated CNCF project; supports the "de facto standard" framing of the Decision section. |
+| [CNCF — OpenTelemetry project page](https://www.cncf.io/projects/opentelemetry/) | Documents OpenTelemetry's CNCF project status and adoption signal; supports the "de facto standard" framing of the Decision section. |
 | [ADR-002 — Ports and Adapters](ADR-002-ports-and-adapters.md) | The architectural rationale for keeping the application code endpoint-agnostic; the `OTEL_EXPORTER_OTLP_ENDPOINT` env var follows the same boundary discipline. |
 | [ADR-009 — Infrastructure (GKE + Cloud Run)](ADR-009-infrastructure-kubernetes-cloud-run.md) | The GKE-first deployment stance that drives the DaemonSet topology choice. |
 | [ADR-011 — API server (NestJS + Fastify)](ADR-011-api-server-nestjs-and-express.md) | Fastify is the underlying HTTP framework; the OTel HTTP autoinstrumentation hooks into the Fastify request lifecycle. |

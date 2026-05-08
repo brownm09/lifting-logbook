@@ -212,7 +212,7 @@ References from [`docs/security-review-checklist.md`](security-review-checklist.
 | [Next.js — OpenTelemetry](https://nextjs.org/docs/app/building-your-application/optimizing/open-telemetry) | [ADR-018](adr/ADR-018-observability-stack.md) | The instrumentation API in Next.js 16 used by `apps/web/instrumentation.ts`. |
 | [Google SRE Book — Monitoring Distributed Systems](https://sre.google/sre-book/monitoring-distributed-systems/) | [ADR-018](adr/ADR-018-observability-stack.md) | The RED/USE framing the initial alert rules are built on. |
 | [Prometheus — Alerting Rules](https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/) | [ADR-018](adr/ADR-018-observability-stack.md) | The alert rule syntax used in `infra/observability/alerts/api.yaml`. |
-| [CNCF — OpenTelemetry graduation announcement](https://www.cncf.io/announcements/2024/01/22/opentelemetry-becomes-graduated-cncf-project/) | [ADR-018](adr/ADR-018-observability-stack.md) | Supports the "de facto standard" framing of the OTel decision. |
+| [CNCF — OpenTelemetry project page](https://www.cncf.io/projects/opentelemetry/) | [ADR-018](adr/ADR-018-observability-stack.md) | Supports the "de facto standard" framing of the OTel decision. |
 
 ---
 
