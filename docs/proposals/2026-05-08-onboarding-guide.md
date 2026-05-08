@@ -30,7 +30,10 @@ The README's quick-start gets a one-line "for a guided walkthrough, see [onboard
 - [ ] An "ADR reading order" section recommends the first 4–5 ADRs for new engineers
 - [ ] A troubleshooting section covers the top three local-dev failure modes (env vars missing, Postgres not up, Node version mismatch)
 - [ ] [README.md](../../README.md) links to `docs/onboarding.md` from its quick-start section
-- [ ] A senior engineer unfamiliar with the repo can follow the guide end-to-end and open a PR within one working session
+
+**Post-merge follow-up (not part of the implementing PR's done-line):**
+
+- Observe the next new-engineer onboarding pass after this guide ships and revise gaps surfaced during that pass
 
 ## Out of Scope
 

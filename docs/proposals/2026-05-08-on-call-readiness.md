@@ -32,6 +32,11 @@ Establish the on-call foundation in three parts:
 This proposal sequences after the observability stack proposal because runbooks reference
 dashboards and alerts that don't exist yet.
 
+**Milestone fit note:** This work is assigned to v0.3 — Client Applications not because it is
+client-application work (it is not), but because on-call coverage must be in place before v0.3
+ships features to real users. If a dedicated Operations / Operability milestone is added in the
+future, this proposal should move there.
+
 ## Acceptance Criteria
 
 - [ ] `docs/runbooks/` exists with a `README.md` index and runbooks for at least four scenarios: API 5xx surge, database unreachable, auth provider outage, deploy regression rollback

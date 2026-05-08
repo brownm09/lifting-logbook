@@ -27,7 +27,7 @@ alternatives (Honeycomb, Datadog, self-hosted) so future teams understand the tr
 
 - [ ] `@opentelemetry/sdk-node` is installed and initialized in `apps/api` and emits traces for HTTP requests and outbound Postgres queries
 - [ ] `@opentelemetry/sdk-trace-web` (or Next.js OTel integration) is installed in `apps/web` and emits traces from server components and route handlers, with trace context propagated to `apps/api`
-- [ ] An OTel Collector is deployed (sidecar or DaemonSet on GKE; Cloud Run sidecar) and exports to Grafana Cloud over OTLP
+- [ ] An OTel Collector is deployed and exports to Grafana Cloud over OTLP (deployment topology — sidecar, DaemonSet, etc. — decided at implementation time per Open Questions)
 - [ ] RED metrics for `apps/api` are visible in a Grafana dashboard committed to the repo as code (JSON or Grafana-as-code)
 - [ ] Structured logs from `apps/api` flow to Loki with `trace_id` and `span_id` attached for log↔trace correlation
 - [ ] Three alert rules exist and route to a notification channel: API error-rate > 1%, p95 latency > 1s, no requests for 10m
@@ -38,7 +38,7 @@ alternatives (Honeycomb, Datadog, self-hosted) so future teams understand the tr
 
 - Frontend RUM (real user monitoring) and Web Vitals — defer to a follow-up
 - Profiling (Pyroscope) — defer
-- SLO definitions and error budgets — these depend on real traffic data; defer to v0.3
+- SLO definitions and error budgets — owned by [#201 (On-Call Readiness)](2026-05-08-on-call-readiness.md); depend on real traffic data and live alongside the on-call work
 - Synthetic monitoring / external probes — defer
 - Mobile (`apps/mobile`) instrumentation — defer until the mobile app has real traffic
 
