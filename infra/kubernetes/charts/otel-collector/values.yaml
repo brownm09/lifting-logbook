@@ -22,6 +22,11 @@ env:
   OTEL_COLLECTOR_OTLP_ENDPOINT: ""   # set per-environment
   OTEL_COLLECTOR_LOKI_ENDPOINT: ""   # set per-environment
 
+# Percentage of clean traces (no errors, under latency threshold) to keep.
+# Errors and slow traces (>1 000 ms) are always kept regardless of this value.
+# Override per-environment: 100 for local dev, 20 for staging/production.
+tailSampleRate: "20"
+
 # GCP-specific config
 gcp:
   projectId: ""

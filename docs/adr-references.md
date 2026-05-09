@@ -218,6 +218,8 @@ References from [`docs/security-review-checklist.md`](security-review-checklist.
 | [Google SRE Book — Chapter 6: Monitoring Distributed Systems](https://sre.google/sre-book/monitoring-distributed-systems/) | [ADR-018](adr/ADR-018-observability-stack.md), [ADR-019](adr/ADR-019-slo-methodology.md) | The four golden signals and symptom-vs-cause alert framing. |
 | [Prometheus — Recording Rules](https://prometheus.io/docs/prometheus/latest/configuration/recording_rules/) | [ADR-019](adr/ADR-019-slo-methodology.md) | Required for efficient evaluation of 28-day burn-rate expressions; authoritative syntax reference. |
 | [OpenSLO — Specification](https://openslo.com/) | [ADR-019](adr/ADR-019-slo-methodology.md) | YAML open standard for SLO definition; informs the `docs/operations/slo.md` format. |
+| [OpenTelemetry Collector contrib — `tail_sampling` processor](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/tailsamplingprocessor) | [ADR-020](adr/ADR-020-tail-based-sampling-policy.md) | Authoritative documentation for the `tail_sampling` processor; covers all policy types, `decision_wait` semantics, and known limitations. |
+| [OpenTelemetry — Sampling](https://opentelemetry.io/docs/concepts/sampling/) | [ADR-020](adr/ADR-020-tail-based-sampling-policy.md) | Conceptual overview of head-based vs. tail-based sampling; basis for the Rationale framing in ADR-020. |
 
 ---
 

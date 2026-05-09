@@ -11,6 +11,21 @@ receivers:
         endpoint: 0.0.0.0:4318
 
 processors:
+  tail_sampling:
+    decision_wait: 10s
+    policies:
+      - name: errors
+        type: status_code
+        status_code:
+          status_codes: [ERROR]
+      - name: slow_traces
+        type: latency
+        latency:
+          threshold_ms: 1000
+      - name: probabilistic
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: ${env:OTEL_TAIL_SAMPLE_RATE}
   batch:
     timeout: 5s
     send_batch_size: 1000
@@ -32,7 +47,7 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [batch]
+      processors: [tail_sampling, batch]
       exporters: [otlphttp/traces]
     metrics:
       receivers: [otlp]
