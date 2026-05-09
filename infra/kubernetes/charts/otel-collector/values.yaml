@@ -1,0 +1,37 @@
+# Default values — overridden by infra/kubernetes/values/{staging,production}.yaml
+
+image:
+  repository: otel/opentelemetry-collector-contrib
+  tag: "0.104.0"
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: "otel-collector"
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+# Non-secret env vars for the collector config substitution.
+# Auth header secrets are pulled from Secret Manager via workload identity SA.
+env:
+  OTEL_COLLECTOR_OTLP_ENDPOINT: ""   # set per-environment
+  OTEL_COLLECTOR_LOKI_ENDPOINT: ""   # set per-environment
+
+# GCP-specific config
+gcp:
+  projectId: ""
+  serviceAccountEmail: ""   # workload identity SA email
+
+# Name of the pre-existing Kubernetes Secret containing otlp-auth-header and loki-auth-header keys.
+# Create this Secret before running helm install — the chart does NOT create it.
+# Recommended pattern: External Secrets Operator pulling from GCP Secret Manager via Workload Identity.
+# Example manual creation:
+#   kubectl create secret generic otel-collector-secrets \
+#     --from-literal=otlp-auth-header="Basic <base64(instanceId:apiKey)>" \
+#     --from-literal=loki-auth-header="Basic <base64(instanceId:apiKey)>"
+existingSecret: "otel-collector-secrets"

@@ -1,0 +1,20 @@
+OTel Collector DaemonSet deployed as: {{ include "otel-collector.fullname" . }}
+
+REQUIRED: Create the auth-header Secret before running helm install.
+The chart does NOT create this Secret — it must exist in the namespace first.
+
+  kubectl create secret generic {{ .Values.existingSecret }} \
+    --from-literal=otlp-auth-header="Basic <base64(instanceId:apiKey)>" \
+    --from-literal=loki-auth-header="Basic <base64(instanceId:apiKey)>"
+
+Recommended production pattern: External Secrets Operator pulling from
+GCP Secret Manager via Workload Identity (configure existingSecret to match
+the ExternalSecret's target.name).
+
+Endpoints (ClusterIP):
+  OTLP gRPC:  {{ include "otel-collector.fullname" . }}:4317
+  OTLP HTTP:  {{ include "otel-collector.fullname" . }}:4318
+  Prometheus: {{ include "otel-collector.fullname" . }}:8889
+
+Configure your apps to export to:
+  OTEL_EXPORTER_OTLP_ENDPOINT=http://{{ include "otel-collector.fullname" . }}:4318

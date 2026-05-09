@@ -1,0 +1,93 @@
+# OTel Collector sidecar for Cloud Run (template — not yet deployed).
+# Inject alongside the api container as a second container in the same revision.
+# See ADR-018 for the decision to use a DaemonSet on GKE as the primary topology;
+# this sidecar template is provided for Cloud Run parity when GKE is unavailable.
+#
+# Template variables (substituted by CI/CD):
+#   $PROJECT_ID                    — GCP project ID
+#   $REGION                        — GCP region (us-central1)
+#   $IMAGE_TAG                     — Git SHA of the deployed api image
+#   $ENVIRONMENT                   — staging | production
+#   $OTEL_COLLECTOR_CONFIG_SECRET  — Secret Manager secret name holding the otel-collector config.yaml
+#                                    (Cloud Run supports secret volumes, not ConfigMap volumes)
+
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: lifting-logbook-api
+  labels:
+    cloud.googleapis.com/location: us-central1
+  annotations:
+    run.googleapis.com/ingress: all
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "1"
+        autoscaling.knative.dev/maxScale: "10"
+        run.googleapis.com/vpc-access-connector: projects/$PROJECT_ID/locations/$REGION/connectors/prod-connector
+        run.googleapis.com/vpc-access-egress: private-ranges-only
+    spec:
+      serviceAccountName: lifting-logbook-prod-api-wi@$PROJECT_ID.iam.gserviceaccount.com
+      containerConcurrency: 80
+      containers:
+        - name: api
+          image: us-central1-docker.pkg.dev/$PROJECT_ID/lifting-logbook/api:$IMAGE_TAG
+          ports:
+            - containerPort: 3000
+          resources:
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          env:
+            - name: NODE_ENV
+              value: $ENVIRONMENT
+            - name: PORT
+              value: "3000"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://localhost:4318
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: lifting-logbook-prod-database-url
+                  key: latest
+            - name: SYSTEM_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: lifting-logbook-prod-system-database-url
+                  key: latest
+            - name: CLERK_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: lifting-logbook-prod-clerk-secret-key
+                  key: latest
+
+        - name: otel-collector
+          image: otel/opentelemetry-collector-contrib:0.104.0
+          args: ["--config=/etc/otelcol/config.yaml"]
+          resources:
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          env:
+            - name: OTEL_COLLECTOR_OTLP_ENDPOINT
+              value: https://otlp-gateway-prod-us-central1.grafana.net/otlp
+            - name: OTEL_COLLECTOR_LOKI_ENDPOINT
+              value: https://logs-prod-021.grafana.net/loki/api/v1/push
+            - name: OTEL_COLLECTOR_OTLP_AUTH_HEADER
+              valueFrom:
+                secretKeyRef:
+                  name: lifting-logbook-prod-otel-otlp-auth-header
+                  key: latest
+            - name: OTEL_COLLECTOR_LOKI_AUTH_HEADER
+              valueFrom:
+                secretKeyRef:
+                  name: lifting-logbook-prod-otel-loki-auth-header
+                  key: latest
+          volumeMounts:
+            - name: otelconfig
+              mountPath: /etc/otelcol
+      volumes:
+        - name: otelconfig
+          secret:
+            secretName: $OTEL_COLLECTOR_CONFIG_SECRET
