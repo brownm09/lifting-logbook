@@ -15,8 +15,8 @@ set -euo pipefail
 SERVICES=(otel-collector tempo loki prometheus grafana)
 WAIT_SERVICES=(tempo loki otel-collector)
 
-TRACE_ID="$(tr -dc 'a-f0-9' </dev/urandom | head -c 32)"
-SPAN_ID="$(tr -dc 'a-f0-9' </dev/urandom | head -c 16)"
+TRACE_ID="$(openssl rand -hex 16)"
+SPAN_ID="$(openssl rand -hex 8)"
 START_TIME_NS="$(date +%s)000000000"
 END_TIME_NS="$(($(date +%s) + 1))000000000"
 
