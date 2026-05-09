@@ -1,3 +1,7 @@
+// MUST be the first import. otel.ts starts the OpenTelemetry NodeSDK, which
+// uses require-in-the-middle to patch http, pg, @prisma/client, etc. Any module
+// that pulls those in before this line will not be instrumented. Do not let an
+// import sorter (ESLint sort-imports / Prettier organize-imports) move it.
 import './otel';
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';

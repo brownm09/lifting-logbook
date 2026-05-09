@@ -11,6 +11,24 @@ import { ProgramsModule } from './programs/programs.module';
   imports: [
     LoggerModule.forRoot({
       pinoHttp: {
+        // Strip auth-bearing headers before they reach Loki. pino-http's default
+        // req serializer logs req.headers verbatim, which would otherwise leak
+        // JWTs and session cookies into long-retention log storage.
+        redact: {
+          paths: [
+            'req.headers.authorization',
+            'req.headers.cookie',
+            'req.headers["set-cookie"]',
+            'res.headers["set-cookie"]',
+          ],
+          remove: true,
+        },
+        // K8s liveness/readiness probes hit /health on every replica every few
+        // seconds; auto-logging that path inflates Grafana Cloud log spend
+        // without adding signal.
+        autoLogging: {
+          ignore: (req) => req.url === '/health',
+        },
         mixin() {
           const span = trace.getSpan(context.active());
           if (!span) return {};

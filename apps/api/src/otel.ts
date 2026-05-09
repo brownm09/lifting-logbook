@@ -11,22 +11,29 @@ export function startOtel(): NodeSDK | undefined {
   if (process.env.OTEL_SDK_DISABLED === 'true') return undefined;
   if (sdk) return sdk;
 
-  const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
-
+  // Exporters env-resolve OTEL_EXPORTER_OTLP_ENDPOINT (base) per the OTLP spec
+  // and append /v1/traces or /v1/metrics; OTEL_EXPORTER_OTLP_TRACES_ENDPOINT or
+  // OTEL_EXPORTER_OTLP_METRICS_ENDPOINT (full URL) override per-signal. Sampling
+  // is controlled by OTEL_TRACES_SAMPLER / OTEL_TRACES_SAMPLER_ARG (defaults to
+  // parentbased_always_on); ADR-018 covers the production sampling decision.
   sdk = new NodeSDK({
     serviceName: process.env.OTEL_SERVICE_NAME ?? 'lifting-logbook-api',
-    traceExporter: new OTLPTraceExporter(endpoint ? { url: `${endpoint}/v1/traces` } : {}),
-    metricReader: new PeriodicExportingMetricReader({
-      exporter: new OTLPMetricExporter(endpoint ? { url: `${endpoint}/v1/metrics` } : {}),
-    }),
+    traceExporter: new OTLPTraceExporter(),
+    metricReaders: [
+      new PeriodicExportingMetricReader({
+        exporter: new OTLPMetricExporter(),
+      }),
+    ],
     instrumentations: [getNodeAutoInstrumentations(), new PrismaInstrumentation()],
   });
 
   sdk.start();
 
-  process.on('SIGTERM', () => {
+  const shutdown = () => {
     sdk?.shutdown().catch(() => undefined);
-  });
+  };
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 
   return sdk;
 }
