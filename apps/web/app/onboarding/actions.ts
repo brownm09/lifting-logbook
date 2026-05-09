@@ -1,6 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+// next/dist internal path — not a public API; validate on Next.js upgrades
 import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { createCycle } from '@/lib/api';
 import { PROGRAMS } from './programs';
