@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "otel-collector.fullname" . }}
+  labels:
+    app: {{ include "otel-collector.fullname" . }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ include "otel-collector.fullname" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "otel-collector.fullname" . }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "otel-collector.fullname" . }}
+      containers:
+        - name: otel-collector
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["--config=/etc/otelcol/config.yaml"]
+          ports:
+            - containerPort: 4317
+              name: otlp-grpc
+            - containerPort: 4318
+              name: otlp-http
+            - containerPort: 8889
+              name: prometheus
+            - containerPort: 13133
+              name: health
+          envFrom:
+            - configMapRef:
+                name: {{ include "otel-collector.fullname" . }}-config
+          env:
+            - name: OTEL_COLLECTOR_OTLP_AUTH_HEADER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "otel-collector.fullname" . }}-secrets
+                  key: otlp-auth-header
+            - name: OTEL_COLLECTOR_LOKI_AUTH_HEADER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "otel-collector.fullname" . }}-secrets
+                  key: loki-auth-header
+          volumeMounts:
+            - name: otelconfig
+              mountPath: /etc/otelcol
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 13133
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 13133
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: otelconfig
+          configMap:
+            name: {{ include "otel-collector.fullname" . }}-otelconfig

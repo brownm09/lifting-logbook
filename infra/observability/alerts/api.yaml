@@ -1,0 +1,37 @@
+groups:
+  - name: api
+    rules:
+      - alert: APIHighErrorRate
+        expr: |
+          sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~"5.."}[5m]))
+          / sum(rate(http_server_request_duration_seconds_count[5m]))
+          > 0.01
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API error rate > 1%"
+          description: "{{ $value | humanizePercentage }} of requests are returning 5xx"
+
+      - alert: APIHighP95Latency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(http_server_request_duration_seconds_bucket[5m])) by (le)
+          ) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API p95 latency > 1s"
+          description: "p95 latency is {{ $value | humanizeDuration }}"
+
+      - alert: APINoRequests
+        expr: |
+          sum(increase(http_server_request_duration_seconds_count[10m])) == 0
+        for: 10m
+        labels:
+          severity: info
+        annotations:
+          summary: "API received no requests in 10 minutes"
+          description: "No traffic seen. May fire spuriously outside business hours."

@@ -1,0 +1,33 @@
+# Default values — overridden by infra/kubernetes/values/{staging,production}.yaml
+
+image:
+  repository: otel/opentelemetry-collector-contrib
+  tag: "0.104.0"
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: "otel-collector"
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+# Non-secret env vars for the collector config substitution.
+# Auth header secrets are pulled from Secret Manager via workload identity SA.
+env:
+  OTEL_COLLECTOR_OTLP_ENDPOINT: ""   # set per-environment
+  OTEL_COLLECTOR_LOKI_ENDPOINT: ""   # set per-environment
+
+# GCP-specific config
+gcp:
+  projectId: ""
+  serviceAccountEmail: ""   # workload identity SA email
+
+# Secret Manager secret IDs (not the secret values)
+secrets:
+  otlpAuthHeader: ""   # Secret Manager secret ID for OTEL_COLLECTOR_OTLP_AUTH_HEADER
+  lokiAuthHeader: ""   # Secret Manager secret ID for OTEL_COLLECTOR_LOKI_AUTH_HEADER

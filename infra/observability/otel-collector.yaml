@@ -1,0 +1,44 @@
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 1000
+
+exporters:
+  otlphttp/traces:
+    endpoint: ${env:OTEL_COLLECTOR_OTLP_ENDPOINT}
+    headers:
+      authorization: ${env:OTEL_COLLECTOR_OTLP_AUTH_HEADER}
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+  loki:
+    endpoint: ${env:OTEL_COLLECTOR_LOKI_ENDPOINT}
+    headers:
+      authorization: ${env:OTEL_COLLECTOR_LOKI_AUTH_HEADER}
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp/traces]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [loki]
