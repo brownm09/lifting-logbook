@@ -27,7 +27,11 @@ gcp:
   projectId: ""
   serviceAccountEmail: ""   # workload identity SA email
 
-# Secret Manager secret IDs (not the secret values)
-secrets:
-  otlpAuthHeader: ""   # Secret Manager secret ID for OTEL_COLLECTOR_OTLP_AUTH_HEADER
-  lokiAuthHeader: ""   # Secret Manager secret ID for OTEL_COLLECTOR_LOKI_AUTH_HEADER
+# Name of the pre-existing Kubernetes Secret containing otlp-auth-header and loki-auth-header keys.
+# Create this Secret before running helm install — the chart does NOT create it.
+# Recommended pattern: External Secrets Operator pulling from GCP Secret Manager via Workload Identity.
+# Example manual creation:
+#   kubectl create secret generic otel-collector-secrets \
+#     --from-literal=otlp-auth-header="Basic <base64(instanceId:apiKey)>" \
+#     --from-literal=loki-auth-header="Basic <base64(instanceId:apiKey)>"
+existingSecret: "otel-collector-secrets"

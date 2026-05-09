@@ -28,7 +28,7 @@ groups:
 
       - alert: APINoRequests
         expr: |
-          sum(increase(http_server_request_duration_seconds_count[10m])) == 0
+          (sum(increase(http_server_request_duration_seconds_count[10m])) or vector(0)) == 0
         for: 10m
         labels:
           severity: info

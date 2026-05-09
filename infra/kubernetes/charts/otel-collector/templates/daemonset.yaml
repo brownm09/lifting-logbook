@@ -37,12 +37,12 @@ spec:
             - name: OTEL_COLLECTOR_OTLP_AUTH_HEADER
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "otel-collector.fullname" . }}-secrets
+                  name: {{ .Values.existingSecret }}
                   key: otlp-auth-header
             - name: OTEL_COLLECTOR_LOKI_AUTH_HEADER
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "otel-collector.fullname" . }}-secrets
+                  name: {{ .Values.existingSecret }}
                   key: loki-auth-header
           volumeMounts:
             - name: otelconfig

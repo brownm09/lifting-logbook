@@ -23,7 +23,7 @@ storage:
 
 compactor:
   compaction:
-    block_retention: 1h
+    block_retention: 24h  # keep a full day of traces for local dev debugging sessions
 
 query_frontend:
   search:
