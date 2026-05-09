@@ -1,6 +1,6 @@
 # Proposal: Grafana Cloud Observability Stack
 
-**Status:** `draft`
+**Status:** `shipped`
 **Date:** 2026-05-08
 **Issue:** [#199](https://github.com/brownm09/lifting-logbook/issues/199)
 

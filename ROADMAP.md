@@ -59,7 +59,7 @@ Architecture decisions for data access and security documented.
 | Proposal | Description | Issue | Status |
 |---|---|---|---|
 | [Lift Library and Exercise Tagging](docs/proposals/2026-04-13-lift-library-exercise-tagging.md) | First-class `Lift` domain type with compound/accessory classification, movement tags, and configurable program exercise slots | [#64](https://github.com/brownm09/lifting-logbook/issues/64) | shipped |
-| [Grafana Cloud Observability Stack](docs/proposals/2026-05-08-grafana-cloud-observability-stack.md) | OpenTelemetry tracing, metrics, and logs in `apps/api` and `apps/web` exporting to Grafana Cloud, with RED-style alerts | [#199](https://github.com/brownm09/lifting-logbook/issues/199) | draft |
+| [Grafana Cloud Observability Stack](docs/proposals/2026-05-08-grafana-cloud-observability-stack.md) | OpenTelemetry tracing, metrics, and logs in `apps/api` and `apps/web` exporting to Grafana Cloud, with RED-style alerts | [#199](https://github.com/brownm09/lifting-logbook/issues/199) | shipped |
 
 ---
 

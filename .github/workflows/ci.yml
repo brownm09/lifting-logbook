@@ -89,3 +89,45 @@ jobs:
         run: npx turbo run test --filter=@lifting-logbook/api -- --testPathPatterns=db\\.e2e
         env:
           DATABASE_URL: postgresql://lifting:lifting@localhost:5432/lifting_test
+
+  observability-smoke:
+    name: Observability Stack Smoke Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for changes affecting observability stack
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+            HEAD="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE="${{ github.event.before }}"
+            HEAD="${{ github.sha }}"
+          fi
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            echo "obs=true" >> "$GITHUB_OUTPUT"
+            echo "No comparison base — running smoke test."
+            exit 0
+          fi
+          if git diff --name-only "$BASE" "$HEAD" -- \
+              docker-compose.yml \
+              infra/observability/ \
+              apps/api/src/observability/ \
+              scripts/smoke-test-observability.sh \
+              .github/workflows/ci.yml | grep -q .; then
+            echo "obs=true" >> "$GITHUB_OUTPUT"
+            echo "Observability-affecting paths changed; running smoke test."
+          else
+            echo "obs=false" >> "$GITHUB_OUTPUT"
+            echo "No observability-affecting paths changed; skipping smoke test."
+          fi
+
+      - name: Run observability smoke test
+        if: steps.changes.outputs.obs == 'true'
+        run: bash scripts/smoke-test-observability.sh
