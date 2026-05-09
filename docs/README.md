@@ -153,6 +153,14 @@ monorepo/
 
 ---
 
+## Runbooks
+
+| Runbook | Covers |
+|---------|--------|
+| [Observability](runbooks/observability.md) | Local stack startup, Grafana dashboards, trace queries, log↔trace correlation, alert silencing, Grafana Cloud credential wiring |
+
+---
+
 ## Architecture Diagrams
 
 Visual representations of the system are in [`docs/diagrams/`](diagrams/):

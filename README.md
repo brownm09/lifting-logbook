@@ -110,6 +110,16 @@ npm run dev
 All commands are orchestrated by [Turborepo](https://turbo.build) and only rebuild/retest
 packages affected by your changes.
 
+### Observability
+
+The full docker-compose stack ships Grafana, Tempo, Loki, and Prometheus alongside
+Postgres. Start everything with `docker compose up -d` and open **http://localhost:3030**
+for the Grafana dashboard.
+
+See [docs/runbooks/observability.md](docs/runbooks/observability.md) for the full
+guide: startup, trace queries, log↔trace correlation, alert silencing, and Grafana
+Cloud credential wiring.
+
 ---
 
 ## Architecture

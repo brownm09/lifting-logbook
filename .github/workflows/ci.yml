@@ -89,3 +89,13 @@ jobs:
         run: npx turbo run test --filter=@lifting-logbook/api -- --testPathPatterns=db\\.e2e
         env:
           DATABASE_URL: postgresql://lifting:lifting@localhost:5432/lifting_test
+
+  observability-smoke:
+    name: Observability Stack Smoke Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run observability smoke test
+        run: bash scripts/smoke-test-observability.sh
