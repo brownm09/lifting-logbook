@@ -29,6 +29,7 @@ services:
       - "4317:4317"   # OTLP gRPC
       - "4318:4318"   # OTLP HTTP
       - "8889:8889"   # Prometheus exporter
+      - "13133:13133" # health_check extension
     # The collector image is distroless (no wget/curl/shell), so we cannot run
     # an in-container healthcheck. Probe the health_check extension externally
     # via the host (smoke script and humans hit http://localhost:13133/).
