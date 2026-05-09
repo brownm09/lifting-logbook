@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { LoggerModule } from 'nestjs-pino';
+import { trace, context } from '@opentelemetry/api';
 import { RepositoryFactoryModule } from './adapters/factory/repository-factory.module';
 import { AuthModule } from './auth/auth.module';
 import { HealthModule } from './health/health.module';
@@ -6,6 +8,40 @@ import { LiftsModule } from './lifts/lifts.module';
 import { ProgramsModule } from './programs/programs.module';
 
 @Module({
-  imports: [AuthModule, HealthModule, LiftsModule, ProgramsModule, RepositoryFactoryModule],
+  imports: [
+    LoggerModule.forRoot({
+      pinoHttp: {
+        // Strip auth-bearing headers before they reach Loki. pino-http's default
+        // req serializer logs req.headers verbatim, which would otherwise leak
+        // JWTs and session cookies into long-retention log storage.
+        redact: {
+          paths: [
+            'req.headers.authorization',
+            'req.headers.cookie',
+            'req.headers["set-cookie"]',
+            'res.headers["set-cookie"]',
+          ],
+          remove: true,
+        },
+        // K8s liveness/readiness probes hit /health on every replica every few
+        // seconds; auto-logging that path inflates Grafana Cloud log spend
+        // without adding signal.
+        autoLogging: {
+          ignore: (req) => req.url === '/health',
+        },
+        mixin() {
+          const span = trace.getSpan(context.active());
+          if (!span) return {};
+          const { traceId, spanId } = span.spanContext();
+          return { trace_id: traceId, span_id: spanId };
+        },
+      },
+    }),
+    AuthModule,
+    HealthModule,
+    LiftsModule,
+    ProgramsModule,
+    RepositoryFactoryModule,
+  ],
 })
 export class AppModule {}
