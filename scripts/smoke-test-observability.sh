@@ -13,7 +13,10 @@
 set -euo pipefail
 
 SERVICES=(otel-collector tempo loki prometheus grafana)
-WAIT_SERVICES=(tempo loki otel-collector)
+# Services that expose a Docker healthcheck. otel-collector is distroless and
+# cannot run an in-container probe — we poll its health endpoint from the host
+# in a separate step below.
+WAIT_SERVICES=(tempo loki)
 
 TRACE_ID="$(openssl rand -hex 16)"
 SPAN_ID="$(openssl rand -hex 8)"
@@ -53,6 +56,14 @@ for service in "${WAIT_SERVICES[@]}"; do
   ' _ "$service"
   echo "  ${service} is healthy"
 done
+
+echo "  Waiting for otel-collector health endpoint (host poll)..."
+timeout 90 bash -c '
+  until curl -sf -o /dev/null --max-time 2 http://localhost:13133/; do
+    sleep 2
+  done
+'
+echo "  otel-collector is healthy"
 
 echo "--- Sending synthetic OTLP span (trace_id: ${TRACE_ID}) ---"
 RESPONSE_BODY="$(mktemp)"
