@@ -205,13 +205,11 @@ Credentials are wired via Cloud Run Secret Manager volumes — see the file for 
 ## On-call escalation
 
 Severity levels, escalation paths, SLO targets, and incident response procedures are
-tracked in the On-Call Readiness epic:
+documented in:
 
-- Proposal: [`docs/proposals/2026-05-08-on-call-readiness.md`](../proposals/2026-05-08-on-call-readiness.md)
-- Issue: [#201](https://github.com/brownm09/lifting-logbook/issues/201)
-
-Until that work lands, treat any `warning`-severity alert as requiring acknowledgment
-within 30 minutes during business hours.
+- [`docs/operations/on-call.md`](../operations/on-call.md) — severity levels, escalation paths, postmortem template
+- [`docs/operations/slo.md`](../operations/slo.md) — SLO targets and error budget policy
+- [`docs/runbooks/README.md`](README.md) — index of all failure-mode runbooks
 
 ---
 

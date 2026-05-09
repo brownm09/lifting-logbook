@@ -1,6 +1,6 @@
 # Proposal: On-Call Readiness — Runbooks, SLOs, and Incident Response
 
-**Status:** `draft`
+**Status:** `shipped`
 **Date:** 2026-05-08
 **Issue:** [#201](https://github.com/brownm09/lifting-logbook/issues/201)
 

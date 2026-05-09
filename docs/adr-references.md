@@ -213,6 +213,11 @@ References from [`docs/security-review-checklist.md`](security-review-checklist.
 | [Google SRE Book — Monitoring Distributed Systems](https://sre.google/sre-book/monitoring-distributed-systems/) | [ADR-018](adr/ADR-018-observability-stack.md) | The RED/USE framing the initial alert rules are built on. |
 | [Prometheus — Alerting Rules](https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/) | [ADR-018](adr/ADR-018-observability-stack.md) | The alert rule syntax used in `infra/observability/alerts/api.yaml`. |
 | [CNCF — OpenTelemetry project page](https://www.cncf.io/projects/opentelemetry/) | [ADR-018](adr/ADR-018-observability-stack.md) | Supports the "de facto standard" framing of the OTel decision. |
+| [Google SRE Workbook — Chapter 5: Alerting on SLOs](https://sre.google/workbook/alerting-on-slos/) | [ADR-019](adr/ADR-019-slo-methodology.md) | Canonical burn-rate alerting methodology; defines the burn-rate concept, two-window strategy, and the 14×/6×/3× rate thresholds. |
+| [Google SRE Book — Chapter 4: Service Level Objectives](https://sre.google/sre-book/service-level-objectives/) | [ADR-019](adr/ADR-019-slo-methodology.md) | Foundational SLO framing: SLI → SLO → error budget chain, measurement window semantics, and conservative target rationale. |
+| [Google SRE Book — Chapter 6: Monitoring Distributed Systems](https://sre.google/sre-book/monitoring-distributed-systems/) | [ADR-018](adr/ADR-018-observability-stack.md), [ADR-019](adr/ADR-019-slo-methodology.md) | The four golden signals and symptom-vs-cause alert framing. |
+| [Prometheus — Recording Rules](https://prometheus.io/docs/prometheus/latest/configuration/recording_rules/) | [ADR-019](adr/ADR-019-slo-methodology.md) | Required for efficient evaluation of 28-day burn-rate expressions; authoritative syntax reference. |
+| [OpenSLO — Specification](https://openslo.com/) | [ADR-019](adr/ADR-019-slo-methodology.md) | YAML open standard for SLO definition; informs the `docs/operations/slo.md` format. |
 
 ---
 
