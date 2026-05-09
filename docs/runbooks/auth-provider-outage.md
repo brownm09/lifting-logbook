@@ -103,11 +103,9 @@ issue from inside the cluster.
    ```
 
 3. **Invalid API key:** generate a new key in the Clerk dashboard and update the
-   Kubernetes secret, then restart the API pods:
+   `CLERK_SECRET_KEY` key in the Kubernetes secret, then restart the API pods:
    ```sh
-   kubectl create secret generic api-env \
-     --from-literal=CLERK_SECRET_KEY="<new-key>" \
-     --dry-run=client -o yaml | kubectl apply -f -
+   kubectl patch secret api-env -p '{"stringData":{"CLERK_SECRET_KEY":"<new-key>"}}'
    kubectl rollout restart deployment/api
    ```
 

@@ -1,8 +1,9 @@
 # Runbook: API 5xx Surge
 
-**Triggers:** `APIHighErrorRate` alert (5xx rate > 1% for 5 minutes)
+**Triggers:** `APIHighErrorRate` alert (5xx rate > 1% for 5 minutes); also the starting
+point for `APIHighP95Latency` — check the Latency panel alongside the Error Rate panel
 **Default severity:** SEV2 — escalate to SEV1 if error rate exceeds 10% for > 5 minutes
-**Dashboard:** Grafana → Lifting Logbook → API RED → Error Rate panel
+**Dashboard:** Grafana → Lifting Logbook → API RED → Error Rate panel and Latency panel
 
 ---
 

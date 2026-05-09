@@ -37,4 +37,4 @@ groups:
         annotations:
           summary: "API received no requests in 10 minutes"
           description: "No traffic seen. May fire spuriously outside business hours."
-          runbook_url: "https://github.com/brownm09/lifting-logbook/blob/main/docs/runbooks/deploy-regression-rollback.md"
+          runbook_url: "https://github.com/brownm09/lifting-logbook/blob/main/docs/runbooks/api-5xx-surge.md"

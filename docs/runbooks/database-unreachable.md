@@ -116,10 +116,10 @@ If usage is at or near 100%, the database is at risk of data-loss-causing crashe
    If this recurs, open a GitHub issue to increase the pool size in `schema.prisma`
    (`connection_limit`) or add a connection pooler (PgBouncer).
 
-4. **Wrong credentials:** update the Kubernetes secret with the correct `DATABASE_URL`
+4. **Wrong credentials:** update the `DATABASE_URL` key in the Kubernetes secret
    and restart the API pods to pick up the change:
    ```sh
-   kubectl create secret generic api-env --from-literal=DATABASE_URL="<correct-url>" --dry-run=client -o yaml | kubectl apply -f -
+   kubectl patch secret api-env -p '{"stringData":{"DATABASE_URL":"<correct-url>"}}'
    kubectl rollout restart deployment/api
    ```
 

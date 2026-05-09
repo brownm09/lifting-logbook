@@ -30,6 +30,9 @@ PromQL expression:
 )
 ```
 
+> **Note:** 28-day range vectors are expensive to evaluate ad-hoc. In production, pre-compute
+> these via Prometheus recording rules — see [ADR-019](../adr/ADR-019-slo-methodology.md).
+
 ### Latency definition
 
 The p95 of all request durations, measured end-to-end from the first byte received by Fastify
@@ -44,6 +47,9 @@ histogram_quantile(
   sum(rate(http_server_request_duration_seconds_bucket[28d])) by (le)
 )
 ```
+
+> **Note:** 28-day range vectors are expensive to evaluate ad-hoc. In production, pre-compute
+> these via Prometheus recording rules — see [ADR-019](../adr/ADR-019-slo-methodology.md).
 
 ---
 
