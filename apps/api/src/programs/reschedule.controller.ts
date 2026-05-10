@@ -41,12 +41,14 @@ export class RescheduleController {
       throw new BadRequestException('workoutNum must be a positive integer');
     }
 
-    const { workoutDateOverride, liftingProgramSpec } = await this.factory.forUser(user);
+    const { cycleDashboard, workoutDateOverride, liftingProgramSpec } = await this.factory.forUser(user);
 
     const spec = await liftingProgramSpec.getProgramSpec(program);
     if (spec.length === 0) {
       throw new NotFoundException(`Program '${program}' not found`);
     }
+
+    await cycleDashboard.getCycleDashboard(program);
 
     // Append explicit UTC midnight so the YYYY-MM-DD string is stored as the correct calendar day
     // regardless of the server's local timezone.

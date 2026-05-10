@@ -1,8 +1,10 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { ICycleDashboardRepository } from '../ports/ICycleDashboardRepository';
 import { ILiftingProgramSpecRepository } from '../ports/ILiftingProgramSpecRepository';
 import { IWorkoutDateOverrideRepository } from '../ports/IWorkoutDateOverrideRepository';
 import { IRepositoryFactory } from '../ports/factory';
+import { ProgramNotFoundError } from '../ports/errors';
 import { REPOSITORY_FACTORY } from '../ports/tokens';
 import { RescheduleController } from './reschedule.controller';
 
@@ -17,6 +19,8 @@ describe('RescheduleController', () => {
   let overrideRepoB: jest.Mocked<IWorkoutDateOverrideRepository>;
   let specRepoA: jest.Mocked<ILiftingProgramSpecRepository>;
   let specRepoB: jest.Mocked<ILiftingProgramSpecRepository>;
+  let dashboardRepoA: jest.Mocked<ICycleDashboardRepository>;
+  let dashboardRepoB: jest.Mocked<ICycleDashboardRepository>;
   let factory: jest.Mocked<IRepositoryFactory>;
 
   beforeEach(async () => {
@@ -30,11 +34,13 @@ describe('RescheduleController', () => {
     };
     specRepoA = { getProgramSpec: jest.fn().mockResolvedValue(STUB_SPEC) } as jest.Mocked<ILiftingProgramSpecRepository>;
     specRepoB = { getProgramSpec: jest.fn().mockResolvedValue(STUB_SPEC) } as jest.Mocked<ILiftingProgramSpecRepository>;
+    dashboardRepoA = { getCycleDashboard: jest.fn().mockResolvedValue({}), saveCycleDashboard: jest.fn() } as unknown as jest.Mocked<ICycleDashboardRepository>;
+    dashboardRepoB = { getCycleDashboard: jest.fn().mockResolvedValue({}), saveCycleDashboard: jest.fn() } as unknown as jest.Mocked<ICycleDashboardRepository>;
     factory = {
       forUser: jest.fn().mockImplementation(async (user) =>
         user.id === MOCK_USER_A.id
-          ? { workoutDateOverride: overrideRepoA, liftingProgramSpec: specRepoA }
-          : { workoutDateOverride: overrideRepoB, liftingProgramSpec: specRepoB },
+          ? { cycleDashboard: dashboardRepoA, workoutDateOverride: overrideRepoA, liftingProgramSpec: specRepoA }
+          : { cycleDashboard: dashboardRepoB, workoutDateOverride: overrideRepoB, liftingProgramSpec: specRepoB },
       ),
     };
     const module: TestingModule = await Test.createTestingModule({
@@ -103,6 +109,14 @@ describe('RescheduleController', () => {
     await expect(
       controller.reschedule('no-such-program', '3', '2', { newDate: '2026-05-15' }, MOCK_USER_A),
     ).rejects.toBeInstanceOf(NotFoundException);
+    expect(overrideRepoA.upsertOverride).not.toHaveBeenCalled();
+  });
+
+  it('propagates ProgramNotFoundError when cycle dashboard is missing', async () => {
+    dashboardRepoA.getCycleDashboard.mockRejectedValue(new ProgramNotFoundError('5-3-1'));
+    await expect(
+      controller.reschedule('5-3-1', '3', '2', { newDate: '2026-05-15' }, MOCK_USER_A),
+    ).rejects.toBeInstanceOf(ProgramNotFoundError);
     expect(overrideRepoA.upsertOverride).not.toHaveBeenCalled();
   });
 });
