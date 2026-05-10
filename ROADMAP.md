@@ -25,12 +25,13 @@ is codified.
 | Shared types | Domain types and API contract types in `packages/types` | [#14](https://github.com/brownm09/lifting-logbook/issues/14), [#15](https://github.com/brownm09/lifting-logbook/issues/15) |
 | CI/CD foundation | Lint and test on PR; Docker build and push on merge to main | [#16](https://github.com/brownm09/lifting-logbook/issues/16), [#17](https://github.com/brownm09/lifting-logbook/issues/17) |
 | Process infrastructure | ROADMAP and `docs/proposals/` convention | [#58](https://github.com/brownm09/lifting-logbook/issues/58) |
+| Developer onboarding guide | `docs/onboarding.md` — clone → first PR walkthrough; sequences existing docs and ADRs without duplicating them | [#200](https://github.com/brownm09/lifting-logbook/issues/200) |
 
 ### Proposals
 
 | Proposal | Description | Issue | Status |
 |---|---|---|---|
-| [Developer Onboarding Guide](docs/proposals/2026-05-08-onboarding-guide.md) | Single `docs/onboarding.md` walking new engineers from clone to first PR; sequences existing docs and ADRs | [#200](https://github.com/brownm09/lifting-logbook/issues/200) | draft |
+| [Developer Onboarding Guide](docs/proposals/2026-05-08-onboarding-guide.md) | Single `docs/onboarding.md` walking new engineers from clone to first PR; sequences existing docs and ADRs | [#200](https://github.com/brownm09/lifting-logbook/issues/200) | shipped |
 
 ---
 
