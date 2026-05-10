@@ -1,3 +1,5 @@
+# ADR-021: No OTel Tracing in Test Environment
+
 **Status:** Accepted
 **Date:** 2026-05-10
 **Closes:** [#222](https://github.com/brownm09/lifting-logbook/issues/222)
