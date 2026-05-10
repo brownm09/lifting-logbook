@@ -1,6 +1,6 @@
 # Proposal: Developer Onboarding Guide
 
-**Status:** `draft`
+**Status:** `shipped`
 **Date:** 2026-05-08
 **Issue:** [#200](https://github.com/brownm09/lifting-logbook/issues/200)
 
