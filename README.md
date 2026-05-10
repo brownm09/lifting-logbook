@@ -50,11 +50,13 @@ runs only core's tests, with no knowledge of the rest of the monorepo.
 
 ## Getting Started
 
+For a guided walkthrough from clone to first PR, see [docs/onboarding.md](docs/onboarding.md).
+
 ### Prerequisites
 
 - Node.js >= 20.11.1 (use `.nvmrc`: `nvm use`)
 - npm >= 10 (bundled with Node 20)
-- Docker (for local Postgres)
+- Docker (for local Postgres and the observability stack)
 
 ### Local Development
 
@@ -62,8 +64,8 @@ runs only core's tests, with no knowledge of the rest of the monorepo.
 # 1. Install dependencies
 npm install
 
-# 2. Start Postgres
-docker compose up db -d
+# 2. Start full stack (Postgres + observability)
+docker compose up -d
 
 # 3. Create env files from examples
 cp apps/api/.env.example apps/api/.env
@@ -97,6 +99,7 @@ npm run dev
 
 - Web: http://localhost:3000
 - API: http://localhost:3004
+- Grafana: http://localhost:3030
 
 ### Common Commands
 
@@ -112,13 +115,9 @@ packages affected by your changes.
 
 ### Observability
 
-The full docker-compose stack ships Grafana, Tempo, Loki, and Prometheus alongside
-Postgres. Start everything with `docker compose up -d` and open **http://localhost:3030**
-for the Grafana dashboard.
-
-See [docs/runbooks/observability.md](docs/runbooks/observability.md) for the full
-guide: startup, trace queries, log↔trace correlation, alert silencing, and Grafana
-Cloud credential wiring.
+Grafana is available at **http://localhost:3030** once the stack is running. See
+[docs/runbooks/observability.md](docs/runbooks/observability.md) for the full guide:
+trace queries, log↔trace correlation, alert silencing, and Grafana Cloud credential wiring.
 
 ---
 
