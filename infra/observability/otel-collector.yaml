@@ -12,7 +12,8 @@ receivers:
 
 processors:
   tail_sampling:
-    decision_wait: 10s
+    # Required: OTEL_DECISION_WAIT — set by docker-compose (2s) or Helm decisionWait value (default: 10s)
+    decision_wait: ${env:OTEL_DECISION_WAIT}
     policies:
       - name: errors
         type: status_code
@@ -25,6 +26,7 @@ processors:
       - name: probabilistic
         type: probabilistic
         probabilistic:
+          # Required: OTEL_TAIL_SAMPLE_RATE — set by docker-compose (100) or Helm tailSampleRate value (default: 20)
           sampling_percentage: ${env:OTEL_TAIL_SAMPLE_RATE}
   batch:
     timeout: 5s

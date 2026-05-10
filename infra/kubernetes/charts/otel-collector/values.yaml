@@ -27,6 +27,11 @@ env:
 # Override per-environment: 100 for local dev, 20 for staging/production.
 tailSampleRate: "20"
 
+# How long the tail_sampling processor buffers spans before making a keep/drop decision.
+# 10s is enough to see the full apps/web → apps/api → Postgres span chain in staging/production.
+# Local dev overrides to 2s so spans appear in Grafana Tempo promptly.
+decisionWait: "10s"
+
 # GCP-specific config
 gcp:
   projectId: ""

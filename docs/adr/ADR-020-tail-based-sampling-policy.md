@@ -38,15 +38,18 @@ policies evaluated in order, where a trace is kept if any policy matches:
 | `slow_traces` | `latency` | Total trace duration ≥ 1 000 ms | Always keep |
 | `probabilistic` | `probabilistic` | All remaining traces | Keep `OTEL_TAIL_SAMPLE_RATE`% |
 
-**Decision wait:** 10 seconds. The Collector buffers spans for up to 10 s before deciding whether
-to keep or drop the trace. This is sufficient to see the full HTTP request/response span chain
-across `apps/web` → `apps/api` → Postgres in normal operating conditions.
+**Decision wait:** Driven by `OTEL_DECISION_WAIT` env var. 10 s in staging and production
+(driven by `decisionWait: "10s"` in `infra/kubernetes/charts/otel-collector/values.yaml`) —
+sufficient to see the full HTTP request/response span chain across `apps/web` → `apps/api` →
+Postgres in normal operating conditions.
 
 **Default sampling rate:** 20% for staging and production (driven by `tailSampleRate: "20"` in
 `infra/kubernetes/charts/otel-collector/values.yaml`).
 
-**Local dev override:** `OTEL_TAIL_SAMPLE_RATE: "100"` in `docker-compose.yml` keeps every trace
-so local debugging is not affected by sampling.
+**Local dev overrides** (`docker-compose.yml`):
+- `OTEL_TAIL_SAMPLE_RATE: "100"` — keep every trace; no debugging friction from sampling.
+- `OTEL_DECISION_WAIT: "2s"` — shorter buffer so spans appear in Grafana Tempo within ~2 s
+  rather than waiting the full 10 s decision window.
 
 ---
 

@@ -26,6 +26,7 @@ services:
       OTEL_COLLECTOR_LOKI_ENDPOINT: http://loki:3100/loki/api/v1/push
       OTEL_COLLECTOR_LOKI_AUTH_HEADER: ""
       OTEL_TAIL_SAMPLE_RATE: "100"   # local dev: keep every trace
+      OTEL_DECISION_WAIT: "2s"      # local dev: short buffer so spans appear in Tempo promptly
     ports:
       - "4317:4317"   # OTLP gRPC
       - "4318:4318"   # OTLP HTTP
