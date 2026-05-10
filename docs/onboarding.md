@@ -34,7 +34,7 @@ nvm use
 # Install all workspace dependencies
 npm install
 
-# Start the full stack (Postgres + observability)
+# Start the full stack: Postgres, OTel Collector, Tempo, Loki, Prometheus, Grafana
 docker compose up -d
 
 # Copy env files and fill in values
@@ -143,6 +143,8 @@ npm test -w @lifting-logbook/core
 npm test -w @lifting-logbook/api
 npm test -w @lifting-logbook/web
 ```
+
+> **Note:** `@lifting-logbook/web` has a pre-existing test environment issue (`jest-environment-jsdom` not installed). That failure is safe to ignore — `core` and `api` are the meaningful signal.
 
 Run `npm run build` first if you have touched compiled output (e.g., API controllers, shared
 types in `packages/types`). Integration tests that hit the database require `DATABASE_URL` to
