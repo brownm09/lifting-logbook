@@ -5,6 +5,8 @@ metadata:
 data:
   OTEL_COLLECTOR_OTLP_ENDPOINT: {{ .Values.env.OTEL_COLLECTOR_OTLP_ENDPOINT | quote }}
   OTEL_COLLECTOR_LOKI_ENDPOINT: {{ .Values.env.OTEL_COLLECTOR_LOKI_ENDPOINT | quote }}
+  OTEL_TAIL_SAMPLE_RATE: {{ .Values.tailSampleRate | quote }}
+  OTEL_DECISION_WAIT: {{ .Values.decisionWait | quote }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -25,6 +27,23 @@ data:
             endpoint: 0.0.0.0:4318
 
     processors:
+      tail_sampling:
+        # Required: OTEL_DECISION_WAIT — set by docker-compose (2s) or Helm decisionWait value (default: 10s)
+        decision_wait: ${env:OTEL_DECISION_WAIT}
+        policies:
+          - name: errors
+            type: status_code
+            status_code:
+              status_codes: [ERROR]
+          - name: slow_traces
+            type: latency
+            latency:
+              threshold_ms: 1000
+          - name: probabilistic
+            type: probabilistic
+            probabilistic:
+              # Required: OTEL_TAIL_SAMPLE_RATE — set by docker-compose (100) or Helm tailSampleRate value (default: 20)
+              sampling_percentage: ${env:OTEL_TAIL_SAMPLE_RATE}
       batch:
         timeout: 5s
         send_batch_size: 1000
@@ -46,7 +65,7 @@ data:
       pipelines:
         traces:
           receivers: [otlp]
-          processors: [batch]
+          processors: [tail_sampling, batch]
           exporters: [otlphttp/traces]
         metrics:
           receivers: [otlp]

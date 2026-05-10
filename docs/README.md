@@ -150,6 +150,8 @@ monorepo/
 | [ADR-016](adr/ADR-016-cycle-planning-agent.md)                | Cycle Planning Agent                                          | Accepted |
 | [ADR-017](adr/ADR-017-training-max-history-table.md)          | Training Max History — Dedicated Table vs. Derived            | Accepted |
 | [ADR-018](adr/ADR-018-observability-stack.md)                 | Observability Stack — OpenTelemetry + Grafana Cloud           | Accepted |
+| [ADR-019](adr/ADR-019-slo-methodology.md)                    | SLO Methodology — Burn-Rate Alerting over Threshold Alerting  | Accepted |
+| [ADR-020](adr/ADR-020-tail-based-sampling-policy.md)         | Tail-Based Sampling Policy — Errors Always, Slow Always, 20% Clean | Accepted |
 
 ---
 
