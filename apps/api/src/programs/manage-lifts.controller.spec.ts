@@ -5,6 +5,7 @@ import { ICycleDashboardRepository } from '../ports/ICycleDashboardRepository';
 import { ILiftingProgramSpecRepository } from '../ports/ILiftingProgramSpecRepository';
 import { IWorkoutLiftOverrideRepository } from '../ports/IWorkoutLiftOverrideRepository';
 import { IRepositoryFactory } from '../ports/factory';
+import { ProgramNotFoundError } from '../ports/errors';
 import { REPOSITORY_FACTORY } from '../ports/tokens';
 import { ManageLiftsController } from './manage-lifts.controller';
 
@@ -98,6 +99,15 @@ describe('ManageLiftsController', () => {
       await expect(
         controller.upsertOverride('unknown', '3', '1', { action: 'add', lift: 'Squat' }, MOCK_USER_A),
       ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('propagates ProgramNotFoundError when cycle dashboard is missing', async () => {
+      dashboardRepoA.getCycleDashboard.mockRejectedValue(new ProgramNotFoundError('5-3-1'));
+
+      await expect(
+        controller.upsertOverride('5-3-1', '3', '1', { action: 'add', lift: 'Squat' }, MOCK_USER_A),
+      ).rejects.toBeInstanceOf(ProgramNotFoundError);
+      expect(liftOverrideRepoA.upsertOverride).not.toHaveBeenCalled();
     });
 
     it('throws 400 for invalid cycleNum', async () => {

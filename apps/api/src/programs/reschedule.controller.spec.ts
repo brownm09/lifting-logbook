@@ -4,6 +4,7 @@ import { ICycleDashboardRepository } from '../ports/ICycleDashboardRepository';
 import { ILiftingProgramSpecRepository } from '../ports/ILiftingProgramSpecRepository';
 import { IWorkoutDateOverrideRepository } from '../ports/IWorkoutDateOverrideRepository';
 import { IRepositoryFactory } from '../ports/factory';
+import { ProgramNotFoundError } from '../ports/errors';
 import { REPOSITORY_FACTORY } from '../ports/tokens';
 import { RescheduleController } from './reschedule.controller';
 
@@ -108,6 +109,14 @@ describe('RescheduleController', () => {
     await expect(
       controller.reschedule('no-such-program', '3', '2', { newDate: '2026-05-15' }, MOCK_USER_A),
     ).rejects.toBeInstanceOf(NotFoundException);
+    expect(overrideRepoA.upsertOverride).not.toHaveBeenCalled();
+  });
+
+  it('propagates ProgramNotFoundError when cycle dashboard is missing', async () => {
+    dashboardRepoA.getCycleDashboard.mockRejectedValue(new ProgramNotFoundError('5-3-1'));
+    await expect(
+      controller.reschedule('5-3-1', '3', '2', { newDate: '2026-05-15' }, MOCK_USER_A),
+    ).rejects.toBeInstanceOf(ProgramNotFoundError);
     expect(overrideRepoA.upsertOverride).not.toHaveBeenCalled();
   });
 });
