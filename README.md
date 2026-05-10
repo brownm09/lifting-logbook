@@ -50,6 +50,8 @@ runs only core's tests, with no knowledge of the rest of the monorepo.
 
 ## Getting Started
 
+For a guided walkthrough from clone to first PR, see [docs/onboarding.md](docs/onboarding.md).
+
 ### Prerequisites
 
 - Node.js >= 20.11.1 (use `.nvmrc`: `nvm use`)
