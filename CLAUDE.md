@@ -63,13 +63,16 @@ All new issues must be added to the **Lifting Logbook** project and assigned an 
 
 | Name | Option ID |
 |---|---|
-| Monorepo Scaffolding | `21b4df76` |
-| Package & App Scaffolding | `93d9f110` |
-| Port Interfaces | `6a4461a3` |
-| Shared Types | `c994b610` |
-| CI/CD Foundation | `db69d376` |
-| Architecture & Documentation | `c67ce0db` |
-| Observability | `dcc4aeb8` |
+| Monorepo Scaffolding | `9dcd9556` |
+| Package & App Scaffolding | `ae06cfdd` |
+| Port Interfaces | `cc1ae008` |
+| Shared Types | `a6b59698` |
+| CI/CD Foundation | `fc0df03b` |
+| Architecture & Documentation | `f7202bcd` |
+| Observability | `d3c68018` |
+| API Implementation | `50a1da76` |
+| Client Applications | `31d3931e` |
+| Operations | `0c3f26d2` |
 
 > **IDs regenerate on every option mutation.** `updateProjectV2Field` with `singleSelectOptions` is a full replacement — passing the existing options unchanged still produces new IDs and drops every item's prior assignment. Always follow the **Backup-and-restore procedure** below before any mutation, and update this table immediately after.
 
@@ -81,7 +84,7 @@ All new issues must be added to the **Lifting Logbook** project and assigned an 
    STAMP=$(date +%Y-%m-%d-%H%M%S)
    gh api graphql -f query='
      query { node(id: "PVT_kwHOAjEKvM4BTuEF") { ... on ProjectV2 {
-       items(first: 200) { nodes { id content { ... on Issue { number title } }
+       items(first: 100) { nodes { id content { ... on Issue { number title } }
          fieldValues(first: 20) { nodes { ... on ProjectV2ItemFieldSingleSelectValue {
            name field { ... on ProjectV2SingleSelectField { name } } } } } } } } } }' \
      > .claude/backups/project-epic-snapshot-$STAMP.json

@@ -1,0 +1,284 @@
+[
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgrlSvY",
+    "issueNum": "143",
+    "epic": "Port Interfaces",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgrlSwM",
+    "issueNum": "144",
+    "epic": "Port Interfaces",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgroMXg",
+    "issueNum": "154",
+    "epic": "Port Interfaces",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgq0Iow",
+    "issueNum": "84",
+    "epic": "API Implementation",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgq0Ko8",
+    "issueNum": "85",
+    "epic": "API Implementation",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgrY8cs",
+    "issueNum": "92",
+    "epic": "API Implementation",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgryWTU",
+    "issueNum": "167",
+    "epic": "API Implementation",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgpTrig",
+    "issueNum": "29",
+    "epic": "Client Applications",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgpubXE",
+    "issueNum": "54",
+    "epic": "Client Applications",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgp1OyA",
+    "issueNum": "64",
+    "epic": "Client Applications",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgraV6s",
+    "issueNum": "104",
+    "epic": "Client Applications",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgracVw",
+    "issueNum": "106",
+    "epic": "Client Applications",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgradLo",
+    "issueNum": "108",
+    "epic": "Client Applications",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgrai7Y",
+    "issueNum": "111",
+    "epic": "Client Applications",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgra2jY",
+    "issueNum": "116",
+    "epic": "Client Applications",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgrhC5s",
+    "issueNum": "129",
+    "epic": "Client Applications",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgriNbQ",
+    "issueNum": "133",
+    "epic": "Client Applications",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgrkJb8",
+    "issueNum": "136",
+    "epic": "Client Applications",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgrlRDY",
+    "issueNum": "141",
+    "epic": "CI/CD Foundation",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgrlREg",
+    "issueNum": "142",
+    "epic": "CI/CD Foundation",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgrm9ZQ",
+    "issueNum": "148",
+    "epic": "Client Applications",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgr0KlM",
+    "issueNum": "174",
+    "epic": "Client Applications",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgr0K6Y",
+    "issueNum": "175",
+    "epic": "Client Applications",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgr0K7A",
+    "issueNum": "176",
+    "epic": "Client Applications",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgr0K7g",
+    "issueNum": "177",
+    "epic": "Client Applications",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgr0K8I",
+    "issueNum": "178",
+    "epic": "Client Applications",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgr0K8w",
+    "issueNum": "179",
+    "epic": "Client Applications",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgr0K9g",
+    "issueNum": "180",
+    "epic": "Client Applications",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgr0K-E",
+    "issueNum": "181",
+    "epic": "Client Applications",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgsEWQs",
+    "issueNum": "193",
+    "epic": "API Implementation",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgsEe9k",
+    "issueNum": "195",
+    "epic": "Operations",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgqDibc",
+    "issueNum": "71",
+    "epic": "Architecture & Documentation",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgqWGNU",
+    "issueNum": "78",
+    "epic": "Architecture & Documentation",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgqWGNc",
+    "issueNum": "79",
+    "epic": "Architecture & Documentation",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgrZBWQ",
+    "issueNum": "93",
+    "epic": "Architecture & Documentation",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgrZGtY",
+    "issueNum": "95",
+    "epic": "Architecture & Documentation",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgre-LE",
+    "issueNum": "119",
+    "epic": "Architecture & Documentation",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgrgOCM",
+    "issueNum": "124",
+    "epic": "Architecture & Documentation",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgrgXfM",
+    "issueNum": "125",
+    "epic": "Architecture & Documentation",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgrMO1E",
+    "issueNum": "89",
+    "epic": "CI/CD Foundation",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgre83I",
+    "issueNum": "118",
+    "epic": "CI/CD Foundation",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgryWS8",
+    "issueNum": "166",
+    "epic": "CI/CD Foundation",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgrm9Zk",
+    "issueNum": "149",
+    "epic": "Operations",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgrm_zQ",
+    "issueNum": "150",
+    "epic": "Operations",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgrm_zY",
+    "issueNum": "151",
+    "epic": "Operations",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgrplRQ",
+    "issueNum": "158",
+    "epic": "Operations",
+    "status": "ok"
+  },
+  {
+    "itemId": "PVTI_lAHOAjEKvM4BTuEFzgsEj2A",
+    "issueNum": "197",
+    "epic": "Operations",
+    "status": "ok"
+  }
+]

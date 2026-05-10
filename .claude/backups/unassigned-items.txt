@@ -1,0 +1,47 @@
+PVTI_lAHOAjEKvM4BTuEFzgpTrig	#29	[feat] Track body weight and calculate added weight for bodyweight-component exercises
+PVTI_lAHOAjEKvM4BTuEFzgpubXE	#54	[feat] Cycle planning agent — LLM-powered training cycle recommendations
+PVTI_lAHOAjEKvM4BTuEFzgp1OyA	#64	[feat] Lift library and exercise tagging
+PVTI_lAHOAjEKvM4BTuEFzgqDibc	#71	[chore] Restore no-explicit-any in packages/core legacy directories
+PVTI_lAHOAjEKvM4BTuEFzgqWGNU	#78	[fix] Guard unchecked index casts in calculateLiftWeights and updateLiftDates
+PVTI_lAHOAjEKvM4BTuEFzgqWGNc	#79	[fix] mapLiftingProgramSpec writes boolean for amrap instead of "TRUE"/"FALSE" string
+PVTI_lAHOAjEKvM4BTuEFzgq0Iow	#84	[feat] Cycle generation endpoints — port legacy start-cycle and update-training-maxes to NestJS API
+PVTI_lAHOAjEKvM4BTuEFzgq0Ko8	#85	[feat] Core read endpoints — cycle dashboard, workouts, training maxes, lift records, program spec
+PVTI_lAHOAjEKvM4BTuEFzgrMO1E	#89	fix: parseCycleDashboard Jest worker OOM in packages/core test suite
+PVTI_lAHOAjEKvM4BTuEFzgrY8cs	#92	[fix] TS2532 — apps/api cycle-generation.service.ts:69 Object is possibly undefined
+PVTI_lAHOAjEKvM4BTuEFzgrZBWQ	#93	[fix] Guard against circular barrel imports in packages/core
+PVTI_lAHOAjEKvM4BTuEFzgrZGtY	#95	[fix] Use barrel import for UpdateCycleOverrides in updateCycle.ts
+PVTI_lAHOAjEKvM4BTuEFzgraV6s	#104	[feat] Cycle dashboard screen
+PVTI_lAHOAjEKvM4BTuEFzgracVw	#106	[feat] Workout logging screen
+PVTI_lAHOAjEKvM4BTuEFzgradLo	#108	[feat] Training max management screen
+PVTI_lAHOAjEKvM4BTuEFzgrai7Y	#111	[feat] Strength goal tracking
+PVTI_lAHOAjEKvM4BTuEFzgra2jY	#116	[feat] Make week grouping configurable — remove 2-workouts/week and 4-week cycle assumptions
+PVTI_lAHOAjEKvM4BTuEFzgre83I	#118	[chore] Remove dead root-level tests/ and jest.config.js
+PVTI_lAHOAjEKvM4BTuEFzgre-LE	#119	[chore] Extract weekForWorkoutNum() helper from WorkoutsController into mappers.ts
+PVTI_lAHOAjEKvM4BTuEFzgrgOCM	#124	[chore] Narrow LiftingProgramSpec.week to WeekNumber
+PVTI_lAHOAjEKvM4BTuEFzgrgXfM	#125	Fix duplicate week field in LiftingProgramSpec interface
+PVTI_lAHOAjEKvM4BTuEFzgrhC5s	#129	[feat] Initial training max discovery (estimation + test week)
+PVTI_lAHOAjEKvM4BTuEFzgriNbQ	#133	[feat] Implement workout logging screen
+PVTI_lAHOAjEKvM4BTuEFzgrkJb8	#136	[feat] User-tier-aware LLM provider selection for cycle planning
+PVTI_lAHOAjEKvM4BTuEFzgrlRDY	#141	[test] Integration test — multiple workouts in a cycle (training max progression)
+PVTI_lAHOAjEKvM4BTuEFzgrlREg	#142	[test] Integration test — multiple cycles in a program (cross-cycle weight progression)
+PVTI_lAHOAjEKvM4BTuEFzgrlSvY	#143	[feat] Auth guard — Clerk adapter and NestJS request guard
+PVTI_lAHOAjEKvM4BTuEFzgrlSwM	#144	[feat] Per-user repository factory — IRepositoryFactory adapter and controller threading
+PVTI_lAHOAjEKvM4BTuEFzgrm9ZQ	#148	[feat] Design system and global styling foundation for web app
+PVTI_lAHOAjEKvM4BTuEFzgrm9Zk	#149	[infra] Populate deployment infrastructure (GKE, Cloud Run, or Terraform)
+PVTI_lAHOAjEKvM4BTuEFzgrm_zQ	#150	[feat] Real database adapter (SystemDbRepositoryFactory + Prisma)
+PVTI_lAHOAjEKvM4BTuEFzgrm_zY	#151	[test] Database integration tests against real Postgres
+PVTI_lAHOAjEKvM4BTuEFzgroMXg	#154	[fix] In-memory adapter state leaks between users (isolates adapter state between users)
+PVTI_lAHOAjEKvM4BTuEFzgrplRQ	#158	[infra] Wire up Cloud Run service-to-service auth (web → API)
+PVTI_lAHOAjEKvM4BTuEFzgryWS8	#166	[fix] npm test broken on main: 15 TS errors in apps/api + 2 prisma test failures
+PVTI_lAHOAjEKvM4BTuEFzgryWTU	#167	[feat] Project planned set weights in GET /workouts/:workoutNum
+PVTI_lAHOAjEKvM4BTuEFzgr0KlM	#174	[feat] Training max history with PR flags and source tracking
+PVTI_lAHOAjEKvM4BTuEFzgr0K6Y	#175	[feat] Strength goals — per-lift targets with progress tracking
+PVTI_lAHOAjEKvM4BTuEFzgr0K7A	#176	[feat] Cycle dashboard — Cycle Program and Program Plan views
+PVTI_lAHOAjEKvM4BTuEFzgr0K7g	#177	[feat] Workout detail page and rescheduling
+PVTI_lAHOAjEKvM4BTuEFzgr0K8I	#178	[feat] Manage lifts — add / remove / replace lifts within a workout
+PVTI_lAHOAjEKvM4BTuEFzgr0K8w	#179	[feat] Lift metadata — muscle groups, substitutions, foundational lift
+PVTI_lAHOAjEKvM4BTuEFzgr0K9g	#180	[feat] Onboarding — full program catalog with experience and goal filters
+PVTI_lAHOAjEKvM4BTuEFzgr0K-E	#181	[test] Integration tests for new features (strength goals, max history, rescheduling, manage lifts, lift metadata)
+PVTI_lAHOAjEKvM4BTuEFzgsEWQs	#193	[feat] Validate program/cycle exists before upserting reschedule and lift-override entries
+PVTI_lAHOAjEKvM4BTuEFzgsEe9k	#195	fix: remove stale Reps column from Training Max History table
+PVTI_lAHOAjEKvM4BTuEFzgsEj2A	#197	chore: Local dev setup — docker-compose Postgres and dev auth wiring
