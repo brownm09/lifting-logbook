@@ -52,12 +52,14 @@ export class ManageLiftsController {
       throw new BadRequestException("replacedBy is required when action is 'replace'");
     }
 
-    const { workoutLiftOverride, liftingProgramSpec } = await this.factory.forUser(user);
+    const { cycleDashboard, workoutLiftOverride, liftingProgramSpec } = await this.factory.forUser(user);
 
     const spec = await liftingProgramSpec.getProgramSpec(program);
     if (spec.length === 0) {
       throw new NotFoundException(`Program '${program}' not found`);
     }
+
+    await cycleDashboard.getCycleDashboard(program);
 
     const override = {
       lift: dto.lift,
