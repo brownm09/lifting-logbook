@@ -110,13 +110,13 @@
   {
     "itemId": "PVTI_lAHOAjEKvM4BTuEFzgrlRDY",
     "issueNum": "141",
-    "epic": "Client Applications",
+    "epic": "CI/CD Foundation",
     "status": "ok"
   },
   {
     "itemId": "PVTI_lAHOAjEKvM4BTuEFzgrlREg",
     "issueNum": "142",
-    "epic": "Client Applications",
+    "epic": "CI/CD Foundation",
     "status": "ok"
   },
   {
@@ -176,13 +176,13 @@
   {
     "itemId": "PVTI_lAHOAjEKvM4BTuEFzgsEWQs",
     "issueNum": "193",
-    "epic": "Client Applications",
+    "epic": "API Implementation",
     "status": "ok"
   },
   {
     "itemId": "PVTI_lAHOAjEKvM4BTuEFzgsEe9k",
     "issueNum": "195",
-    "epic": "Client Applications",
+    "epic": "Operations",
     "status": "ok"
   },
   {
