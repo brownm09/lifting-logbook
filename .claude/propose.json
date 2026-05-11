@@ -9,12 +9,16 @@
     "v0.3 — Client Applications"
   ],
   "epics": [
-    { "name": "Monorepo Scaffolding",         "id": "974b67c1" },
-    { "name": "Package & App Scaffolding",    "id": "26d27ab2" },
-    { "name": "Port Interfaces",              "id": "9196ffd9" },
-    { "name": "Shared Types",                 "id": "42bf8843" },
-    { "name": "CI/CD Foundation",             "id": "23133b3a" },
-    { "name": "Architecture & Documentation", "id": "656e470c" }
+    { "name": "Monorepo Scaffolding",         "id": "9dcd9556" },
+    { "name": "Package & App Scaffolding",    "id": "ae06cfdd" },
+    { "name": "Port Interfaces",              "id": "cc1ae008" },
+    { "name": "Shared Types",                 "id": "a6b59698" },
+    { "name": "CI/CD Foundation",             "id": "fc0df03b" },
+    { "name": "Architecture & Documentation", "id": "f7202bcd" },
+    { "name": "Observability",                "id": "d3c68018" },
+    { "name": "API Implementation",           "id": "50a1da76" },
+    { "name": "Client Applications",          "id": "31d3931e" },
+    { "name": "Operations",                   "id": "0c3f26d2" }
   ],
   "github_project": {
     "number": 2,
