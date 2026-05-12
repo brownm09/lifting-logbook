@@ -54,7 +54,7 @@ For a guided walkthrough from clone to first PR, see [docs/onboarding.md](docs/o
 
 ### Prerequisites
 
-- Node.js >= 20.11.1 (use `.nvmrc`: `nvm use`)
+- Node.js >= 20.11.1 (use `.nvmrc`: `nvm use $(cat .nvmrc)`)
 - npm >= 10 (bundled with Node 20)
 - Docker (for local Postgres and the observability stack)
 

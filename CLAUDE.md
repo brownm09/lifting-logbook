@@ -9,7 +9,7 @@ Include in your opening brief only: the issue you are working on, current branch
 ## Platform & Environment
 
 - **OS:** Windows 11, Git Bash terminal
-- **Node:** 20.11.1 (managed by nvm for Windows; `.nvmrc` is set — run `nvm use` at session start if not already active)
+- **Node:** 20.11.1 (managed by nvm for Windows; `.nvmrc` is set — run `nvm use $(cat .nvmrc)` at session start if not already active)
 - **Package manager:** npm (workspaces)
 - **`jq` is NOT available.** Use `node -e` with a temp file in the working directory for JSON parsing:
   ```bash

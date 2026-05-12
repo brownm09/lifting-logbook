@@ -19,7 +19,7 @@ step "Checking prerequisites"
 
 node_version=$(node --version 2>/dev/null | sed 's/v//' || echo "0")
 node_major=$(echo "$node_version" | cut -d. -f1)
-[[ "$node_major" -ge 20 ]] || die "Node.js >= 20 required (found v${node_version}). Run: nvm use"
+[[ "$node_major" -ge 20 ]] || die "Node.js >= 20 required (found v${node_version}). Run: nvm use $(cat .nvmrc)"  # $(cat .nvmrc) expands to version at runtime
 ok "Node.js v${node_version}"
 
 docker info &>/dev/null || die "Docker is not running. Start Docker Desktop and re-run this script."
