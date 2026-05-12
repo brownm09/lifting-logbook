@@ -9,6 +9,7 @@ import {
   NotFoundException,
   Param,
   Patch,
+  PayloadTooLargeException,
   Post,
   Req,
 } from '@nestjs/common';
@@ -21,6 +22,7 @@ import {
 } from '@lifting-logbook/types';
 import {
   DEFAULT_SLOT_MAP,
+  liftRecordNaturalKey,
   parseCsvText,
   parseLiftRecords,
   validateLiftImport,
@@ -72,6 +74,23 @@ export class LiftRecordsController {
     return toLiftRecordResponse(record);
   }
 
+  /**
+   * Imports historical lift records from a CSV file.
+   *
+   * Validation is all-or-nothing: if any row fails, the entire upload is rejected
+   * with 400 and no records are written.
+   *
+   * Lift abbreviations (e.g. "Bench P.") are resolved to canonical lift IDs
+   * (e.g. "bench-press") via the DEFAULT_SLOT_MAP. Programs do not restrict which
+   * lifts may be imported — all lifts present in the slot map are accepted for any
+   * program. (Preloaded template programs become custom programs when edited; custom
+   * programs have no lift restrictions.)
+   *
+   * Rows whose natural key (cycleNum, workoutNum, lift, setNum) already exists for
+   * the program are silently skipped and reported in the `skipped` response field.
+   * The `written` count reflects actual rows inserted by the database (via
+   * `createMany({ skipDuplicates: true })`), not a client-side estimate.
+   */
   @Post('lift-records/import')
   @HttpCode(HttpStatus.CREATED)
   async importLiftRecords(
@@ -79,13 +98,42 @@ export class LiftRecordsController {
     @Req() req: FastifyRequest,
     @CurrentUser() user: AuthUser,
   ): Promise<ImportLiftRecordsResponse> {
-    // req.file() is provided by @fastify/multipart registered in main.ts
-    const file = await (req as FastifyRequest & { file(): Promise<{ toBuffer(): Promise<Buffer> } | null> }).file();
+    // Maximum rows accepted per import. Guards against unbounded OR queries in
+    // findExistingRecords and excessive memory usage during parsing.
+    const MAX_IMPORT_ROWS = 5_000;
+
+    // req.file() is provided by @fastify/multipart registered in main.ts.
+    const file = await (req as FastifyRequest & {
+      file(): Promise<{ toBuffer(): Promise<Buffer>; file: { truncated: boolean } } | null>;
+    }).file();
     if (!file) throw new BadRequestException('No file uploaded');
 
-    const csvText = (await file.toBuffer()).toString('utf-8');
+    let csvBuffer: Buffer;
+    try {
+      csvBuffer = await file.toBuffer();
+    } catch (err) {
+      // @fastify/multipart throws with code FST_REQ_FILE_TOO_LARGE when the
+      // file exceeds the configured fileSize limit.
+      if ((err as { code?: string }).code === 'FST_REQ_FILE_TOO_LARGE') {
+        throw new PayloadTooLargeException('File exceeds the 5 MB upload limit');
+      }
+      throw err;
+    }
+    // Also handle the case where @fastify/multipart truncates instead of throwing.
+    if (file.file.truncated) {
+      throw new PayloadTooLargeException('File exceeds the 5 MB upload limit');
+    }
+
+    const csvText = csvBuffer.toString('utf-8');
     const table = parseCsvText(csvText);
     const parsed = parseLiftRecords(table);
+
+    if (parsed.length > MAX_IMPORT_ROWS) {
+      throw new BadRequestException(
+        `Import exceeds the ${MAX_IMPORT_ROWS.toLocaleString()}-row limit. ` +
+          `Split the file into smaller batches.`,
+      );
+    }
 
     const { valid, errors } = validateLiftImport(parsed, DEFAULT_SLOT_MAP);
     if (errors.length > 0) {
@@ -97,22 +145,20 @@ export class LiftRecordsController {
 
     const { liftRecord } = await this.factory.forUser(user);
     const duplicates = await liftRecord.findExistingRecords(program, records);
-    await liftRecord.appendLiftRecords(program, records);
 
-    const dupKeys = new Set(
-      duplicates.map((r) => `${r.cycleNum}:${r.workoutNum}:${r.lift}:${r.setNum}`),
-    );
-    const skipped: SkippedRecord[] = parsed
+    // `written` comes directly from the database's createMany count so it is
+    // accurate even if a concurrent import caused additional rows to be skipped.
+    const written = await liftRecord.appendLiftRecords(program, records);
+
+    const dupKeys = new Set(duplicates.map(liftRecordNaturalKey));
+    // Build skipped from `records` (canonical lift IDs), not `parsed` (CSV abbreviations),
+    // so the naturalKey strings match what findExistingRecords returned.
+    const skipped: SkippedRecord[] = records
       .map((r, i) => ({ r, row: i + 1 }))
-      .filter(({ r }) =>
-        dupKeys.has(`${r.cycleNum}:${r.workoutNum}:${r.lift}:${r.setNum}`),
-      )
-      .map(({ r, row }) => ({
-        row,
-        naturalKey: `${r.cycleNum}:${r.workoutNum}:${r.lift}:${r.setNum}`,
-      }));
+      .filter(({ r }) => dupKeys.has(liftRecordNaturalKey(r)))
+      .map(({ r, row }) => ({ row, naturalKey: liftRecordNaturalKey(r) }));
 
-    return { written: records.length - duplicates.length, skipped };
+    return { written, skipped };
   }
 
   @Patch('lift-records/:id')

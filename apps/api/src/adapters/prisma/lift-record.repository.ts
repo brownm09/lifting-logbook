@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 // Prisma 5.x — error classes moved off the Prisma namespace
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-import { LiftRecord } from '@lifting-logbook/core';
+import { LiftRecord, liftRecordNaturalKey } from '@lifting-logbook/core';
 import { ILiftRecordRepository } from '../../ports/ILiftRecordRepository';
 
 export class PrismaLiftRecordRepository implements ILiftRecordRepository {
@@ -17,8 +17,8 @@ export class PrismaLiftRecordRepository implements ILiftRecordRepository {
     return rows.map(rowToLiftRecord);
   }
 
-  async appendLiftRecords(program: string, records: LiftRecord[]): Promise<void> {
-    await this.prisma.liftRecord.createMany({
+  async appendLiftRecords(program: string, records: LiftRecord[]): Promise<number> {
+    const { count } = await this.prisma.liftRecord.createMany({
       data: records.map((r) => ({
         userId: this.userId,
         program,
@@ -33,31 +33,39 @@ export class PrismaLiftRecordRepository implements ILiftRecordRepository {
       })),
       skipDuplicates: true,
     });
+    return count;
   }
 
   async findExistingRecords(program: string, candidates: LiftRecord[]): Promise<LiftRecord[]> {
     if (candidates.length === 0) return [];
-    const rows = await this.prisma.liftRecord.findMany({
-      where: {
-        userId: this.userId,
-        program,
-        OR: candidates.map((r) => ({
-          cycleNum: r.cycleNum,
-          workoutNum: r.workoutNum,
-          lift: r.lift,
-          setNum: r.setNum,
-        })),
-      },
-    });
-    const existingKeys = new Set(
-      rows.map(
-        (r: { cycleNum: number; workoutNum: number; lift: string; setNum: number }) =>
-          `${r.cycleNum}:${r.workoutNum}:${r.lift}:${r.setNum}`,
+
+    // Chunk the OR array to stay within Postgres parameter limits (~32k).
+    // Each candidate produces 4 bound parameters; 500 chunks ≈ 2000 params per query.
+    const CHUNK_SIZE = 500;
+    const chunks: LiftRecord[][] = [];
+    for (let i = 0; i < candidates.length; i += CHUNK_SIZE) {
+      chunks.push(candidates.slice(i, i + CHUNK_SIZE));
+    }
+
+    const rowGroups = await Promise.all(
+      chunks.map((chunk) =>
+        this.prisma.liftRecord.findMany({
+          where: {
+            userId: this.userId,
+            program,
+            OR: chunk.map((r) => ({
+              cycleNum: r.cycleNum,
+              workoutNum: r.workoutNum,
+              lift: r.lift,
+              setNum: r.setNum,
+            })),
+          },
+        }),
       ),
     );
-    return candidates.filter((r) =>
-      existingKeys.has(`${r.cycleNum}:${r.workoutNum}:${r.lift}:${r.setNum}`),
-    );
+
+    const existingKeys = new Set(rowGroups.flat().map(liftRecordNaturalKey));
+    return candidates.filter((r) => existingKeys.has(liftRecordNaturalKey(r)));
   }
 
   async updateLiftRecord(

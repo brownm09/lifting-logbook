@@ -58,8 +58,8 @@ const _programSpecRepo: ILiftingProgramSpecRepository = {
 const _liftRecordRepo: ILiftRecordRepository = {
   getLiftRecords: (): Promise<LiftRecord[]> =>
     Promise.resolve([]),
-  appendLiftRecords: (): Promise<void> =>
-    Promise.resolve(),
+  appendLiftRecords: (): Promise<number> =>
+    Promise.resolve(0),
   findExistingRecords: (): Promise<LiftRecord[]> =>
     Promise.resolve([]),
   updateLiftRecord: (): Promise<LiftRecord | null> =>

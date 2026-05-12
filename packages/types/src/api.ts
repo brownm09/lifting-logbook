@@ -292,14 +292,35 @@ export interface ImportError {
 
 /** A row that was silently skipped because its natural key already exists. */
 export interface SkippedRecord {
-  /** 1-based data row number. */
+  /**
+   * 1-based data row number, counting only data rows (the CSV header is excluded).
+   * Row 1 is the first data row immediately after the header.
+   */
   row: number;
-  /** Stringified natural key: "cycleNum:workoutNum:lift:setNum". */
+  /**
+   * Stringified natural key identifying the skipped set, in the format:
+   * `"<cycleNum>:<workoutNum>:<lift>:<setNum>"`
+   *
+   * All four components use the canonical (post-import, post-slot-map) values.
+   * Example: `"3:2:bench-press:1"` means cycle 3, workout 2, bench-press, set 1.
+   */
   naturalKey: string;
 }
 
 /** Response body for a successful POST /programs/:program/lift-records/import. */
 export interface ImportLiftRecordsResponse {
+  /** Number of rows actually inserted (excludes duplicates that were skipped). */
   written: number;
+  /**
+   * Rows that were not inserted because their natural key already exists in the database.
+   * Empty array when there are no duplicates.
+   *
+   * Note: lift abbreviations (e.g. "Bench P.") are resolved to canonical lift IDs
+   * (e.g. "bench-press") before the natural key is computed, so the values here
+   * reflect the stored canonical IDs, not the original CSV values.
+   *
+   * Programs do not restrict which lifts may be imported. Preloaded template programs
+   * become custom programs when edited; custom programs have no lift restrictions.
+   */
   skipped: SkippedRecord[];
 }

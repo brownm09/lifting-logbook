@@ -3,7 +3,11 @@ import { LiftRecord } from '@lifting-logbook/core';
 export interface ILiftRecordRepository {
   getLiftRecords(program: string, cycleNum: number): Promise<LiftRecord[]>;
 
-  appendLiftRecords(program: string, records: LiftRecord[]): Promise<void>;
+  /**
+   * Appends records for a program, silently skipping any whose natural key already exists.
+   * Returns the number of rows actually inserted (i.e. excluding duplicates).
+   */
+  appendLiftRecords(program: string, records: LiftRecord[]): Promise<number>;
 
   /**
    * Returns the subset of `candidates` whose natural key
