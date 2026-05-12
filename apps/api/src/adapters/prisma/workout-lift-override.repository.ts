@@ -17,7 +17,8 @@ export class PrismaWorkoutLiftOverrideRepository
     const rows = await this.prisma.workoutLiftOverride.findMany({
       where: { userId: this.userId, program, cycleNum, workoutNum },
     });
-    return rows.map((r) => ({
+    // mirrors WorkoutLiftOverride schema
+    return rows.map((r: { lift: string; action: string; replacedBy: string | null }) => ({
       lift: r.lift,
       action: r.action as LiftOverride['action'],
       ...(r.replacedBy !== null && { replacedBy: r.replacedBy }),

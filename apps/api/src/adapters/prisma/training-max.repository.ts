@@ -12,7 +12,8 @@ export class PrismaTrainingMaxRepository implements ITrainingMaxRepository {
     const rows = await this.prisma.trainingMax.findMany({
       where: { userId: this.userId, program },
     });
-    return rows.map((r) => ({
+    // mirrors TrainingMax schema
+    return rows.map((r: { lift: string; weight: number; dateUpdated: Date }) => ({
       lift: r.lift,
       weight: r.weight,
       dateUpdated: r.dateUpdated,

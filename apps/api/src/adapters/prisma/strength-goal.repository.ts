@@ -15,7 +15,8 @@ export class PrismaStrengthGoalRepository implements IStrengthGoalRepository {
       where: { userId: this.userId, program },
       orderBy: { lift: 'asc' },
     });
-    return rows.map((r) => ({
+    // mirrors StrengthGoal schema
+    return rows.map((r: { lift: string; goalType: string; unit: string; updatedAt: Date; target: number | null; ratio: number | null }) => ({
       lift: r.lift,
       goalType: r.goalType as 'absolute' | 'relative',
       unit: r.unit as 'lbs' | 'kg',

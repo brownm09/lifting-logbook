@@ -21,7 +21,8 @@ export class PrismaTrainingMaxHistoryRepository implements ITrainingMaxHistoryRe
       },
       orderBy: { date: 'desc' },
     });
-    return rows.map((r) => ({
+    // mirrors TrainingMaxHistory schema
+    return rows.map((r: { id: string; lift: string; weight: number; reps: number; date: Date; isPR: boolean; source: string; goalMet: boolean }) => ({
       id: r.id,
       lift: r.lift,
       weight: r.weight,
