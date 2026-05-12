@@ -107,6 +107,7 @@ Web and mobile clients functional end-to-end. Key user-facing features implement
 | [Strength Goal Tracking](docs/proposals/2026-04-29-strength-goal-tracking.md) | Per-lift, per-tier strength standards (intermediate/advanced/elite) with target and observed dates | [#111](https://github.com/brownm09/lifting-logbook/issues/111) | shipped |
 | [Initial Training Max Discovery](docs/proposals/2026-04-30-initial-training-max-discovery.md) | Estimation utility (Brzycki) and test-week cycle phase for users with no existing training maxes | [#129](https://github.com/brownm09/lifting-logbook/issues/129) | shipped |
 | [On-Call Readiness](docs/proposals/2026-05-08-on-call-readiness.md) | Runbooks, SLOs, incident response guide, and severity/escalation framework; sequences after #199 | [#201](https://github.com/brownm09/lifting-logbook/issues/201) | shipped |
+| [Historical Lift Data Backfill](docs/proposals/2026-05-11-historical-lift-data-backfill.md) | CSV upload endpoint and web UI to ingest historical `LiftRecord` rows with all-or-nothing validation | [#225](https://github.com/brownm09/lifting-logbook/issues/225) | draft |
 
 ---
 
