@@ -61,7 +61,6 @@ Architecture decisions for data access and security documented.
 |---|---|---|---|
 | [Lift Library and Exercise Tagging](docs/proposals/2026-04-13-lift-library-exercise-tagging.md) | First-class `Lift` domain type with compound/accessory classification, movement tags, and configurable program exercise slots | [#64](https://github.com/brownm09/lifting-logbook/issues/64) | shipped |
 | [Grafana Cloud Observability Stack](docs/proposals/2026-05-08-grafana-cloud-observability-stack.md) | OpenTelemetry tracing, metrics, and logs in `apps/api` and `apps/web` exporting to Grafana Cloud, with RED-style alerts | [#199](https://github.com/brownm09/lifting-logbook/issues/199) | shipped |
-| [Historical Lift Data Backfill](docs/proposals/2026-05-11-historical-lift-data-backfill.md) | CSV upload endpoint and web UI to ingest historical `LiftRecord` rows with all-or-nothing validation | [#225](https://github.com/brownm09/lifting-logbook/issues/225) | draft |
 
 ---
 
@@ -108,6 +107,7 @@ Web and mobile clients functional end-to-end. Key user-facing features implement
 | [Strength Goal Tracking](docs/proposals/2026-04-29-strength-goal-tracking.md) | Per-lift, per-tier strength standards (intermediate/advanced/elite) with target and observed dates | [#111](https://github.com/brownm09/lifting-logbook/issues/111) | shipped |
 | [Initial Training Max Discovery](docs/proposals/2026-04-30-initial-training-max-discovery.md) | Estimation utility (Brzycki) and test-week cycle phase for users with no existing training maxes | [#129](https://github.com/brownm09/lifting-logbook/issues/129) | shipped |
 | [On-Call Readiness](docs/proposals/2026-05-08-on-call-readiness.md) | Runbooks, SLOs, incident response guide, and severity/escalation framework; sequences after #199 | [#201](https://github.com/brownm09/lifting-logbook/issues/201) | shipped |
+| [Historical Lift Data Backfill](docs/proposals/2026-05-11-historical-lift-data-backfill.md) | CSV upload endpoint and web UI to ingest historical `LiftRecord` rows with all-or-nothing validation | [#225](https://github.com/brownm09/lifting-logbook/issues/225) | draft |
 
 ---
 

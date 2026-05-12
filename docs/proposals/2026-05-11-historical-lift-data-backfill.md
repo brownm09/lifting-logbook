@@ -16,10 +16,10 @@ Add a CSV upload path that ingests historical `LiftRecord` rows for a given prog
 
 ## Acceptance Criteria
 
-- [ ] `POST /programs/:program/lift-records/import` accepts a `multipart/form-data` CSV upload and returns `201` with a count of records written and a list of skipped duplicate rows (by row number and natural key) on success.
+- [ ] `POST /programs/:program/lift-records/import` accepts a `multipart/form-data` CSV upload and returns `201` with a count of records written and a list of skipped duplicate rows (by row number and natural key) on success. The endpoint rejects files larger than 5 MB or containing more than 10,000 data rows with a `400`.
 - [ ] On any validation failure (unparseable row, unknown lift abbreviation, invalid date, non-numeric weight/reps), the endpoint returns `400` with a structured list of all errors including row numbers, and writes zero records to the database.
 - [ ] The endpoint resolves lift abbreviations via `DEFAULT_SLOT_MAP` and rejects rows whose abbreviation is not mapped.
-- [ ] Successful imports use `appendLiftRecords()` so duplicate rows (matching on natural key) are silently skipped via Prisma `skipDuplicates`.
+- [ ] Successful imports use `appendLiftRecords()` so duplicate rows (matching on natural key) are skipped without error via Prisma `skipDuplicates`.
 - [ ] `apps/web` exposes a file-upload component on the program detail page that calls the import endpoint and renders the validation error list when the upload is rejected, and the skipped-duplicates list when the upload succeeds.
 - [ ] Integration test covers a happy-path import of the ~900-row fixture already used by `parseLiftRecords()` tests.
 - [ ] Integration test covers a rejected file with at least two distinct error types and asserts the database state is unchanged.
@@ -35,7 +35,7 @@ Add a CSV upload path that ingests historical `LiftRecord` rows for a given prog
 
 ## Open Questions
 
-- Should the endpoint enforce a maximum file size or row count, and if so what limits? (Suggested: 5 MB / 10,000 rows for v0.2.)
+*(none)*
 
 ## References
 
