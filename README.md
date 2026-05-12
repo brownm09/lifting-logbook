@@ -43,7 +43,7 @@ lifting-logbook/
 ```
 
 Tests are co-located with each package and app rather than in a top-level `tests/`
-directory. This keeps each workspace self-contained — `turbo run test --filter=@logbook/core`
+directory. This keeps each workspace self-contained — `turbo run test --filter=@lifting-logbook/core`
 runs only core's tests, with no knowledge of the rest of the monorepo.
 
 ---
@@ -59,6 +59,14 @@ For a guided walkthrough from clone to first PR, see [docs/onboarding.md](docs/o
 - Docker (for local Postgres and the observability stack)
 
 ### Local Development
+
+> **Automated setup:** After cloning, you can run `scripts/dev-setup.sh` instead of the
+> manual steps below. The script checks prerequisites (Node ≥ 20, Docker), installs npm
+> dependencies, copies `.env.example` files, and runs Prisma migrations.
+>
+> ```sh
+> bash scripts/dev-setup.sh
+> ```
 
 ```sh
 # 1. Install dependencies

@@ -161,6 +161,10 @@ monorepo/
 | Runbook | Covers |
 |---------|--------|
 | [Observability](runbooks/observability.md) | Local stack startup, Grafana dashboards, trace queries, log↔trace correlation, alert silencing, Grafana Cloud credential wiring |
+| [API 5xx surge](runbooks/api-5xx-surge.md) | `APIHighErrorRate` alert response — SEV2 |
+| [Database unreachable](runbooks/database-unreachable.md) | DB connection error triage — SEV1 |
+| [Auth provider outage](runbooks/auth-provider-outage.md) | 401/403 surge + Clerk status incident — SEV2 |
+| [Deploy regression rollback](runbooks/deploy-regression-rollback.md) | Error rate spike correlated with a recent deploy — SEV2 |
 
 ---
 
