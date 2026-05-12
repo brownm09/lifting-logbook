@@ -13,6 +13,16 @@ export class InMemoryLiftRecordRepository implements ILiftRecordRepository {
     this.store.set(program, [...existing, ...records]);
   }
 
+  async findExistingRecords(program: string, candidates: LiftRecord[]): Promise<LiftRecord[]> {
+    const stored = this.store.get(program) ?? [];
+    const existingKeys = new Set(
+      stored.map((r) => `${r.cycleNum}:${r.workoutNum}:${r.lift}:${r.setNum}`),
+    );
+    return candidates.filter((r) =>
+      existingKeys.has(`${r.cycleNum}:${r.workoutNum}:${r.lift}:${r.setNum}`),
+    );
+  }
+
   async updateLiftRecord(
     program: string,
     id: string,

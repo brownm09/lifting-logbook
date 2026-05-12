@@ -60,6 +60,8 @@ const _liftRecordRepo: ILiftRecordRepository = {
     Promise.resolve([]),
   appendLiftRecords: (): Promise<void> =>
     Promise.resolve(),
+  findExistingRecords: (): Promise<LiftRecord[]> =>
+    Promise.resolve([]),
   updateLiftRecord: (): Promise<LiftRecord | null> =>
     Promise.resolve(null),
 };

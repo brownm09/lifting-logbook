@@ -5,6 +5,13 @@ export interface ILiftRecordRepository {
 
   appendLiftRecords(program: string, records: LiftRecord[]): Promise<void>;
 
+  /**
+   * Returns the subset of `candidates` whose natural key
+   * (cycleNum, workoutNum, lift, setNum) already exists for the given program.
+   * Used by the CSV import endpoint to identify which rows will be skipped as duplicates.
+   */
+  findExistingRecords(program: string, candidates: LiftRecord[]): Promise<LiftRecord[]>;
+
   updateLiftRecord(
     program: string,
     id: string,

@@ -276,3 +276,30 @@ export interface LiftingProgramSpecResponse {
   wtDecrementPct: number;
   activation: string;
 }
+
+// ---------------------------------------------------------------------------
+// Lift Record CSV Import
+// ---------------------------------------------------------------------------
+
+/** A single validation error from a CSV import attempt. */
+export interface ImportError {
+  /** 1-based data row number (excludes the header row). */
+  row: number;
+  /** Which field failed, if determinable. */
+  field?: string;
+  message: string;
+}
+
+/** A row that was silently skipped because its natural key already exists. */
+export interface SkippedRecord {
+  /** 1-based data row number. */
+  row: number;
+  /** Stringified natural key: "cycleNum:workoutNum:lift:setNum". */
+  naturalKey: string;
+}
+
+/** Response body for a successful POST /programs/:program/lift-records/import. */
+export interface ImportLiftRecordsResponse {
+  written: number;
+  skipped: SkippedRecord[];
+}

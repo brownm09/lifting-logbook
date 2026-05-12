@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -9,12 +10,22 @@ import {
   Param,
   Patch,
   Post,
+  Req,
 } from '@nestjs/common';
 import {
   CreateLiftRecordRequest,
+  ImportLiftRecordsResponse,
   LiftRecordResponse,
+  SkippedRecord,
   UpdateLiftRecordRequest,
 } from '@lifting-logbook/types';
+import {
+  DEFAULT_SLOT_MAP,
+  parseCsvText,
+  parseLiftRecords,
+  validateLiftImport,
+} from '@lifting-logbook/core';
+import { FastifyRequest } from 'fastify';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthUser } from '../ports/auth';
 import { IRepositoryFactory } from '../ports/factory';
@@ -59,6 +70,49 @@ export class LiftRecordsController {
     };
     await liftRecord.appendLiftRecords(program, [record]);
     return toLiftRecordResponse(record);
+  }
+
+  @Post('lift-records/import')
+  @HttpCode(HttpStatus.CREATED)
+  async importLiftRecords(
+    @Param('program') program: string,
+    @Req() req: FastifyRequest,
+    @CurrentUser() user: AuthUser,
+  ): Promise<ImportLiftRecordsResponse> {
+    // req.file() is provided by @fastify/multipart registered in main.ts
+    const file = await (req as FastifyRequest & { file(): Promise<{ toBuffer(): Promise<Buffer> } | null> }).file();
+    if (!file) throw new BadRequestException('No file uploaded');
+
+    const csvText = (await file.toBuffer()).toString('utf-8');
+    const table = parseCsvText(csvText);
+    const parsed = parseLiftRecords(table);
+
+    const { valid, errors } = validateLiftImport(parsed, DEFAULT_SLOT_MAP);
+    if (errors.length > 0) {
+      throw new BadRequestException({ message: 'Validation failed', errors });
+    }
+
+    // Stamp each record with the route program before persisting.
+    const records = valid.map((r) => ({ ...r, program }));
+
+    const { liftRecord } = await this.factory.forUser(user);
+    const duplicates = await liftRecord.findExistingRecords(program, records);
+    await liftRecord.appendLiftRecords(program, records);
+
+    const dupKeys = new Set(
+      duplicates.map((r) => `${r.cycleNum}:${r.workoutNum}:${r.lift}:${r.setNum}`),
+    );
+    const skipped: SkippedRecord[] = parsed
+      .map((r, i) => ({ r, row: i + 1 }))
+      .filter(({ r }) =>
+        dupKeys.has(`${r.cycleNum}:${r.workoutNum}:${r.lift}:${r.setNum}`),
+      )
+      .map(({ r, row }) => ({
+        row,
+        naturalKey: `${r.cycleNum}:${r.workoutNum}:${r.lift}:${r.setNum}`,
+      }));
+
+    return { written: records.length - duplicates.length, skipped };
   }
 
   @Patch('lift-records/:id')

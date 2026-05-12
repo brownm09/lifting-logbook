@@ -10,10 +10,10 @@
     "test": "jest"
   },
   "dependencies": {
-    "@lifting-logbook/types": "*"
+    "@lifting-logbook/types": "*",
+    "csv-parse": "^6.1.0"
   },
   "devDependencies": {
-    "csv-parse": "^6.1.0",
     "tsc-alias": "^1.8.16"
   }
 }

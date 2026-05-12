@@ -35,6 +35,31 @@ export class PrismaLiftRecordRepository implements ILiftRecordRepository {
     });
   }
 
+  async findExistingRecords(program: string, candidates: LiftRecord[]): Promise<LiftRecord[]> {
+    if (candidates.length === 0) return [];
+    const rows = await this.prisma.liftRecord.findMany({
+      where: {
+        userId: this.userId,
+        program,
+        OR: candidates.map((r) => ({
+          cycleNum: r.cycleNum,
+          workoutNum: r.workoutNum,
+          lift: r.lift,
+          setNum: r.setNum,
+        })),
+      },
+    });
+    const existingKeys = new Set(
+      rows.map(
+        (r: { cycleNum: number; workoutNum: number; lift: string; setNum: number }) =>
+          `${r.cycleNum}:${r.workoutNum}:${r.lift}:${r.setNum}`,
+      ),
+    );
+    return candidates.filter((r) =>
+      existingKeys.has(`${r.cycleNum}:${r.workoutNum}:${r.lift}:${r.setNum}`),
+    );
+  }
+
   async updateLiftRecord(
     program: string,
     id: string,
