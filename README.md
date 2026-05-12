@@ -67,6 +67,8 @@ For a guided walkthrough from clone to first PR, see [docs/onboarding.md](docs/o
 > ```sh
 > bash scripts/dev-setup.sh
 > ```
+>
+> The manual steps are kept below for reference or if you prefer to run each step individually.
 
 ```sh
 # 1. Install dependencies
