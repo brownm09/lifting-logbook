@@ -88,7 +88,7 @@ done
 
 # ── 5. Run migrations ─────────────────────────────────────────────────────────
 step "Running database migrations"
-(cd apps/api && npx prisma migrate deploy 2>&1 | grep -v "^$" || true)
+(cd apps/api && npx prisma migrate deploy 2>&1 | grep -v "^$")
 ok "Migrations applied"
 
 # ── Done ──────────────────────────────────────────────────────────────────────
