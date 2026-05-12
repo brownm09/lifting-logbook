@@ -11,7 +11,7 @@ Before you begin, install:
 
 - **Node.js 20.11.1** — use [nvm](https://github.com/nvm-sh/nvm) (macOS/Linux) or
   [nvm-windows](https://github.com/coreybutler/nvm-windows) (Windows). The repo ships a
-  `.nvmrc`; run `nvm use` from the repo root and it picks the right version automatically.
+  `.nvmrc`; run `nvm use $(cat .nvmrc)` from the repo root to activate the right version.
 - **npm 10** — bundled with Node 20; no separate install needed.
 - **Docker Desktop** — runs the local Postgres database and the full observability stack
   (Grafana, Tempo, Loki, Prometheus).
@@ -29,7 +29,7 @@ git clone https://github.com/brownm09/lifting-logbook.git
 cd lifting-logbook
 
 # Pick up the correct Node version
-nvm use
+nvm use $(cat .nvmrc)
 
 # Install all workspace dependencies
 npm install
@@ -181,7 +181,7 @@ that look unrelated to your changes.
 **Fix:**
 
 ```sh
-nvm use   # reads .nvmrc and switches to Node 20.11.1
+nvm use $(cat .nvmrc)  # activates Node 20.11.1 (nvm-windows requires explicit version)
 npm install
 ```
 
