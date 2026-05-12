@@ -24,6 +24,16 @@ Before you begin, install:
 
 ## Clone & Bootstrap
 
+> **Automated setup:** After cloning, you can run `scripts/dev-setup.sh` instead of the
+> manual steps below. The script checks prerequisites (Node ≥ 20, Docker), installs npm
+> dependencies, copies `.env.example` files, and runs Prisma migrations.
+>
+> ```sh
+> bash scripts/dev-setup.sh
+> ```
+>
+> The manual steps are kept below for reference or if you prefer to run each step individually.
+
 ```sh
 git clone https://github.com/brownm09/lifting-logbook.git
 cd lifting-logbook
