@@ -50,13 +50,17 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export function fetchCycleDashboard(
+export async function fetchCycleDashboard(
   program: string,
-): Promise<CycleDashboardResponse> {
-  return apiFetch(
-    `/programs/${encodeURIComponent(program)}/cycles/current`,
-    { cache: 'no-store' },
+): Promise<CycleDashboardResponse | null> {
+  const authHeaders = await getAuthHeaders();
+  const res = await fetch(
+    `${API_URL}/programs/${encodeURIComponent(program)}/cycles/current`,
+    { cache: 'no-store', headers: authHeaders },
   );
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`API ${res.status} ${res.statusText} for /programs/${encodeURIComponent(program)}/cycles/current`);
+  return res.json() as Promise<CycleDashboardResponse>;
 }
 
 export function createCycle(programId: string): Promise<CycleDashboardResponse> {

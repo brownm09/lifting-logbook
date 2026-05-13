@@ -4,5 +4,6 @@ import { fetchCycleDashboard } from '@/lib/api';
 export default async function CyclePage() {
   const program = process.env.NEXT_PUBLIC_DEFAULT_PROGRAM ?? '5-3-1';
   const dashboard = await fetchCycleDashboard(program);
+  if (!dashboard) redirect('/onboarding');
   redirect(`/cycle/${dashboard.cycleNum}`);
 }
