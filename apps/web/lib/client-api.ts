@@ -15,7 +15,7 @@ import type {
   UpdateLiftRecordRequest,
 } from '@lifting-logbook/types';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3004';
 const isCloudRun = API_URL.startsWith('https://');
 const devToken = !isCloudRun ? process.env.NEXT_PUBLIC_DEV_AUTH_TOKEN : undefined;
 

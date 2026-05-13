@@ -18,7 +18,7 @@ import type {
   WorkoutResponse,
 } from '@lifting-logbook/types';
 
-const API_URL = process.env.API_URL ?? 'http://localhost:3001';
+const API_URL = process.env.API_URL ?? 'http://localhost:3004';
 const isCloudRun = API_URL.startsWith('https://');
 
 let _auth: GoogleAuth | undefined;
@@ -50,10 +50,22 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+/** Like apiFetch but returns null on 404 instead of throwing. */
+async function apiFetchNullable<T>(path: string, init?: RequestInit): Promise<T | null> {
+  const authHeaders = await getAuthHeaders();
+  const res = await fetch(`${API_URL}${path}`, {
+    ...init,
+    headers: { ...(init?.headers as Record<string, string> | undefined), ...authHeaders },
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
+  return res.json() as Promise<T>;
+}
+
 export function fetchCycleDashboard(
   program: string,
-): Promise<CycleDashboardResponse> {
-  return apiFetch(
+): Promise<CycleDashboardResponse | null> {
+  return apiFetchNullable(
     `/programs/${encodeURIComponent(program)}/cycles/current`,
     { cache: 'no-store' },
   );
@@ -124,21 +136,14 @@ export function updateTrainingMaxes(
   );
 }
 
-export async function fetchWorkout(
+export function fetchWorkout(
   program: string,
   workoutNum: number,
 ): Promise<WorkoutResponse | null> {
-  const path = `/programs/${encodeURIComponent(program)}/workouts/${workoutNum}`;
-  const authHeaders = await getAuthHeaders();
-  const res = await fetch(`${API_URL}${path}`, {
-    cache: 'no-store',
-    headers: authHeaders,
-  });
-  if (res.status === 404) return null;
-  if (!res.ok) {
-    throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
-  }
-  return res.json() as Promise<WorkoutResponse>;
+  return apiFetchNullable(
+    `/programs/${encodeURIComponent(program)}/workouts/${workoutNum}`,
+    { cache: 'no-store' },
+  );
 }
 
 export function fetchLiftRecords(
@@ -196,20 +201,13 @@ export function recordBodyWeight(
   );
 }
 
-export async function fetchLatestBodyWeight(
+export function fetchLatestBodyWeight(
   program: string,
 ): Promise<BodyWeightResponse | null> {
-  const path = `/programs/${encodeURIComponent(program)}/body-weight/latest`;
-  const authHeaders = await getAuthHeaders();
-  const res = await fetch(`${API_URL}${path}`, {
-    cache: 'no-store',
-    headers: authHeaders,
-  });
-  if (res.status === 404) return null;
-  if (!res.ok) {
-    throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
-  }
-  return res.json() as Promise<BodyWeightResponse>;
+  return apiFetchNullable(
+    `/programs/${encodeURIComponent(program)}/body-weight/latest`,
+    { cache: 'no-store' },
+  );
 }
 
 export async function fetchStrengthGoals(
