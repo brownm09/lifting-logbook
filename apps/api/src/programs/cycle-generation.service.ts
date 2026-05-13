@@ -19,7 +19,11 @@ type CycleRepos = Pick<
   'cycleDashboard' | 'liftingProgramSpec' | 'trainingMax' | 'trainingMaxHistory' | 'liftRecord'
 >;
 
-/** Static metadata for programs supported by the initialize endpoint. */
+/**
+ * Static metadata required to bootstrap cycle 1 for each supported program.
+ * ADD AN ENTRY HERE when a new program is made available in onboarding —
+ * omitting it causes 400 Bad Request for every first-time user of that program.
+ */
 const PROGRAM_DEFAULTS: Record<string, { cycleUnit: string; programType: string }> = {
   '5-3-1': { cycleUnit: 'week', programType: '5-3-1' },
 };
@@ -121,9 +125,14 @@ export class CycleGenerationService {
     }
 
     const cycleDate = dto.cycleDate ? new Date(dto.cycleDate) : new Date();
-    const weekdayName = Object.keys(WEEKDAY_MAP).find(
-      (key) => WEEKDAY_MAP[key] === cycleDate.getUTCDay(),
-    ) as Weekday;
+    // Search enum values (PascalCase) rather than WEEKDAY_MAP keys (lowercase)
+    // to ensure the stored value matches the Weekday enum contract.
+    const weekdayName = Object.values(Weekday).find(
+      (v) => WEEKDAY_MAP[v.toLowerCase()] === cycleDate.getUTCDay(),
+    );
+    if (!weekdayName) {
+      throw new Error(`No Weekday mapping for UTC day index ${cycleDate.getUTCDay()}`);
+    }
 
     const dashboard: CycleDashboard = {
       program,

@@ -20,8 +20,8 @@ export class CycleGenerationController {
     @Inject(REPOSITORY_FACTORY) private readonly factory: IRepositoryFactory,
   ) {}
 
-  // NOTE: 'cycles/initialize' must be declared before 'cycles' so NestJS does not
-  // treat "initialize" as a dynamic segment match against an existing :id param.
+  // NOTE: 'cycles/initialize' must be declared before 'cycles' so NestJS matches
+  // the literal path segment "initialize" before the advance-cycle handler.
   @Post('cycles/initialize')
   async initializeFirstCycle(
     @Param('program', ParseProgramPipe) program: string,

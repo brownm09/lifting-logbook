@@ -204,6 +204,7 @@ describe('CycleGenerationService', () => {
       expect(result.programType).toBe('5-3-1');
       expect(result.sheetName).toBe('5-3-1_Cycle_1_20260512');
       expect(result.cycleDate).toEqual(new Date('2026-05-12T00:00:00.000Z'));
+      expect(result.cycleStartWeekday).toBe(Weekday.Tuesday); // 2026-05-12 is a Tuesday
       expect(cycleDashboardRepo.saveCycleDashboard).toHaveBeenCalledWith(result);
     });
 
