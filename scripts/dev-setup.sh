@@ -33,7 +33,7 @@ step "Installing npm dependencies"
 if [[ ! -d node_modules ]]; then
   npm install
 else
-  ok "node_modules exists — skipping (run 'npm install' manually if packages changed)"
+  npm install --prefer-offline
 fi
 
 # ── 3. Build shared packages ──────────────────────────────────────────────────

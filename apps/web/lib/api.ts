@@ -50,17 +50,25 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export async function fetchCycleDashboard(
+/** Like apiFetch but returns null on 404 instead of throwing. */
+async function apiFetchNullable<T>(path: string, init?: RequestInit): Promise<T | null> {
+  const authHeaders = await getAuthHeaders();
+  const res = await fetch(`${API_URL}${path}`, {
+    ...init,
+    headers: { ...(init?.headers as Record<string, string> | undefined), ...authHeaders },
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
+  return res.json() as Promise<T>;
+}
+
+export function fetchCycleDashboard(
   program: string,
 ): Promise<CycleDashboardResponse | null> {
-  const authHeaders = await getAuthHeaders();
-  const res = await fetch(
-    `${API_URL}/programs/${encodeURIComponent(program)}/cycles/current`,
-    { cache: 'no-store', headers: authHeaders },
+  return apiFetchNullable(
+    `/programs/${encodeURIComponent(program)}/cycles/current`,
+    { cache: 'no-store' },
   );
-  if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`API ${res.status} ${res.statusText} for /programs/${encodeURIComponent(program)}/cycles/current`);
-  return res.json() as Promise<CycleDashboardResponse>;
 }
 
 export function createCycle(programId: string): Promise<CycleDashboardResponse> {
@@ -128,21 +136,14 @@ export function updateTrainingMaxes(
   );
 }
 
-export async function fetchWorkout(
+export function fetchWorkout(
   program: string,
   workoutNum: number,
 ): Promise<WorkoutResponse | null> {
-  const path = `/programs/${encodeURIComponent(program)}/workouts/${workoutNum}`;
-  const authHeaders = await getAuthHeaders();
-  const res = await fetch(`${API_URL}${path}`, {
-    cache: 'no-store',
-    headers: authHeaders,
-  });
-  if (res.status === 404) return null;
-  if (!res.ok) {
-    throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
-  }
-  return res.json() as Promise<WorkoutResponse>;
+  return apiFetchNullable(
+    `/programs/${encodeURIComponent(program)}/workouts/${workoutNum}`,
+    { cache: 'no-store' },
+  );
 }
 
 export function fetchLiftRecords(
@@ -200,20 +201,13 @@ export function recordBodyWeight(
   );
 }
 
-export async function fetchLatestBodyWeight(
+export function fetchLatestBodyWeight(
   program: string,
 ): Promise<BodyWeightResponse | null> {
-  const path = `/programs/${encodeURIComponent(program)}/body-weight/latest`;
-  const authHeaders = await getAuthHeaders();
-  const res = await fetch(`${API_URL}${path}`, {
-    cache: 'no-store',
-    headers: authHeaders,
-  });
-  if (res.status === 404) return null;
-  if (!res.ok) {
-    throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
-  }
-  return res.json() as Promise<BodyWeightResponse>;
+  return apiFetchNullable(
+    `/programs/${encodeURIComponent(program)}/body-weight/latest`,
+    { cache: 'no-store' },
+  );
 }
 
 export async function fetchStrengthGoals(
