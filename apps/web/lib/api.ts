@@ -18,7 +18,7 @@ import type {
   WorkoutResponse,
 } from '@lifting-logbook/types';
 
-const API_URL = process.env.API_URL ?? 'http://localhost:3001';
+const API_URL = process.env.API_URL ?? 'http://localhost:3004';
 const isCloudRun = API_URL.startsWith('https://');
 
 let _auth: GoogleAuth | undefined;
