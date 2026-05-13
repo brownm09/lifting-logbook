@@ -12,6 +12,7 @@ dist/
 
 # Next.js generated — rebuilt on every dev/build run; tracking causes spurious diffs
 next-env.d.ts
+.next/
 
 # Claude Code local overrides (machine-specific permissions, not for team sharing)
 .claude/settings.local.json
