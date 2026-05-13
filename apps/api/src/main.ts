@@ -7,6 +7,7 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
+import multipart from '@fastify/multipart';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { DomainNotFoundFilter } from './programs/not-found.filter';
@@ -17,6 +18,8 @@ async function bootstrap() {
     new FastifyAdapter(),
     { bufferLogs: true },
   );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await app.register(multipart as any, { limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
   app.useLogger(app.get(Logger));
   app.useGlobalFilters(new DomainNotFoundFilter());
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }));

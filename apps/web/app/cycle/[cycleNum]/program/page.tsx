@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { fetchCycleDashboard, fetchProgramSpec } from '@/lib/api';
 import { deriveProgramSummary } from '@/lib/programPlan';
 import styles from './program.module.css';
+import LiftRecordsImportForm from './LiftRecordsImportForm';
 
 export default async function CycleProgramPage({
   params,
@@ -71,6 +72,8 @@ export default async function CycleProgramPage({
           </li>
         ))}
       </ul>
+
+      <LiftRecordsImportForm program={program} />
     </section>
   );
 }

@@ -1,4 +1,4 @@
-import { LiftRecord } from '@lifting-logbook/core';
+import { LiftRecord, liftRecordNaturalKey } from '@lifting-logbook/core';
 import { ILiftRecordRepository } from '../../ports/ILiftRecordRepository';
 
 export class InMemoryLiftRecordRepository implements ILiftRecordRepository {
@@ -8,9 +8,16 @@ export class InMemoryLiftRecordRepository implements ILiftRecordRepository {
     return (this.store.get(program) ?? []).filter((r) => r.cycleNum === cycleNum);
   }
 
-  async appendLiftRecords(program: string, records: LiftRecord[]): Promise<void> {
+  async appendLiftRecords(program: string, records: LiftRecord[]): Promise<number> {
     const existing = this.store.get(program) ?? [];
     this.store.set(program, [...existing, ...records]);
+    return records.length;
+  }
+
+  async findExistingRecords(program: string, candidates: LiftRecord[]): Promise<LiftRecord[]> {
+    const stored = this.store.get(program) ?? [];
+    const existingKeys = new Set(stored.map(liftRecordNaturalKey));
+    return candidates.filter((r) => existingKeys.has(liftRecordNaturalKey(r)));
   }
 
   async updateLiftRecord(

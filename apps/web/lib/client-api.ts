@@ -4,6 +4,8 @@
 
 import type {
   CreateLiftOverrideRequest,
+  ImportError,
+  ImportLiftRecordsResponse,
   LiftMetadataResponse,
   LiftOverrideResponse,
   CreateLiftRecordRequest,
@@ -136,4 +138,34 @@ export function deleteLiftOverride(
     `/programs/${encodeURIComponent(program)}/cycles/${cycleNum}/workouts/${workoutNum}/lift-overrides/${encodeURIComponent(lift)}`,
     { method: 'DELETE', cache: 'no-store' },
   );
+}
+
+/**
+ * Uploads a CSV file to the lift records import endpoint.
+ * Returns a discriminated union so callers can handle validation errors gracefully
+ * without catching exceptions.
+ */
+export async function importLiftRecords(
+  program: string,
+  file: File,
+): Promise<
+  { ok: true; data: ImportLiftRecordsResponse } | { ok: false; errors: ImportError[] }
+> {
+  const devAuthHeaders: Record<string, string> = devToken
+    ? { Authorization: `Bearer ${devToken}` }
+    : {};
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(
+    `${API_URL}/programs/${encodeURIComponent(program)}/lift-records/import`,
+    { method: 'POST', body: form, headers: devAuthHeaders },
+  );
+  if (res.status === 201) {
+    return { ok: true, data: (await res.json()) as ImportLiftRecordsResponse };
+  }
+  const body = (await res.json()) as { errors?: ImportError[] };
+  return {
+    ok: false,
+    errors: body.errors ?? [{ row: 0, message: `Unexpected error (HTTP ${res.status})` }],
+  };
 }

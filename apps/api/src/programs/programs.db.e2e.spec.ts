@@ -5,12 +5,15 @@
 //   npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma && \
 //   npm test -w @lifting-logbook/api -- --testPathPattern=db.e2e
 import 'reflect-metadata';
+import * as fs from 'fs';
+import * as path from 'path';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import {
   FastifyAdapter,
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
+import multipart from '@fastify/multipart';
 import { PrismaClient } from '@prisma/client';
 import { AppModule } from '../app.module';
 import {
@@ -78,6 +81,24 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
   const deleteReq = (url: string) =>
     app.getHttpAdapter().getInstance().inject({ method: 'DELETE', url, headers: AUTH });
 
+  const postCsv = (url: string, csvContent: string) => {
+    const boundary = '----LiftRecordImportBoundary';
+    const body = [
+      `--${boundary}`,
+      'Content-Disposition: form-data; name="file"; filename="records.csv"',
+      'Content-Type: text/csv',
+      '',
+      csvContent,
+      `--${boundary}--`,
+    ].join('\r\n');
+    return app.getHttpAdapter().getInstance().inject({
+      method: 'POST',
+      url,
+      headers: { 'content-type': `multipart/form-data; boundary=${boundary}`, ...AUTH },
+      payload: body,
+    });
+  };
+
   beforeAll(async () => {
     prisma = new PrismaClient();
 
@@ -130,6 +151,8 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
       new FastifyAdapter(),
       { logger: false },
     );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await app.register(multipart as any, { limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
     app.useGlobalFilters(new DomainNotFoundFilter());
     app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
     await app.init();
@@ -686,6 +709,88 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
         where: { userId: USER_BOB, lift: 'Deadlift' },
       });
       expect(bobRow).toBeNull();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // CSV import
+  // ---------------------------------------------------------------------------
+
+  describe('POST /programs/:program/lift-records/import', () => {
+    const IMPORT_URL = `/programs/${SEED_PROGRAM}/lift-records/import`;
+
+    // Resolve fixture path relative to the monorepo root (packages/core/tests/fixtures)
+    const FIXTURE_PATH = path.resolve(
+      __dirname,
+      '../../../../packages/core/tests/fixtures/lift_records.csv',
+    );
+
+    beforeEach(async () => {
+      // Start each import test with a clean slate for this user's lift records
+      await prisma.liftRecord.deleteMany({ where: { userId: TEST_USER, program: SEED_PROGRAM } });
+    });
+
+    it('happy path — imports the full fixture CSV and returns a written count', async () => {
+      const csvContent = fs.readFileSync(FIXTURE_PATH, 'utf8');
+
+      const res = await postCsv(IMPORT_URL, csvContent);
+      expect(res.statusCode).toBe(201);
+
+      const body = res.json() as { written: number; skipped: { row: number; naturalKey: string }[] };
+      expect(body.written).toBeGreaterThan(0);
+      expect(Array.isArray(body.skipped)).toBe(true);
+
+      // Verify rows actually landed in the DB
+      const dbCount = await prisma.liftRecord.count({ where: { userId: TEST_USER, program: SEED_PROGRAM } });
+      expect(dbCount).toBe(body.written);
+    });
+
+    it('re-import returns written=0 and skipped=all rows from first import', async () => {
+      const csvContent = fs.readFileSync(FIXTURE_PATH, 'utf8');
+
+      // First import
+      const first = await postCsv(IMPORT_URL, csvContent);
+      expect(first.statusCode).toBe(201);
+      const firstBody = first.json() as { written: number; skipped: { row: number; naturalKey: string }[] };
+
+      // Second import of the same file
+      const second = await postCsv(IMPORT_URL, csvContent);
+      expect(second.statusCode).toBe(201);
+      const secondBody = second.json() as { written: number; skipped: { row: number; naturalKey: string }[] };
+
+      expect(secondBody.written).toBe(0);
+      expect(secondBody.skipped.length).toBe(firstBody.written);
+    });
+
+    it('rejects a file with validation errors and writes nothing', async () => {
+      // Build a minimal CSV with two bad rows:
+      //   row 1: weight is not a number
+      //   row 2: unknown lift abbreviation
+      const badCsv = [
+        'Program,Cycle #,Workout #,Date,Lift,Set #,Weight,Reps,Notes',
+        'RPT,38,1,12/29/2025,Squat,1,not-a-number,8,',
+        'RPT,38,1,12/29/2025,UnknownLift,2,180,8,',
+      ].join('\n');
+
+      const before = await prisma.liftRecord.count({
+        where: { userId: TEST_USER, program: SEED_PROGRAM },
+      });
+
+      const res = await postCsv(IMPORT_URL, badCsv);
+      expect(res.statusCode).toBe(400);
+
+      const body = res.json() as { message: string; errors: { row: number; field?: string; message: string }[] };
+      expect(body.errors.length).toBeGreaterThanOrEqual(2);
+      // Errors should cover distinct field types
+      const fields = body.errors.map((e) => e.field).filter(Boolean);
+      expect(fields).toContain('weight');
+      expect(fields).toContain('lift');
+
+      // Nothing written
+      const after = await prisma.liftRecord.count({
+        where: { userId: TEST_USER, program: SEED_PROGRAM },
+      });
+      expect(after).toBe(before);
     });
   });
 });
