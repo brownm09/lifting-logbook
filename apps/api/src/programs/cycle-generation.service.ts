@@ -1,19 +1,32 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import {
   CycleDashboard,
+  formatDateYYYYMMDD,
   MaxReductionFlag,
   TrainingMax,
   TrainingMaxHistoryEntry,
   updateCycle,
   updateMaxes,
+  WEEKDAY_MAP,
+  Weekday,
 } from '@lifting-logbook/core';
 import { RepositoryBundle } from '../ports';
+import { ProgramNotFoundError } from '../ports/errors';
 import { StartNewCycleDto } from './start-new-cycle.dto';
 
 type CycleRepos = Pick<
   RepositoryBundle,
   'cycleDashboard' | 'liftingProgramSpec' | 'trainingMax' | 'trainingMaxHistory' | 'liftRecord'
 >;
+
+/**
+ * Static metadata required to bootstrap cycle 1 for each supported program.
+ * ADD AN ENTRY HERE when a new program is made available in onboarding —
+ * omitting it causes 400 Bad Request for every first-time user of that program.
+ */
+const PROGRAM_DEFAULTS: Record<string, { cycleUnit: string; programType: string }> = {
+  '5-3-1': { cycleUnit: 'week', programType: '5-3-1' },
+};
 
 function round1dp(w: number): number {
   return Math.round(w * 10) / 10;
@@ -90,6 +103,50 @@ export class CycleGenerationService {
     }
 
     return newCycle;
+  }
+
+  async initializeFirstCycle(
+    repos: Pick<CycleRepos, 'cycleDashboard'>,
+    program: string,
+    dto: { cycleDate?: string } = {},
+  ): Promise<CycleDashboard> {
+    // Guard: fail fast if a cycle already exists for this user+program
+    try {
+      await repos.cycleDashboard.getCycleDashboard(program);
+      throw new ConflictException(`A cycle for "${program}" already exists.`);
+    } catch (e) {
+      if (!(e instanceof ProgramNotFoundError)) throw e;
+      // ProgramNotFoundError is expected — no cycle exists yet, proceed
+    }
+
+    const defaults = PROGRAM_DEFAULTS[program];
+    if (!defaults) {
+      throw new BadRequestException(`Unknown program: "${program}"`);
+    }
+
+    const cycleDate = dto.cycleDate ? new Date(dto.cycleDate) : new Date();
+    // Search enum values (PascalCase) rather than WEEKDAY_MAP keys (lowercase)
+    // to ensure the stored value matches the Weekday enum contract.
+    const weekdayName = Object.values(Weekday).find(
+      (v) => WEEKDAY_MAP[v.toLowerCase()] === cycleDate.getUTCDay(),
+    );
+    if (!weekdayName) {
+      throw new Error(`No Weekday mapping for UTC day index ${cycleDate.getUTCDay()}`);
+    }
+
+    const dashboard: CycleDashboard = {
+      program,
+      cycleUnit: defaults.cycleUnit,
+      cycleNum: 1,
+      cycleDate,
+      sheetName: `${program}_Cycle_1_${formatDateYYYYMMDD(cycleDate)}`,
+      cycleStartWeekday: weekdayName,
+      currentWeekType: 'training',
+      programType: defaults.programType,
+    };
+
+    await repos.cycleDashboard.saveCycleDashboard(dashboard);
+    return dashboard;
   }
 
   async recalculateMaxes(

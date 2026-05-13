@@ -22,13 +22,14 @@ const stubCycleDashboard = () => ({
 
 describe('CycleGenerationController', () => {
   let controller: CycleGenerationController;
-  let service: jest.Mocked<Pick<CycleGenerationService, 'startNewCycle' | 'recalculateMaxes'>>;
+  let service: jest.Mocked<Pick<CycleGenerationService, 'startNewCycle' | 'recalculateMaxes' | 'initializeFirstCycle'>>;
   let factory: jest.Mocked<IRepositoryFactory>;
 
   beforeEach(async () => {
     service = {
       startNewCycle: jest.fn(),
       recalculateMaxes: jest.fn(),
+      initializeFirstCycle: jest.fn(),
     };
     factory = {
       forUser: jest.fn().mockResolvedValue(MOCK_BUNDLE),
@@ -82,6 +83,55 @@ describe('CycleGenerationController', () => {
       await expect(controller.startNewCycle('unknown', {}, MOCK_USER)).rejects.toThrow(
         'Program not found',
       );
+    });
+  });
+
+  describe('initializeFirstCycle', () => {
+    const stubInitDashboard = () => ({
+      program: PROGRAM,
+      cycleUnit: 'week' as const,
+      cycleNum: 1,
+      cycleDate: new Date('2026-05-12T00:00:00.000Z'),
+      sheetName: '5-3-1_Cycle_1_20260512',
+      cycleStartWeekday: Weekday.Monday,
+      currentWeekType: 'training' as const,
+      programType: '5-3-1',
+    });
+
+    it('calls service with repos, program, and dto, returns mapped response', async () => {
+      service.initializeFirstCycle.mockResolvedValue(stubInitDashboard());
+
+      const result = await controller.initializeFirstCycle(PROGRAM, {}, MOCK_USER);
+
+      expect(factory.forUser).toHaveBeenCalledWith(MOCK_USER);
+      expect(service.initializeFirstCycle).toHaveBeenCalledWith(MOCK_BUNDLE, PROGRAM, {});
+      expect(result).toEqual({
+        program: PROGRAM,
+        cycleNum: 1,
+        cycleStartDate: '2026-05-12',
+        weeks: [],
+        currentWeekType: 'training',
+      });
+    });
+
+    it('passes optional cycleDate through to service', async () => {
+      service.initializeFirstCycle.mockResolvedValue(stubInitDashboard());
+
+      await controller.initializeFirstCycle(PROGRAM, { cycleDate: '2026-05-12' }, MOCK_USER);
+
+      expect(service.initializeFirstCycle).toHaveBeenCalledWith(
+        MOCK_BUNDLE,
+        PROGRAM,
+        { cycleDate: '2026-05-12' },
+      );
+    });
+
+    it('propagates service errors (e.g. ConflictException)', async () => {
+      service.initializeFirstCycle.mockRejectedValue(new Error('Already exists'));
+
+      await expect(
+        controller.initializeFirstCycle(PROGRAM, {}, MOCK_USER),
+      ).rejects.toThrow('Already exists');
     });
   });
 

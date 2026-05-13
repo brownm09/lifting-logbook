@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Weekday } from '@lifting-logbook/core';
 import {
   ICycleDashboardRepository,
@@ -7,6 +7,7 @@ import {
   ITrainingMaxHistoryRepository,
   ITrainingMaxRepository,
 } from '../ports';
+import { ProgramNotFoundError } from '../ports/errors';
 import { CycleGenerationService } from './cycle-generation.service';
 
 const PROGRAM = '5-3-1';
@@ -182,6 +183,64 @@ describe('CycleGenerationService', () => {
       const result = await service.startNewCycle(repos, PROGRAM, { cycleDate: '2026-06-01' });
 
       expect(result.cycleDate).toEqual(new Date('2026-06-01T00:00:00.000Z'));
+    });
+  });
+
+  describe('initializeFirstCycle', () => {
+    it('creates and saves a cycle-1 dashboard when none exists', async () => {
+      cycleDashboardRepo.getCycleDashboard.mockRejectedValue(
+        new ProgramNotFoundError(PROGRAM),
+      );
+
+      const result = await service.initializeFirstCycle(
+        repos,
+        PROGRAM,
+        { cycleDate: '2026-05-12' },
+      );
+
+      expect(result.cycleNum).toBe(1);
+      expect(result.program).toBe(PROGRAM);
+      expect(result.cycleUnit).toBe('week');
+      expect(result.programType).toBe('5-3-1');
+      expect(result.sheetName).toBe('5-3-1_Cycle_1_20260512');
+      expect(result.cycleDate).toEqual(new Date('2026-05-12T00:00:00.000Z'));
+      expect(result.cycleStartWeekday).toBe(Weekday.Tuesday); // 2026-05-12 is a Tuesday
+      expect(cycleDashboardRepo.saveCycleDashboard).toHaveBeenCalledWith(result);
+    });
+
+    it('defaults cycleDate to today when not provided', async () => {
+      cycleDashboardRepo.getCycleDashboard.mockRejectedValue(
+        new ProgramNotFoundError(PROGRAM),
+      );
+
+      const before = new Date();
+      const result = await service.initializeFirstCycle(repos, PROGRAM);
+      const after = new Date();
+
+      expect(result.cycleDate.getTime()).toBeGreaterThanOrEqual(before.getTime() - 1000);
+      expect(result.cycleDate.getTime()).toBeLessThanOrEqual(after.getTime() + 1000);
+    });
+
+    it('throws ConflictException when a cycle already exists', async () => {
+      cycleDashboardRepo.getCycleDashboard.mockResolvedValue(stubDashboard());
+
+      await expect(
+        service.initializeFirstCycle(repos, PROGRAM),
+      ).rejects.toThrow(ConflictException);
+
+      expect(cycleDashboardRepo.saveCycleDashboard).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException for an unrecognized program', async () => {
+      cycleDashboardRepo.getCycleDashboard.mockRejectedValue(
+        new ProgramNotFoundError('unknown-program'),
+      );
+
+      await expect(
+        service.initializeFirstCycle(repos, 'unknown-program'),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(cycleDashboardRepo.saveCycleDashboard).not.toHaveBeenCalled();
     });
   });
 
