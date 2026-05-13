@@ -1,19 +1,28 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import {
   CycleDashboard,
+  formatDateYYYYMMDD,
   MaxReductionFlag,
   TrainingMax,
   TrainingMaxHistoryEntry,
   updateCycle,
   updateMaxes,
+  WEEKDAY_MAP,
+  Weekday,
 } from '@lifting-logbook/core';
 import { RepositoryBundle } from '../ports';
+import { ProgramNotFoundError } from '../ports/errors';
 import { StartNewCycleDto } from './start-new-cycle.dto';
 
 type CycleRepos = Pick<
   RepositoryBundle,
   'cycleDashboard' | 'liftingProgramSpec' | 'trainingMax' | 'trainingMaxHistory' | 'liftRecord'
 >;
+
+/** Static metadata for programs supported by the initialize endpoint. */
+const PROGRAM_DEFAULTS: Record<string, { cycleUnit: string; programType: string }> = {
+  '5-3-1': { cycleUnit: 'week', programType: '5-3-1' },
+};
 
 function round1dp(w: number): number {
   return Math.round(w * 10) / 10;
@@ -90,6 +99,45 @@ export class CycleGenerationService {
     }
 
     return newCycle;
+  }
+
+  async initializeFirstCycle(
+    repos: Pick<CycleRepos, 'cycleDashboard'>,
+    program: string,
+    dto: { cycleDate?: string } = {},
+  ): Promise<CycleDashboard> {
+    // Guard: fail fast if a cycle already exists for this user+program
+    try {
+      await repos.cycleDashboard.getCycleDashboard(program);
+      throw new ConflictException(`A cycle for "${program}" already exists.`);
+    } catch (e) {
+      if (!(e instanceof ProgramNotFoundError)) throw e;
+      // ProgramNotFoundError is expected — no cycle exists yet, proceed
+    }
+
+    const defaults = PROGRAM_DEFAULTS[program];
+    if (!defaults) {
+      throw new BadRequestException(`Unknown program: "${program}"`);
+    }
+
+    const cycleDate = dto.cycleDate ? new Date(dto.cycleDate) : new Date();
+    const weekdayName = Object.keys(WEEKDAY_MAP).find(
+      (key) => WEEKDAY_MAP[key] === cycleDate.getUTCDay(),
+    ) as Weekday;
+
+    const dashboard: CycleDashboard = {
+      program,
+      cycleUnit: defaults.cycleUnit,
+      cycleNum: 1,
+      cycleDate,
+      sheetName: `${program}_Cycle_1_${formatDateYYYYMMDD(cycleDate)}`,
+      cycleStartWeekday: weekdayName,
+      currentWeekType: 'training',
+      programType: defaults.programType,
+    };
+
+    await repos.cycleDashboard.saveCycleDashboard(dashboard);
+    return dashboard;
   }
 
   async recalculateMaxes(
