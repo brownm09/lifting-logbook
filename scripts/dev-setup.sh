@@ -36,7 +36,14 @@ else
   ok "node_modules exists — skipping (run 'npm install' manually if packages changed)"
 fi
 
-# ── 3. Env files ──────────────────────────────────────────────────────────────
+# ── 3. Build shared packages ──────────────────────────────────────────────────
+step "Building shared packages (types, core)"
+npm run build -w @lifting-logbook/types
+ok "@lifting-logbook/types built"
+npm run build -w @lifting-logbook/core
+ok "@lifting-logbook/core built"
+
+# ── 4. Env files ──────────────────────────────────────────────────────────────
 step "Setting up env files"
 
 setup_env() {
@@ -66,7 +73,7 @@ if grep -q 'USER:PASSWORD@HOST' apps/api/.env 2>/dev/null; then
   ok "DATABASE_URL patched with local postgres credentials"
 fi
 
-# ── 4. Start Postgres ─────────────────────────────────────────────────────────
+# ── 5. Start Postgres ─────────────────────────────────────────────────────────
 step "Starting Postgres"
 docker compose up db -d
 
@@ -86,20 +93,28 @@ for i in $(seq 1 30); do
   fi
 done
 
-# ── 5. Run migrations ─────────────────────────────────────────────────────────
+# ── 6. Run migrations ─────────────────────────────────────────────────────────
 step "Running database migrations"
 (cd apps/api && npx prisma migrate deploy 2>&1 | grep -v "^$")
 ok "Migrations applied"
+
+# ── 7. Generate Prisma client ─────────────────────────────────────────────────
+step "Generating Prisma client"
+(cd apps/api && npx prisma generate 2>&1 | grep -v "^$")
+ok "Prisma client generated"
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}Setup complete.${NC}"
 echo ""
-echo "Start the dev servers:"
+echo "Start the dev servers (Turborepo starts all apps in parallel):"
 echo "  npm run dev"
 echo ""
 echo "Then open:"
-echo "  Web → http://localhost:3000"
-echo "  API → http://localhost:3004"
+echo "  Web  → http://localhost:3000"
+echo "  API  → http://localhost:3004  (NestJS — primary)"
 echo ""
+warn "api-legacy (port 3001) also starts via 'npm run dev'. It is a portfolio comparison"
+warn "app that runs Express independently. The web app targets the NestJS API on port 3004."
+warn ""
 warn "No Clerk account needed — DevAuthProvider handles auth automatically in local dev."
