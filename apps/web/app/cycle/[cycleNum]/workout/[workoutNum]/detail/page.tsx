@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { fetchWorkout, fetchProgramSpec, fetchTrainingMaxes } from '@/lib/api';
 import { computePlannedSets } from '@/lib/workoutPlan';
+import CollapsibleLiftList from './CollapsibleLiftList';
 import RescheduleForm from './RescheduleForm';
 import styles from './detail.module.css';
 
@@ -48,12 +49,17 @@ export default async function WorkoutDetailPage({
 
   // For each lift, compute warm-up and work set counts from spec
   const liftDetails = workout.lifts.map((wl) => {
+    const tm = maxMap.get(wl.lift) ?? 0;
     const spec = specs.find((s) => s.week === workout.week && s.lift === wl.lift);
-    const plannedSets = spec ? computePlannedSets(spec, maxMap.get(wl.lift) ?? 0) : [];
+    const plannedSets = spec ? computePlannedSets(spec, tm) : [];
     const warmUpCount = plannedSets.filter((s) => s.setLabel.startsWith('Warm-up')).length;
     const workCount = plannedSets.filter((s) => s.setLabel.startsWith('Set')).length;
-    return { lift: wl.lift, warmUpCount, workCount };
+    return { lift: wl.lift, tm, warmUpCount, workCount, plannedSets };
   });
+
+  const plannedSets = liftDetails.reduce((acc, d) => acc + d.warmUpCount + d.workCount, 0);
+  const actualSets = workout.lifts.reduce((acc, wl) => acc + wl.sets.length, 0);
+  const displaySets = status === 'completed' ? actualSets : plannedSets;
 
   const statusLabel =
     status === 'completed' ? '✓ Done' : status === 'upcoming' ? 'Upcoming' : 'Missed';
@@ -79,24 +85,29 @@ export default async function WorkoutDetailPage({
         </span>
       </header>
 
+      <section className={styles.summarySection}>
+        <h2 className={styles.summaryTitle}>Workout Summary</h2>
+        <div className={styles.summaryGrid}>
+          <div className={styles.summaryItem}>
+            <span className={styles.summaryLabel}>Total Lifts</span>
+            <span className={styles.summaryValue}>{liftDetails.length}</span>
+          </div>
+          <div className={styles.summaryItem}>
+            <span className={styles.summaryLabel}>
+              {status === 'completed' ? 'Sets Logged' : 'Total Sets'}
+            </span>
+            <span className={styles.summaryValue}>{displaySets}</span>
+          </div>
+        </div>
+      </section>
+
       <section className={styles.liftsSection}>
         <h2 className={styles.sectionHeading}>Planned Lifts</h2>
-        <ul className={styles.liftList}>
-          {liftDetails.map(({ lift, warmUpCount, workCount }) => (
-            <li key={lift} className={styles.liftItem}>
-              <Link
-                href={`/cycle/${cycleNum}/workout/${workoutNum}/detail/${encodeURIComponent(lift)}`}
-                className={styles.liftLink}
-              >
-                <span className={styles.liftName}>{lift}</span>
-                <span className={styles.liftSummary}>
-                  {warmUpCount} warm-up • {workCount} working
-                </span>
-                <span className={styles.liftArrow} aria-hidden="true">›</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <CollapsibleLiftList
+          liftDetails={liftDetails}
+          cycleNum={cycleNum}
+          workoutNum={workoutNum}
+        />
       </section>
 
       <section className={styles.actions}>
