@@ -39,48 +39,50 @@ export default function CollapsibleLiftList({
     <ul className={styles.liftList}>
       {liftDetails.map(({ lift, tm, warmUpCount, workCount, plannedSets }) => {
         const isExpanded = expanded.has(lift);
-        const warmUpSets = plannedSets.filter((s) =>
-          s.setLabel.startsWith('Warm-up'),
-        );
-        const workSets = plannedSets.filter((s) => s.setLabel.startsWith('Set'));
+        const panelId = `lift-detail-${encodeURIComponent(lift)}`;
+        const warmUpSets = plannedSets.filter((s) => s.type === 'warmup');
+        const workSets = plannedSets.filter((s) => s.type === 'work');
 
         return (
           <li key={lift} className={styles.liftItem}>
-            <button
-              type="button"
-              className={styles.liftItemHeader}
-              onClick={() => toggle(lift)}
-              aria-expanded={isExpanded}
-            >
-              <span
-                className={`${styles.liftToggleIcon} ${isExpanded ? styles.liftToggleIconExpanded : ''}`}
-                aria-hidden="true"
+            <div className={styles.liftItemRow}>
+              <button
+                type="button"
+                className={styles.liftItemHeader}
+                onClick={() => toggle(lift)}
+                aria-expanded={isExpanded}
+                aria-controls={panelId}
               >
-                ›
-              </span>
+                <span
+                  className={`${styles.liftToggleIcon} ${isExpanded ? styles.liftToggleIconExpanded : ''}`}
+                  aria-hidden="true"
+                >
+                  ›
+                </span>
 
-              <span className={styles.liftName}>
-                {lift}
-                {tm > 0 && (
-                  <span className={styles.liftTM}>TM: {tm} lbs</span>
-                )}
-              </span>
+                <span className={styles.liftName}>
+                  {lift}
+                  {tm > 0 && (
+                    <span className={styles.liftTM}>TM: {tm} lbs</span>
+                  )}
+                </span>
 
-              <span className={styles.liftSummary}>
-                {warmUpCount > 0 ? `${warmUpCount} warm-up • ` : ''}
-                {workCount} working
-              </span>
+                <span className={styles.liftSummary}>
+                  {warmUpCount > 0 ? `${warmUpCount} warm-up • ` : ''}
+                  {workCount} working
+                </span>
+              </button>
 
               <Link
                 href={`/cycle/${cycleNum}/workout/${workoutNum}/detail/${encodeURIComponent(lift)}`}
                 className={styles.liftHistoryBtn}
-                onClick={(e) => e.stopPropagation()}
               >
                 📊 History
               </Link>
-            </button>
+            </div>
 
             <div
+              id={panelId}
               className={`${styles.liftItemContent} ${isExpanded ? styles.liftItemContentVisible : ''}`}
             >
               <div className={styles.liftItemContentInner}>

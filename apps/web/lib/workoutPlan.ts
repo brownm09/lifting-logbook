@@ -8,6 +8,7 @@ import {
 import type { LiftingProgramSpecResponse } from '@lifting-logbook/types';
 
 export interface PlannedSet {
+  type: 'warmup' | 'work';
   setLabel: string;
   weight: number;
   reps: number;
@@ -87,12 +88,14 @@ export function computePlannedSets(
   const workPcts = PROG_SPEC_WORK_PCTS(spec.sets, spec.wtDecrementPct) as number[];
 
   const warmupSets: PlannedSet[] = warmupPcts.map((pct, i) => ({
+    type: 'warmup',
     setLabel: `Warm-up ${i + 1}`,
     weight: MROUND(trainingMax * pct, spec.increment),
     reps: Math.max(1, WARMUP_BASE_REPS - i),
   }));
 
   const workSets: PlannedSet[] = workPcts.map((pct, i) => ({
+    type: 'work',
     setLabel: `Set ${i + 1}`,
     weight: MROUND(trainingMax * pct, spec.increment),
     reps: spec.reps,

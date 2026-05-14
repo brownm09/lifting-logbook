@@ -57,7 +57,9 @@ export default async function WorkoutDetailPage({
     return { lift: wl.lift, tm, warmUpCount, workCount, plannedSets };
   });
 
-  const totalSets = liftDetails.reduce((acc, d) => acc + d.warmUpCount + d.workCount, 0);
+  const plannedSets = liftDetails.reduce((acc, d) => acc + d.warmUpCount + d.workCount, 0);
+  const actualSets = workout.lifts.reduce((acc, wl) => acc + wl.sets.length, 0);
+  const displaySets = status === 'completed' ? actualSets : plannedSets;
 
   const statusLabel =
     status === 'completed' ? '✓ Done' : status === 'upcoming' ? 'Upcoming' : 'Missed';
@@ -84,15 +86,17 @@ export default async function WorkoutDetailPage({
       </header>
 
       <section className={styles.summarySection}>
-        <h3 className={styles.summaryTitle}>Workout Summary</h3>
+        <h2 className={styles.summaryTitle}>Workout Summary</h2>
         <div className={styles.summaryGrid}>
           <div className={styles.summaryItem}>
             <span className={styles.summaryLabel}>Total Lifts</span>
             <span className={styles.summaryValue}>{liftDetails.length}</span>
           </div>
           <div className={styles.summaryItem}>
-            <span className={styles.summaryLabel}>Total Sets</span>
-            <span className={styles.summaryValue}>{totalSets}</span>
+            <span className={styles.summaryLabel}>
+              {status === 'completed' ? 'Sets Logged' : 'Total Sets'}
+            </span>
+            <span className={styles.summaryValue}>{displaySets}</span>
           </div>
         </div>
       </section>
