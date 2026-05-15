@@ -61,6 +61,7 @@ export default function LiftEditor({ cycleNum, workoutNum, initialMetadata }: Pr
           Muscle Groups
         </label>
         <FreeTagPicker
+          id="muscleGroups"
           value={muscleGroups}
           onChange={setMuscleGroups}
           placeholder="e.g. Quads, Glutes, Hamstrings"
@@ -73,6 +74,7 @@ export default function LiftEditor({ cycleNum, workoutNum, initialMetadata }: Pr
           Substitutions
         </label>
         <CatalogTagPicker
+          id="substitutions"
           value={substitutions}
           onChange={setSubstitutions}
           disabled={saving}

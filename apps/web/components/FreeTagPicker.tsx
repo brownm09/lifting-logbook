@@ -4,18 +4,19 @@ import { useState } from 'react';
 import styles from './FreeTagPicker.module.css';
 
 interface Props {
+  id?: string;
   value: string[];
   onChange: (value: string[]) => void;
   placeholder?: string;
   disabled?: boolean;
 }
 
-export default function FreeTagPicker({ value, onChange, placeholder, disabled }: Props) {
+export default function FreeTagPicker({ id, value, onChange, placeholder, disabled }: Props) {
   const [draft, setDraft] = useState('');
 
   function commit() {
     const trimmed = draft.trim();
-    if (trimmed) {
+    if (trimmed && !value.includes(trimmed)) {
       onChange([...value, trimmed]);
     }
     setDraft('');
@@ -51,6 +52,7 @@ export default function FreeTagPicker({ value, onChange, placeholder, disabled }
         </span>
       ))}
       <input
+        id={id}
         className={styles.textInput}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
