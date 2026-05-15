@@ -1,9 +1,11 @@
+import Link from 'next/link';
 import { fetchLiftRecords, fetchTrainingMaxHistory } from '@/lib/api';
 import type {
   LiftRecordResponse,
   TrainingMaxHistoryEntryResponse,
 } from '@lifting-logbook/types';
 import HistoryTabs from './HistoryTabs';
+import styles from './history.module.css';
 
 export type EnrichedRecord = LiftRecordResponse & {
   tmAtTime: number | null;
@@ -64,8 +66,9 @@ export default async function HistoryPage() {
   });
 
   return (
-    <main style={{ maxWidth: '1100px', margin: '0 auto', padding: '1.5rem' }}>
-      <h1 style={{ marginBottom: '1.5rem' }}>Lift History</h1>
+    <main className={styles.pageContainer}>
+      <Link href="/" className={styles.backLink}>← Home</Link>
+      <h1 className={styles.pageHeading}>Lift History</h1>
       <HistoryTabs records={enriched} tmEntries={tmEntries} />
     </main>
   );

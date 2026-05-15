@@ -18,30 +18,34 @@ export default function HistoryTabs({
 
   return (
     <div>
-      <div className={styles.tabs}>
+      <div className={styles.tabs} role="tablist">
         <button
           type="button"
+          role="tab"
           className={`${styles.tab} ${tab === 'history' ? styles.tabActive : ''}`}
           onClick={() => setTab('history')}
-          aria-pressed={tab === 'history'}
+          aria-selected={tab === 'history'}
         >
           Lift History
         </button>
         <button
           type="button"
+          role="tab"
           className={`${styles.tab} ${tab === 'timeline' ? styles.tabActive : ''}`}
           onClick={() => setTab('timeline')}
-          aria-pressed={tab === 'timeline'}
+          aria-selected={tab === 'timeline'}
         >
           TM Timeline
         </button>
       </div>
 
-      {tab === 'history' ? (
-        <LiftHistoryTab records={records} />
-      ) : (
-        <TmTimelineTab entries={tmEntries} />
-      )}
+      <div role="tabpanel">
+        {tab === 'history' ? (
+          <LiftHistoryTab records={records} />
+        ) : (
+          <TmTimelineTab entries={tmEntries} />
+        )}
+      </div>
     </div>
   );
 }
