@@ -28,8 +28,10 @@ const TEST_USER = 'db-e2e-primary';
 const USER_ALICE = 'db-e2e-alice';
 const USER_BOB = 'db-e2e-bob';
 
+const USER_INIT = 'db-e2e-init';
+
 async function cleanTestUsers(prisma: PrismaClient): Promise<void> {
-  const users = [TEST_USER, USER_ALICE, USER_BOB];
+  const users = [TEST_USER, USER_ALICE, USER_BOB, USER_INIT];
   await prisma.liftRecord.deleteMany({ where: { userId: { in: users } } });
   await prisma.trainingMax.deleteMany({ where: { userId: { in: users } } });
   await prisma.trainingMaxHistory.deleteMany({ where: { userId: { in: users } } });
@@ -388,6 +390,58 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
         { isPR: true },
       );
       expect(res.statusCode).toBe(404);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // POST cycles/initialize — uses USER_INIT who has no seed data.
+  // Order-sensitive within the block (409 test depends on happy path row).
+  // -------------------------------------------------------------------------
+
+  describe('POST /programs/:program/cycles/initialize (DB)', () => {
+    const AS_INIT = { authorization: `Bearer ${USER_INIT}` };
+
+    it('happy path — creates a CycleDashboard row and returns 201 with expected shape', async () => {
+      const res = await app.getHttpAdapter().getInstance().inject({
+        method: 'POST',
+        url: '/programs/5-3-1/cycles/initialize',
+        headers: { 'content-type': 'application/json', ...AS_INIT },
+        payload: JSON.stringify({ cycleDate: '2026-06-02' }),
+      });
+      expect(res.statusCode).toBe(201);
+      const body = res.json();
+      expect(body.program).toBe('5-3-1');
+      expect(body.cycleNum).toBe(1);
+      expect(body.cycleStartDate).toBe('2026-06-02');
+      expect(body.currentWeekType).toBeDefined();
+      expect(Array.isArray(body.weeks)).toBe(true);
+
+      // DB-level assertion
+      const row = await prisma.cycleDashboard.findFirst({
+        where: { userId: USER_INIT, program: '5-3-1' },
+      });
+      expect(row).not.toBeNull();
+      expect(row?.cycleNum).toBe(1);
+    });
+
+    it('409 Conflict — second call for the same user+program', async () => {
+      const res = await app.getHttpAdapter().getInstance().inject({
+        method: 'POST',
+        url: '/programs/5-3-1/cycles/initialize',
+        headers: { 'content-type': 'application/json', ...AS_INIT },
+        payload: JSON.stringify({}),
+      });
+      expect(res.statusCode).toBe(409);
+    });
+
+    it('400 Bad Request — unrecognized program ID', async () => {
+      const res = await app.getHttpAdapter().getInstance().inject({
+        method: 'POST',
+        url: '/programs/not-a-real-program/cycles/initialize',
+        headers: { 'content-type': 'application/json', ...AS_INIT },
+        payload: JSON.stringify({}),
+      });
+      expect(res.statusCode).toBe(400);
     });
   });
 
