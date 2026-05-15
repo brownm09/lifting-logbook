@@ -87,6 +87,7 @@ export default function CycleDashboardGrid({
         <Link href={`/cycle/${cycleNum}/plan`}>🗓 Program Plan</Link>
         <Link href="/settings/training-maxes">💪 Training Maxes</Link>
         <Link href="/settings/strength-goals">🎯 Strength Goals</Link>
+        <Link href="/history">📚 Lift History</Link>
       </nav>
       <div className={styles.grid}>
         {weeks.map((row) => {
