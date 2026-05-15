@@ -23,7 +23,8 @@ export default function EditorTab({ activeProgram, customPrograms: initialProgra
   const [cloneTemplateId, setCloneTemplateId] = useState<string>(ALL_TEMPLATES[0]?.id ?? '');
   const [programs, setPrograms] = useState(initialPrograms);
   const [isDeleting, startDelete] = useTransition();
-  const [isFetching, startFetch] = useTransition();
+  const [, startFetch] = useTransition();
+  const [fetchingId, setFetchingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
 
@@ -48,12 +49,15 @@ export default function EditorTab({ activeProgram, customPrograms: initialProgra
 
   function handleEditClick(id: string) {
     setError(null);
+    setFetchingId(id);
     startFetch(async () => {
       try {
         const full = await fetchCustomProgram(id);
         setEditingProgram(full);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load program.');
+      } finally {
+        setFetchingId(null);
       }
     });
   }
@@ -168,15 +172,15 @@ export default function EditorTab({ activeProgram, customPrograms: initialProgra
                           type="button"
                           className={styles.btnSecondary}
                           onClick={() => handleEditClick(p.id)}
-                          disabled={isFetching || isDeleting}
+                          disabled={fetchingId !== null || isDeleting}
                         >
-                          {isFetching ? 'Loading…' : 'Edit'}
+                          {fetchingId === p.id ? 'Loading…' : 'Edit'}
                         </button>
                         <button
                           type="button"
                           className={styles.btnDanger}
                           onClick={() => setConfirmingDeleteId(p.id)}
-                          disabled={isDeleting || isFetching}
+                          disabled={isDeleting || fetchingId !== null}
                         >
                           Delete
                         </button>

@@ -1,4 +1,5 @@
 import {
+  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsIn,
@@ -31,6 +32,6 @@ export class CreateCustomProgramDto {
   @IsString() name!: string;
   @IsOptional() @IsString() description?: string;
   @IsOptional() @IsString() baseTemplate?: string;
-  @IsArray() @ValidateNested({ each: true }) @Type(() => CustomProgramSpecRowDto)
+  @IsArray() @ArrayMinSize(1) @ValidateNested({ each: true }) @Type(() => CustomProgramSpecRowDto)
   specs!: CustomProgramSpecRowDto[];
 }

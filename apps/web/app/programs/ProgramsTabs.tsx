@@ -17,8 +17,10 @@ export default function ProgramsTabs({ activeProgram, customPrograms }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('browse');
   const [currentActive, setCurrentActive] = useState(activeProgram);
 
-  function handleProgramSaved(id: string) {
-    setCurrentActive(id);
+  function handleProgramSaved(_id: string) {
+    // Do not update currentActive here — saving a program does not switch to it.
+    // currentActive updates only when the user explicitly switches via the Browse
+    // tab dialog or Save & Switch, both of which navigate away from this page.
     setActiveTab('browse');
   }
 

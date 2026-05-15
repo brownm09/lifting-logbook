@@ -37,7 +37,12 @@ export default function SwitchProgramDialog({
   const currentLabel = currentProgramId ? `your current program` : 'your dashboard';
 
   return (
-    <div className={styles.dialogOverlay} role="dialog" aria-modal="true">
+    <div
+      className={styles.dialogOverlay}
+      role="dialog"
+      aria-modal="true"
+      onKeyDown={(e) => { if (e.key === 'Escape' && !isPending) onClose(); }}
+    >
       <div className={styles.dialog}>
         <p className={styles.dialogTitle}>Switch to {programName}?</p>
         <p className={styles.dialogBody}>

@@ -1,7 +1,3 @@
-import { IsOptional, IsString } from 'class-validator';
-
-export class UpdateSettingsDto {
-  @IsOptional()
-  @IsString()
-  activeProgram?: string;
-}
+// Active program changes must go through POST /programs/:program/switch,
+// which enforces ownership of custom program UUIDs.
+export class UpdateSettingsDto {}

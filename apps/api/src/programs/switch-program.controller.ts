@@ -1,4 +1,4 @@
-import { Controller, HttpCode, HttpStatus, Inject, Param, Post } from '@nestjs/common';
+import { Controller, ForbiddenException, HttpCode, HttpStatus, Inject, Param, Post } from '@nestjs/common';
 import { SwitchProgramResponse } from '@lifting-logbook/types';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthUser } from '../ports/auth';
@@ -9,6 +9,9 @@ import { UserSettingsRepository } from '../user-settings/user-settings.repositor
 import { CycleGenerationService } from './cycle-generation.service';
 import { ParseProgramPipe } from './program.pipe';
 import { ProgramNotFoundError } from '../ports/errors';
+
+// Matches a standard UUID — used to detect custom program IDs vs catalog slugs.
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 @Controller('programs/:program')
 export class SwitchProgramController {
@@ -24,6 +27,17 @@ export class SwitchProgramController {
     @Param('program', ParseProgramPipe) program: string,
     @CurrentUser() user: AuthUser,
   ): Promise<SwitchProgramResponse> {
+    // Custom program IDs are UUIDs. Verify ownership before using the spec —
+    // HybridLiftingProgramSpecRepository queries CustomProgramSpec by programId
+    // without a userId filter, so we must gate here. Use ForbiddenException
+    // rather than NotFoundException to avoid confirming UUID existence.
+    if (UUID_PATTERN.test(program)) {
+      const owned = await this.prisma.customProgram.findFirst({
+        where: { id: program, userId: user.id },
+      });
+      if (!owned) throw new ForbiddenException('Program not found');
+    }
+
     const settingsRepo = new UserSettingsRepository(this.prisma, user.id);
     const repos = await this.factory.forUser(user);
 
