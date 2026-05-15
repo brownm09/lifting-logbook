@@ -28,6 +28,11 @@ export class SwitchProgramController {
     const repos = await this.factory.forUser(user);
 
     // Ensure a CycleDashboard exists for this program; create if not.
+    // Order is intentional: cycle init runs first so that if the settings write
+    // fails the dashboard exists but is not yet referenced — a retry will skip
+    // init and succeed at the settings write. The inverse (settings written,
+    // init failed) would leave the user's active program pointing at a cycle
+    // that doesn't exist yet, which is a harder state to recover from.
     let cycleNum = 1;
     try {
       const existing = await repos.cycleDashboard.getCycleDashboard(program);

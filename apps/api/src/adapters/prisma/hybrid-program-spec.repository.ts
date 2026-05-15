@@ -34,7 +34,7 @@ export class HybridLiftingProgramSpecRepository implements ILiftingProgramSpecRe
       warmUpPct: s.warmUpPct,
       wtDecrementPct: s.wtDecrementPct,
       activation: s.activation,
-      weekType: (s.weekType as 'training' | 'test' | 'deload' | undefined) ?? undefined,
+      ...(s.weekType !== null && { weekType: s.weekType as 'training' | 'test' | 'deload' }),
     }));
   }
 }

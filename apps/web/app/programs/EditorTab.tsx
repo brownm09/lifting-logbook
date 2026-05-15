@@ -25,6 +25,7 @@ export default function EditorTab({ activeProgram, customPrograms: initialProgra
   const [isDeleting, startDelete] = useTransition();
   const [isFetching, startFetch] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
 
   function handleSaved(id: string) {
     onProgramSaved(id);
@@ -32,7 +33,8 @@ export default function EditorTab({ activeProgram, customPrograms: initialProgra
     setSubTab('new');
   }
 
-  function handleDelete(id: string) {
+  function handleDeleteConfirmed(id: string) {
+    setConfirmingDeleteId(null);
     setError(null);
     startDelete(async () => {
       try {
@@ -140,22 +142,46 @@ export default function EditorTab({ activeProgram, customPrograms: initialProgra
                     )}
                   </div>
                   <div className={styles.programActions} style={{ marginTop: 0 }}>
-                    <button
-                      type="button"
-                      className={styles.btnSecondary}
-                      onClick={() => handleEditClick(p.id)}
-                      disabled={isFetching || isDeleting}
-                    >
-                      {isFetching ? 'Loading…' : 'Edit'}
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.btnDanger}
-                      onClick={() => handleDelete(p.id)}
-                      disabled={isDeleting || isFetching}
-                    >
-                      {isDeleting ? 'Deleting…' : 'Delete'}
-                    </button>
+                    {confirmingDeleteId === p.id ? (
+                      <>
+                        <span className={styles.infoText} style={{ marginBottom: 0 }}>Delete permanently?</span>
+                        <button
+                          type="button"
+                          className={styles.btnDanger}
+                          onClick={() => handleDeleteConfirmed(p.id)}
+                          disabled={isDeleting}
+                        >
+                          {isDeleting ? 'Deleting…' : 'Yes, delete'}
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.btnSecondary}
+                          onClick={() => setConfirmingDeleteId(null)}
+                          disabled={isDeleting}
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          className={styles.btnSecondary}
+                          onClick={() => handleEditClick(p.id)}
+                          disabled={isFetching || isDeleting}
+                        >
+                          {isFetching ? 'Loading…' : 'Edit'}
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.btnDanger}
+                          onClick={() => setConfirmingDeleteId(p.id)}
+                          disabled={isDeleting || isFetching}
+                        >
+                          Delete
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}
