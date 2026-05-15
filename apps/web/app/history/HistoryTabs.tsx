@@ -62,7 +62,7 @@ function LiftHistoryTab({ records }: { records: EnrichedRecord[] }) {
       if (q) {
         const matchesLift = r.lift.toLowerCase().includes(q);
         const matchesDate = r.date.includes(q);
-        const matchesNotes = r.notes?.toLowerCase().includes(q) ?? false;
+        const matchesNotes = r.notes.toLowerCase().includes(q);
         if (!matchesLift && !matchesDate && !matchesNotes) return false;
       }
       return true;

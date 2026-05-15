@@ -39,6 +39,17 @@ export default async function HistoryPage() {
     maxByLift.set(r.lift, Math.max(maxByLift.get(r.lift) ?? 0, r.weight));
   }
 
+  // Walk oldest→newest; first record per lift that equals the max is the PR.
+  const prRecordIds = new Set<string>();
+  const prSeenLifts = new Set<string>();
+  for (let i = sortedRecords.length - 1; i >= 0; i--) {
+    const r = sortedRecords[i];
+    if (!prSeenLifts.has(r.lift) && r.weight >= (maxByLift.get(r.lift) ?? 0)) {
+      prRecordIds.add(r.id);
+      prSeenLifts.add(r.lift);
+    }
+  }
+
   const enriched: EnrichedRecord[] = sortedRecords.map((r) => {
     const tm = findTmAtTime(r.lift, r.date, tmEntries);
     const tmPercent =
@@ -48,7 +59,7 @@ export default async function HistoryPage() {
       tmAtTime: tm?.weight ?? null,
       tmUnit: tm?.unit ?? null,
       tmPercent,
-      isPR: r.weight >= (maxByLift.get(r.lift) ?? 0),
+      isPR: prRecordIds.has(r.id),
     };
   });
 
