@@ -413,8 +413,8 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
       expect(body.program).toBe('5-3-1');
       expect(body.cycleNum).toBe(1);
       expect(body.cycleStartDate).toBe('2026-06-02');
-      expect(body.currentWeekType).toBeDefined();
-      expect(Array.isArray(body.weeks)).toBe(true);
+      expect(body.currentWeekType).toBe('training');
+      expect(body.weeks).toEqual([]);
 
       // DB-level assertion
       const row = await prisma.cycleDashboard.findFirst({
