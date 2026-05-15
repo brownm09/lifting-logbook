@@ -278,6 +278,68 @@ export interface LiftingProgramSpecResponse {
 }
 
 // ---------------------------------------------------------------------------
+// User Settings
+// ---------------------------------------------------------------------------
+
+export interface UserSettingsResponse {
+  activeProgram: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Custom Programs
+// ---------------------------------------------------------------------------
+
+export interface CustomProgramSpecRow {
+  week: number;
+  offset: number;
+  lift: string;
+  increment: number;
+  order: number;
+  sets: number;
+  reps: number;
+  amrap: boolean;
+  warmUpPct: string;
+  wtDecrementPct: number;
+  activation: string;
+  weekType?: string;
+}
+
+export interface CustomProgramResponse {
+  id: string;
+  name: string;
+  description: string | null;
+  baseTemplate: string | null;
+  createdAt: string;
+  specs: CustomProgramSpecRow[];
+}
+
+export interface CustomProgramSummaryResponse {
+  id: string;
+  name: string;
+  description: string | null;
+  baseTemplate: string | null;
+  createdAt: string;
+}
+
+export interface CreateCustomProgramRequest {
+  name: string;
+  description?: string;
+  baseTemplate?: string;
+  specs: CustomProgramSpecRow[];
+}
+
+export interface UpdateCustomProgramRequest {
+  name?: string;
+  description?: string;
+  specs?: CustomProgramSpecRow[];
+}
+
+export interface SwitchProgramResponse {
+  activeProgram: string;
+  cycleNum: number;
+}
+
+// ---------------------------------------------------------------------------
 // Lift Record CSV Import
 // ---------------------------------------------------------------------------
 

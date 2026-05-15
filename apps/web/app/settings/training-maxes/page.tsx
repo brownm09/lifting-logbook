@@ -1,9 +1,10 @@
 import { fetchTrainingMaxes, fetchTrainingMaxHistory } from '@/lib/api';
+import { getActiveProgram } from '@/lib/active-program';
 import TrainingMaxesForm from './TrainingMaxesForm';
 import MaxHistory from './MaxHistory';
 
 export default async function TrainingMaxesPage() {
-  const program = process.env.NEXT_PUBLIC_DEFAULT_PROGRAM ?? '5-3-1';
+  const program = await getActiveProgram();
   const [maxes, history] = await Promise.all([
     fetchTrainingMaxes(program),
     fetchTrainingMaxHistory(program),

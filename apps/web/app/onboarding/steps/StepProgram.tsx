@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import styles from '../onboarding.module.css';
-import { PROGRAMS, type Experience, type Goal, type Program, type Purpose } from '../programs';
+import { PROGRAMS, type Experience, type Goal, type Program, type Purpose } from '@/lib/programs';
 
 const EXPERIENCE_LEVELS: Experience[] = ['beginner', 'intermediate', 'advanced'];
 

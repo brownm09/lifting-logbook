@@ -8,7 +8,7 @@ import {
   type LiftEntry,
   type LiftKey,
 } from './lib';
-import type { Experience } from './programs';
+import type { Experience } from '@/lib/programs';
 import { StepMethod } from './steps/StepMethod';
 import { StepLifts } from './steps/StepLifts';
 import { StepConfirm } from './steps/StepConfirm';

@@ -27,6 +27,6 @@ import { REPOSITORY_FACTORY } from '../../ports/tokens';
       inject: [{ token: PrismaService, optional: true }],
     },
   ],
-  exports: [REPOSITORY_FACTORY],
+  exports: [REPOSITORY_FACTORY, PrismaService],
 })
 export class RepositoryFactoryModule {}

@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { fetchWorkout, fetchProgramSpec, fetchTrainingMaxes } from '@/lib/api';
+import { getActiveProgram } from '@/lib/active-program';
 import { computePlannedSets } from '@/lib/workoutPlan';
 import CollapsibleLiftList from './CollapsibleLiftList';
 import RescheduleForm from './RescheduleForm';
@@ -29,7 +30,7 @@ export default async function WorkoutDetailPage({
     notFound();
   }
 
-  const program = process.env.NEXT_PUBLIC_DEFAULT_PROGRAM ?? '5-3-1';
+  const program = await getActiveProgram();
 
   const [workout, specs, maxes] = await Promise.all([
     fetchWorkout(program, workoutNum),

@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { fetchTrainingMaxes, fetchTrainingMaxHistory, fetchLiftRecords } from '@/lib/api';
+import { getActiveProgram } from '@/lib/active-program';
 import LiftHistoryFilters from './LiftHistoryFilters';
 import styles from './lift.module.css';
 
@@ -18,7 +19,7 @@ export default async function LiftDetailPage({
     notFound();
   }
 
-  const program = process.env.NEXT_PUBLIC_DEFAULT_PROGRAM ?? '5-3-1';
+  const program = await getActiveProgram();
 
   const [maxes, history, allRecords] = await Promise.all([
     fetchTrainingMaxes(program),

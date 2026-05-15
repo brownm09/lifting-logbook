@@ -133,3 +133,45 @@ model LiftMetadata {
   @@index([userId])
   @@map("lift_metadata")
 }
+
+model UserSettings {
+  userId        String  @id
+  activeProgram String?
+
+  @@map("user_settings")
+}
+
+model CustomProgram {
+  id           String              @id @default(uuid())
+  userId       String
+  name         String
+  description  String?
+  baseTemplate String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  specs        CustomProgramSpec[]
+
+  @@index([userId])
+  @@map("custom_program")
+}
+
+model CustomProgramSpec {
+  id             String        @id @default(uuid())
+  programId      String
+  week           Int
+  offset         Int           @default(0)
+  lift           String
+  increment      Float
+  order          Int
+  sets           Int
+  reps           Int
+  amrap          Boolean       @default(false)
+  warmUpPct      String
+  wtDecrementPct Float
+  activation     String
+  weekType       String?
+  program        CustomProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@index([programId])
+  @@map("custom_program_spec")
+}

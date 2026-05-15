@@ -3,18 +3,24 @@ import 'server-only';
 import { GoogleAuth } from 'google-auth-library';
 import type {
   BodyWeightResponse,
+  CreateCustomProgramRequest,
   CreateLiftRecordRequest,
+  CustomProgramResponse,
+  CustomProgramSummaryResponse,
   CycleDashboardResponse,
   LiftMetadataResponse,
   LiftingProgramSpecResponse,
   LiftRecordResponse,
   RecordBodyWeightRequest,
   StrengthGoalResponse,
+  SwitchProgramResponse,
   UpsertStrengthGoalRequest,
   TrainingMaxHistoryResponse,
   TrainingMaxResponse,
+  UpdateCustomProgramRequest,
   UpdateLiftRecordRequest,
   UpdateTrainingMaxesRequest,
+  UserSettingsResponse,
   WorkoutResponse,
 } from '@lifting-logbook/types';
 
@@ -281,5 +287,61 @@ export function fetchLiftMetadata(lift: string): Promise<LiftMetadataResponse> {
     `/lifts/${encodeURIComponent(lift)}/metadata`,
     { cache: 'no-store' },
   );
+}
+
+export function fetchUserSettings(): Promise<UserSettingsResponse> {
+  return apiFetch<UserSettingsResponse>('/users/me/settings', { cache: 'no-store' });
+}
+
+export function switchProgram(programId: string): Promise<SwitchProgramResponse> {
+  return apiFetch<SwitchProgramResponse>(
+    `/programs/${encodeURIComponent(programId)}/switch`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: 'no-store' },
+  );
+}
+
+export function fetchCustomPrograms(): Promise<CustomProgramSummaryResponse[]> {
+  return apiFetch<CustomProgramSummaryResponse[]>('/programs/custom', { cache: 'no-store' });
+}
+
+export function fetchCustomProgram(id: string): Promise<CustomProgramResponse> {
+  return apiFetch<CustomProgramResponse>(
+    `/programs/custom/${encodeURIComponent(id)}`,
+    { cache: 'no-store' },
+  );
+}
+
+export function createCustomProgram(body: CreateCustomProgramRequest): Promise<CustomProgramResponse> {
+  return apiFetch<CustomProgramResponse>('/programs/custom', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    cache: 'no-store',
+  });
+}
+
+export function updateCustomProgram(
+  id: string,
+  body: UpdateCustomProgramRequest,
+): Promise<CustomProgramResponse> {
+  return apiFetch<CustomProgramResponse>(`/programs/custom/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    cache: 'no-store',
+  });
+}
+
+export async function deleteCustomProgram(id: string): Promise<void> {
+  const authHeaders = await getAuthHeaders();
+  const path = `/programs/custom/${encodeURIComponent(id)}`;
+  const res = await fetch(`${API_URL}${path}`, {
+    method: 'DELETE',
+    headers: authHeaders,
+    cache: 'no-store',
+  });
+  if (!res.ok && res.status !== 404) {
+    throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
+  }
 }
 

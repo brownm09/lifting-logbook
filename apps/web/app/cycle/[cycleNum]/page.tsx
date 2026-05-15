@@ -5,6 +5,7 @@ import {
   fetchTrainingMaxes,
   fetchWorkout,
 } from '@/lib/api';
+import { getActiveProgram } from '@/lib/active-program';
 import {
   buildWorkoutDays,
   computePlannedSets,
@@ -20,7 +21,7 @@ export default async function CycleDashboardPage({
 }) {
   const { cycleNum: cycleNumParam } = await params;
   const requestedCycleNum = Number(cycleNumParam);
-  const program = process.env.NEXT_PUBLIC_DEFAULT_PROGRAM ?? '5-3-1';
+  const program = await getActiveProgram();
 
   const [dashboard, specs, maxes] = await Promise.all([
     fetchCycleDashboard(program),
@@ -28,7 +29,7 @@ export default async function CycleDashboardPage({
     fetchTrainingMaxes(program),
   ]);
 
-  if (dashboard.cycleNum !== requestedCycleNum) {
+  if (!dashboard || dashboard.cycleNum !== requestedCycleNum) {
     notFound();
   }
 

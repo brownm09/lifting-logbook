@@ -27,6 +27,31 @@ export type Program = {
   available: boolean;
 };
 
+export const SEED_PROGRAM = '5-3-1';
+
+export type SeedSpec = {
+  week: number; offset: number; lift: string; increment: number; order: number;
+  sets: number; reps: number; amrap: boolean; warmUpPct: string;
+  wtDecrementPct: number; activation: string;
+};
+
+export function seedProgramSpec(): SeedSpec[] {
+  return [
+    { week: 1, offset: 0, lift: 'Squat',         increment: 5,  order: 1, sets: 3, reps: 5, amrap: true, warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
+    { week: 1, offset: 0, lift: 'Bench Press',    increment: 5,  order: 2, sets: 3, reps: 5, amrap: true, warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
+    { week: 1, offset: 3, lift: 'Deadlift',       increment: 10, order: 1, sets: 3, reps: 5, amrap: true, warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
+    { week: 1, offset: 3, lift: 'Overhead Press', increment: 5,  order: 2, sets: 3, reps: 5, amrap: true, warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
+    { week: 2, offset: 0, lift: 'Squat',         increment: 5,  order: 1, sets: 3, reps: 3, amrap: true, warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
+    { week: 2, offset: 0, lift: 'Bench Press',    increment: 5,  order: 2, sets: 3, reps: 3, amrap: true, warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
+    { week: 2, offset: 3, lift: 'Deadlift',       increment: 10, order: 1, sets: 3, reps: 3, amrap: true, warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
+    { week: 2, offset: 3, lift: 'Overhead Press', increment: 5,  order: 2, sets: 3, reps: 3, amrap: true, warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
+    { week: 3, offset: 0, lift: 'Squat',         increment: 5,  order: 1, sets: 3, reps: 1, amrap: true, warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
+    { week: 3, offset: 0, lift: 'Bench Press',    increment: 5,  order: 2, sets: 3, reps: 1, amrap: true, warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
+    { week: 3, offset: 3, lift: 'Deadlift',       increment: 10, order: 1, sets: 3, reps: 1, amrap: true, warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
+    { week: 3, offset: 3, lift: 'Overhead Press', increment: 5,  order: 2, sets: 3, reps: 1, amrap: true, warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
+  ];
+}
+
 export const PROGRAMS: Program[] = [
   {
     id: 'starting-strength',

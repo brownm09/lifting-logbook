@@ -1,8 +1,9 @@
 import { fetchLatestBodyWeight, fetchStrengthGoals, fetchTrainingMaxes } from '@/lib/api';
+import { getActiveProgram } from '@/lib/active-program';
 import StrengthGoalsForm from './StrengthGoalsForm';
 
 export default async function StrengthGoalsPage() {
-  const program = process.env.NEXT_PUBLIC_DEFAULT_PROGRAM ?? '5-3-1';
+  const program = await getActiveProgram();
   const [maxes, goals, bodyWeight] = await Promise.all([
     fetchTrainingMaxes(program),
     fetchStrengthGoals(program),

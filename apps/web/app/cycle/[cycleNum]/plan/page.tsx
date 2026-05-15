@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { fetchCycleDashboard, fetchProgramSpec } from '@/lib/api';
+import { getActiveProgram } from '@/lib/active-program';
 import { deriveProgramPhases, deriveProgramSummary } from '@/lib/programPlan';
 import styles from './plan.module.css';
 
@@ -24,15 +25,15 @@ export default async function ProgramPlanPage({
   const { cycleNum: cycleNumParam } = await params;
   const requestedCycleNum = Number.parseInt(cycleNumParam, 10);
   if (Number.isNaN(requestedCycleNum) || requestedCycleNum < 1) notFound();
-  const program = process.env.NEXT_PUBLIC_DEFAULT_PROGRAM ?? '5-3-1';
+  const program = await getActiveProgram();
 
   const [dashboard, specs] = await Promise.all([
     fetchCycleDashboard(program),
     fetchProgramSpec(program),
   ]);
 
-  if (dashboard.cycleNum !== requestedCycleNum) {
-    redirect(`/cycle/${dashboard.cycleNum}/plan`);
+  if (!dashboard || dashboard.cycleNum !== requestedCycleNum) {
+    redirect(`/cycle/${dashboard?.cycleNum ?? 1}/plan`);
   }
 
   const { durationWeeks } = deriveProgramSummary(specs);
