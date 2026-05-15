@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Workout Details - Collapsible Lifts</title>
+  <style>
+    /* Base typography and layout system from existing codebase */
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #fafaf8;
+      color: #1a1a1a;
+      line-height: 1.5;
+      font-size: 16px;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+      color: #2c3e50;
+      font-weight: 700;
+      line-height: 1.25;
+      margin: 0;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button {
+      font: inherit;
+      cursor: pointer;
+      border: none;
+      background: none;
+      color: inherit;
+    }
+
+    /* =========================================================================
+       Design tokens (from globals.css)
+       ========================================================================= */
+    :root {
+      --space-1: 0.25rem;
+      --space-2: 0.5rem;
+      --space-3: 0.75rem;
+      --space-4: 1rem;
+      --space-5: 1.25rem;
+      --space-6: 1.5rem;
+      --space-8: 2rem;
+      --radius-sm: 4px;
+      --radius-md: 6px;
+      --radius-lg: 8px;
+      --font-size-xs: 0.75rem;
+      --font-size-sm: 0.875rem;
+      --font-size-base: 1rem;
+      --font-size-lg: 1.125rem;
+      --font-size-xl: 1.375rem;
+      --transition-fast: 0.2s ease;
+      --transition-base: 0.3s ease;
+
+      /* Theme: navy (default) */
+      --color-bg: #fafaf8;
+      --color-surface: #f8f9fa;
+      --color-surface-alt: #ecf0f1;
+      --color-border: #ecf0f1;
+      --color-border-strong: #ddd;
+      --color-text: #1a1a1a;
+      --color-text-muted: #7f8c8d;
+      --color-text-heading: #2c3e50;
+      --color-accent: #3498db;
+      --color-accent-hover: #2980b9;
+      --color-success: #27ae60;
+      --color-success-text: #00b894;
+      --color-success-bg: #a8e6cf;
+      --color-error-text: #c0392b;
+      --color-warn-text: #856404;
+      --color-warn-bg: #fff3cd;
+      --color-upcoming-bg: #fffdf0;
+      --color-upcoming-text: #d63031;
+      --color-missed-bg: #fff5f5;
+    }
+
+    /* =========================================================================
+       Layout
+       ========================================================================= */
+    .container {
+      padding: var(--space-4);
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .backLink {
+      display: inline-block;
+      font-size: var(--font-size-sm);
+      color: var(--color-text-muted);
+      margin-bottom: var(--space-4);
+      transition: color var(--transition-fast);
+    }
+
+    .backLink:hover {
+      color: var(--color-text);
+    }
+
+    /* =========================================================================
+       Header with metadata
+       ========================================================================= */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: var(--space-6);
+      gap: var(--space-3);
+    }
+
+    .headerMeta {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-1);
+    }
+
+    .date {
+      font-size: var(--font-size-lg);
+      font-weight: 600;
+    }
+
+    .weekLabel {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-muted);
+    }
+
+    .badge {
+      padding: var(--space-1) var(--space-3);
+      border-radius: var(--radius-sm);
+      font-size: var(--font-size-xs);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .badge_completed {
+      background: var(--color-success-bg);
+      color: var(--color-success-text);
+    }
+
+    .badge_upcoming {
+      background: var(--color-warn-bg);
+      color: var(--color-warn-text);
+    }
+
+    .badge_missed {
+      background: var(--color-missed-bg);
+      color: var(--color-upcoming-text);
+    }
+
+    /* =========================================================================
+       Summary section (NEW)
+       ========================================================================= */
+    .summarySection {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: var(--space-4);
+      margin-bottom: var(--space-6);
+    }
+
+    .summaryTitle {
+      font-size: var(--font-size-sm);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--color-text-muted);
+      margin-bottom: var(--space-3);
+    }
+
+    .summaryGrid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-4);
+    }
+
+    .summaryItem {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-1);
+    }
+
+    .summaryLabel {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-muted);
+    }
+
+    .summaryValue {
+      font-size: var(--font-size-lg);
+      font-weight: 600;
+    }
+
+    /* =========================================================================
+       Lifts section with collapsible items (UPDATED)
+       ========================================================================= */
+    .liftsSection {
+      margin-bottom: var(--space-6);
+    }
+
+    .sectionHeading {
+      font-size: var(--font-size-base);
+      font-weight: 600;
+      margin-bottom: var(--space-3);
+    }
+
+    .liftList {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+
+    .liftItem {
+      border-top: 1px solid var(--color-border);
+    }
+
+    .liftItem:first-child {
+      border-top: none;
+    }
+
+    /* Collapsible lift item (NEW) */
+    .liftItemHeader {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-3) var(--space-4);
+      background: none;
+      width: 100%;
+      text-align: left;
+      cursor: pointer;
+      transition: background var(--transition-fast);
+    }
+
+    .liftItemHeader:hover {
+      background: var(--color-surface-alt);
+    }
+
+    .liftToggleIcon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      color: var(--color-text-muted);
+      transition: transform var(--transition-fast);
+      flex-shrink: 0;
+    }
+
+    .liftItem.expanded .liftToggleIcon {
+      transform: rotate(90deg);
+    }
+
+    .liftName {
+      font-weight: 600;
+      font-size: var(--font-size-sm);
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .liftTM {
+      font-weight: 400;
+      font-size: var(--font-size-xs);
+      color: var(--color-text-muted);
+    }
+
+    .liftSummary {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-muted);
+    }
+
+    .liftHistoryBtn {
+      padding: var(--space-2) var(--space-3);
+      background: var(--color-surface);
+      border: 1px solid var(--color-border-strong);
+      border-radius: var(--radius-sm);
+      font-size: var(--font-size-xs);
+      color: var(--color-text-muted);
+      transition: all var(--transition-fast);
+      flex-shrink: 0;
+    }
+
+    .liftHistoryBtn:hover {
+      background: var(--color-surface-alt);
+      color: var(--color-text);
+    }
+
+    /* Collapsed content (NEW) */
+    .liftItemContent {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height var(--transition-base), opacity var(--transition-base);
+      opacity: 0;
+    }
+
+    .liftItem.expanded .liftItemContent {
+      max-height: 500px;
+      opacity: 1;
+    }
+
+    .liftItemContentInner {
+      padding: 0 var(--space-4) var(--space-4) var(--space-4);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+      border-top: 1px solid var(--color-border);
+    }
+
+    .setGroup {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+    }
+
+    .setGroupLabel {
+      font-size: var(--font-size-xs);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--color-text-muted);
+    }
+
+    .setRow {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--space-2) var(--space-3);
+      background: var(--color-surface);
+      border-radius: var(--radius-sm);
+      font-size: var(--font-size-sm);
+    }
+
+    .setLabel {
+      color: var(--color-text-muted);
+    }
+
+    .setSpec {
+      font-weight: 600;
+    }
+
+    /* =========================================================================
+       Actions section
+       ========================================================================= */
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+    }
+
+    .btnPrimary {
+      display: block;
+      padding: var(--space-2) var(--space-4);
+      background: var(--color-accent);
+      color: white;
+      border-radius: var(--radius-md);
+      font-size: var(--font-size-sm);
+      font-weight: 600;
+      text-align: center;
+      text-decoration: none;
+      width: 100%;
+      transition: opacity var(--transition-fast);
+    }
+
+    .btnPrimary:hover {
+      opacity: 0.88;
+    }
+
+    .btnSecondary {
+      padding: var(--space-2) var(--space-4);
+      background: transparent;
+      color: var(--color-text);
+      border: 1px solid var(--color-border-strong);
+      border-radius: var(--radius-md);
+      font-size: var(--font-size-sm);
+      font-weight: 600;
+      width: 100%;
+      text-align: center;
+      text-decoration: none;
+      transition: background var(--transition-fast);
+    }
+
+    .btnSecondary:hover {
+      background: var(--color-surface-alt);
+    }
+
+    /* =========================================================================
+       Lift Editor (Program Editor section) - NEW DESIGN
+       ========================================================================= */
+    .sectionDivider {
+      margin: var(--space-8) 0 var(--space-6);
+      padding-top: var(--space-6);
+      border-top: 2px solid var(--color-border);
+    }
+
+    .editorContainer {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: var(--space-4);
+    }
+
+    .editorTitle {
+      font-size: var(--font-size-lg);
+      font-weight: 600;
+      margin-bottom: var(--space-4);
+    }
+
+    .editorField {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+      margin-bottom: var(--space-4);
+    }
+
+    .editorLabel {
+      font-size: var(--font-size-sm);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--color-text-muted);
+    }
+
+    .editorReadOnly {
+      font-size: var(--font-size-base);
+      font-weight: 600;
+      padding: var(--space-2) var(--space-3);
+      background: var(--color-bg);
+      border-radius: var(--radius-sm);
+    }
+
+    /* Lift picker with catalog (NEW - replaces free text) */
+    .liftPickerField {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+    }
+
+    .liftPickerInput {
+      padding: var(--space-2) var(--space-3);
+      font-size: var(--font-size-base);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      background: var(--color-bg);
+      width: 100%;
+    }
+
+    .liftPickerInput:focus {
+      outline: none;
+      border-color: var(--color-accent);
+      box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+    }
+
+    .liftPickerDropdown {
+      max-height: 300px;
+      overflow-y: auto;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      background: white;
+      box-shadow: var(--color-border) 0 4px 12px rgba(0, 0, 0, 0.12);
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .liftPickerItem {
+      padding: var(--space-3) var(--space-4);
+      border-bottom: 1px solid var(--color-border);
+      cursor: pointer;
+      transition: background var(--transition-fast);
+      font-size: var(--font-size-sm);
+    }
+
+    .liftPickerItem:last-child {
+      border-bottom: none;
+    }
+
+    .liftPickerItem:hover {
+      background: var(--color-surface-alt);
+    }
+
+    .liftPickerItem.selected {
+      background: var(--color-accent);
+      color: white;
+      font-weight: 600;
+    }
+
+    .tagsContainer {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      margin-top: var(--space-2);
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-1) var(--space-3);
+      background: var(--color-accent);
+      color: white;
+      border-radius: var(--radius-md);
+      font-size: var(--font-size-sm);
+      font-weight: 500;
+    }
+
+    .tagRemove {
+      cursor: pointer;
+      opacity: 0.8;
+      transition: opacity var(--transition-fast);
+    }
+
+    .tagRemove:hover {
+      opacity: 1;
+    }
+
+    .checkboxField {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      margin-bottom: var(--space-4);
+    }
+
+    .checkboxField input[type="checkbox"] {
+      cursor: pointer;
+      width: 18px;
+      height: 18px;
+    }
+
+    .editorActions {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+    }
+
+    .btnSave {
+      padding: var(--space-2) var(--space-4);
+      background: var(--color-accent);
+      color: white;
+      border-radius: var(--radius-md);
+      font-size: var(--font-size-sm);
+      font-weight: 600;
+      width: 100%;
+      transition: opacity var(--transition-fast);
+    }
+
+    .btnSave:hover {
+      opacity: 0.88;
+    }
+
+    .btnReset {
+      padding: var(--space-2) var(--space-4);
+      background: transparent;
+      color: var(--color-text);
+      border: 1px solid var(--color-border-strong);
+      border-radius: var(--radius-md);
+      font-size: var(--font-size-sm);
+      font-weight: 600;
+      width: 100%;
+      transition: background var(--transition-fast);
+    }
+
+    .btnReset:hover {
+      background: var(--color-surface-alt);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- WORKOUT DETAILS VIEW ============================================ -->
+    <a href="#" class="backLink">← Back to Cycle</a>
+
+    <!-- Header with metadata -->
+    <header class="header">
+      <div class="headerMeta">
+        <time class="date">2026-05-13</time>
+        <span class="weekLabel">Week 1</span>
+      </div>
+      <span class="badge badge_upcoming">Upcoming</span>
+    </header>
+
+    <!-- NEW: Summary section at the top -->
+    <section class="summarySection">
+      <h3 class="summaryTitle">Workout Summary</h3>
+      <div class="summaryGrid">
+        <div class="summaryItem">
+          <span class="summaryLabel">Total Lifts</span>
+          <span class="summaryValue">3</span>
+        </div>
+        <div class="summaryItem">
+          <span class="summaryLabel">Total Sets</span>
+          <span class="summaryValue">9</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Lifts section with collapsible items -->
+    <section class="liftsSection">
+      <h2 class="sectionHeading">Planned Lifts</h2>
+      <ul class="liftList">
+        <!-- Lift 1: Bench Press (expanded by default to show content) -->
+        <li class="liftItem expanded">
+          <button class="liftItemHeader" onclick="this.parentElement.classList.toggle('expanded')">
+            <span class="liftToggleIcon">›</span>
+            <span class="liftName">Bench Press <span class="liftTM">TM: 285 lbs</span></span>
+            <span class="liftSummary">1 warm-up • 3 working</span>
+            <button class="liftHistoryBtn" onclick="event.stopPropagation(); alert('Show history for Bench Press')">
+              📊 History
+            </button>
+          </button>
+          <div class="liftItemContent">
+            <div class="liftItemContentInner">
+              <div class="setGroup">
+                <div class="setGroupLabel">Warm-up</div>
+                <div class="setRow">
+                  <span class="setLabel">Warm-up set 1</span>
+                  <span class="setSpec">5 × 135 lbs</span>
+                </div>
+              </div>
+              <div class="setGroup">
+                <div class="setGroupLabel">Working Sets</div>
+                <div class="setRow">
+                  <span class="setLabel">Set 1</span>
+                  <span class="setSpec">5 × 200 lbs</span>
+                </div>
+                <div class="setRow">
+                  <span class="setLabel">Set 2</span>
+                  <span class="setSpec">3 × 230 lbs</span>
+                </div>
+                <div class="setRow">
+                  <span class="setLabel">Set 3</span>
+                  <span class="setSpec">1+ × 260 lbs</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </li>
+
+        <!-- Lift 2: Incline Dumbbell Press (collapsed by default) -->
+        <li class="liftItem">
+          <button class="liftItemHeader" onclick="this.parentElement.classList.toggle('expanded')">
+            <span class="liftToggleIcon">›</span>
+            <span class="liftName">Incline Dumbbell Press <span class="liftTM">TM: 110 lbs</span></span>
+            <span class="liftSummary">3 working</span>
+            <button class="liftHistoryBtn" onclick="event.stopPropagation(); alert('Show history for Incline Dumbbell Press')">
+              📊 History
+            </button>
+          </button>
+          <div class="liftItemContent">
+            <div class="liftItemContentInner">
+              <div class="setGroup">
+                <div class="setGroupLabel">Working Sets</div>
+                <div class="setRow">
+                  <span class="setLabel">Set 1</span>
+                  <span class="setSpec">8 × 50 lbs (each)</span>
+                </div>
+                <div class="setRow">
+                  <span class="setLabel">Set 2</span>
+                  <span class="setSpec">8 × 50 lbs (each)</span>
+                </div>
+                <div class="setRow">
+                  <span class="setLabel">Set 3</span>
+                  <span class="setSpec">8+ × 50 lbs (each)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </li>
+
+        <!-- Lift 3: Barbell Rows (collapsed by default) -->
+        <li class="liftItem">
+          <button class="liftItemHeader" onclick="this.parentElement.classList.toggle('expanded')">
+            <span class="liftToggleIcon">›</span>
+            <span class="liftName">Barbell Rows <span class="liftTM">TM: 305 lbs</span></span>
+            <span class="liftSummary">1 warm-up • 3 working</span>
+            <button class="liftHistoryBtn" onclick="event.stopPropagation(); alert('Show history for Barbell Rows')">
+              📊 History
+            </button>
+          </button>
+          <div class="liftItemContent">
+            <div class="liftItemContentInner">
+              <div class="setGroup">
+                <div class="setGroupLabel">Warm-up</div>
+                <div class="setRow">
+                  <span class="setLabel">Warm-up set 1</span>
+                  <span class="setSpec">5 × 135 lbs</span>
+                </div>
+              </div>
+              <div class="setGroup">
+                <div class="setGroupLabel">Working Sets</div>
+                <div class="setRow">
+                  <span class="setLabel">Set 1</span>
+                  <span class="setSpec">5 × 200 lbs</span>
+                </div>
+                <div class="setRow">
+                  <span class="setLabel">Set 2</span>
+                  <span class="setSpec">3 × 230 lbs</span>
+                </div>
+                <div class="setRow">
+                  <span class="setLabel">Set 3</span>
+                  <span class="setSpec">1+ × 260 lbs</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <!-- Actions -->
+    <section class="actions">
+      <button class="btnPrimary" onclick="alert('Navigate to logging workout')">Start Logging</button>
+      <button class="btnSecondary" onclick="alert('Navigate to manage lifts')">✏️ Manage Lifts</button>
+    </section>
+
+    <!-- PROGRAM EDITOR SECTION ========================================== -->
+    <div class="sectionDivider"></div>
+
+    <section class="editorContainer">
+      <h2 class="editorTitle">Edit Lift Metadata</h2>
+
+      <!-- Lift name (read-only) -->
+      <div class="editorField">
+        <label class="editorLabel">Lift</label>
+        <div class="editorReadOnly">Bench Press</div>
+      </div>
+
+      <!-- Muscle groups (NEW: using lift picker instead of free text) -->
+      <div class="editorField">
+        <label class="editorLabel">Muscle Groups</label>
+        <div class="liftPickerField" id="muscleGroupsField">
+          <input
+            type="text"
+            class="liftPickerInput"
+            placeholder="Search muscle groups…"
+            id="muscleSearch"
+            onkeyup="filterMuscleList()"
+          />
+          <ul class="liftPickerDropdown" id="muscleDropdown">
+            <li class="liftPickerItem" onclick="addMuscleGroup('Chest')">Chest</li>
+            <li class="liftPickerItem" onclick="addMuscleGroup('Front Delts')">Front Delts</li>
+            <li class="liftPickerItem" onclick="addMuscleGroup('Triceps')">Triceps</li>
+            <li class="liftPickerItem" onclick="addMuscleGroup('Shoulders')">Shoulders</li>
+          </ul>
+          <div class="tagsContainer" id="muscleGroupsTags">
+            <div class="tag">
+              Chest
+              <span class="tagRemove" onclick="removeMuscleGroup('Chest')">×</span>
+            </div>
+            <div class="tag">
+              Front Delts
+              <span class="tagRemove" onclick="removeMuscleGroup('Front Delts')">×</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Substitutions (NEW: using lift picker with catalog) -->
+      <div class="editorField">
+        <label class="editorLabel">Substitutions</label>
+        <div class="liftPickerField" id="substitutionsField">
+          <input
+            type="text"
+            class="liftPickerInput"
+            placeholder="Search lifts to add as substitutions…"
+            id="substitutionSearch"
+            onkeyup="filterSubstitutionList()"
+          />
+          <ul class="liftPickerDropdown" id="substitutionDropdown">
+            <li class="liftPickerItem" onclick="addSubstitution('Dumbbell Bench Press')">Dumbbell Bench Press</li>
+            <li class="liftPickerItem" onclick="addSubstitution('Smith Machine Bench')">Smith Machine Bench</li>
+            <li class="liftPickerItem" onclick="addSubstitution('Machine Chest Press')">Machine Chest Press</li>
+            <li class="liftPickerItem" onclick="addSubstitution('Cable Chest Fly')">Cable Chest Fly</li>
+            <li class="liftPickerItem" onclick="addSubstitution('Push-ups')">Push-ups</li>
+          </ul>
+          <div class="tagsContainer" id="substitutionsTags">
+            <div class="tag">
+              Dumbbell Bench Press
+              <span class="tagRemove" onclick="removeSubstitution('Dumbbell Bench Press')">×</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Foundational checkbox -->
+      <div class="checkboxField">
+        <input id="foundational" type="checkbox" checked />
+        <label class="editorLabel" for="foundational" style="margin: 0; text-transform: none; letter-spacing: 0;">
+          Foundational lift
+        </label>
+      </div>
+
+      <!-- Actions -->
+      <div class="editorActions">
+        <button class="btnSave" onclick="alert('Changes saved!')">Save Changes</button>
+        <button class="btnReset" onclick="alert('Form reset')">Reset</button>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // Helper functions for the lift picker dropdowns
+    function filterMuscleList() {
+      const input = document.getElementById('muscleSearch');
+      const dropdown = document.getElementById('muscleDropdown');
+      const filter = input.value.toLowerCase();
+
+      Array.from(dropdown.children).forEach(item => {
+        const text = item.textContent.toLowerCase();
+        item.style.display = text.includes(filter) ? '' : 'none';
+      });
+    }
+
+    function filterSubstitutionList() {
+      const input = document.getElementById('substitutionSearch');
+      const dropdown = document.getElementById('substitutionDropdown');
+      const filter = input.value.toLowerCase();
+
+      Array.from(dropdown.children).forEach(item => {
+        const text = item.textContent.toLowerCase();
+        item.style.display = text.includes(filter) ? '' : 'none';
+      });
+    }
+
+    function addMuscleGroup(name) {
+      const tags = document.getElementById('muscleGroupsTags');
+      const existing = Array.from(tags.children).some(tag => tag.textContent.trim().startsWith(name));
+      if (!existing) {
+        const tag = document.createElement('div');
+        tag.className = 'tag';
+        tag.innerHTML = `${name}<span class="tagRemove" onclick="removeMuscleGroup('${name}')">×</span>`;
+        tags.appendChild(tag);
+      }
+      document.getElementById('muscleSearch').value = '';
+      filterMuscleList();
+    }
+
+    function removeMuscleGroup(name) {
+      const tags = document.getElementById('muscleGroupsTags');
+      Array.from(tags.children).forEach(tag => {
+        if (tag.textContent.includes(name)) {
+          tag.remove();
+        }
+      });
+    }
+
+    function addSubstitution(name) {
+      const tags = document.getElementById('substitutionsTags');
+      const existing = Array.from(tags.children).some(tag => tag.textContent.trim().startsWith(name));
+      if (!existing) {
+        const tag = document.createElement('div');
+        tag.className = 'tag';
+        tag.innerHTML = `${name}<span class="tagRemove" onclick="removeSubstitution('${name}')">×</span>`;
+        tags.appendChild(tag);
+      }
+      document.getElementById('substitutionSearch').value = '';
+      filterSubstitutionList();
+    }
+
+    function removeSubstitution(name) {
+      const tags = document.getElementById('substitutionsTags');
+      Array.from(tags.children).forEach(tag => {
+        if (tag.textContent.includes(name)) {
+          tag.remove();
+        }
+      });
+    }
+  </script>
+</body>
+</html>
