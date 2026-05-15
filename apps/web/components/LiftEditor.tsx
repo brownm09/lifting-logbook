@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { patchLiftMetadata } from '@/lib/client-api';
 import type { LiftMetadataResponse } from '@lifting-logbook/types';
+import CatalogTagPicker from './CatalogTagPicker';
+import FreeTagPicker from './FreeTagPicker';
 import styles from './LiftEditor.module.css';
 
 interface Props {
@@ -12,16 +14,8 @@ interface Props {
   initialMetadata: LiftMetadataResponse;
 }
 
-function parseList(value: string): string[] {
-  return value
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
 export default function LiftEditor({ cycleNum, workoutNum, initialMetadata }: Props) {
   const router = useRouter();
-  // State is string[] matching the API contract; inputs display as comma-joined for editing.
   const [muscleGroups, setMuscleGroups] = useState<string[]>(initialMetadata.muscleGroups);
   const [substitutions, setSubstitutions] = useState<string[]>(initialMetadata.substitutions);
   const [foundational, setFoundational] = useState(initialMetadata.foundational);
@@ -66,13 +60,12 @@ export default function LiftEditor({ cycleNum, workoutNum, initialMetadata }: Pr
         <label className={styles.label} htmlFor="muscleGroups">
           Muscle Groups
         </label>
-        <input
+        <FreeTagPicker
           id="muscleGroups"
-          type="text"
-          className={styles.input}
+          value={muscleGroups}
+          onChange={setMuscleGroups}
           placeholder="e.g. Quads, Glutes, Hamstrings"
-          value={muscleGroups.join(', ')}
-          onChange={(e) => setMuscleGroups(parseList(e.target.value))}
+          disabled={saving}
         />
       </div>
 
@@ -80,13 +73,11 @@ export default function LiftEditor({ cycleNum, workoutNum, initialMetadata }: Pr
         <label className={styles.label} htmlFor="substitutions">
           Substitutions
         </label>
-        <input
+        <CatalogTagPicker
           id="substitutions"
-          type="text"
-          className={styles.input}
-          placeholder="e.g. Leg Press, Hack Squat"
-          value={substitutions.join(', ')}
-          onChange={(e) => setSubstitutions(parseList(e.target.value))}
+          value={substitutions}
+          onChange={setSubstitutions}
+          disabled={saving}
         />
       </div>
 

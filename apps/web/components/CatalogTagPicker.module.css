@@ -1,0 +1,51 @@
+.wrapper {
+  position: relative;
+}
+
+.chipList {
+  composes: chipList from './chip.module.css';
+}
+
+.chip {
+  composes: chip from './chip.module.css';
+}
+
+.chipRemove {
+  composes: chipRemove from './chip.module.css';
+}
+
+.textInput {
+  composes: textInput from './chip.module.css';
+}
+
+.dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  background: var(--color-surface, #f8f9fa);
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 6px;
+  margin-top: 2px;
+  max-height: 220px;
+  overflow-y: auto;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  list-style: none;
+  padding: 0.25rem 0;
+}
+
+.option {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.9375rem;
+  color: var(--color-text, #111);
+}
+
+.option:hover {
+  background: var(--color-surface-alt, #eef0f2);
+}
