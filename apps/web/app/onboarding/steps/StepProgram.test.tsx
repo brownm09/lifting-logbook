@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { StepProgram } from './StepProgram';
-import { PROGRAMS, type Experience } from '../programs';
+import { PROGRAMS, type Experience } from '@/lib/programs';
 
 /** Wrapper that wires up controlled selectedProgramId state so clicking
  *  a program card actually switches to the detail view. */

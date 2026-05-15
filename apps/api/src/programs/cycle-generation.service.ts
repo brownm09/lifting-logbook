@@ -26,6 +26,19 @@ type CycleRepos = Pick<
  */
 const PROGRAM_DEFAULTS: Record<string, { cycleUnit: string; programType: string }> = {
   '5-3-1': { cycleUnit: 'week', programType: '5-3-1' },
+  'rpt': { cycleUnit: 'week', programType: 'rpt' },
+  'starting-strength': { cycleUnit: 'week', programType: 'starting-strength' },
+  'stronglifts': { cycleUnit: 'week', programType: 'stronglifts' },
+  'ppl': { cycleUnit: 'week', programType: 'ppl' },
+  'upper-lower': { cycleUnit: 'week', programType: 'upper-lower' },
+  '531': { cycleUnit: 'week', programType: '531' },
+  '531-bbb': { cycleUnit: 'week', programType: '531-bbb' },
+  '531-forever': { cycleUnit: 'week', programType: '531-forever' },
+  'leangains': { cycleUnit: 'week', programType: 'leangains' },
+  'conjugate': { cycleUnit: 'week', programType: 'conjugate' },
+  'smolov': { cycleUnit: 'week', programType: 'smolov' },
+  'juggernaut': { cycleUnit: 'week', programType: 'juggernaut' },
+  'creeping-death-2': { cycleUnit: 'week', programType: 'creeping-death-2' },
 };
 
 function round1dp(w: number): number {
@@ -119,7 +132,9 @@ export class CycleGenerationService {
       // ProgramNotFoundError is expected — no cycle exists yet, proceed
     }
 
-    const defaults = PROGRAM_DEFAULTS[program];
+    const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const defaults = PROGRAM_DEFAULTS[program] ??
+      (UUID_PATTERN.test(program) ? { cycleUnit: 'week', programType: 'custom' } : null);
     if (!defaults) {
       throw new BadRequestException(`Unknown program: "${program}"`);
     }

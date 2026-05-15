@@ -9,6 +9,7 @@ export default function CycleLayout({
         <h1>Lifting Logbook</h1>
         <nav>
           <a href="/history">History</a>
+          <a href="/programs">Programs</a>
           <a href="/settings/training-maxes">Settings</a>
         </nav>
       </header>

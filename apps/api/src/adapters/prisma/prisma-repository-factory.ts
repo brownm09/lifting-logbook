@@ -11,16 +11,18 @@ import { PrismaWorkoutDateOverrideRepository } from './workout-date-override.rep
 import { PrismaLiftMetadataRepository } from './lift-metadata.repository';
 import { PrismaWorkoutLiftOverrideRepository } from './workout-lift-override.repository';
 import { PrismaWorkoutRepository } from './workout.repository';
-import { InMemoryLiftingProgramSpecRepository } from '../in-memory/lifting-program-spec.adapter';
+import { HybridLiftingProgramSpecRepository } from './hybrid-program-spec.repository';
 import { InMemoryProgramPhilosophyRepository } from '../in-memory/program-philosophy.adapter';
 
 @Injectable()
 export class PrismaRepositoryFactory implements IRepositoryFactory {
-  // Static data repos are shared — they hold no per-user mutable state.
-  private readonly programSpecRepo = new InMemoryLiftingProgramSpecRepository();
+  // Spec repo handles both in-memory built-in programs and DB-backed custom programs.
+  private readonly programSpecRepo: HybridLiftingProgramSpecRepository;
   private readonly philosophyRepo = new InMemoryProgramPhilosophyRepository();
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {
+    this.programSpecRepo = new HybridLiftingProgramSpecRepository(prisma);
+  }
 
   async forUser(user: AuthUser): Promise<RepositoryBundle> {
     return {

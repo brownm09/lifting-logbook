@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { fetchWorkout } from '@/lib/api';
+import { getActiveProgram } from '@/lib/active-program';
 import ManageLiftsActions from './ManageLiftsActions';
 import styles from './manage-lifts.module.css';
 
@@ -17,7 +18,7 @@ export default async function ManageLiftsPage({
     notFound();
   }
 
-  const program = process.env.NEXT_PUBLIC_DEFAULT_PROGRAM ?? '5-3-1';
+  const program = await getActiveProgram();
   const workout = await fetchWorkout(program, workoutNum);
 
   if (!workout) {

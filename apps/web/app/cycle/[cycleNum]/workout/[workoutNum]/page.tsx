@@ -13,6 +13,7 @@ import {
   fetchTrainingMaxes,
   fetchWorkout,
 } from '@/lib/api';
+import { getActiveProgram } from '@/lib/active-program';
 import WorkoutLogger from './WorkoutLogger';
 import type { LiftData, WarmUpSetData, WorkingSetData, WorkoutLoggerProps } from './types';
 
@@ -45,7 +46,7 @@ export default async function WorkoutLoggingPage({
     notFound();
   }
 
-  const program = process.env.NEXT_PUBLIC_DEFAULT_PROGRAM ?? '5-3-1';
+  const program = await getActiveProgram();
 
   const [workout, specs, maxes, allRecords, latestBodyWeight] = await Promise.all([
     fetchWorkout(program, workoutNum),

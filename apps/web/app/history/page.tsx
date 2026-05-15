@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { fetchLiftRecords, fetchTrainingMaxHistory } from '@/lib/api';
+import { getActiveProgram } from '@/lib/active-program';
 import type {
   LiftRecordResponse,
   TrainingMaxHistoryEntryResponse,
@@ -27,7 +28,7 @@ function findTmAtTime(
 }
 
 export default async function HistoryPage() {
-  const program = process.env.NEXT_PUBLIC_DEFAULT_PROGRAM ?? '5-3-1';
+  const program = await getActiveProgram();
 
   const [records, { entries: tmEntries }] = await Promise.all([
     fetchLiftRecords(program),

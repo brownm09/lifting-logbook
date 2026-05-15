@@ -3,9 +3,11 @@ import { LoggerModule } from 'nestjs-pino';
 import { trace, context } from '@opentelemetry/api';
 import { RepositoryFactoryModule } from './adapters/factory/repository-factory.module';
 import { AuthModule } from './auth/auth.module';
+import { CustomProgramsModule } from './custom-programs/custom-programs.module';
 import { HealthModule } from './health/health.module';
 import { LiftsModule } from './lifts/lifts.module';
 import { ProgramsModule } from './programs/programs.module';
+import { UserSettingsModule } from './user-settings/user-settings.module';
 
 @Module({
   imports: [
@@ -38,10 +40,12 @@ import { ProgramsModule } from './programs/programs.module';
       },
     }),
     AuthModule,
+    CustomProgramsModule,
     HealthModule,
     LiftsModule,
     ProgramsModule,
     RepositoryFactoryModule,
+    UserSettingsModule,
   ],
 })
 export class AppModule {}

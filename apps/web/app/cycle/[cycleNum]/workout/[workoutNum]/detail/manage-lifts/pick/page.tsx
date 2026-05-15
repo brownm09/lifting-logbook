@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { fetchLiftCatalog } from '@/lib/api';
+import { getActiveProgram } from '@/lib/active-program';
 import LiftPicker from './LiftPicker';
 import styles from './pick.module.css';
 
@@ -22,7 +23,7 @@ export default async function LiftPickerPage({
   }
 
   const validAction = action === 'replace' ? 'replace' : 'add';
-  const program = process.env.NEXT_PUBLIC_DEFAULT_PROGRAM ?? '5-3-1';
+  const program = await getActiveProgram();
   const catalog = await fetchLiftCatalog(program);
 
   const backHref = `/cycle/${cycleNum}/workout/${workoutNum}/detail/manage-lifts`;

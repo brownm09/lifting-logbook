@@ -88,6 +88,7 @@ export default function CycleDashboardGrid({
         <Link href="/settings/training-maxes">💪 Training Maxes</Link>
         <Link href="/settings/strength-goals">🎯 Strength Goals</Link>
         <Link href="/history">📚 Lift History</Link>
+        <Link href="/programs">🗂 Programs</Link>
       </nav>
       <div className={styles.grid}>
         {weeks.map((row) => {
