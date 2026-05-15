@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lifting Logbook - Lift History & TM Tracking</title>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      background: #fafaf8;
+      color: #1a1a1a;
+      line-height: 1.5;
+    }
+
+    .container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      padding: 24px;
+      max-width: 100%;
+    }
+
+    .journey {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      aspect-ratio: 9/16;
+      max-height: 900px;
+    }
+
+    .journey-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1a1a1a;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0 16px;
+    }
+
+    .screen {
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .screen-header {
+      background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+      color: white;
+      padding: 12px 16px;
+      flex-shrink: 0;
+    }
+
+    .screen-header h3 {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .screen-header p {
+      font-size: 11px;
+      opacity: 0.7;
+    }
+
+    .screen-content {
+      padding: 16px;
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #2c3e50;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .form-input {
+      padding: 8px 12px;
+      border: 1px solid #ecf0f1;
+      border-radius: 6px;
+      font-size: 13px;
+      min-height: 36px;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: #3498db;
+      box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+    }
+
+    .button {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .button-primary {
+      background: #3498db;
+      color: white;
+    }
+
+    .button-primary:hover {
+      background: #2980b9;
+      box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
+    }
+
+    .button-secondary {
+      background: #ecf0f1;
+      color: #2c3e50;
+    }
+
+    .button-secondary:hover {
+      background: #bdc3c7;
+    }
+
+    .button-success {
+      background: #27ae60;
+      color: white;
+    }
+
+    .button-success:hover {
+      background: #229954;
+    }
+
+    .data-row {
+      padding: 10px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      border-left: 3px solid #3498db;
+      font-size: 12px;
+    }
+
+    .data-label {
+      font-size: 10px;
+      color: #7f8c8d;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: 4px;
+    }
+
+    .data-value {
+      font-size: 13px;
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+
+    .lift-entry {
+      padding: 12px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      border-left: 3px solid #3498db;
+      font-size: 12px;
+    }
+
+    .lift-entry-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+
+    .lift-name {
+      font-weight: 600;
+      color: #1a1a1a;
+      font-size: 13px;
+    }
+
+    .lift-date {
+      font-size: 10px;
+      color: #7f8c8d;
+    }
+
+    .lift-detail {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .lift-detail-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .lift-detail-label {
+      font-size: 9px;
+      color: #7f8c8d;
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+
+    .lift-detail-value {
+      font-size: 12px;
+      font-weight: 600;
+      color: #2c3e50;
+    }
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: #7f8c8d;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-top: 12px;
+      margin-bottom: 8px;
+    }
+
+    .info-box {
+      padding: 10px 12px;
+      background: #e8f4f8;
+      border-left: 3px solid #3498db;
+      border-radius: 6px;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    .info-box strong {
+      color: #2c3e50;
+    }
+
+    .tm-timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .tm-entry {
+      padding: 12px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      border-left: 3px solid #27ae60;
+    }
+
+    .tm-lift {
+      font-weight: 600;
+      font-size: 12px;
+      color: #1a1a1a;
+      margin-bottom: 6px;
+    }
+
+    .tm-value {
+      font-size: 13px;
+      font-weight: 600;
+      color: #27ae60;
+    }
+
+    .tm-date {
+      font-size: 10px;
+      color: #7f8c8d;
+      margin-top: 4px;
+    }
+
+    @media (max-width: 1400px) {
+      .container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    function LiftHistoryApp() {
+      // TM History: tracks all TM changes over time for each lift
+      const [tmHistory, setTmHistory] = useState([
+        { lift: 'Squat', tm: 315, date: '2025-01-15', source: 'Test Week' },
+        { lift: 'Squat', tm: 310, date: '2025-01-01', source: 'Estimated' },
+        { lift: 'Bench Press', tm: 225, date: '2025-01-15', source: 'Test Week' },
+        { lift: 'Bench Press', tm: 220, date: '2025-01-01', source: 'Estimated' },
+        { lift: 'Deadlift', tm: 405, date: '2025-01-15', source: 'Test Week' },
+        { lift: 'Deadlift', tm: 400, date: '2025-01-01', source: 'Estimated' },
+        { lift: 'Overhead Press', tm: 155, date: '2025-01-15', source: 'Test Week' }
+      ]);
+
+      // Lift History: individual logged sets with program context
+      const [liftHistory, setLiftHistory] = useState([
+        {
+          id: 'lift-1',
+          lift: 'Squat',
+          date: '2025-01-20',
+          weight: 295,
+          reps: 5,
+          trainingMaxAtTime: 315,
+          programPercentage: 85,
+          programName: '5/3/1 Week 2',
+          notes: 'RPE 8',
+          isPR: false
+        },
+        {
+          id: 'lift-2',
+          lift: 'Bench Press',
+          date: '2025-01-20',
+          weight: 190,
+          reps: 8,
+          trainingMaxAtTime: 225,
+          programPercentage: 85,
+          programName: '5/3/1 Week 2',
+          notes: 'Strong',
+          isPR: false
+        },
+        {
+          id: 'lift-3',
+          lift: 'Squat',
+          date: '2025-01-18',
+          weight: 280,
+          reps: 3,
+          trainingMaxAtTime: 315,
+          programPercentage: 75,
+          programName: '5/3/1 Week 1',
+          notes: '',
+          isPR: false
+        },
+        {
+          id: 'lift-4',
+          lift: 'Deadlift',
+          date: '2025-01-15',
+          weight: 405,
+          reps: 1,
+          trainingMaxAtTime: 405,
+          programPercentage: 100,
+          programName: 'Test Week',
+          notes: 'New max!',
+          isPR: true
+        }
+      ]);
+
+      const [view, setView] = useState('history'); // 'history' | 'tm-history' | 'log-lift'
+      const [selectedLift, setSelectedLift] = useState(null);
+      const [searchQuery, setSearchQuery] = useState('');
+      const [newLift, setNewLift] = useState({
+        lift: 'Squat',
+        date: new Date().toISOString().split('T')[0],
+        weight: '',
+        reps: '',
+        notes: ''
+      });
+
+      // Get current TM for a lift
+      const getCurrentTM = (liftName) => {
+        const entry = tmHistory.find(t => t.lift === liftName);
+        return entry ? entry.tm : 0;
+      };
+
+      // Get TM at a specific date
+      const getTMAtDate = (liftName, date) => {
+        const relevant = tmHistory
+          .filter(t => t.lift === liftName && new Date(t.date) <= new Date(date))
+          .sort((a, b) => new Date(b.date) - new Date(a.date));
+        return relevant.length > 0 ? relevant[0].tm : 0;
+      };
+
+      // Get unique lifts from history
+      const getAllLifts = () => {
+        const lifts = new Set([
+          ...liftHistory.map(l => l.lift),
+          ...tmHistory.map(t => t.lift)
+        ]);
+        return Array.from(lifts).sort();
+      };
+
+      // Log a new lift
+      const handleLogLift = () => {
+        if (!newLift.weight || !newLift.reps) {
+          alert('Enter weight and reps');
+          return;
+        }
+
+        const tmAtTime = getTMAtDate(newLift.lift, newLift.date);
+        const percentage = Math.round((parseInt(newLift.weight) / tmAtTime) * 100);
+
+        const entry = {
+          id: `lift-${Date.now()}`,
+          lift: newLift.lift,
+          date: newLift.date,
+          weight: parseInt(newLift.weight),
+          reps: parseInt(newLift.reps),
+          trainingMaxAtTime: tmAtTime,
+          programPercentage: percentage,
+          programName: 'Logged',
+          notes: newLift.notes,
+          isPR: false
+        };
+
+        setLiftHistory([entry, ...liftHistory]);
+        setNewLift({
+          lift: 'Squat',
+          date: new Date().toISOString().split('T')[0],
+          weight: '',
+          reps: '',
+          notes: ''
+        });
+        alert('✓ Lift logged');
+      };
+
+      // Render lift history
+      const renderHistory = () => {
+        const lifts = selectedLift ? liftHistory.filter(l => l.lift === selectedLift) : liftHistory;
+        // Filter by search query
+        const filtered = lifts.filter(l => 
+          l.lift.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          l.notes.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          l.date.includes(searchQuery)
+        );
+
+        return (
+          <div className="screen-content">
+            <div className="info-box">
+              <strong>Lift History</strong> — Each entry shows the TM at that time and program percentage
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Search</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Lift name, date, or notes…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+
+            {selectedLift && (
+              <button
+                className="button button-secondary"
+                onClick={() => setSelectedLift(null)}
+                style={{ fontSize: '11px' }}
+              >
+                ← All Lifts
+              </button>
+            )}
+
+            {!selectedLift && (
+              <div>
+                <div className="section-label">Filter by Lift</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+                  {getAllLifts().map((lift) => {
+                    const count = liftHistory.filter(l => l.lift === lift).length;
+                    return (
+                      <button
+                        key={lift}
+                        onClick={() => setSelectedLift(lift)}
+                        style={{
+                          padding: '10px 12px',
+                          background: '#f8f9fa',
+                          border: '1px solid #ecf0f1',
+                          borderRadius: 6,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          textAlign: 'left',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        {lift} <span style={{ color: '#7f8c8d', marginLeft: 'auto' }}>({count})</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="section-label">{selectedLift ? `${selectedLift} Lifts` : 'All Lifts'} ({filtered.length})</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+              {filtered.length > 0 ? (
+                filtered.map((entry) => (
+                  <div key={entry.id} className="lift-entry">
+                    <div className="lift-entry-header">
+                      <div>
+                        <div className="lift-name">
+                          {entry.lift} {entry.isPR && '🏆'}
+                        </div>
+                        <div className="lift-date">{entry.date}</div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#1a1a1a' }}>
+                          {entry.weight} lbs × {entry.reps}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="lift-detail">
+                      <div className="lift-detail-item">
+                        <div className="lift-detail-label">TM at Time</div>
+                        <div className="lift-detail-value">{entry.trainingMaxAtTime} lbs</div>
+                      </div>
+                      <div className="lift-detail-item">
+                        <div className="lift-detail-label">% of TM</div>
+                        <div className="lift-detail-value">{entry.programPercentage}%</div>
+                      </div>
+                      <div className="lift-detail-item">
+                        <div className="lift-detail-label">Program</div>
+                        <div className="lift-detail-value">{entry.programName}</div>
+                      </div>
+                    </div>
+
+                    {entry.notes && (
+                      <div style={{ marginTop: 8, fontSize: '11px', color: '#7f8c8d' }}>
+                        📝 {entry.notes}
+                      </div>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <div style={{ textAlign: 'center', color: '#7f8c8d', padding: '20px 0' }}>
+                  {searchQuery ? 'No lifts match your search' : 'No lifts logged yet'}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      };
+
+      // Render TM history
+      const renderTMHistory = () => {
+        const allLifts = getAllLifts();
+        const filtered = allLifts.filter(lift => 
+          lift.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+
+        return (
+          <div className="screen-content">
+            <div className="info-box">
+              <strong>Training Max History</strong> — View all TM updates for each lift
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Search</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Search lifts…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+
+            {filtered.length > 0 ? (
+              filtered.map((lift) => {
+                const entries = tmHistory.filter(t => t.lift === lift).sort((a, b) => new Date(b.date) - new Date(a.date));
+                return (
+                  <div key={lift}>
+                    <div className="section-label">{lift}</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+                      {entries.map((entry, idx) => (
+                        <div key={idx} className="tm-entry">
+                          <div className="tm-lift">{entry.lift}</div>
+                          <div className="tm-value">{entry.tm} lbs</div>
+                          <div className="tm-date">{entry.date} • {entry.source}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div style={{ textAlign: 'center', color: '#7f8c8d', padding: '20px 0' }}>
+                No lifts match your search
+              </div>
+            )}
+          </div>
+        );
+      };
+
+      // Render log lift
+      const renderLogLift = () => {
+        const tmAtTime = getTMAtDate(newLift.lift, newLift.date);
+        const percentage = newLift.weight ? Math.round((parseInt(newLift.weight) / tmAtTime) * 100) : 0;
+        const allLifts = getAllLifts();
+        const filteredLifts = searchQuery 
+          ? allLifts.filter(lift => lift.toLowerCase().includes(searchQuery.toLowerCase()))
+          : allLifts;
+
+        return (
+          <div className="screen-content">
+            <div className="info-box">
+              <strong>Log a Lift</strong> — Records weight, reps, and TM context for your programming
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Lift</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Search or select lift…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                list="lift-suggestions"
+              />
+              <datalist id="lift-suggestions">
+                {filteredLifts.map((lift) => (
+                  <option key={lift} value={lift} />
+                ))}
+              </datalist>
+              {searchQuery && filteredLifts.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
+                  {filteredLifts.map((lift) => (
+                    <button
+                      key={lift}
+                      onClick={() => {
+                        setNewLift({ ...newLift, lift });
+                        setSearchQuery('');
+                      }}
+                      style={{
+                        padding: '8px 12px',
+                        background: '#f8f9fa',
+                        border: '1px solid #ecf0f1',
+                        borderRadius: 4,
+                        fontSize: 12,
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      {lift}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {!searchQuery && (
+                <select
+                  className="form-input"
+                  value={newLift.lift}
+                  onChange={(e) => setNewLift({ ...newLift, lift: e.target.value })}
+                >
+                  {allLifts.map((lift) => (
+                    <option key={lift} value={lift}>{lift}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Date</label>
+              <input
+                type="date"
+                className="form-input"
+                value={newLift.date}
+                onChange={(e) => setNewLift({ ...newLift, date: e.target.value })}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Weight (lbs)</label>
+              <input
+                type="number"
+                className="form-input"
+                value={newLift.weight}
+                onChange={(e) => setNewLift({ ...newLift, weight: e.target.value })}
+                placeholder="225"
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Reps</label>
+              <input
+                type="number"
+                className="form-input"
+                value={newLift.reps}
+                onChange={(e) => setNewLift({ ...newLift, reps: e.target.value })}
+                placeholder="5"
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Notes (optional)</label>
+              <textarea
+                className="form-input"
+                value={newLift.notes}
+                onChange={(e) => setNewLift({ ...newLift, notes: e.target.value })}
+                placeholder="RPE, form notes, etc."
+                style={{ minHeight: '60px', fontFamily: 'monospace', fontSize: '12px' }}
+              />
+            </div>
+
+            {tmAtTime > 0 && (
+              <div className="data-row">
+                <div className="data-label">TM at this date</div>
+                <div className="data-value">{tmAtTime} lbs</div>
+              </div>
+            )}
+
+            {percentage > 0 && (
+              <div className="data-row">
+                <div className="data-label">% of TM</div>
+                <div className="data-value">{percentage}%</div>
+              </div>
+            )}
+
+            <button
+              className="button button-success"
+              onClick={handleLogLift}
+              style={{ marginTop: 'auto', width: '100%' }}
+            >
+              ✓ Log Lift
+            </button>
+          </div>
+        );
+      };
+
+      return (
+        <div className="container">
+          <div className="journey">
+            <h2 className="journey-title">📊 Lift History</h2>
+            <div className="screen">
+              <div className="screen-header">
+                <h3>Lift History</h3>
+                <p>With training max context</p>
+              </div>
+              {view === 'history' && renderHistory()}
+              {view === 'tm-history' && renderTMHistory()}
+              {view === 'log-lift' && renderLogLift()}
+            </div>
+          </div>
+
+          <div className="journey">
+            <h2 className="journey-title">🔧 Controls</h2>
+            <div className="screen">
+              <div className="screen-header">
+                <h3>Navigation</h3>
+                <p>Switch between views</p>
+              </div>
+              <div className="screen-content">
+                <button
+                  className={`button ${view === 'history' ? 'button-primary' : 'button-secondary'}`}
+                  onClick={() => setView('history')}
+                  style={{ width: '100%' }}
+                >
+                  📋 Lift History
+                </button>
+
+                <button
+                  className={`button ${view === 'tm-history' ? 'button-primary' : 'button-secondary'}`}
+                  onClick={() => setView('tm-history')}
+                  style={{ width: '100%' }}
+                >
+                  💪 TM Timeline
+                </button>
+
+                <button
+                  className={`button ${view === 'log-lift' ? 'button-primary' : 'button-secondary'}`}
+                  onClick={() => setView('log-lift')}
+                  style={{ width: '100%' }}
+                >
+                  ➕ Log Lift
+                </button>
+
+                <div className="section-label" style={{ marginTop: '20px' }}>Current Maxes</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {getAllLifts().map((lift) => (
+                    <div key={lift} className="data-row">
+                      <div className="data-label">{lift}</div>
+                      <div className="data-value">{getCurrentTM(lift)} lbs</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="section-label" style={{ marginTop: '20px' }}>Quick Stats</div>
+                <div className="data-row">
+                  <div className="data-label">Total Lifts Logged</div>
+                  <div className="data-value">{liftHistory.length}</div>
+                </div>
+                <div className="data-row">
+                  <div className="data-label">PRs</div>
+                  <div className="data-value">{liftHistory.filter(l => l.isPR).length}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(
+      <LiftHistoryApp />
+    );
+  </script>
+</body>
+</html>

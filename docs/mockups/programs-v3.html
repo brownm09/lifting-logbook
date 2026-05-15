@@ -1,0 +1,1283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lifting Logbook - Program Management</title>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      background: #fafaf8;
+      color: #1a1a1a;
+      line-height: 1.5;
+    }
+
+    .container {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+      padding: 24px;
+      max-width: 100%;
+    }
+
+    .journey {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      aspect-ratio: 9/16;
+      max-height: 900px;
+    }
+
+    .journey-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1a1a1a;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0 16px;
+    }
+
+    .screen {
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      transition: all 0.3s ease;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .screen:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+      transform: translateY(-2px);
+    }
+
+    .screen-header {
+      background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+      color: white;
+      padding: 12px 16px;
+      flex-shrink: 0;
+    }
+
+    .screen-header h3 {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 2px;
+      opacity: 0.95;
+    }
+
+    .screen-header p {
+      font-size: 11px;
+      opacity: 0.7;
+    }
+
+    .screen-content {
+      padding: 16px;
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      font-size: 13px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #2c3e50;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .form-input {
+      padding: 8px 12px;
+      border: 1px solid #ecf0f1;
+      border-radius: 6px;
+      font-size: 13px;
+      transition: border-color 0.2s ease;
+      min-height: 36px;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: #3498db;
+      box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+    }
+
+    .button {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .button-primary {
+      background: #3498db;
+      color: white;
+    }
+
+    .button-primary:hover {
+      background: #2980b9;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
+    }
+
+    .button-secondary {
+      background: #ecf0f1;
+      color: #2c3e50;
+    }
+
+    .button-secondary:hover {
+      background: #bdc3c7;
+    }
+
+    .button-success {
+      background: #27ae60;
+      color: white;
+    }
+
+    .button-success:hover {
+      background: #229954;
+    }
+
+    .button-warning {
+      background: #f39c12;
+      color: white;
+    }
+
+    .button-warning:hover {
+      background: #d68910;
+    }
+
+    .data-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 10px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      border-left: 3px solid #3498db;
+      font-size: 12px;
+    }
+
+    .data-label {
+      font-size: 10px;
+      color: #7f8c8d;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .data-value {
+      font-size: 13px;
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+
+    .exercise-item {
+      padding: 10px 12px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      border-left: 3px solid #3498db;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      min-height: 44px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .exercise-item:active {
+      background: #ecf0f1;
+    }
+
+    .exercise-name {
+      font-weight: 600;
+      color: #1a1a1a;
+      margin-bottom: 2px;
+    }
+
+    .exercise-sets {
+      font-size: 11px;
+      color: #7f8c8d;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      flex-shrink: 0;
+    }
+
+    .status-template {
+      background: #e3f2fd;
+      color: #1976d2;
+    }
+
+    .status-custom {
+      background: #f3e5f5;
+      color: #7b1fa2;
+    }
+
+    .status-running {
+      background: #e8f5e9;
+      color: #388e3c;
+    }
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: #7f8c8d;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-top: 12px;
+      margin-bottom: 8px;
+    }
+
+    .info-box {
+      padding: 10px 12px;
+      background: #e8f4f8;
+      border-left: 3px solid #3498db;
+      border-radius: 6px;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    .info-box strong {
+      color: #2c3e50;
+    }
+
+    .alert-box {
+      padding: 12px;
+      background: #fff3cd;
+      border-left: 3px solid #f39c12;
+      border-radius: 6px;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    .alert-box strong {
+      color: #856404;
+    }
+
+    .category-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid #ecf0f1;
+      padding-bottom: 8px;
+    }
+
+    .category-tab {
+      flex: 1;
+      padding: 8px 12px;
+      font-size: 11px;
+      border-radius: 4px 4px 0 0;
+      border: 1px solid #ecf0f1;
+      background: #f8f9fa;
+      cursor: 'pointer';
+      font-weight: 600;
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+
+    .category-tab.active {
+      border-color: #3498db;
+      background: #ecf0f1;
+      border-bottom-color: #ecf0f1;
+    }
+
+    .program-card {
+      padding: 12px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      border-left: 3px solid #3498db;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .program-card:hover {
+      background: #ecf0f1;
+      transform: translateX(2px);
+    }
+
+    .program-card.template {
+      border-left-color: #1976d2;
+    }
+
+    .program-card.custom {
+      border-left-color: #7b1fa2;
+    }
+
+    .program-card-title {
+      font-weight: 600;
+      color: #1a1a1a;
+      margin-bottom: 4px;
+      font-size: 12px;
+    }
+
+    .program-card-desc {
+      font-size: 10px;
+      color: #7f8c8d;
+      line-height: 1.4;
+      margin-bottom: 8px;
+    }
+
+    .program-card-meta {
+      display: flex;
+      gap: 8px;
+      font-size: 9px;
+      color: #7f8c8d;
+      flex-wrap: wrap;
+    }
+
+    .filter-tags {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+
+    .filter-tag {
+      padding: 4px 8px;
+      background: #f0f0f0;
+      border: 1px solid #bdc3c7;
+      border-radius: 3px;
+      font-size: 10px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .filter-tag.active {
+      background: #3498db;
+      color: white;
+      border-color: #3498db;
+    }
+
+    @media (max-width: 1400px) {
+      .container {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // ============ PROGRAM MANAGEMENT SYSTEM ============
+    function ProgramManagementJourney() {
+      const [view, setView] = useState('category-select'); // 'category-select' | 'browse' | 'program-detail' | 'edit-custom' | 'create-custom'
+      const [selectedCategory, setSelectedCategory] = useState(null); // 'beginner' | 'intermediate' | 'advanced' | 'custom'
+      const [selectedProgram, setSelectedProgram] = useState(null);
+      const [editingProgram, setEditingProgram] = useState(null);
+      const [editingWorkoutIdx, setEditingWorkoutIdx] = useState(null);
+      const [showConvertAlert, setShowConvertAlert] = useState(false);
+      const [convertingProgramId, setConvertingProgramId] = useState(null);
+
+      // Custom programs storage (in real app, would be database)
+      const [customPrograms, setCustomPrograms] = useState([
+        {
+          id: 'custom-1',
+          name: 'My Modified 5/3/1',
+          baseTemplate: '531',
+          cycles: 3,
+          blocksPerCycle: 4,
+          description: 'Custom version with added conditioning',
+          createdAt: '2025-01-15',
+          workouts: [
+            { name: 'Day 1', lifts: ['Squat 5/3/1', 'Leg Press 3x8'], block: 1, deload: false, usesPercentTM: true, percentTM: null },
+            { name: 'Day 2', lifts: ['Bench Press 5/3/1', 'Dips 3x8'], block: 1, deload: false, usesPercentTM: true, percentTM: null },
+            { name: 'Day 3', lifts: ['Deadlift 5/3/1', 'Rows 3x8'], block: 1, deload: false, usesPercentTM: true, percentTM: null },
+            { name: 'Day 4', lifts: ['OHP 5/3/1', 'Assistance'], block: 2, deload: false, usesPercentTM: true, percentTM: null }
+          ]
+        }
+      ]);
+
+      const [runningProgram, setRunningProgram] = useState({
+        id: 'running-1',
+        programId: '531',
+        programType: 'template',
+        name: '5/3/1',
+        baseTemplate: null,
+        startDate: '2025-01-01',
+        currentCycle: 1,
+        totalCycles: 3,
+        workouts: [],
+        hasLocalEdits: false
+      });
+
+      // Template programs database
+      const templatePrograms = {
+        beginner: [
+          {
+            id: 'ss',
+            name: 'Starting Strength',
+            description: 'Classic linear progression for absolute beginners. 3 full-body sessions/week.',
+            daysPerWeek: 3,
+            split: 'full-body',
+            goals: ['strength', 'muscle-gain'],
+            cycles: 'Continuous linear progression',
+            workouts: [
+              { 
+                name: 'Monday', 
+                exercises: [
+                  { name: 'Squat', sets: 3, reps: 5, progression: 'linear', increment: '+10lbs', mechanics: '3×5' },
+                  { name: 'Bench Press', sets: 3, reps: 5, progression: 'linear', increment: '+5lbs', mechanics: '3×5' },
+                  { name: 'Deadlift', sets: 1, reps: 5, progression: 'linear', increment: '+10lbs', mechanics: '1×5' }
+                ], 
+                deload: false 
+              },
+              { 
+                name: 'Wednesday', 
+                exercises: [
+                  { name: 'Squat', sets: 3, reps: 5, progression: 'linear', increment: '+10lbs', mechanics: '3×5' },
+                  { name: 'Overhead Press', sets: 3, reps: 5, progression: 'linear', increment: '+5lbs', mechanics: '3×5' },
+                  { name: 'Deadlift', sets: 1, reps: 5, progression: 'linear', increment: '+10lbs', mechanics: '1×5' }
+                ], 
+                deload: false 
+              },
+              { 
+                name: 'Friday', 
+                exercises: [
+                  { name: 'Squat', sets: 3, reps: 5, progression: 'linear', increment: '+10lbs', mechanics: '3×5' },
+                  { name: 'Bench Press', sets: 3, reps: 5, progression: 'linear', increment: '+5lbs', mechanics: '3×5' },
+                  { name: 'Deadlift', sets: 1, reps: 5, progression: 'linear', increment: '+10lbs', mechanics: '1×5' }
+                ], 
+                deload: false 
+              }
+            ]
+          },
+          {
+            id: 'stronglifts',
+            name: 'StrongLifts 5×5',
+            description: 'Alternating upper/lower with 5×5 main lifts. 3 days/week.',
+            daysPerWeek: 3,
+            split: 'full-body',
+            goals: ['strength', 'muscle-gain'],
+            cycles: 'Continuous with automatic resets',
+            workouts: [
+              { 
+                name: 'A Workout', 
+                exercises: [
+                  { name: 'Squat', sets: 5, reps: 5, progression: 'linear', increment: '+5lbs', mechanics: '5×5' },
+                  { name: 'Bench Press', sets: 5, reps: 5, progression: 'linear', increment: '+5lbs', mechanics: '5×5' },
+                  { name: 'Barbell Row', sets: 5, reps: 5, progression: 'linear', increment: '+5lbs', mechanics: '5×5' }
+                ], 
+                deload: false 
+              },
+              { 
+                name: 'B Workout', 
+                exercises: [
+                  { name: 'Squat', sets: 5, reps: 5, progression: 'linear', increment: '+5lbs', mechanics: '5×5' },
+                  { name: 'Overhead Press', sets: 5, reps: 5, progression: 'linear', increment: '+5lbs', mechanics: '5×5' },
+                  { name: 'Deadlift', sets: 1, reps: 5, progression: 'linear', increment: '+5lbs', mechanics: '1×5' }
+                ], 
+                deload: false 
+              }
+            ]
+          }
+        ],
+        intermediate: [
+          {
+            id: 'rpt',
+            name: 'Reverse Pyramid Training',
+            description: 'Advanced fatigue management with descending sets. 3 days/week.',
+            daysPerWeek: 3,
+            split: 'full-body',
+            goals: ['strength', 'muscle-gain', 'body-composition'],
+            cycles: 'Accumulation → Intensification → Realization (4 weeks each with deload)',
+            workouts: [
+              { name: 'Day 1', lifts: ['Heavy compound 1×3-5', 'Decline sets 2-3×6-8'], deload: false },
+              { name: 'Day 2', lifts: ['Heavy compound 1×3-5', 'Decline sets 2-3×6-8'], deload: false },
+              { name: 'Day 3', lifts: ['Heavy compound 1×3-5', 'Decline sets 2-3×6-8'], deload: false }
+            ]
+          },
+          {
+            id: 'ppl',
+            name: 'Push/Pull/Legs',
+            description: 'Dedicated muscle group days. 6 days/week split.',
+            daysPerWeek: 6,
+            split: 'split',
+            goals: ['muscle-gain', 'body-composition'],
+            cycles: '4-5 week blocks with deload',
+            workouts: [
+              { name: 'Push', lifts: ['Bench Press 4×6-8', 'OHP 3×8-10', 'Accessories'], deload: false },
+              { name: 'Pull', lifts: ['Row 4×6-8', 'Pull-ups 3×6-10', 'Accessories'], deload: false },
+              { name: 'Legs', lifts: ['Squat 4×6-8', 'RDL 3×8-10', 'Leg Press 3×8-10'], deload: false }
+            ]
+          },
+          {
+            id: 'upper-lower',
+            name: 'Upper/Lower Split',
+            description: 'Balanced 4-day split for strength and hypertrophy.',
+            daysPerWeek: 4,
+            split: 'split',
+            goals: ['strength', 'muscle-gain', 'body-composition'],
+            cycles: '4-week blocks with deload',
+            workouts: [
+              { name: 'Upper A', lifts: ['Bench 4×5-6', 'Rows 3×8-10'], deload: false },
+              { name: 'Lower A', lifts: ['Squat 4×5-6', 'Leg Press 3×8-10'], deload: false },
+              { name: 'Upper B', lifts: ['Deadlift 3×3-5', 'OHP 3×6-8'], deload: false },
+              { name: 'Lower B', lifts: ['Squat 3×6-8', 'Accessories'], deload: false }
+            ]
+          },
+          {
+            id: '531',
+            name: '5/3/1',
+            description: 'Wendler\'s proven strength program. 4 days/week with periodized waves.',
+            daysPerWeek: 4,
+            split: 'full-body',
+            goals: ['strength'],
+            cycles: '4-week microcycles (weeks 1-3 training + week 4 deload)',
+            workouts: [
+              { 
+                name: 'Squat Day', 
+                exercises: [
+                  { name: 'Squat', sets: null, reps: null, progression: '5/3/1', percentTM: '65/75/85', mechanics: 'Wave loading', tmIncrement: '+5lbs/cycle' },
+                  { name: 'Squat', sets: 5, reps: null, progression: 'FSL', percentTM: '65%', mechanics: '5×FSL' },
+                  { name: 'Leg Press', sets: 3, reps: '8-10', progression: 'reps', increment: '+2 reps', mechanics: '3×8-10' }
+                ], 
+                deload: false 
+              },
+              { 
+                name: 'Bench Day', 
+                exercises: [
+                  { name: 'Bench Press', sets: null, reps: null, progression: '5/3/1', percentTM: '65/75/85', mechanics: 'Wave loading', tmIncrement: '+2.5lbs/cycle' },
+                  { name: 'Bench Press', sets: 5, reps: null, progression: 'FSL', percentTM: '65%', mechanics: '5×FSL' },
+                  { name: 'Dips', sets: 3, reps: '6-8', progression: 'reps', increment: '+1 rep', mechanics: '3×6-8' }
+                ], 
+                deload: false 
+              },
+              { 
+                name: 'Deadlift Day', 
+                exercises: [
+                  { name: 'Deadlift', sets: null, reps: null, progression: '5/3/1', percentTM: '65/75/85', mechanics: 'Wave loading', tmIncrement: '+5lbs/cycle' },
+                  { name: 'Deadlift', sets: 5, reps: null, progression: 'FSL', percentTM: '65%', mechanics: '5×FSL' },
+                  { name: 'Leg Curl', sets: 3, reps: '8-10', progression: 'reps', increment: '+2 reps', mechanics: '3×8-10' }
+                ], 
+                deload: false 
+              },
+              { 
+                name: 'OHP Day', 
+                exercises: [
+                  { name: 'Overhead Press', sets: null, reps: null, progression: '5/3/1', percentTM: '65/75/85', mechanics: 'Wave loading', tmIncrement: '+2.5lbs/cycle' },
+                  { name: 'Overhead Press', sets: 5, reps: null, progression: 'FSL', percentTM: '65%', mechanics: '5×FSL' },
+                  { name: 'Face Pulls', sets: 3, reps: '12-15', progression: 'reps', increment: '+2 reps', mechanics: '3×12-15' }
+                ], 
+                deload: false 
+              }
+            ]
+          },
+          {
+            id: '531-bbb',
+            name: '5/3/1 BBB',
+            description: 'High-volume strength + hypertrophy. 4 days/week.',
+            daysPerWeek: 4,
+            split: 'full-body',
+            goals: ['strength', 'muscle-gain'],
+            cycles: '4-week microcycles with BBB supplemental work',
+            workouts: [
+              { name: 'Day 1', lifts: ['Main 5/3/1', '10×5 @ 50%', 'Accessories'], deload: false },
+              { name: 'Day 2', lifts: ['Main 5/3/1', '10×5 @ 50%', 'Accessories'], deload: false },
+              { name: 'Day 3', lifts: ['Main 5/3/1', '10×5 @ 50%', 'Accessories'], deload: false },
+              { name: 'Day 4', lifts: ['Main 5/3/1', '10×5 @ 50%', 'Accessories'], deload: false }
+            ]
+          }
+        ],
+        advanced: [
+          {
+            id: 'conjugate',
+            name: 'Conjugate Method',
+            description: 'Westside-style concurrent training. 4 days/week.',
+            daysPerWeek: 4,
+            split: 'full-body',
+            goals: ['strength'],
+            cycles: '3 4-week microcycles per block with rotation',
+            workouts: [
+              { name: 'ME Lower', lifts: ['Max effort squat variant 1×2-3', 'Speed deadlift 8×2'], deload: false },
+              { name: 'DE Upper', lifts: ['Dynamic bench 8×3', 'Speed row 8×3'], deload: false },
+              { name: 'ME Upper', lifts: ['Max effort bench variant 1×2-3', 'Speed row 8×2'], deload: false },
+              { name: 'DE Lower', lifts: ['Dynamic squat 8×3', 'Speed deadlift 8×2'], deload: false }
+            ]
+          },
+          {
+            id: 'juggernaut',
+            name: 'Juggernaut Method',
+            description: 'Block periodization with rep wave loading. 4 days/week.',
+            daysPerWeek: 4,
+            split: 'full-body',
+            goals: ['strength', 'muscle-gain'],
+            cycles: '3 4-week blocks (accumulation → intensification → realization)',
+            workouts: [
+              { name: 'Day 1', lifts: ['Main lift', 'Secondary work', 'Accessories'], deload: false },
+              { name: 'Day 2', lifts: ['Main lift', 'Secondary work', 'Accessories'], deload: false },
+              { name: 'Day 3', lifts: ['Main lift', 'Secondary work', 'Accessories'], deload: false },
+              { name: 'Day 4', lifts: ['Main lift', 'Secondary work', 'Accessories'], deload: false }
+            ]
+          },
+          {
+            id: 'creeping-death',
+            name: 'Creeping Death II',
+            description: 'High-frequency hypertrophy with autoregulation. 5 days/week.',
+            daysPerWeek: 5,
+            split: 'split',
+            goals: ['muscle-gain'],
+            cycles: '3 4-week cycles with increasing volume',
+            workouts: [
+              { name: 'Squat Focus', lifts: ['Squat 5×5 RPE 7', 'Leg work'], deload: false },
+              { name: 'Bench Focus', lifts: ['Bench 5×5 RPE 7', 'Upper work'], deload: false },
+              { name: 'Deadlift Focus', lifts: ['Deadlift 4×3-5 RPE 7', 'Back work'], deload: false },
+              { name: 'OHP/Row Focus', lifts: ['OHP & Row 4×6-8', 'Accessories'], deload: false },
+              { name: 'Volume Day', lifts: ['Compounds 4×8-10 RPE 6', 'High-rep work'], deload: false }
+            ]
+          }
+        ]
+      };
+
+      // Get all programs by category
+      const getAllProgramsByCategory = (category) => {
+        if (category === 'custom') return customPrograms;
+        return templatePrograms[category] || [];
+      };
+
+      // Render program list view
+      const renderProgramList = () => {
+        if (!selectedCategory) {
+          return (
+            <div className="screen-content">
+              <div className="info-box">
+                <strong>Select a program category</strong> to browse templates or your custom programs.
+              </div>
+              <div className="section-label">Program Categories</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {['Beginner', 'Intermediate', 'Advanced', 'Custom'].map((cat) => {
+                  const catKey = cat.toLowerCase();
+                  const count = getAllProgramsByCategory(catKey).length;
+                  return (
+                    <div
+                      key={cat}
+                      onClick={() => {
+                        setSelectedCategory(catKey);
+                        setView('browse');
+                      }}
+                      className="program-card"
+                      style={{
+                        cursor: 'pointer',
+                        borderLeftColor: catKey === 'custom' ? '#7b1fa2' : '#1976d2'
+                      }}
+                    >
+                      <div className="program-card-title">{cat}</div>
+                      <div className="program-card-desc">
+                        {count} program{count !== 1 ? 's' : ''}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
+
+        const programs = getAllProgramsByCategory(selectedCategory);
+
+        return (
+          <div className="screen-content">
+            <button
+              className="button button-secondary"
+              onClick={() => setSelectedCategory(null)}
+              style={{ fontSize: '11px', marginBottom: 8 }}
+            >
+              ← All Categories
+            </button>
+
+            <div className="section-label">
+              {selectedCategory === 'custom' ? 'Custom Programs' : selectedCategory.toUpperCase()}
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+              {programs.length > 0 ? (
+                programs.map((prog) => (
+                  <div
+                    key={prog.id}
+                    onClick={() => {
+                      setSelectedProgram(prog);
+                      setView('program-detail');
+                    }}
+                    className="program-card"
+                    style={{
+                      cursor: 'pointer',
+                      borderLeftColor: selectedCategory === 'custom' ? '#7b1fa2' : '#1976d2'
+                    }}
+                  >
+                    <div className="program-card-title">{prog.name}</div>
+                    <div className="program-card-desc">{prog.description}</div>
+                    <div className="program-card-meta">
+                      <span>{prog.daysPerWeek}x/week</span>
+                      <span>•</span>
+                      <span>{prog.split === 'full-body' ? 'Full Body' : 'Split'}</span>
+                      {selectedCategory === 'custom' && (
+                        <>
+                          <span>•</span>
+                          <span>{prog.cycles} cycles</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div style={{ textAlign: 'center', color: '#7f8c8d', padding: '20px 0' }}>
+                  No programs in this category
+                </div>
+              )}
+            </div>
+
+            {selectedCategory === 'custom' && (
+              <button
+                className="button button-success"
+                onClick={() => {
+                  setSelectedProgram(null);
+                  setView('create-custom');
+                }}
+                style={{ width: '100%', marginTop: 'auto' }}
+              >
+                ➕ Create Custom Program
+              </button>
+            )}
+          </div>
+        );
+      };
+
+      // Render program detail view
+      const renderProgramDetail = () => {
+        if (!selectedProgram) return null;
+
+        const isTemplate = selectedCategory !== 'custom';
+        const isRunning = runningProgram.programId === selectedProgram.id;
+
+        return (
+          <div className="screen-content">
+            <button
+              className="button button-secondary"
+              onClick={() => setView('browse')}
+              style={{ fontSize: '11px', marginBottom: 8 }}
+            >
+              ← Back to Programs
+            </button>
+
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
+                <div className="exercise-name" style={{ fontSize: '14px' }}>{selectedProgram.name}</div>
+                <span className={`status-badge status-${isTemplate ? 'template' : 'custom'}`}>
+                  {isTemplate ? '📘 Template' : '✏️ Custom'}
+                </span>
+              </div>
+              <div style={{ fontSize: '11px', color: '#7f8c8d', lineHeight: '1.5' }}>
+                {selectedProgram.description}
+              </div>
+            </div>
+
+            <div className="data-row">
+              <div className="data-label">Days/Week</div>
+              <div className="data-value">{selectedProgram.daysPerWeek}x</div>
+            </div>
+
+            <div className="data-row">
+              <div className="data-label">Type</div>
+              <div className="data-value">{selectedProgram.split === 'full-body' ? 'Full Body' : 'Split'}</div>
+            </div>
+
+            <div className="data-row">
+              <div className="data-label">Cycles</div>
+              <div className="data-value">{selectedProgram.cycles}</div>
+            </div>
+
+            <div className="section-label">Workouts ({selectedProgram.workouts.length})</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+              {selectedProgram.workouts.map((wo, i) => (
+                <div key={i} className="exercise-item" style={{ borderLeftColor: '#3498db' }}>
+                  <div className="exercise-name">{wo.name}</div>
+                  <div style={{ fontSize: '10px', color: '#7f8c8d', marginTop: 4 }}>
+                    {wo.lifts.join(' • ')}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 'auto' }}>
+              {isRunning && (
+                <div className="info-box">
+                  <strong>✓ Currently Running</strong> — This is your active program
+                </div>
+              )}
+              
+              {isTemplate && (
+                <>
+                  <button
+                    className="button button-success"
+                    onClick={() => {
+                      setRunningProgram({
+                        id: `running-${Date.now()}`,
+                        programId: selectedProgram.id,
+                        programType: 'template',
+                        name: selectedProgram.name,
+                        baseTemplate: null,
+                        startDate: new Date().toISOString().split('T')[0],
+                        currentCycle: 1,
+                        totalCycles: 3,
+                        workouts: selectedProgram.workouts,
+                        hasLocalEdits: false
+                      });
+                      alert('✓ Running: ' + selectedProgram.name);
+                    }}
+                  >
+                    ▶ Start This Template
+                  </button>
+                  <button
+                    className="button button-warning"
+                    onClick={() => {
+                      setShowConvertAlert(true);
+                      setConvertingProgramId(selectedProgram.id);
+                    }}
+                  >
+                    ✎ Edit as Custom
+                  </button>
+                  <button
+                    className="button button-secondary"
+                    onClick={() => {
+                      const newCustom = {
+                        id: `custom-${Date.now()}`,
+                        name: selectedProgram.name + ' (Copy)',
+                        baseTemplate: selectedProgram.id,
+                        cycles: 3,
+                        description: selectedProgram.description,
+                        createdAt: new Date().toISOString().split('T')[0],
+                        workouts: JSON.parse(JSON.stringify(selectedProgram.workouts))
+                      };
+                      setCustomPrograms([...customPrograms, newCustom]);
+                      alert('✓ Copied to Custom Programs');
+                    }}
+                  >
+                    📋 Copy to Custom
+                  </button>
+                </>
+              )}
+
+              {!isTemplate && (
+                <>
+                  <button
+                    className="button button-success"
+                    onClick={() => {
+                      setRunningProgram({
+                        id: `running-${Date.now()}`,
+                        programId: selectedProgram.id,
+                        programType: 'custom',
+                        name: selectedProgram.name,
+                        baseTemplate: selectedProgram.baseTemplate,
+                        startDate: new Date().toISOString().split('T')[0],
+                        currentCycle: 1,
+                        totalCycles: selectedProgram.cycles,
+                        workouts: selectedProgram.workouts,
+                        hasLocalEdits: false
+                      });
+                      alert('✓ Running: ' + selectedProgram.name);
+                    }}
+                  >
+                    ▶ Start This Program
+                  </button>
+                  <button
+                    className="button button-warning"
+                    onClick={() => {
+                      setEditingProgram(selectedProgram);
+                      setView('edit-custom');
+                    }}
+                  >
+                    ✎ Edit Program
+                  </button>
+                  <button
+                    className="button button-secondary"
+                    onClick={() => {
+                      if (confirm('Delete this custom program?')) {
+                        setCustomPrograms(customPrograms.filter(p => p.id !== selectedProgram.id));
+                        setSelectedProgram(null);
+                        setView('browse');
+                      }
+                    }}
+                  >
+                    🗑 Delete
+                  </button>
+                </>
+              )}
+            </div>
+
+            {showConvertAlert && convertingProgramId === selectedProgram.id && (
+              <div className="alert-box" style={{ marginTop: 12 }}>
+                <strong>Create Custom Version?</strong> Editing a template will create a new custom program you can modify and save.
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <button
+                    className="button button-success"
+                    onClick={() => {
+                      const newCustom = {
+                        id: `custom-${Date.now()}`,
+                        name: selectedProgram.name + ' (Custom)',
+                        baseTemplate: selectedProgram.id,
+                        cycles: 3,
+                        description: selectedProgram.description,
+                        createdAt: new Date().toISOString().split('T')[0],
+                        workouts: JSON.parse(JSON.stringify(selectedProgram.workouts))
+                      };
+                      setCustomPrograms([...customPrograms, newCustom]);
+                      setEditingProgram(newCustom);
+                      setView('edit-custom');
+                      setShowConvertAlert(false);
+                    }}
+                    style={{ flex: 1, fontSize: '11px' }}
+                  >
+                    Create & Edit
+                  </button>
+                  <button
+                    className="button button-secondary"
+                    onClick={() => setShowConvertAlert(false)}
+                    style={{ flex: 1, fontSize: '11px' }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      };
+
+      // Render custom program editor
+      const renderEditCustom = () => {
+        if (!editingProgram) return null;
+
+        // If editing a specific workout
+        if (editingWorkoutIdx !== null) {
+          const wo = editingProgram.workouts[editingWorkoutIdx];
+          
+          return (
+            <div className="screen-content">
+              <button
+                className="button button-secondary"
+                onClick={() => setEditingWorkoutIdx(null)}
+                style={{ fontSize: '11px', marginBottom: 8 }}
+              >
+                ← Back to Workouts
+              </button>
+
+              <div className="form-group">
+                <label className="form-label">Workout Name</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={wo.name}
+                  onChange={(e) => {
+                    const newWorkouts = [...editingProgram.workouts];
+                    newWorkouts[editingWorkoutIdx].name = e.target.value;
+                    setEditingProgram({ ...editingProgram, workouts: newWorkouts });
+                  }}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Exercises (one per line)</label>
+                <textarea
+                  className="form-input"
+                  value={wo.lifts.join('\n')}
+                  onChange={(e) => {
+                    const newWorkouts = [...editingProgram.workouts];
+                    newWorkouts[editingWorkoutIdx].lifts = e.target.value.split('\n').filter(l => l.trim());
+                    setEditingProgram({ ...editingProgram, workouts: newWorkouts });
+                  }}
+                  style={{ minHeight: '80px', fontFamily: 'monospace', fontSize: '12px' }}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Block Number</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  value={wo.block || 1}
+                  onChange={(e) => {
+                    const newWorkouts = [...editingProgram.workouts];
+                    newWorkouts[editingWorkoutIdx].block = parseInt(e.target.value) || 1;
+                    setEditingProgram({ ...editingProgram, workouts: newWorkouts });
+                  }}
+                  min="1"
+                  max={editingProgram.blocksPerCycle || 4}
+                />
+              </div>
+
+              <div className="form-group">
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={wo.usesPercentTM || false}
+                    onChange={(e) => {
+                      const newWorkouts = [...editingProgram.workouts];
+                      newWorkouts[editingWorkoutIdx].usesPercentTM = e.target.checked;
+                      setEditingProgram({ ...editingProgram, workouts: newWorkouts });
+                    }}
+                  />
+                  <span className="form-label" style={{ margin: 0 }}>Uses Training Max %</span>
+                </label>
+              </div>
+
+              {wo.usesPercentTM && (
+                <div className="form-group">
+                  <label className="form-label">Training Max % (e.g., 90, 85, 75)</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={wo.percentTM || ''}
+                    onChange={(e) => {
+                      const newWorkouts = [...editingProgram.workouts];
+                      newWorkouts[editingWorkoutIdx].percentTM = e.target.value;
+                      setEditingProgram({ ...editingProgram, workouts: newWorkouts });
+                    }}
+                    placeholder="e.g., 90%"
+                  />
+                </div>
+              )}
+
+              <div className="form-group">
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={wo.deload}
+                    onChange={(e) => {
+                      const newWorkouts = [...editingProgram.workouts];
+                      newWorkouts[editingWorkoutIdx].deload = e.target.checked;
+                      setEditingProgram({ ...editingProgram, workouts: newWorkouts });
+                    }}
+                  />
+                  <span className="form-label" style={{ margin: 0 }}>This is a deload week</span>
+                </label>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 'auto' }}>
+                <button
+                  className="button button-success"
+                  onClick={() => setEditingWorkoutIdx(null)}
+                >
+                  ✓ Done Editing
+                </button>
+                <button
+                  className="button button-secondary"
+                  onClick={() => {
+                    const newWorkouts = editingProgram.workouts.filter((_, i) => i !== editingWorkoutIdx);
+                    setEditingProgram({ ...editingProgram, workouts: newWorkouts });
+                    setEditingWorkoutIdx(null);
+                  }}
+                >
+                  🗑 Delete Workout
+                </button>
+              </div>
+            </div>
+          );
+        }
+
+        // Main program editor view
+        return (
+          <div className="screen-content">
+            <button
+              className="button button-secondary"
+              onClick={() => {
+                setEditingProgram(null);
+                setView('program-detail');
+              }}
+              style={{ fontSize: '11px', marginBottom: 8 }}
+            >
+              ← Back
+            </button>
+
+            <div className="form-group">
+              <label className="form-label">Program Name</label>
+              <input
+                type="text"
+                className="form-input"
+                value={editingProgram.name}
+                onChange={(e) => setEditingProgram({ ...editingProgram, name: e.target.value })}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Number of Cycles</label>
+              <input
+                type="number"
+                className="form-input"
+                value={editingProgram.cycles}
+                onChange={(e) => setEditingProgram({ ...editingProgram, cycles: parseInt(e.target.value) || 1 })}
+                min="1"
+                max="12"
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Blocks Per Cycle</label>
+              <input
+                type="number"
+                className="form-input"
+                value={editingProgram.blocksPerCycle || 4}
+                onChange={(e) => setEditingProgram({ ...editingProgram, blocksPerCycle: parseInt(e.target.value) || 1 })}
+                min="1"
+                max="12"
+              />
+            </div>
+
+            <div className="section-label">Workouts ({editingProgram.workouts.length})</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12, maxHeight: 300, overflowY: 'auto' }}>
+              {editingProgram.workouts.map((wo, idx) => (
+                <div 
+                  key={idx} 
+                  className="exercise-item" 
+                  onClick={() => setEditingWorkoutIdx(idx)}
+                  style={{ borderLeftColor: wo.deload ? '#f39c12' : '#3498db', cursor: 'pointer' }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: 8 }}>
+                    <div style={{ flex: 1 }}>
+                      <div className="exercise-name">{wo.name}</div>
+                      <div style={{ fontSize: '10px', color: '#7f8c8d', marginTop: 2 }}>
+                        Block {wo.block || 1} {wo.usesPercentTM && wo.percentTM ? `• ${wo.percentTM} TM` : ''}
+                      </div>
+                      <div style={{ fontSize: '10px', color: '#7f8c8d', marginTop: 4 }}>
+                        {wo.lifts.join(' • ')}
+                      </div>
+                      {wo.deload && <div style={{ fontSize: '9px', color: '#f39c12', marginTop: 4, fontWeight: 600 }}>⏸ Deload</div>}
+                    </div>
+                    <span style={{ fontSize: '12px', color: '#3498db', fontWeight: 600 }}>✎</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button
+              className="button button-secondary"
+              onClick={() => {
+                const newWorkout = { name: `Day ${editingProgram.workouts.length + 1}`, lifts: ['Exercise'], deload: false };
+                setEditingProgram({
+                  ...editingProgram,
+                  workouts: [...editingProgram.workouts, newWorkout]
+                });
+              }}
+              style={{ fontSize: '11px', width: '100%', marginBottom: 12 }}
+            >
+              ➕ Add Workout
+            </button>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 'auto' }}>
+              <button
+                className="button button-success"
+                onClick={() => {
+                  // Update in custom programs list
+                  setCustomPrograms(customPrograms.map(p => 
+                    p.id === editingProgram.id ? editingProgram : p
+                  ));
+                  setSelectedProgram(editingProgram);
+                  setEditingProgram(null);
+                  setView('program-detail');
+                  alert('✓ Saved!');
+                }}
+              >
+                ✓ Save Changes
+              </button>
+              <button
+                className="button button-secondary"
+                onClick={() => {
+                  setEditingProgram(null);
+                  setView('program-detail');
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        );
+      };
+
+      // Router
+      let content;
+      if (view === 'browse' || view === 'program-detail') {
+        if (view === 'program-detail') {
+          content = renderProgramDetail();
+        } else {
+          content = renderProgramList();
+        }
+      } else if (view === 'edit-custom') {
+        content = renderEditCustom();
+      } else {
+        // category-select
+        content = renderProgramList();
+      }
+
+      return (
+        <div className="journey">
+          <h2 className="journey-title">📋 Programs</h2>
+          <div className="screen">
+            <div className="screen-header">
+              <h3>
+                {view === 'program-detail' && selectedProgram ? selectedProgram.name : 
+                 view === 'edit-custom' && editingProgram ? 'Edit: ' + editingProgram.name :
+                 selectedCategory ? selectedCategory.toUpperCase() : 'All Programs'}
+              </h3>
+              <p>
+                {view === 'program-detail' && selectedProgram ? 
+                  (selectedCategory === 'custom' ? '✏️ Custom' : '📘 Template') :
+                 view === 'edit-custom' ? 'Custom Program Editor' :
+                 selectedCategory ? `${getAllProgramsByCategory(selectedCategory).length} programs` :
+                 'Browse all categories'}
+              </p>
+            </div>
+            {content}
+          </div>
+        </div>
+      );
+    }
+
+    // Render the app
+    ReactDOM.createRoot(document.getElementById('root')).render(
+      <ProgramManagementJourney />
+    );
+  </script>
+</body>
+</html>

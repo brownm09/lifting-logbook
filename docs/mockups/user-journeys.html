@@ -544,6 +544,9 @@
       const [viewingProgramDetail, setViewingProgramDetail] = useState(null);
       const [viewFullCatalog, setViewFullCatalog] = useState(false);
       const [catalogGoalFilter, setCatalogGoalFilter] = useState('all'); // 'all' | 'strength' | 'muscle-gain' | 'body-composition' | 'fat-loss'
+      const [catalogDaysFilter, setCatalogDaysFilter] = useState('all'); // 'all' | '3' | '4' | '5' | '6'
+      const [catalogSplitFilter, setCatalogSplitFilter] = useState('all'); // 'all' | 'full-body' | 'split'
+      const [catalogStatusFilter, setCatalogStatusFilter] = useState('available'); // 'available' | 'coming-soon' | 'all'
 
       const steps = ['Choose Method', 'Enter Data', 'Confirm Maxes', 'Choose Program'];
 
@@ -563,10 +566,12 @@
             weeks: 12,
             daysPerWeek: 3,
             progression: 'Add 5 lbs each workout (upper body) or 10 lbs (lower body)',
-            deloads: 'No formal deload weeks; program resets if stalled 3 sessions in a row',
-            cycles: 'Continuous linear progression; no built-in cycles',
+            deloads: 'No formal deload weeks; program resets if stalled 3 consecutive sessions (resets are recovery mechanism)',
+            cycles: 'Continuous linear progression; resets function as brief recovery when stalled',
             purposes: ['Strength', 'Beginner'],
             goals: ['strength', 'muscle-gain'],
+            fullBodySplit: 'full-body',
+            status: 'available',
             lifts: ['Squat', 'Bench Press', 'Deadlift', 'Barbell Row', 'Overhead Press'],
             schedule: [
               { day: 'Monday', lifts: ['Squat 3×5', 'Bench Press 3×5', 'Deadlift 1×5'] },
@@ -581,10 +586,12 @@
             weeks: 12,
             daysPerWeek: 3,
             progression: 'Add 5 lbs when all sets are completed',
-            deloads: 'No formal deload weeks; deload automatically when failing lifts',
-            cycles: 'Continuous progression with automatic resets',
+            deloads: 'No formal deload weeks; automatic reset when failing lifts serves as recovery mechanism',
+            cycles: 'Continuous progression with automatic resets as built-in recovery',
             purposes: ['Strength', 'Beginner'],
             goals: ['strength', 'muscle-gain'],
+            fullBodySplit: 'full-body',
+            status: 'available',
             lifts: ['Squat', 'Bench Press', 'Deadlift', 'Barbell Row', 'Overhead Press'],
             schedule: [
               { day: 'A Workout', lifts: ['Squat 5×5', 'Bench Press 5×5', 'Barbell Row 5×5'] },
@@ -600,10 +607,12 @@
             weeks: 12,
             daysPerWeek: 3,
             progression: 'Heavy single, then 2–3 declining sets; increase top weight when RPE ≤ 7',
-            deloads: 'Week 4 & Week 8 — full deload weeks at 50-60% intensity',
-            cycles: 'Three 4-week cycles: accumulation (moderate), intensification (heavy), realization (peak)',
+            deloads: 'Week 4 deload (50-60%) concludes accumulation cycle; Week 8 deload concludes intensification cycle',
+            cycles: 'Accumulation (weeks 1-4 with deload), Intensification (weeks 5-8 with deload), Realization (weeks 9-12)',
             purposes: ['Strength', 'Hypertrophy', 'Intermediate'],
             goals: ['strength', 'muscle-gain', 'body-composition'],
+            fullBodySplit: 'full-body',
+            status: 'available',
             lifts: ['Bench Press', 'Barbell Row', 'Overhead Press', 'Squat', 'Deadlift', 'Leg Press'],
             schedule: [
               { day: 'Week 1-3', lifts: ['Accumulation: Moderate intensity, higher volume'] },
@@ -618,10 +627,12 @@
             weeks: 12,
             daysPerWeek: 6,
             progression: 'Add reps to target sets; increase weight when hitting rep ranges',
-            deloads: 'Recommended: 1 deload week every 4-5 weeks at 60-70% intensity',
-            cycles: 'Continuous with recommended periodic deloads; can be run in 4-week blocks',
+            deloads: '1 deload week every 4-5 weeks concludes each training block at 60-70% intensity',
+            cycles: 'Continuous training with periodic 4-5 week blocks; each block ends with a deload week',
             purposes: ['Hypertrophy', 'Bodybuilding', 'Intermediate'],
             goals: ['muscle-gain', 'body-composition'],
+            fullBodySplit: 'split',
+            status: 'available',
             lifts: ['Bench Press', 'Overhead Press', 'Barbell Row', 'Deadlift', 'Squat'],
             schedule: [
               { day: 'Push', lifts: ['Bench Press 4×6-8', 'Overhead Press 3×8-10', 'Dumbbell Bench 3×8-10'] },
@@ -636,10 +647,12 @@
             weeks: 12,
             daysPerWeek: 4,
             progression: 'Drive strength on main lifts; hit rep ranges on accessories',
-            deloads: 'Recommended: Week 4 and Week 8 at 60-70% intensity',
-            cycles: 'Continuous with periodic 1-week deloads every 3-4 weeks',
+            deloads: 'Week 4 and Week 8 deloads (60-70%) conclude each 4-week training block',
+            cycles: 'Four-week blocks: weeks 1-3 main training + week 4 deload, repeating twice per 12-week program',
             purposes: ['Strength', 'Hypertrophy', 'Intermediate'],
             goals: ['strength', 'muscle-gain', 'body-composition'],
+            fullBodySplit: 'split',
+            status: 'available',
             lifts: ['Bench Press', 'Barbell Row', 'Squat', 'Deadlift'],
             schedule: [
               { day: 'Upper A', lifts: ['Bench Press 4×5-6', 'Weighted Dips 3×6-8', 'Barbell Row 3×8-10'] },
@@ -655,10 +668,12 @@
             weeks: 12,
             daysPerWeek: 4,
             progression: 'Weekly waves (5s, 3s, 1s) with 90% FSL; increase TM by 5 lbs (lower) or 2.5 lbs (upper) every cycle',
-            deloads: 'Deload week every 4 weeks (Week 4) at reduced intensity and volume',
-            cycles: 'Four-week microcycles repeating throughout the program; continuous progression',
+            deloads: 'Week 4 deload (reduced intensity/volume) concludes each 4-week training microcycle',
+            cycles: 'Four-week microcycles repeating throughout the program: weeks 1-3 training + week 4 deload',
             purposes: ['Strength', 'Intermediate'],
             goals: ['strength'],
+            fullBodySplit: 'full-body',
+            status: 'available',
             lifts: ['Squat', 'Bench Press', 'Deadlift', 'Overhead Press'],
             schedule: [
               { day: 'Day 1', lifts: ['Squat: 5/3/1, 5×FSL', 'Accessory work'] },
@@ -674,10 +689,12 @@
             weeks: 12,
             daysPerWeek: 4,
             progression: 'Main lift 5/3/1; BBB sets at 50% TM, 10 sets of 5 reps for each lift',
-            deloads: 'Deload week every 4 weeks with reduced volume and intensity',
-            cycles: 'Four-week microcycles; accumulation of volume drives hypertrophy',
+            deloads: 'Week 4 deload concludes each 4-week microcycle with reduced volume and intensity',
+            cycles: 'Three 4-week microcycles: weeks 1-3 training + week 4 deload; volume accumulation across cycles drives hypertrophy',
             purposes: ['Strength', 'Hypertrophy', 'Intermediate'],
             goals: ['strength', 'muscle-gain'],
+            fullBodySplit: 'full-body',
+            status: 'available',
             lifts: ['Squat', 'Bench Press', 'Deadlift', 'Overhead Press'],
             schedule: [
               { day: 'Day 1', lifts: ['Squat 5/3/1 + 10×5 @ 50%', 'Assistance work'] },
@@ -693,10 +710,12 @@
             weeks: 12,
             daysPerWeek: 4,
             progression: 'Autoregulated: select your own supplemental work based on session quality and RPE',
-            deloads: 'Deload week every 4 weeks; can also deload individual lifts as needed',
-            cycles: 'Four-week microcycles with flexibility to repeat or reset based on progress',
+            deloads: 'Week 4 deload concludes each 4-week microcycle; individual lifts can be deloaded independently as needed',
+            cycles: 'Four-week microcycles with autoregulated deload weeks: weeks 1-3 training + week 4 deload',
             purposes: ['Strength', 'Hypertrophy', 'Intermediate'],
             goals: ['strength', 'muscle-gain', 'body-composition'],
+            fullBodySplit: 'full-body',
+            status: 'available',
             lifts: ['Squat', 'Bench Press', 'Deadlift', 'Overhead Press'],
             schedule: [
               { day: 'Day 1', lifts: ['Main Lift: 5/3/1 + Supplemental + Assistance'] },
@@ -712,10 +731,12 @@
             weeks: 12,
             daysPerWeek: 3,
             progression: 'Linear progression: add weight when you hit rep targets; eat surplus on training days, deficit on rest days',
-            deloads: 'Deload every 8 weeks by reducing volume 40-50%; intensity stays high',
-            cycles: 'Eight-week accumulation block followed by 1-week deload; cycles repeat',
+            deloads: 'Week 8 deload (40-50% volume reduction) concludes each 8-week accumulation block; intensity stays high',
+            cycles: 'Eight-week accumulation blocks followed by 1-week deload; cycles repeat throughout program',
             purposes: ['Strength', 'Intermediate'],
             goals: ['strength', 'body-composition', 'fat-loss'],
+            fullBodySplit: 'full-body',
+            status: 'available',
             lifts: ['Squat', 'Deadlift', 'Bench Press', 'Barbell Row'],
             schedule: [
               { day: 'Day A (Mon)', lifts: ['Squat 4-6 reps', 'Bench Press 6-8 reps', 'Dumbbell Row 6-8 reps'] },
@@ -732,10 +753,12 @@
             weeks: 12,
             daysPerWeek: 4,
             progression: 'Rotate competition lifts, accessory exercises, and training methods every 3 weeks',
-            deloads: 'Built-in throughout program via rotation; recovery week every 4 weeks',
-            cycles: 'Three 4-week microcycles per 12-week block; rotating methods prevent stagnation',
+            deloads: 'Built-in via exercise rotation; recovery week every 4 weeks concludes each microcycle',
+            cycles: 'Three 4-week microcycles per 12-week block: weeks 1-3 training + week 4 recovery; rotating methods prevent stagnation',
             purposes: ['Strength', 'Powerlifting', 'Advanced'],
             goals: ['strength'],
+            fullBodySplit: 'full-body',
+            status: 'available',
             lifts: ['Squat', 'Bench Press', 'Deadlift', 'Barbell Row'],
             schedule: [
               { day: 'Max Effort Lower', lifts: ['Max effort squat variant 1×2-3', 'Speed deadlift 8×2', 'Leg work'] },
@@ -751,10 +774,12 @@
             weeks: 13,
             daysPerWeek: 4,
             progression: 'Carefully planned volume and intensity waves; average daily volume increases over 13 weeks',
-            deloads: 'Week 2 is a deload week; final week is test week at 100%',
-            cycles: 'Single 13-week block: preparatory (4w), base (5w), intensification (3w), peaking (1w)',
+            deloads: 'Week 2 deload concludes preparatory phase; final week (week 13) is test week at 100%',
+            cycles: 'Single 13-week block: preparatory (weeks 1-2 with deload) → base (weeks 3-7) → intensification (weeks 8-10) → peaking & test (weeks 11-13)',
             purposes: ['Strength', 'Powerlifting', 'Advanced'],
             goals: ['strength'],
+            fullBodySplit: 'full-body',
+            status: 'available',
             lifts: ['Squat'],
             schedule: [
               { day: 'Preparatory Phase (4 weeks)', lifts: ['Squat 6×6 at 65-75% (M/W)', 'Squat 3×6 at 75-80% (F)', 'Squat 4×5 at 75-85% (Sa)'] },
@@ -769,10 +794,12 @@
             weeks: 12,
             daysPerWeek: 4,
             progression: 'Block-based progression: accumulation (rep ranges 6-8) → intensification (3-5) → realization (1-3)',
-            deloads: 'Built into block transitions; 1 week deload every 3-4 weeks between blocks',
-            cycles: 'Three 4-week blocks per program; alternating rep ranges prevent accommodation',
+            deloads: 'Deload week concludes each 4-week block during block transitions',
+            cycles: 'Three 4-week blocks per program: accumulation (6-8 reps) + deload → intensification (3-5 reps) + deload → realization (1-3 reps)',
             purposes: ['Strength', 'Hypertrophy', 'Powerlifting', 'Advanced'],
             goals: ['strength', 'muscle-gain'],
+            fullBodySplit: 'full-body',
+            status: 'available',
             lifts: ['Squat', 'Bench Press', 'Deadlift', 'Barbell Row'],
             schedule: [
               { day: 'Block 1: Accumulation (4w)', lifts: ['Main lift 6×3 at 75-80%', 'Secondary 4×6-8', 'Accessory work'] },
@@ -787,10 +814,12 @@
             weeks: 12,
             daysPerWeek: 5,
             progression: 'Add reps first, then weight; multiple main lifts per session with declining intensity',
-            deloads: 'Week 4 & Week 8 at reduced volume and intensity',
-            cycles: 'Three 4-week cycles; volume increases each cycle; intensity controlled by RPE',
+            deloads: 'Week 4 and Week 8 deloads conclude each 4-week accumulation block',
+            cycles: 'Three 4-week cycles: weeks 1-3 accumulation + week 4 deload, repeating with increasing volume each cycle',
             purposes: ['Hypertrophy', 'Bodybuilding', 'Advanced'],
             goals: ['muscle-gain'],
+            fullBodySplit: 'split',
+            status: 'available',
             lifts: ['Squat', 'Bench Press', 'Deadlift', 'Barbell Row', 'Overhead Press'],
             schedule: [
               { day: 'Squat Focus', lifts: ['Squat 5×5 at RPE 7', 'Leg Press 4×8-10', 'Accessories'] },
@@ -798,6 +827,27 @@
               { day: 'Deadlift Focus', lifts: ['Deadlift 4×3-5 at RPE 7', 'Back work', 'Accessories'] },
               { day: 'OHP/Row Focus', lifts: ['Overhead Press 4×6-8', 'Barbell Row 4×6-8', 'Accessories'] },
               { day: 'Volume Day', lifts: ['Compound lifts 4×8-10 at RPE 6', 'High-rep accessories'] }
+            ]
+          },
+          {
+            id: '531-fat-loss',
+            name: '5/3/1 for Fat Loss',
+            description: 'Jim Wendler\'s 5/3/1 adapted specifically for fat loss and body recomposition. Preserves strength while maximizing metabolic demand.',
+            weeks: 12,
+            daysPerWeek: 4,
+            progression: 'Main lifts 5/3/1 at reduced TM (90% of actual); high rep supplemental work (8-15 reps)',
+            deloads: 'Week 4 deload concludes each 4-week microcycle with reduced intensity and volume',
+            cycles: 'Four-week microcycles: weeks 1-3 training + week 4 deload; high-rep accessory emphasis maintains metabolic demand',
+            purposes: ['Fat Loss', 'Strength', 'Advanced'],
+            goals: ['fat-loss', 'body-composition', 'strength'],
+            fullBodySplit: 'full-body',
+            status: 'coming-soon',
+            lifts: ['Squat', 'Bench Press', 'Deadlift', 'Overhead Press'],
+            schedule: [
+              { day: 'Day 1', lifts: ['Squat 5/3/1, High-rep leg accessories 4×8-15', 'Core work'] },
+              { day: 'Day 2', lifts: ['Bench Press 5/3/1, High-rep upper accessories 4×8-15', 'Conditioning'] },
+              { day: 'Day 3', lifts: ['Deadlift 5/3/1, High-rep pulling 4×8-15', 'Core work'] },
+              { day: 'Day 4', lifts: ['Overhead Press 5/3/1, High-rep upper accessories 4×8-15', 'Conditioning'] }
             ]
           }
         ]
@@ -945,9 +995,13 @@
             // Full catalog view
             if (viewFullCatalog) {
               const allPrograms = [...programs.beginner, ...programs.intermediate, ...programs.advanced];
-              const filteredPrograms = catalogGoalFilter === 'all' 
-                ? allPrograms 
-                : allPrograms.filter(p => p.goals.includes(catalogGoalFilter));
+              const filteredPrograms = allPrograms.filter(p => {
+                const goalMatch = catalogGoalFilter === 'all' || p.goals.includes(catalogGoalFilter);
+                const daysMatch = catalogDaysFilter === 'all' || p.daysPerWeek === parseInt(catalogDaysFilter);
+                const splitMatch = catalogSplitFilter === 'all' || p.fullBodySplit === catalogSplitFilter;
+                const statusMatch = catalogStatusFilter === 'all' || p.status === catalogStatusFilter;
+                return goalMatch && daysMatch && splitMatch && statusMatch;
+              });
 
               if (viewingProgramDetail) {
                 const program = allPrograms.find(p => p.id === viewingProgramDetail);
@@ -1063,6 +1117,78 @@
                           }}
                         >
                           {goal === 'all' ? 'All Goals' : goalLabels[goal]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Days Per Week</label>
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      {['all', '3', '4', '5', '6'].map(days => (
+                        <button
+                          key={days}
+                          onClick={() => setCatalogDaysFilter(days)}
+                          style={{
+                            padding: '6px 10px',
+                            fontSize: '10px',
+                            borderRadius: 4,
+                            border: catalogDaysFilter === days ? '2px solid #3498db' : '1px solid #bdc3c7',
+                            background: catalogDaysFilter === days ? '#ecf0f1' : '#f8f9fa',
+                            color: '#2c3e50',
+                            cursor: 'pointer',
+                            fontWeight: 600
+                          }}
+                        >
+                          {days === 'all' ? 'Any' : `${days}x/week`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Program Type</label>
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      {['all', 'full-body', 'split'].map(split => (
+                        <button
+                          key={split}
+                          onClick={() => setCatalogSplitFilter(split)}
+                          style={{
+                            padding: '6px 10px',
+                            fontSize: '10px',
+                            borderRadius: 4,
+                            border: catalogSplitFilter === split ? '2px solid #3498db' : '1px solid #bdc3c7',
+                            background: catalogSplitFilter === split ? '#ecf0f1' : '#f8f9fa',
+                            color: '#2c3e50',
+                            cursor: 'pointer',
+                            fontWeight: 600
+                          }}
+                        >
+                          {split === 'all' ? 'Any' : split === 'full-body' ? 'Full Body' : 'Upper/Lower Split'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Availability</label>
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      {['available', 'coming-soon', 'all'].map(status => (
+                        <button
+                          key={status}
+                          onClick={() => setCatalogStatusFilter(status)}
+                          style={{
+                            padding: '6px 10px',
+                            fontSize: '10px',
+                            borderRadius: 4,
+                            border: catalogStatusFilter === status ? '2px solid #3498db' : '1px solid #bdc3c7',
+                            background: catalogStatusFilter === status ? '#ecf0f1' : '#f8f9fa',
+                            color: '#2c3e50',
+                            cursor: 'pointer',
+                            fontWeight: 600
+                          }}
+                        >
+                          {status === 'available' ? '✓ Available' : status === 'coming-soon' ? '⏰ Coming Soon' : 'All'}
                         </button>
                       ))}
                     </div>
@@ -1384,14 +1510,14 @@
       });
 
       const [workouts, setWorkouts] = useState([
-        { id: 0, week: 'W1', date: 'Mon, May 6', status: 'completed', lifts: ['Bench: 225×5', 'Row: 185×6', 'OHP: 135×4'] },
-        { id: 1, week: 'W1', date: 'Wed, May 8', status: 'completed', lifts: ['Squat: 315×5', 'Leg Press: 405×8'] },
-        { id: 2, week: 'W1', date: 'Fri, May 10', status: 'completed', lifts: ['Deadlift: 405×3', 'Back Ext: 135×10'] },
-        { id: 3, week: 'W2', date: 'Mon, May 13', status: 'upcoming', lifts: ['Bench: 235×5', 'Row: 195×6', 'OHP: 140×4'] },
-        { id: 4, week: 'W2', date: 'Wed, May 15', status: 'upcoming', lifts: ['Squat: 325×5', 'Leg Press: 415×8'] },
-        { id: 5, week: 'W2', date: 'Fri, May 17', status: 'upcoming', lifts: ['Deadlift: 415×3', 'Back Ext: 140×10'] },
-        { id: 6, week: 'W3', date: 'Mon, May 20', status: 'upcoming', lifts: ['Bench: 245×5', 'Row: 205×6', 'OHP: 145×4'] },
-        { id: 7, week: 'W3', date: 'Wed, May 22', status: 'upcoming', lifts: ['Squat: 335×5', 'Leg Press: 425×8'] },
+        { id: 0, block: 'Cycle 1, Block 1', date: 'Mon, May 6', status: 'completed', lifts: ['Bench: 225×5', 'Row: 185×6', 'OHP: 135×4'] },
+        { id: 1, block: 'Cycle 1, Block 1', date: 'Wed, May 8', status: 'completed', lifts: ['Squat: 315×5', 'Leg Press: 405×8'] },
+        { id: 2, block: 'Cycle 1, Block 1', date: 'Fri, May 10', status: 'completed', lifts: ['Deadlift: 405×3', 'Back Ext: 135×10'] },
+        { id: 3, block: 'Cycle 1, Block 2', date: 'Mon, May 13', status: 'upcoming', lifts: ['Bench: 235×5', 'Row: 195×6', 'OHP: 140×4'] },
+        { id: 4, block: 'Cycle 1, Block 2', date: 'Wed, May 15', status: 'upcoming', lifts: ['Squat: 325×5', 'Leg Press: 415×8'] },
+        { id: 5, block: 'Cycle 1, Block 2', date: 'Fri, May 17', status: 'upcoming', lifts: ['Deadlift: 415×3', 'Back Ext: 140×10'] },
+        { id: 6, block: 'Cycle 1, Block 3', date: 'Mon, May 20', status: 'upcoming', lifts: ['Bench: 245×5', 'Row: 205×6', 'OHP: 145×4'] },
+        { id: 7, block: 'Cycle 1, Block 3', date: 'Wed, May 22', status: 'upcoming', lifts: ['Squat: 335×5', 'Leg Press: 425×8'] },
       ]);
 
       const programPlan = {
@@ -1402,50 +1528,26 @@
         cycles: [
           { 
             num: 1, 
-            weeks: 'W1–W3', 
-            workouts: 9, 
-            type: 'training',
-            description: 'Accumulation phase — moderate intensity',
+            weeks: 'W1–W4', 
+            workouts: 12, 
+            type: 'accumulation',
+            description: '3-week accumulation phase (moderate intensity, high volume) + 1-week deload',
             status: 'in-progress'
           },
           { 
             num: 2, 
-            weeks: 'W4', 
-            workouts: 3, 
-            type: 'deload',
-            description: 'Deload week — recover & consolidate',
+            weeks: 'W5–W8', 
+            workouts: 12, 
+            type: 'intensification',
+            description: '3-week intensification phase (heavier loads, lower volume) + 1-week deload',
             status: 'upcoming'
           },
           { 
             num: 3, 
-            weeks: 'W5–W7', 
-            workouts: 9, 
-            type: 'training',
-            description: 'Intensification phase — heavier loads',
-            status: 'upcoming'
-          },
-          { 
-            num: 4, 
-            weeks: 'W8', 
-            workouts: 3, 
-            type: 'deload',
-            description: 'Deload week — recover & consolidate',
-            status: 'upcoming'
-          },
-          { 
-            num: 5, 
-            weeks: 'W9–W11', 
-            workouts: 9, 
-            type: 'training',
-            description: 'Realization phase — peak intensity',
-            status: 'upcoming'
-          },
-          { 
-            num: 6, 
-            weeks: 'W12', 
-            workouts: 3, 
-            type: 'test',
-            description: 'Test week — assess new maxes',
+            weeks: 'W9–W12', 
+            workouts: 12, 
+            type: 'realization',
+            description: '3-week realization phase (peak intensity) + 1-week test week',
             status: 'upcoming'
           },
         ]
@@ -1537,9 +1639,10 @@
                       className="exercise-item"
                       style={{
                         borderLeft: 
-                          cycle.type === 'deload' ? '3px solid #f39c12' :
-                          cycle.type === 'test' ? '3px solid #e74c3c' :
-                          '3px solid #3498db',
+                          cycle.type === 'accumulation' ? '3px solid #3498db' :
+                          cycle.type === 'intensification' ? '3px solid #e67e22' :
+                          cycle.type === 'realization' ? '3px solid #e74c3c' :
+                          '3px solid #9b59b6',
                         background:
                           cycle.status === 'in-progress' ? '#ecf0f1' :
                           cycle.status === 'completed' ? '#a8e6cf' :
@@ -1615,7 +1718,7 @@
             <div className="screen">
               <div className="screen-header">
                 <h3>Reschedule Workout</h3>
-                <p>{workout.week}</p>
+                <p>{workout.block}</p>
               </div>
               <div className="screen-content">
                 <div className="info-box">
@@ -2040,7 +2143,7 @@
               <div className="screen">
                 <div className="screen-header">
                   <h3>Manage Lifts</h3>
-                  <p>{workout.week}</p>
+                  <p>{workout.block}</p>
                 </div>
                 <div className="screen-content">
                   <div className="info-box">
@@ -2205,27 +2308,73 @@
                 <p>{workout.date}</p>
               </div>
               <div className="screen-content">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <span className="exercise-name">{workout.week}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <span className="exercise-name">{workout.block}</span>
                   <span className={`status-badge status-${workout.status}`}>
                     {workout.status === 'completed' ? '✓ Done' : 'Upcoming'}
                   </span>
                 </div>
 
-                <div className="section-label">Planned Lifts</div>
-                {workout.lifts.map((lift, i) => (
-                  <div
-                    key={i}
-                    className="exercise-item"
-                    onClick={() => setSelectedLift(lift)}
-                  >
-                    <div style={{ flex: 1 }}>
-                      <div className="exercise-name">{lift}</div>
-                      <div className="exercise-sets">3 warm-up • 3 working</div>
-                    </div>
-                    <span style={{ fontSize: '12px', color: '#3498db', fontWeight: 600 }}>→</span>
+                {/* Cycle Progress */}
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <div className="form-label">Cycle Progress</div>
+                    <div style={{ fontSize: '11px', color: '#7f8c8d', fontWeight: 600 }}>3 of 12 workouts</div>
                   </div>
-                ))}
+                  <div className="progress-bar">
+                    <div className="progress-fill" style={{ width: '25%' }}></div>
+                  </div>
+                </div>
+
+                <div className="section-label">Planned Lifts</div>
+                {workout.lifts.map((lift, i) => {
+                  // Parse lift name and extract training max info
+                  let liftName = lift;
+                  let trainingMax = null;
+                  
+                  if (lift.includes('(')) {
+                    const match = lift.match(/(.+?)\s*\((.+?)\)/);
+                    if (match) {
+                      liftName = match[1].trim();
+                      trainingMax = parseInt(match[2]);
+                    }
+                  }
+                  
+                  // Sample planned sets with percentages
+                  const plannedSets = [
+                    { weight: trainingMax ? Math.round(trainingMax * 0.5) : 135, reps: 5, percentage: '50%' },
+                    { weight: trainingMax ? Math.round(trainingMax * 0.65) : 175, reps: 3, percentage: '65%' },
+                    { weight: trainingMax ? Math.round(trainingMax * 0.75) : 205, reps: 3, percentage: '75%' },
+                    { weight: trainingMax ? Math.round(trainingMax * 0.85) : 235, reps: 3, percentage: '85%' },
+                    { weight: trainingMax ? Math.round(trainingMax * 0.85) : 235, reps: 3, percentage: '85%' },
+                    { weight: trainingMax ? Math.round(trainingMax * 0.85) : 235, reps: 3, percentage: '85%' }
+                  ];
+                  
+                  return (
+                    <div key={i} style={{ marginBottom: 12 }}>
+                      <div className="exercise-item" onClick={() => setSelectedLift(lift)} style={{ cursor: 'pointer', marginBottom: 8 }}>
+                        <div style={{ flex: 1 }}>
+                          <div className="exercise-name">{liftName}</div>
+                          {trainingMax && <div className="exercise-sets">TM: {trainingMax} lbs</div>}
+                        </div>
+                        <span style={{ fontSize: '12px', color: '#3498db', fontWeight: 600 }}>→</span>
+                      </div>
+                      
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingLeft: 8 }}>
+                        {plannedSets.map((set, setIdx) => (
+                          <div key={setIdx} className="set-item" style={{ background: '#f0f7ff', borderLeft: '3px solid #3498db' }}>
+                            <div className="set-number">{setIdx + 1}</div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: '11px', fontWeight: 600, color: '#7f8c8d' }}>Planned</div>
+                              <div style={{ fontSize: '12px', color: '#1a1a1a', fontWeight: 600 }}>{set.weight}×{set.reps}</div>
+                              <div style={{ fontSize: '10px', color: '#3498db', fontWeight: 600, marginTop: 2 }}>{set.percentage} of TM</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
 
                 <button
                   className="button button-secondary"
@@ -3012,12 +3161,28 @@
               <p>Reverse Pyramid Training</p>
             </div>
             <div className="screen-content">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <div className="form-label">Progress</div>
-                <div style={{ fontSize: '11px', color: '#7f8c8d' }}>3 of 12</div>
-              </div>
-              <div className="progress-bar" style={{ marginBottom: 12 }}>
-                <div className="progress-fill" style={{ width: '25%' }}></div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
+                {/* Program Progress */}
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <div className="form-label">Program Progress</div>
+                    <div style={{ fontSize: '11px', color: '#7f8c8d', fontWeight: 600 }}>3 of 12 workouts</div>
+                  </div>
+                  <div className="progress-bar">
+                    <div className="progress-fill" style={{ width: '25%' }}></div>
+                  </div>
+                </div>
+
+                {/* Cycle Progress */}
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <div className="form-label">Cycle Progress</div>
+                    <div style={{ fontSize: '11px', color: '#7f8c8d', fontWeight: 600 }}>3 of 4 workouts</div>
+                  </div>
+                  <div className="progress-bar">
+                    <div className="progress-fill" style={{ width: '75%' }}></div>
+                  </div>
+                </div>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
@@ -3061,7 +3226,7 @@
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                       <div style={{ flex: 1 }}>
-                        <div className="exercise-name">{w.week} • {w.date}</div>
+                        <div className="exercise-name">{w.block} • {w.date}</div>
                         <div className="exercise-sets">{w.lifts.length} lifts</div>
                       </div>
                       <span className={`status-badge status-${w.status}`} style={{ marginTop: 2, fontSize: '9px' }}>
