@@ -29,9 +29,13 @@ const USER_ALICE = 'db-e2e-alice';
 const USER_BOB = 'db-e2e-bob';
 
 const USER_INIT = 'db-e2e-init';
+const USER_HIST = 'db-e2e-hist';
+const USER_SETT = 'db-e2e-settings';
+const USER_CUST = 'db-e2e-custom';
+const USER_SW   = 'db-e2e-switch';
 
 async function cleanTestUsers(prisma: PrismaClient): Promise<void> {
-  const users = [TEST_USER, USER_ALICE, USER_BOB, USER_INIT];
+  const users = [TEST_USER, USER_ALICE, USER_BOB, USER_INIT, USER_HIST, USER_SETT, USER_CUST, USER_SW];
   await prisma.liftRecord.deleteMany({ where: { userId: { in: users } } });
   await prisma.trainingMax.deleteMany({ where: { userId: { in: users } } });
   await prisma.trainingMaxHistory.deleteMany({ where: { userId: { in: users } } });
@@ -40,6 +44,8 @@ async function cleanTestUsers(prisma: PrismaClient): Promise<void> {
   await prisma.workoutDateOverride.deleteMany({ where: { userId: { in: users } } });
   await prisma.strengthGoal.deleteMany({ where: { userId: { in: users } } });
   await prisma.liftMetadata.deleteMany({ where: { userId: { in: users } } });
+  await prisma.userSettings.deleteMany({ where: { userId: { in: users } } });
+  await prisma.customProgram.deleteMany({ where: { userId: { in: users } } });
 }
 
 const describeOrSkip = process.env.DATABASE_URL ? describe : describe.skip;
@@ -845,6 +851,262 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
         where: { userId: TEST_USER, program: SEED_PROGRAM },
       });
       expect(after).toBe(before);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Body weight — in-memory adapter only (no Prisma adapter exists); exercises
+  // the HTTP contract end-to-end even though no DB assertion is possible.
+  // ---------------------------------------------------------------------------
+
+  describe('body-weight endpoints', () => {
+    const injectRaw = () =>
+      app.getHttpAdapter().getInstance().inject.bind(app.getHttpAdapter().getInstance());
+    const AS_BW = { authorization: `Bearer ${USER_SW}` };
+    const BW_URL = `/programs/${SEED_PROGRAM}/body-weight`;
+
+    it('GET /body-weight/latest returns 404 when nothing has been recorded for this program', async () => {
+      // body-weight uses an in-memory store keyed by program; the switch-program tests above
+      // never call this endpoint, so the store is empty for USER_SW.
+      const res = await injectRaw()({ method: 'GET', url: `${BW_URL}/latest`, headers: AS_BW });
+      expect(res.statusCode).toBe(404);
+    });
+
+    it('POST body-weight returns 201 and GET /latest reflects the entry', async () => {
+      const postRes = await injectRaw()({
+        method: 'POST',
+        url: BW_URL,
+        headers: { 'content-type': 'application/json', ...AS_BW },
+        payload: JSON.stringify({ date: '2026-05-01', weight: 185, unit: 'lbs' }),
+      });
+      expect(postRes.statusCode).toBe(201);
+
+      const getRes = await injectRaw()({ method: 'GET', url: `${BW_URL}/latest`, headers: AS_BW });
+      expect(getRes.statusCode).toBe(200);
+      expect(getRes.json()).toMatchObject({ date: '2026-05-01', weight: 185, unit: 'lbs' });
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // History page scenario — exercises both endpoints the /history page calls
+  // together and cross-references the data they return.
+  // ---------------------------------------------------------------------------
+
+  describe('history page scenario (DB)', () => {
+    const AS_HIST = { authorization: `Bearer ${USER_HIST}` };
+
+    beforeAll(async () => {
+      const dash = seedCycleDashboard();
+      await prisma.cycleDashboard.create({
+        data: {
+          userId: USER_HIST,
+          program: SEED_PROGRAM,
+          cycleUnit: dash.cycleUnit,
+          cycleNum: 1,
+          cycleDate: dash.cycleDate,
+          sheetName: dash.sheetName,
+          cycleStartWeekday: dash.cycleStartWeekday,
+          currentWeekType: dash.currentWeekType,
+          programType: dash.programType ?? null,
+        },
+      });
+      await prisma.liftRecord.createMany({
+        data: [
+          { userId: USER_HIST, program: SEED_PROGRAM, cycleNum: 1, workoutNum: 1, date: new Date('2026-04-20'), lift: 'Squat', setNum: 1, weight: 205, reps: 5, notes: '' },
+          { userId: USER_HIST, program: SEED_PROGRAM, cycleNum: 1, workoutNum: 2, date: new Date('2026-04-22'), lift: 'Bench Press', setNum: 1, weight: 145, reps: 5, notes: '' },
+        ],
+      });
+      await prisma.trainingMaxHistory.createMany({
+        data: [
+          { userId: USER_HIST, program: SEED_PROGRAM, lift: 'Squat',       weight: 315, date: new Date('2026-04-20'), isPR: false, source: 'program', goalMet: false },
+          { userId: USER_HIST, program: SEED_PROGRAM, lift: 'Bench Press', weight: 225, date: new Date('2026-04-20'), isPR: true,  source: 'program', goalMet: false },
+        ],
+      });
+    });
+
+    afterAll(async () => {
+      await prisma.liftRecord.deleteMany({ where: { userId: USER_HIST } });
+      await prisma.trainingMaxHistory.deleteMany({ where: { userId: USER_HIST } });
+      await prisma.cycleDashboard.deleteMany({ where: { userId: USER_HIST } });
+    });
+
+    it('GET lift-records returns 2 seeded records for current cycle', async () => {
+      const injectRaw = app.getHttpAdapter().getInstance().inject.bind(app.getHttpAdapter().getInstance());
+      const res = await injectRaw({ method: 'GET', url: `/programs/${SEED_PROGRAM}/lift-records`, headers: AS_HIST });
+      expect(res.statusCode).toBe(200);
+      const records = res.json() as { lift: string; cycleNum: number }[];
+      expect(records).toHaveLength(2);
+      expect(records.every((r) => r.cycleNum === 1)).toBe(true);
+    });
+
+    it('GET training-maxes/history returns 2 seeded entries and respects isPR', async () => {
+      const injectRaw = app.getHttpAdapter().getInstance().inject.bind(app.getHttpAdapter().getInstance());
+      const res = await injectRaw({ method: 'GET', url: `/programs/${SEED_PROGRAM}/training-maxes/history`, headers: AS_HIST });
+      expect(res.statusCode).toBe(200);
+      const { entries } = res.json() as { entries: { lift: string; isPR: boolean }[] };
+      expect(entries).toHaveLength(2);
+      expect(entries.some((e) => e.isPR)).toBe(true);
+    });
+
+    it('every lift in TM history also appears in lift records (cross-reference)', async () => {
+      const injectRaw = app.getHttpAdapter().getInstance().inject.bind(app.getHttpAdapter().getInstance());
+
+      const liftRes = await injectRaw({ method: 'GET', url: `/programs/${SEED_PROGRAM}/lift-records`, headers: AS_HIST });
+      const records = liftRes.json() as { lift: string }[];
+
+      const histRes = await injectRaw({ method: 'GET', url: `/programs/${SEED_PROGRAM}/training-maxes/history`, headers: AS_HIST });
+      const { entries } = histRes.json() as { entries: { lift: string }[] };
+
+      const recordedLifts = new Set(records.map((r) => r.lift));
+      for (const e of entries) {
+        expect(recordedLifts.has(e.lift)).toBe(true);
+      }
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // User settings — Prisma-backed; no in-memory variant.
+  // ---------------------------------------------------------------------------
+
+  describe('user settings (DB)', () => {
+    const AS_SETT = { authorization: `Bearer ${USER_SETT}` };
+
+    it('GET /users/me/settings returns null activeProgram for a new user', async () => {
+      const injectRaw = app.getHttpAdapter().getInstance().inject.bind(app.getHttpAdapter().getInstance());
+      const res = await injectRaw({ method: 'GET', url: '/users/me/settings', headers: AS_SETT });
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toMatchObject({ activeProgram: null });
+    });
+
+    it('PATCH /users/me/settings updates activeProgram and persists to DB', async () => {
+      const injectRaw = app.getHttpAdapter().getInstance().inject.bind(app.getHttpAdapter().getInstance());
+
+      const patchRes = await injectRaw({
+        method: 'PATCH',
+        url: '/users/me/settings',
+        headers: { 'content-type': 'application/json', ...AS_SETT },
+        payload: JSON.stringify({ activeProgram: SEED_PROGRAM }),
+      });
+      expect(patchRes.statusCode).toBe(200);
+      expect(patchRes.json()).toMatchObject({ activeProgram: SEED_PROGRAM });
+
+      const row = await prisma.userSettings.findFirst({ where: { userId: USER_SETT } });
+      expect(row?.activeProgram).toBe(SEED_PROGRAM);
+
+      const getRes = await injectRaw({ method: 'GET', url: '/users/me/settings', headers: AS_SETT });
+      expect(getRes.json()).toMatchObject({ activeProgram: SEED_PROGRAM });
+    });
+
+    it('user isolation — settings are scoped to userId', async () => {
+      const injectRaw = app.getHttpAdapter().getInstance().inject.bind(app.getHttpAdapter().getInstance());
+      const AS_OTHER = { authorization: 'Bearer db-e2e-settings-other' };
+
+      const res = await injectRaw({ method: 'GET', url: '/users/me/settings', headers: AS_OTHER });
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toMatchObject({ activeProgram: null });
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Custom programs — Prisma-backed; no in-memory variant.
+  // ---------------------------------------------------------------------------
+
+  describe('custom programs (DB)', () => {
+    const AS_CUST = { authorization: `Bearer ${USER_CUST}` };
+
+    const MINIMAL_SPEC = {
+      week: 1,
+      offset: 0,
+      lift: 'Squat',
+      increment: 5,
+      order: 1,
+      sets: 3,
+      reps: 5,
+      amrap: false,
+      warmUpPct: '40/50/60/70/75/80',
+      wtDecrementPct: 0.9,
+      activation: 'standard',
+    };
+
+    it('GET /programs/custom returns empty array for a new user', async () => {
+      const injectRaw = app.getHttpAdapter().getInstance().inject.bind(app.getHttpAdapter().getInstance());
+      const res = await injectRaw({ method: 'GET', url: '/programs/custom', headers: AS_CUST });
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toEqual([]);
+    });
+
+    it('POST /programs/custom creates a program and GET lists it', async () => {
+      const injectRaw = app.getHttpAdapter().getInstance().inject.bind(app.getHttpAdapter().getInstance());
+
+      const createRes = await injectRaw({
+        method: 'POST',
+        url: '/programs/custom',
+        headers: { 'content-type': 'application/json', ...AS_CUST },
+        payload: JSON.stringify({ name: 'My Test Program', description: 'A test', specs: [MINIMAL_SPEC] }),
+      });
+      expect(createRes.statusCode).toBe(201);
+      const created = createRes.json() as { id: string; name: string };
+      expect(created.name).toBe('My Test Program');
+
+      const listRes = await injectRaw({ method: 'GET', url: '/programs/custom', headers: AS_CUST });
+      expect(listRes.statusCode).toBe(200);
+      const list = listRes.json() as { id: string; name: string }[];
+      expect(list.some((p) => p.id === created.id && p.name === 'My Test Program')).toBe(true);
+
+      const row = await prisma.customProgram.findFirst({ where: { userId: USER_CUST, name: 'My Test Program' } });
+      expect(row).not.toBeNull();
+    });
+
+    it('user isolation — custom programs are scoped to userId', async () => {
+      const injectRaw = app.getHttpAdapter().getInstance().inject.bind(app.getHttpAdapter().getInstance());
+      const AS_OTHER = { authorization: 'Bearer db-e2e-custom-other' };
+
+      const res = await injectRaw({ method: 'GET', url: '/programs/custom', headers: AS_OTHER });
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toEqual([]);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Switch program — Prisma-backed; no in-memory variant.
+  // Order-sensitive within this block.
+  // ---------------------------------------------------------------------------
+
+  describe('POST /programs/:program/switch (DB)', () => {
+    const AS_SW = { authorization: `Bearer ${USER_SW}` };
+
+    it('initializes a cycle and sets activeProgram for a user with no prior cycle', async () => {
+      const injectRaw = app.getHttpAdapter().getInstance().inject.bind(app.getHttpAdapter().getInstance());
+
+      const res = await injectRaw({ method: 'POST', url: `/programs/${SEED_PROGRAM}/switch`, headers: AS_SW });
+      expect(res.statusCode).toBe(200);
+      const body = res.json() as { activeProgram: string; cycleNum: number };
+      expect(body.activeProgram).toBe(SEED_PROGRAM);
+      expect(body.cycleNum).toBe(1);
+
+      const settingsRow = await prisma.userSettings.findFirst({ where: { userId: USER_SW } });
+      expect(settingsRow?.activeProgram).toBe(SEED_PROGRAM);
+
+      const cycleRow = await prisma.cycleDashboard.findFirst({ where: { userId: USER_SW, program: SEED_PROGRAM } });
+      expect(cycleRow).not.toBeNull();
+      expect(cycleRow?.cycleNum).toBe(1);
+    });
+
+    it('returns existing cycleNum when CycleDashboard already exists', async () => {
+      const injectRaw = app.getHttpAdapter().getInstance().inject.bind(app.getHttpAdapter().getInstance());
+
+      // Previous test created the dashboard — switching again must not reinitialize.
+      const res = await injectRaw({ method: 'POST', url: `/programs/${SEED_PROGRAM}/switch`, headers: AS_SW });
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toMatchObject({ activeProgram: SEED_PROGRAM, cycleNum: 1 });
+    });
+
+    it('returns 403 when switching to a UUID-format program not owned by the user', async () => {
+      const injectRaw = app.getHttpAdapter().getInstance().inject.bind(app.getHttpAdapter().getInstance());
+      const fakeUuid = '00000000-0000-0000-0000-000000000000';
+
+      const res = await injectRaw({ method: 'POST', url: `/programs/${fakeUuid}/switch`, headers: AS_SW });
+      expect(res.statusCode).toBe(403);
     });
   });
 });
