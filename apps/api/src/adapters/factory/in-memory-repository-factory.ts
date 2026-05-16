@@ -17,7 +17,7 @@ import { SEED_PROGRAM, seedLiftRecords } from '../in-memory/fixtures';
 
 // The dev seed user gets pre-populated training maxes so existing tests that
 // rely on seeded data continue to work without additional setup.
-const SEED_USER_ID = process.env.DEV_USER_ID ?? 'dev-token';
+const SEED_USER_ID = process.env.DEV_USER_ID || 'dev-token';
 
 @Injectable()
 export class InMemoryRepositoryFactory implements IRepositoryFactory {
