@@ -31,11 +31,14 @@ const USER_BOB = 'db-e2e-bob';
 const USER_INIT = 'db-e2e-init';
 const USER_HIST = 'db-e2e-hist';
 const USER_SETT = 'db-e2e-settings';
+const USER_SETT_OTHER = 'db-e2e-settings-other';
 const USER_CUST = 'db-e2e-custom';
+const USER_CUST_OTHER = 'db-e2e-custom-other';
+const USER_BW   = 'db-e2e-body-weight';
 const USER_SW   = 'db-e2e-switch';
 
 async function cleanTestUsers(prisma: PrismaClient): Promise<void> {
-  const users = [TEST_USER, USER_ALICE, USER_BOB, USER_INIT, USER_HIST, USER_SETT, USER_CUST, USER_SW];
+  const users = [TEST_USER, USER_ALICE, USER_BOB, USER_INIT, USER_HIST, USER_SETT, USER_SETT_OTHER, USER_CUST, USER_CUST_OTHER, USER_BW, USER_SW];
   await prisma.liftRecord.deleteMany({ where: { userId: { in: users } } });
   await prisma.trainingMax.deleteMany({ where: { userId: { in: users } } });
   await prisma.trainingMaxHistory.deleteMany({ where: { userId: { in: users } } });
@@ -860,20 +863,18 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
   // ---------------------------------------------------------------------------
 
   describe('body-weight endpoints', () => {
-    const injectRaw = () =>
-      app.getHttpAdapter().getInstance().inject.bind(app.getHttpAdapter().getInstance());
-    const AS_BW = { authorization: `Bearer ${USER_SW}` };
+    const AS_BW = { authorization: `Bearer ${USER_BW}` };
     const BW_URL = `/programs/${SEED_PROGRAM}/body-weight`;
 
     it('GET /body-weight/latest returns 404 when nothing has been recorded for this program', async () => {
-      // body-weight uses an in-memory store keyed by program; the switch-program tests above
-      // never call this endpoint, so the store is empty for USER_SW.
-      const res = await injectRaw()({ method: 'GET', url: `${BW_URL}/latest`, headers: AS_BW });
+      const injectRaw = app.getHttpAdapter().getInstance().inject.bind(app.getHttpAdapter().getInstance());
+      const res = await injectRaw({ method: 'GET', url: `${BW_URL}/latest`, headers: AS_BW });
       expect(res.statusCode).toBe(404);
     });
 
     it('POST body-weight returns 201 and GET /latest reflects the entry', async () => {
-      const postRes = await injectRaw()({
+      const injectRaw = app.getHttpAdapter().getInstance().inject.bind(app.getHttpAdapter().getInstance());
+      const postRes = await injectRaw({
         method: 'POST',
         url: BW_URL,
         headers: { 'content-type': 'application/json', ...AS_BW },
@@ -881,7 +882,7 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
       });
       expect(postRes.statusCode).toBe(201);
 
-      const getRes = await injectRaw()({ method: 'GET', url: `${BW_URL}/latest`, headers: AS_BW });
+      const getRes = await injectRaw({ method: 'GET', url: `${BW_URL}/latest`, headers: AS_BW });
       expect(getRes.statusCode).toBe(200);
       expect(getRes.json()).toMatchObject({ date: '2026-05-01', weight: 185, unit: 'lbs' });
     });
@@ -999,7 +1000,7 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
 
     it('user isolation — settings are scoped to userId', async () => {
       const injectRaw = app.getHttpAdapter().getInstance().inject.bind(app.getHttpAdapter().getInstance());
-      const AS_OTHER = { authorization: 'Bearer db-e2e-settings-other' };
+      const AS_OTHER = { authorization: `Bearer ${USER_SETT_OTHER}` };
 
       const res = await injectRaw({ method: 'GET', url: '/users/me/settings', headers: AS_OTHER });
       expect(res.statusCode).toBe(200);
@@ -1059,7 +1060,7 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
 
     it('user isolation — custom programs are scoped to userId', async () => {
       const injectRaw = app.getHttpAdapter().getInstance().inject.bind(app.getHttpAdapter().getInstance());
-      const AS_OTHER = { authorization: 'Bearer db-e2e-custom-other' };
+      const AS_OTHER = { authorization: `Bearer ${USER_CUST_OTHER}` };
 
       const res = await injectRaw({ method: 'GET', url: '/programs/custom', headers: AS_OTHER });
       expect(res.statusCode).toBe(200);
