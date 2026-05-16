@@ -307,10 +307,12 @@ npm test -w @lifting-logbook/web
 
 ### Coverage Requirements
 
+<!-- When #259 ships: remove the "until then" clause from the frontend row below. Tracked as a checklist item on issue #259. -->
+
 | Change type | Required coverage |
 |---|---|
 | New API endpoint | In-memory E2E test in the same PR |
-| New frontend page or interactive feature | Playwright test once #259 is implemented; until then, a written manual test plan in the PR body |
+| New frontend page or interactive feature | Playwright test once #259 is implemented; until then, a written test plan in the PR body |
 | Bug fix | Regression test that fails before the fix and passes after |
 | Refactor / docs only | None required — existing tests must pass |
 
