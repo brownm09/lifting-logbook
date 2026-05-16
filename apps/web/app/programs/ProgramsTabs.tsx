@@ -15,7 +15,7 @@ type Props = {
 
 export default function ProgramsTabs({ activeProgram, customPrograms }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('browse');
-  const [currentActive, setCurrentActive] = useState(activeProgram);
+  const [currentActive, _setCurrentActive] = useState(activeProgram);
 
   function handleProgramSaved(_id: string) {
     // Do not update currentActive here — saving a program does not switch to it.

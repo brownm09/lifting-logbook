@@ -65,7 +65,7 @@ export default function ProgramEditor({
   mode,
   existing,
   baseTemplateId,
-  activeProgram,
+  activeProgram: _activeProgram,
   onSaved,
   onCancel,
 }: Props) {
