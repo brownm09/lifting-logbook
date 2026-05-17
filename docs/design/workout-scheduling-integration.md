@@ -1,7 +1,7 @@
 # Workout Scheduling Integration Design
 
 **Status:** Design (not yet implemented)  
-**Last Updated:** May 16, 2026  
+**Last Updated:** May 17, 2026  
 **Scope:** Program editing with per-program workouts/week override and automatic workout date distribution
 
 ## Overview
@@ -11,6 +11,20 @@ This design document specifies how to integrate the workout scheduling feature i
 1. Define a preferred workout schedule (fixed days or rotating pattern) in settings
 2. Override the prescribed workouts-per-week for any program independently
 3. Automatically distribute cycle workouts across actual calendar dates respecting the user's schedule
+
+### No-Schedule Mode
+
+When no `workoutSchedule` is set in user settings, the system operates in **no-schedule mode**:
+- No dates are assigned to pending/planned workouts
+- The effective date of a workout is set to the date the user logs their first set for that workout
+- This is the default state for new users and the fallback when a user explicitly declines to apply their schedule to a program
+
+### Schedule Incompatibility
+
+An incompatibility exists when the user's schedule day count does not match a program's prescribed workouts-per-week (e.g., a Mon-Wed-Fri schedule with a 4-day/week program). When incompatibility is detected — either when the user sets a new schedule while a program is active, or when the user selects a program that conflicts with their current schedule — the system prompts the user to choose:
+
+1. **Override the program** — run the program at the schedule's effective workouts/week and recalculate all pending workout dates. The override value is stored on the program (`workoutsPerWeekOverride`).
+2. **No-schedule mode for this program** — treat the active program as if no schedule is set: no pending dates, date set at logging time. The program's `workoutsPerWeekOverride` is set to `null`.
 
 ## Data Model
 
@@ -37,19 +51,10 @@ export interface UserSettingsResponse {
 
 ### Program Override Model
 
-Extend `UpdateCycleOverrides` to support per-program override:
+The override is stored at the **program level**, not per-cycle. `UpdateCycleOverrides` is not extended. When creating or updating a custom program:
 
 ```typescript
 // packages/types/src/api.ts
-
-export interface UpdateCycleOverrides {
-  targetWeekday?: string;
-  today?: Date;
-  overrideDate?: Date;
-  updateStartWeekday?: boolean;
-  // NEW: per-program workout frequency override
-  workoutsPerWeekOverride?: number | null;
-}
 
 // When creating/updating a custom program:
 export interface CustomProgramResponse {
@@ -59,7 +64,7 @@ export interface CustomProgramResponse {
   baseTemplate: string | null;
   createdAt: string;
   specs: CustomProgramSpecRow[];
-  // NEW: override workouts/week (null = use prescribed)
+  // null = use prescribed; set when user accepts incompatibility override
   workoutsPerWeekOverride?: number | null;
 }
 
@@ -196,8 +201,8 @@ function getWeekPattern(
     return schedule.days || [];
   } else {
     // Rotating: select week pattern cyclically
-    const weekIndex = weekIndex % schedule.weeks!.length;
-    return schedule.weeks![weekIndex];
+    const patternIndex = weekIndex % schedule.weeks!.length;
+    return schedule.weeks![patternIndex];
   }
 }
 ```
@@ -228,23 +233,36 @@ For each lift in the cycle spec:
 
 **Location:** `packages/core/src/services/workout/calculateEffectiveWorkoutsPerWeek.ts` (new)
 
+Returns `null` when no schedule is set, signalling no-schedule mode to the caller.
+
 **Logic:**
 ```typescript
 function calculateEffectiveWorkoutsPerWeek(
   program: CustomProgramResponse,
-  userOverride?: number | null
-): number {
-  // If program has an explicit override, use it
+  userSchedule: UserWorkoutSchedule | null
+): number | null {
+  // No schedule → no-schedule mode; dates are set at logging time, not pre-assigned
+  if (!userSchedule) return null;
+
+  // User accepted an incompatibility override for this program — use the stored value
   if (program.workoutsPerWeekOverride !== null && program.workoutsPerWeekOverride !== undefined) {
     return program.workoutsPerWeekOverride;
   }
 
-  // Otherwise, infer from program spec:
-  // For 5/3/1-style programs, count unique offsets in the first week
-  // For general programs, count rows where week === 1
-  
+  // Compatible: infer prescribed frequency from program spec
+  // Count unique offsets in the first week's specs
   const firstWeekSpecs = program.specs.filter(s => s.week === 1);
   return firstWeekSpecs.length;
+}
+
+/** Returns how many workouts per week the user's schedule supports. */
+function getScheduleWorkoutsPerWeek(schedule: UserWorkoutSchedule): number {
+  if (schedule.type === 'fixed') {
+    return (schedule.days || []).length;
+  } else {
+    // Rotating: use the maximum week length to avoid under-scheduling
+    return Math.max(...(schedule.weeks || [[]]).map(w => w.length));
+  }
 }
 ```
 
@@ -257,28 +275,53 @@ function calculateEffectiveWorkoutsPerWeek(
 When a custom program is created or its specs are updated:
 1. If `workoutsPerWeekOverride` is set, validate it's > 0
 2. Store the override with the program
-3. Trigger cycle recalculation if a cycle is active
+3. Trigger pending-date recalculation if a cycle is active and a schedule is set
 
-### 2. Cycle Dashboard Generation
+### 2. Schedule Compatibility Check
+
+**File:** `packages/core/src/services/workout/` (new helper, called from settings and program selection flows)
+
+Fires in two situations:
+- User sets or updates their `workoutSchedule` while a program is active
+- User selects a program whose prescribed workouts/week differs from the current schedule's day count
+
+**Logic:**
+```
+schedulePerWeek = getScheduleWorkoutsPerWeek(userSchedule)
+prescribedPerWeek = inferPrescribedFromSpec(program)
+
+if schedulePerWeek !== prescribedPerWeek:
+  prompt user:
+    Option A — "Run at my schedule pace (N days/week)"
+      → set program.workoutsPerWeekOverride = schedulePerWeek
+      → recalculate pending workout dates via distributeWorkouts()
+    Option B — "No scheduled dates for this program"
+      → set program.workoutsPerWeekOverride = null
+      → clear any pending dates; date set at logging time
+```
+
+If there is no active program when the schedule is set, no prompt is shown; the schedule is saved and will be applied when the next program is selected.
+
+### 3. Cycle Dashboard Generation
 
 **File:** `packages/core/src/services/dashboard/` (extend existing)
 
 When generating a cycle dashboard:
 1. Load user's `workoutSchedule` from settings
-2. Load the program's `workoutsPerWeekOverride` (if any)
-3. Calculate effective workouts/week
-4. Call `distributeWorkouts()` to get workout dates
-5. Store workout dates in the cycle or cycle weeks
+2. Call `calculateEffectiveWorkoutsPerWeek(program, userSchedule)`
+3. If result is `null` (no-schedule mode) → return cycle data with no pending workout dates
+4. Otherwise call `distributeWorkouts()` with the effective frequency and store dates in the cycle
 
-### 3. Lift Record Creation
+### 4. Lift Record Creation
 
 **File:** `packages/core/src/services/workout/extractLiftRecords.ts`
 
-Existing logic extracts lift records from user input. When a user logs a set:
-1. If no explicit date provided, use the scheduled date from `distributeWorkouts()`
-2. Allow user to override the scheduled date (manual reschedule)
+When a user logs a set:
+1. If the workout has a pre-assigned scheduled date (schedule mode), default to that date
+2. If the workout has no scheduled date (no-schedule mode), use today's date as the effective workout date
+3. Allow the user to override the date in either case (manual reschedule)
 
-### 4. Settings API
+### 5. Settings API
 
 **File:** `apps/api/src/controllers/` or `apps/api/src/routes/`
 
@@ -286,7 +329,7 @@ Add endpoints:
 - `GET /users/settings` — return `workoutSchedule`
 - `PATCH /users/settings` — update `workoutSchedule`
 
-### 5. Program API
+### 6. Program API
 
 **File:** `apps/api/src/controllers/programs.ts`
 
@@ -300,9 +343,9 @@ Extend program endpoints:
 ### In `packages/types/src/api.ts`:
 - Add `UserWorkoutSchedule` interface
 - Extend `UserSettingsResponse` with `workoutSchedule`
-- Extend `UpdateCycleOverrides` with `workoutsPerWeekOverride`
 - Extend `CustomProgramResponse` with `workoutsPerWeekOverride`
 - Extend `UpdateCustomProgramRequest` with `workoutsPerWeekOverride`
+- `UpdateCycleOverrides` is **not** extended — the override is program-scoped, not cycle-scoped
 - (Optional) Add new `WorkoutDistributionResponse` if exposing distribution via API
 
 ### In `packages/core/src/models/`:
@@ -318,41 +361,47 @@ Extend program endpoints:
 - Edge cases: 1 workout, 10 workouts/week (capping), schedule with no days selected
 
 **`packages/core/tests/services/workout/calculateEffectiveWorkoutsPerWeek.test.ts`:**
-- Program with override: returns override value
-- Program without override: calculates from spec (first week count or offset count)
-- Edge cases: empty spec, malformed override
+- No schedule → returns `null` (no-schedule mode)
+- Schedule set, program has override → returns override value
+- Schedule set, no override → calculates from spec (first week count or offset count)
+- Edge cases: empty spec, schedule with no days
 
 ### Integration Tests
 
 **`apps/api/tests/programs.test.ts`:**
 - PATCH program with `workoutsPerWeekOverride` → persists and returns in GET
-- GET cycle dashboard → includes workout dates distributed per user schedule
-- Create lift records at distributed dates
+- GET cycle dashboard, no schedule set → no pending dates returned
+- GET cycle dashboard, schedule set and compatible → workout dates distributed
+- GET cycle dashboard, incompatibility accepted → dates distributed at override frequency
+- Create lift records with no scheduled date → date defaults to today
 
 **`apps/api/tests/users.test.ts`:**
 - PATCH settings with `workoutSchedule` → persists
 - GET settings → returns schedule with correct structure
+- Setting schedule while incompatible program active → API surfaces incompatibility flag
 
 ### E2E Tests (Playwright, once #259 is implemented)
 
-- User sets workout schedule to Mon-Wed-Fri
-- User creates a program with 12 workouts, override to 3/week
-- System calculates 4 weeks and distributes workouts
-- User views cycle dashboard → sees workouts on correct days
-- User logs a set → defaults to scheduled date, can override
+- No schedule set: user logs a set → workout date = today (no pre-assigned date shown)
+- User sets Mon-Wed-Fri schedule; program prescribes 3/week → compatible, dates distributed
+- User sets Mon-Wed-Fri schedule; program prescribes 4/week → incompatibility prompt shown
+  - User chooses override → cycle dashboard shows 3 workouts/week on correct days
+  - User chooses no-schedule → cycle dashboard shows no pending dates
+- User changes schedule while cycle active → incompatibility prompt fires again if needed
 
 ## Migration & Backwards Compatibility
 
-- Existing programs without `workoutsPerWeekOverride` default to `null` (use prescribed)
-- Existing users without `workoutSchedule` default to `null` (no override applied)
-- When `workoutSchedule` is `null`, system should not error; use a sensible default (e.g., Mon-Wed-Fri) or require user to set it on first use
+- Existing users without `workoutSchedule` default to `null` → no-schedule mode; no pending dates; no behavior change from current system
+- Existing programs without `workoutsPerWeekOverride` default to `null` → prescribed frequency used when a schedule is later set
+- No data migration required: the new columns are nullable and the no-schedule fallback is the correct default for all existing data
 
 ## Open Questions
 
 1. **UI for rotating schedules:** Should the rotation start on a specific date, or always be "week A, week B, week A, week B..."?
-2. **Partial week handling:** If a cycle ends mid-week, do we distribute remaining workouts across partial week, or start fresh next week?
-3. **Holiday/deload handling:** Should users be able to mark weeks as deloads, pushing remaining workouts forward?
+2. **Partial week handling:** `distributeWorkouts()` stops placing workouts once N are placed — if the last week is partial, remaining days in that week are unused. Is this the correct behavior, or should the system always fill out the final week?
+3. **Holiday/deload handling:** Out of scope for MVP. Deferred to future enhancement.
 4. **Workout-to-lift mapping:** Is offset the only way to know which lifts belong together, or do we need an explicit "lift group"?
+5. **Incompatibility prompt placement:** Should the prompt appear in the Settings flow (when schedule is saved) or in the Program selection flow (when a program is picked), or both? Which should take precedence when both trigger simultaneously?
 
 ## References
 
