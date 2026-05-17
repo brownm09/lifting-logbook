@@ -19,12 +19,18 @@ When no `workoutSchedule` is set in user settings, the system operates in **no-s
 - The effective date of a workout is set to the date the user logs their first set for that workout
 - This is the default state for new users and the fallback when a user explicitly declines to apply their schedule to a program
 
-### Schedule Incompatibility
+### Schedule Mode
 
-An incompatibility exists when the user's schedule day count does not match a program's prescribed workouts-per-week (e.g., a Mon-Wed-Fri schedule with a 4-day/week program). When incompatibility is detected — either when the user sets a new schedule while a program is active, or when the user selects a program that conflicts with their current schedule — the system prompts the user to choose:
+When a `workoutSchedule` is set in user settings, the system can operate in **schedule mode** for a program. The schedule determines which days of the week workouts fall on; the program provides the sequence of workouts. The pace (workouts per week) is an emergent property of the schedule — not a separately configured value.
 
-1. **Override the program** — run the program at the schedule's effective workouts/week and recalculate all pending workout dates. The override value is stored on the program (`workoutsPerWeekOverride`).
-2. **No-schedule mode for this program** — treat the active program as if no schedule is set: no pending dates, date set at logging time. The program's `workoutsPerWeekOverride` is set to `null`.
+When a user sets a schedule or selects a program while a schedule is active, the system prompts:
+
+> "Use your schedule (Mon/Wed/Fri) to distribute workout dates for this program?"
+
+- **Yes** → schedule mode: dates are distributed using `distributeWorkouts()` and displayed in the cycle dashboard
+- **No** → no-schedule mode: no dates are pre-assigned; date is set at logging time
+
+A program does not store a "workouts per week" override — the schedule is the sole source of date distribution. Duration is derivable: `⌈cycleWorkouts / scheduleWorkoutsPerWeek⌉` weeks, shown as an informational estimate in the UI.
 
 ## Data Model
 
@@ -49,14 +55,13 @@ export interface UserSettingsResponse {
 }
 ```
 
-### Program Override Model
+### Program Model
 
-The override is stored at the **program level**, not per-cycle. `UpdateCycleOverrides` is not extended. When creating or updating a custom program:
+Programs do not store a workouts-per-week value. The schedule is the sole source of date distribution. `UpdateCycleOverrides` is not extended.
 
 ```typescript
 // packages/types/src/api.ts
 
-// When creating/updating a custom program:
 export interface CustomProgramResponse {
   id: string;
   name: string;
@@ -64,15 +69,12 @@ export interface CustomProgramResponse {
   baseTemplate: string | null;
   createdAt: string;
   specs: CustomProgramSpecRow[];
-  // null = use prescribed; set when user accepts incompatibility override
-  workoutsPerWeekOverride?: number | null;
 }
 
 export interface UpdateCustomProgramRequest {
   name?: string;
   description?: string;
   specs?: CustomProgramSpecRow[];
-  workoutsPerWeekOverride?: number | null;
 }
 ```
 
@@ -116,7 +118,6 @@ export interface UpdateCustomProgramRequest {
   "description": null,
   "baseTemplate": "5-3-1",
   "createdAt": "2026-05-10T14:23:00Z",
-  "workoutsPerWeekOverride": 3,
   "specs": [
     {
       "week": 1,
@@ -134,16 +135,6 @@ export interface UpdateCustomProgramRequest {
     // ... more specs
   ]
 }
-```
-
-### PATCH /programs/:program
-
-**Request:**
-```json
-{
-  "workoutsPerWeekOverride": 3
-}
-```
 
 ## Core Service Logic
 
@@ -157,10 +148,9 @@ export interface UpdateCustomProgramRequest {
 
 ```typescript
 function distributeWorkouts(
-  cycleWorkouts: number,           // 12
-  effectiveWorkoutsPerWeek: number, // 3 (after override applied)
+  cycleWorkouts: number,            // 12
   userSchedule: UserWorkoutSchedule, // { type: 'fixed', days: [0, 2, 4] }
-  cycleStartDate: Date              // May 19, 2026 (Monday)
+  cycleStartDate: Date               // May 19, 2026 (Monday)
 ): { week: number; workouts: Date[] }[] {
   const distribution = [];
   let workoutsPlaced = 0;
@@ -229,41 +219,26 @@ For each lift in the cycle spec:
   3. Assign that date to all lifts in the offset group
 ```
 
-### Effective Workouts/Week Calculation
+### Schedule Workouts Per Week (Display Helper)
 
-**Location:** `packages/core/src/services/workout/calculateEffectiveWorkoutsPerWeek.ts` (new)
+Not used to drive distribution — the schedule drives that directly. Used only to display an estimated cycle duration to the user.
 
-Returns `null` when no schedule is set, signalling no-schedule mode to the caller.
+**Location:** `packages/core/src/services/workout/` (inline helper or utility)
 
-**Logic:**
 ```typescript
-function calculateEffectiveWorkoutsPerWeek(
-  program: CustomProgramResponse,
-  userSchedule: UserWorkoutSchedule | null
-): number | null {
-  // No schedule → no-schedule mode; dates are set at logging time, not pre-assigned
-  if (!userSchedule) return null;
-
-  // User accepted an incompatibility override for this program — use the stored value
-  if (program.workoutsPerWeekOverride !== null && program.workoutsPerWeekOverride !== undefined) {
-    return program.workoutsPerWeekOverride;
-  }
-
-  // Compatible: infer prescribed frequency from program spec
-  // Count unique offsets in the first week's specs
-  const firstWeekSpecs = program.specs.filter(s => s.week === 1);
-  return firstWeekSpecs.length;
-}
-
-/** Returns how many workouts per week the user's schedule supports. */
+/** Returns the number of workouts per week the schedule supports — used for duration estimates only. */
 function getScheduleWorkoutsPerWeek(schedule: UserWorkoutSchedule): number {
   if (schedule.type === 'fixed') {
     return (schedule.days || []).length;
   } else {
-    // Rotating: use the maximum week length to avoid under-scheduling
-    return Math.max(...(schedule.weeks || [[]]).map(w => w.length));
+    // Rotating: average across all week patterns
+    const weeks = schedule.weeks || [[]];
+    return Math.round(weeks.reduce((sum, w) => sum + w.length, 0) / weeks.length);
   }
 }
+
+// Estimated cycle duration (display only):
+// Math.ceil(cycleWorkouts / getScheduleWorkoutsPerWeek(userSchedule)) weeks
 ```
 
 ## Integration Points
@@ -273,34 +248,29 @@ function getScheduleWorkoutsPerWeek(schedule: UserWorkoutSchedule): number {
 **File:** `packages/core/src/services/workout/` (service or controller layer)
 
 When a custom program is created or its specs are updated:
-1. If `workoutsPerWeekOverride` is set, validate it's > 0
-2. Store the override with the program
-3. Trigger pending-date recalculation if a cycle is active and a schedule is set
+1. No frequency override to validate or store — the schedule handles date distribution
+2. If a cycle is active and the user is in schedule mode, trigger pending-date recalculation via `distributeWorkouts()`
 
-### 2. Schedule Compatibility Check
+### 2. Schedule Mode Activation
 
-**File:** `packages/core/src/services/workout/` (new helper, called from settings and program selection flows)
+**File:** `packages/core/src/services/workout/` (called from settings and program selection flows)
 
 Fires in two situations:
 - User sets or updates their `workoutSchedule` while a program is active
-- User selects a program whose prescribed workouts/week differs from the current schedule's day count
+- User selects a program while a schedule is active
 
 **Logic:**
 ```
-schedulePerWeek = getScheduleWorkoutsPerWeek(userSchedule)
-prescribedPerWeek = inferPrescribedFromSpec(program)
-
-if schedulePerWeek !== prescribedPerWeek:
-  prompt user:
-    Option A — "Run at my schedule pace (N days/week)"
-      → set program.workoutsPerWeekOverride = schedulePerWeek
-      → recalculate pending workout dates via distributeWorkouts()
-    Option B — "No scheduled dates for this program"
-      → set program.workoutsPerWeekOverride = null
-      → clear any pending dates; date set at logging time
+prompt user:
+  "Use your schedule (Mon/Wed/Fri) to distribute workout dates for this program?"
+    Yes → schedule mode: call distributeWorkouts(cycleWorkouts, userSchedule, cycleStartDate)
+          store dates; display in cycle dashboard
+    No  → no-schedule mode: no dates pre-assigned; date set at logging time
 ```
 
-If there is no active program when the schedule is set, no prompt is shown; the schedule is saved and will be applied when the next program is selected.
+No frequency comparison is performed — any schedule works with any program. The pace follows naturally from the schedule.
+
+If there is no active program when the schedule is set, no prompt is shown; the schedule is saved and the prompt fires when the next program is selected.
 
 ### 3. Cycle Dashboard Generation
 
@@ -308,9 +278,8 @@ If there is no active program when the schedule is set, no prompt is shown; the 
 
 When generating a cycle dashboard:
 1. Load user's `workoutSchedule` from settings
-2. Call `calculateEffectiveWorkoutsPerWeek(program, userSchedule)`
-3. If result is `null` (no-schedule mode) → return cycle data with no pending workout dates
-4. Otherwise call `distributeWorkouts()` with the effective frequency and store dates in the cycle
+2. If no schedule, or user chose no-schedule mode for this program → return cycle data with no pending workout dates
+3. Otherwise call `distributeWorkouts(cycleWorkouts, userSchedule, cycleStartDate)` and store dates in the cycle
 
 ### 4. Lift Record Creation
 
@@ -333,19 +302,15 @@ Add endpoints:
 
 **File:** `apps/api/src/controllers/programs.ts`
 
-Extend program endpoints:
-- `GET /programs/:program` — include `workoutsPerWeekOverride` in response
-- `PATCH /programs/:program` — accept `workoutsPerWeekOverride` in request
-- `POST /programs` — accept `workoutsPerWeekOverride` in request
+No changes to existing program endpoints beyond what is already implemented — programs do not store a workouts-per-week value.
 
 ## Type Dependencies
 
 ### In `packages/types/src/api.ts`:
 - Add `UserWorkoutSchedule` interface
 - Extend `UserSettingsResponse` with `workoutSchedule`
-- Extend `CustomProgramResponse` with `workoutsPerWeekOverride`
-- Extend `UpdateCustomProgramRequest` with `workoutsPerWeekOverride`
-- `UpdateCycleOverrides` is **not** extended — the override is program-scoped, not cycle-scoped
+- `CustomProgramResponse` and `UpdateCustomProgramRequest` are **not** extended — no workouts-per-week field is stored on programs
+- `UpdateCycleOverrides` is **not** extended — date distribution is driven by the schedule, not a cycle-level override
 - (Optional) Add new `WorkoutDistributionResponse` if exposing distribution via API
 
 ### In `packages/core/src/models/`:
@@ -360,34 +325,32 @@ Extend program endpoints:
 - Rotating schedule: 12 workouts, alternating 4/3 per week → validates distribution respects pattern
 - Edge cases: 1 workout, 10 workouts/week (capping), schedule with no days selected
 
-**`packages/core/tests/services/workout/calculateEffectiveWorkoutsPerWeek.test.ts`:**
-- No schedule → returns `null` (no-schedule mode)
-- Schedule set, program has override → returns override value
-- Schedule set, no override → calculates from spec (first week count or offset count)
-- Edge cases: empty spec, schedule with no days
+**`packages/core/tests/services/workout/getScheduleWorkoutsPerWeek.test.ts`:**
+- Fixed schedule → returns day count
+- Rotating schedule → returns rounded average of week lengths
+- Edge cases: empty days array, single-week rotation
 
 ### Integration Tests
 
 **`apps/api/tests/programs.test.ts`:**
-- PATCH program with `workoutsPerWeekOverride` → persists and returns in GET
 - GET cycle dashboard, no schedule set → no pending dates returned
-- GET cycle dashboard, schedule set and compatible → workout dates distributed
-- GET cycle dashboard, incompatibility accepted → dates distributed at override frequency
+- GET cycle dashboard, schedule set and schedule mode active → workout dates distributed
+- GET cycle dashboard, schedule set but no-schedule mode chosen → no pending dates returned
 - Create lift records with no scheduled date → date defaults to today
 
 **`apps/api/tests/users.test.ts`:**
 - PATCH settings with `workoutSchedule` → persists
 - GET settings → returns schedule with correct structure
-- Setting schedule while incompatible program active → API surfaces incompatibility flag
+- Setting schedule while program active → schedule-mode prompt flag returned (for UI to render)
 
 ### E2E Tests (Playwright, once #259 is implemented)
 
 - No schedule set: user logs a set → workout date = today (no pre-assigned date shown)
-- User sets Mon-Wed-Fri schedule; program prescribes 3/week → compatible, dates distributed
-- User sets Mon-Wed-Fri schedule; program prescribes 4/week → incompatibility prompt shown
-  - User chooses override → cycle dashboard shows 3 workouts/week on correct days
-  - User chooses no-schedule → cycle dashboard shows no pending dates
-- User changes schedule while cycle active → incompatibility prompt fires again if needed
+- User sets Mon-Wed-Fri schedule; program active → schedule-mode prompt shown
+  - User chooses schedule mode → cycle dashboard shows dates on Mon/Wed/Fri
+  - User declines → cycle dashboard shows no pending dates
+- User sets Mon-Tue-Wed-Thu schedule; program active → schedule-mode prompt shown; dates distributed on Mon/Tue/Wed/Thu
+- User changes schedule while cycle active → schedule-mode prompt fires again
 
 ## Migration & Backwards Compatibility
 
@@ -401,7 +364,7 @@ Extend program endpoints:
 2. **Partial week handling:** `distributeWorkouts()` stops placing workouts once N are placed — if the last week is partial, remaining days in that week are unused. Is this the correct behavior, or should the system always fill out the final week?
 3. **Holiday/deload handling:** Out of scope for MVP. Deferred to future enhancement.
 4. **Workout-to-lift mapping:** Is offset the only way to know which lifts belong together, or do we need an explicit "lift group"?
-5. **Incompatibility prompt placement:** Should the prompt appear in the Settings flow (when schedule is saved) or in the Program selection flow (when a program is picked), or both? Which should take precedence when both trigger simultaneously?
+5. **Schedule-mode prompt placement:** Should the prompt appear in the Settings flow (when schedule is saved) or in the Program selection flow (when a program is picked), or both? Both trigger the same yes/no question, so a single flow entry point may be preferable.
 
 ## References
 

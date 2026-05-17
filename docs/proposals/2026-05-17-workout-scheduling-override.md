@@ -8,24 +8,22 @@
 
 ## Problem Statement
 
-Currently, users cannot adjust the prescribed workouts-per-week frequency for a program based on personal schedule or recovery capacity. A 5/3/1 program prescribes 4 workouts/week, but a user with limited time may want to run it at 3/week — the system should accommodate this without requiring a code change or manual date management.
+Currently, users cannot define a preferred workout schedule (e.g., Mon-Wed-Fri) and have the system automatically distribute upcoming workout dates to match it. A 5/3/1 program with 12 workouts runs at whatever pace the user trains — the system should place those workouts on the user's chosen days and show them in the cycle dashboard.
 
 **Example:**
-- Program spec: 12 workouts, 4/week (prescribed)
-- User's schedule: Mon-Wed-Fri (3 days available)
-- User's setting: "I want Mon-Wed-Fri every week"
-- Expected outcome: 4 weeks to complete the cycle, workouts on those 3 days
+- Program spec: 12 workouts
+- User's schedule: Mon-Wed-Fri
+- Expected outcome: 4 weeks to complete the cycle, workouts on Mon/Wed/Fri
 
-Additionally, users should be able to define their workout schedule once in settings and have all programs respect it when distributing workout dates.
+The pace follows naturally from the schedule — no separate "workouts per week" override is needed.
 
 ## Success Criteria
 
 - [ ] User can define preferred workout days (fixed or rotating pattern) in Settings
-- [ ] User can override workouts-per-week when editing a custom program
-- [ ] System calculates cycle duration based on override, not prescription
+- [ ] When a schedule is set and a program is active, user is prompted to enable schedule mode
 - [ ] System distributes workout dates respecting the user's schedule
 - [ ] Rotating schedules (e.g., A/B weeks) are supported
-- [ ] Existing programs without override continue to work (backward compatible)
+- [ ] Existing programs without a schedule continue to work (no-schedule mode — backward compatible)
 - [ ] Cycle dashboard shows workout dates on the correct days
 
 ## Phases
@@ -55,27 +53,20 @@ Additionally, users should be able to define their workout schedule once in sett
 
 ---
 
-### Phase 2: Program Override — Data & Core Logic (1 week)
+### Phase 2: Distribution Core Logic (1 week)
 
 **Acceptance Criteria:**
-- [ ] Custom programs can store `workoutsPerWeekOverride` (nullable)
-- [ ] Existing programs default to `null` (use prescribed)
-- [ ] API returns `workoutsPerWeekOverride` in program response
-- [ ] Core service calculates effective workouts/week (override or prescribed)
-- [ ] `distributeWorkouts()` algorithm correctly distributes N workouts across weeks
+- [ ] `distributeWorkouts()` algorithm correctly distributes N workouts across schedule days
 - [ ] `distributeWorkouts()` respects user's workout schedule (fixed or rotating)
+- [ ] Schedule-mode prompt is surfaced by the API when a schedule is set and a program is active
 - [ ] Unit tests validate distribution logic (fixed schedule, rotating schedule, edge cases)
 
 **Tasks:**
-1. Extend `CustomProgramResponse` with `workoutsPerWeekOverride: number | null`
-2. Extend `UpdateCustomProgramRequest` with `workoutsPerWeekOverride`
-3. Update database schema: add `workoutsPerWeekOverride` column to programs table
-4. Implement `calculateEffectiveWorkoutsPerWeek()` in `packages/core`
-5. Implement `distributeWorkouts()` in `packages/core/src/services/workout/`
-6. Write unit tests for distribution algorithm (fixed, rotating, edge cases)
-7. Implement API endpoint `PATCH /programs/:program` to accept override
-8. Implement API endpoint `GET /programs/:program` to return override
-9. Write integration test: create program with override, verify response
+1. Implement `distributeWorkouts()` in `packages/core/src/services/workout/`
+2. Implement `getScheduleWorkoutsPerWeek()` display helper (duration estimate)
+3. Write unit tests for distribution algorithm (fixed, rotating, edge cases)
+4. Add schedule-mode flag to settings or program-activation response (for UI to trigger prompt)
+5. Write integration test: set schedule + activate program, verify schedule-mode flag returned
 
 **Owned by:** Backend (Core + API)
 
@@ -198,26 +189,27 @@ Additionally, users should be able to define their workout schedule once in sett
 ## Testing Checklist
 
 ### Unit Tests
-- [ ] `calculateEffectiveWorkoutsPerWeek()` with override
-- [ ] `calculateEffectiveWorkoutsPerWeek()` without override
 - [ ] `distributeWorkouts()` with fixed schedule
 - [ ] `distributeWorkouts()` with rotating schedule (2-week pattern)
 - [ ] `distributeWorkouts()` with 1 workout
 - [ ] `distributeWorkouts()` with 0 days in schedule (edge case)
+- [ ] `getScheduleWorkoutsPerWeek()` with fixed schedule
+- [ ] `getScheduleWorkoutsPerWeek()` with rotating schedule (average of week lengths)
 
 ### Integration Tests
 - [ ] Create user with schedule, retrieve via API
 - [ ] Update schedule, verify in GET response
-- [ ] Create program with override, retrieve via API
-- [ ] Create cycle, verify dates distributed correctly
+- [ ] Set schedule while program active → API returns schedule-mode prompt flag
+- [ ] Enable schedule mode → create cycle, verify dates distributed correctly
 - [ ] Log lift record at scheduled date
-- [ ] Create cycle with no user schedule (expect error or default)
+- [ ] Create cycle with no user schedule → no pending dates (no-schedule mode)
 
 ### E2E Tests
 - [ ] Settings: set Mon-Wed-Fri, refresh, verify persisted
 - [ ] Settings: switch to rotating (A/B), refresh, verify persisted
-- [ ] Program Editor: set override to 3/week, view calendar, verify 4 weeks
-- [ ] Program Editor: change override, calendar updates live
+- [ ] Settings: set schedule while program active → schedule-mode prompt shown
+- [ ] Schedule mode: enable → cycle dashboard shows dates on Mon/Wed/Fri
+- [ ] Schedule mode: decline → cycle dashboard shows no pending dates
 - [ ] Cycle Dashboard: view dates on calendar, all on correct days
 - [ ] Lift Logging: log set, verify default date is scheduled date
 
