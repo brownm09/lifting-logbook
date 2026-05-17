@@ -27,6 +27,8 @@ import { InMemoryWorkoutDateOverrideRepository } from '../in-memory/workout-date
 import { InMemoryWorkoutLiftOverrideRepository } from '../in-memory/workout-lift-override.adapter';
 import { InMemoryWorkoutRepository } from '../in-memory/workout.adapter';
 import { PrismaCycleScheduledWorkoutRepository } from '../prisma/cycle-scheduled-workout.repository';
+import { PrismaWorkoutSkipOverrideRepository } from '../prisma/workout-skip-override.repository';
+import { InMemoryWorkoutSkipOverrideRepository } from '../in-memory/workout-skip-override.adapter';
 import { UserSettingsRepository } from '../../user-settings/user-settings.repository';
 
 interface UserDataSourceRow {
@@ -95,6 +97,7 @@ export class SystemDbRepositoryFactory implements IRepositoryFactory, OnModuleDe
         workout: new PrismaWorkoutRepository(prisma, userId),
         workoutDateOverride: new PrismaWorkoutDateOverrideRepository(prisma, userId),
         workoutLiftOverride: new PrismaWorkoutLiftOverrideRepository(prisma, userId),
+        workoutSkipOverride: new PrismaWorkoutSkipOverrideRepository(prisma, userId),
         liftingProgramSpec: this.programSpecRepo,
       };
     }
@@ -117,6 +120,7 @@ export class SystemDbRepositoryFactory implements IRepositoryFactory, OnModuleDe
       workout: new InMemoryWorkoutRepository(sharedRecords),
       workoutDateOverride: new InMemoryWorkoutDateOverrideRepository(),
       workoutLiftOverride: new InMemoryWorkoutLiftOverrideRepository(),
+      workoutSkipOverride: new InMemoryWorkoutSkipOverrideRepository(),
     };
   }
 

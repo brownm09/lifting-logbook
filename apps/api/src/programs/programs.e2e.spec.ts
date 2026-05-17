@@ -1122,4 +1122,116 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
       expect(dashRes.json().weeks).toEqual([]);
     });
   });
+
+  describe('workout skip override', () => {
+    async function setupSkipUser(userId: string): Promise<string> {
+      const token = `Bearer ${userId}`;
+      // Set Mon/Wed/Fri schedule via factory (mirrors setScheduleForUser in schedule mode tests)
+      const factory = app.get<InMemoryRepositoryFactory>(REPOSITORY_FACTORY);
+      const bundle = await factory.forUser({ id: userId, email: '', provider: 'dev' });
+      (bundle.userSettings as InMemoryUserSettingsRepository).setSchedule({ type: 'fixed', days: [0, 2, 4] });
+      await app.getHttpAdapter().getInstance().inject({
+        method: 'POST',
+        url: `/programs/${SEED_PROGRAM}/cycles/initialize`,
+        headers: { 'content-type': 'application/json', authorization: token },
+        payload: JSON.stringify({ cycleDate: '2026-05-19' }),
+      });
+      return token;
+    }
+
+    it('POST skip marks workout as skipped:true in dashboard', async () => {
+      const token = await setupSkipUser('skip-e2e-skip-marks');
+
+      const skipRes = await app.getHttpAdapter().getInstance().inject({
+        method: 'POST',
+        url: `/programs/${SEED_PROGRAM}/cycles/1/workouts/1/skip`,
+        headers: { 'content-type': 'application/json', authorization: token },
+        payload: JSON.stringify({}),
+      });
+      expect(skipRes.statusCode).toBe(204);
+
+      const dashRes = await app.getHttpAdapter().getInstance().inject({
+        method: 'GET',
+        url: `/programs/${SEED_PROGRAM}/cycles/current`,
+        headers: { authorization: token },
+      });
+      expect(dashRes.statusCode).toBe(200);
+      const allWorkouts = dashRes.json().weeks.flatMap((w: { workouts: { workoutNum: number; skipped: boolean }[] }) => w.workouts);
+      const w1 = allWorkouts.find((ws: { workoutNum: number }) => ws.workoutNum === 1);
+      expect(w1).toBeDefined();
+      expect(w1!.skipped).toBe(true);
+    });
+
+    it('DELETE skip clears the skip mark (skipped:false)', async () => {
+      const token = await setupSkipUser('skip-e2e-unskip');
+
+      await app.getHttpAdapter().getInstance().inject({
+        method: 'POST',
+        url: `/programs/${SEED_PROGRAM}/cycles/1/workouts/1/skip`,
+        headers: { 'content-type': 'application/json', authorization: token },
+        payload: JSON.stringify({}),
+      });
+
+      const unskipRes = await app.getHttpAdapter().getInstance().inject({
+        method: 'DELETE',
+        url: `/programs/${SEED_PROGRAM}/cycles/1/workouts/1/skip`,
+        headers: { authorization: token },
+      });
+      expect(unskipRes.statusCode).toBe(204);
+
+      const dashRes = await app.getHttpAdapter().getInstance().inject({
+        method: 'GET',
+        url: `/programs/${SEED_PROGRAM}/cycles/current`,
+        headers: { authorization: token },
+      });
+      const allWorkouts = dashRes.json().weeks.flatMap((w: { workouts: { workoutNum: number; skipped: boolean }[] }) => w.workouts);
+      const w1 = allWorkouts.find((ws: { workoutNum: number }) => ws.workoutNum === 1);
+      expect(w1!.skipped).toBe(false);
+    });
+
+    it('week is completed when all workouts are either logged or skipped', async () => {
+      const token = await setupSkipUser('skip-e2e-completion');
+
+      // Get week 1 workouts
+      const dashRes = await app.getHttpAdapter().getInstance().inject({
+        method: 'GET',
+        url: `/programs/${SEED_PROGRAM}/cycles/current`,
+        headers: { authorization: token },
+      });
+      const week1 = dashRes.json().weeks[0];
+      const workoutNums: number[] = week1.workouts.map((ws: { workoutNum: number }) => ws.workoutNum);
+
+      // Log all but the last; skip the last
+      for (let i = 0; i < workoutNums.length - 1; i++) {
+        await app.getHttpAdapter().getInstance().inject({
+          method: 'POST',
+          url: `/programs/${SEED_PROGRAM}/lift-records`,
+          headers: { 'content-type': 'application/json', authorization: token },
+          payload: JSON.stringify({
+            program: SEED_PROGRAM,
+            cycleNum: 1,
+            workoutNum: workoutNums[i],
+            lift: 'Squat',
+            setNum: 1,
+            weight: 135,
+            reps: 5,
+          }),
+        });
+      }
+      const lastWorkoutNum = workoutNums[workoutNums.length - 1];
+      await app.getHttpAdapter().getInstance().inject({
+        method: 'POST',
+        url: `/programs/${SEED_PROGRAM}/cycles/1/workouts/${lastWorkoutNum}/skip`,
+        headers: { 'content-type': 'application/json', authorization: token },
+        payload: JSON.stringify({}),
+      });
+
+      const finalDash = await app.getHttpAdapter().getInstance().inject({
+        method: 'GET',
+        url: `/programs/${SEED_PROGRAM}/cycles/current`,
+        headers: { authorization: token },
+      });
+      expect(finalDash.json().weeks[0].completed).toBe(true);
+    });
+  });
 });

@@ -7,7 +7,7 @@ const makeWeek = (
   completed: boolean,
 ): CycleWeekSummary => ({
   week,
-  workouts: dates.map((date, i) => ({ workoutNum: i + 1, date })),
+  workouts: dates.map((date, i) => ({ workoutNum: i + 1, date, skipped: false })),
   completed,
 });
 

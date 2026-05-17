@@ -15,6 +15,7 @@ import { TrainingMaxesController } from './training-maxes.controller';
 import { TrainingMaxHistoryController } from './training-max-history.controller';
 import { RescheduleController } from './reschedule.controller';
 import { SwitchProgramController } from './switch-program.controller';
+import { WorkoutSkipController } from './workout-skip.controller';
 import { WorkoutsController } from './workouts.controller';
 
 @Module({
@@ -25,6 +26,7 @@ import { WorkoutsController } from './workouts.controller';
     CyclePlanController,
     RescheduleController,
     SwitchProgramController,
+    WorkoutSkipController,
     WorkoutsController,
     StrengthGoalsController,
     TrainingMaxesController,

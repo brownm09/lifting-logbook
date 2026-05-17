@@ -105,6 +105,20 @@ model WorkoutDateOverride {
   @@map("workout_date_override")
 }
 
+model WorkoutSkipOverride {
+  id         String   @id @default(uuid())
+  userId     String
+  program    String
+  cycleNum   Int
+  workoutNum Int
+  reason     String?
+  skippedAt  DateTime @default(now())
+
+  @@unique([userId, program, cycleNum, workoutNum])
+  @@index([userId, program, cycleNum])
+  @@map("workout_skip_override")
+}
+
 model WorkoutLiftOverride {
   id         String   @id @default(cuid())
   userId     String

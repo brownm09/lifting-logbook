@@ -11,6 +11,7 @@ import { PrismaTrainingMaxRepository } from './training-max.repository';
 import { PrismaTrainingMaxHistoryRepository } from './training-max-history.repository';
 import { PrismaWorkoutDateOverrideRepository } from './workout-date-override.repository';
 import { PrismaWorkoutLiftOverrideRepository } from './workout-lift-override.repository';
+import { PrismaWorkoutSkipOverrideRepository } from './workout-skip-override.repository';
 import { PrismaWorkoutRepository } from './workout.repository';
 import { HybridLiftingProgramSpecRepository } from './hybrid-program-spec.repository';
 import { InMemoryProgramPhilosophyRepository } from '../in-memory/program-philosophy.adapter';
@@ -40,6 +41,7 @@ export class PrismaRepositoryFactory implements IRepositoryFactory {
       workout: new PrismaWorkoutRepository(this.prisma, user.id),
       workoutDateOverride: new PrismaWorkoutDateOverrideRepository(this.prisma, user.id),
       workoutLiftOverride: new PrismaWorkoutLiftOverrideRepository(this.prisma, user.id),
+      workoutSkipOverride: new PrismaWorkoutSkipOverrideRepository(this.prisma, user.id),
       liftingProgramSpec: this.programSpecRepo,
     };
   }

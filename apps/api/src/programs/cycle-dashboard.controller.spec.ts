@@ -5,6 +5,7 @@ import { ICycleScheduledWorkoutRepository, ScheduledWorkout } from '../ports/ICy
 import { ILiftRecordRepository } from '../ports/ILiftRecordRepository';
 import { ILiftingProgramSpecRepository } from '../ports/ILiftingProgramSpecRepository';
 import { IWorkoutDateOverrideRepository } from '../ports/IWorkoutDateOverrideRepository';
+import { IWorkoutSkipOverrideRepository } from '../ports/IWorkoutSkipOverrideRepository';
 import { IRepositoryFactory } from '../ports/factory';
 import { REPOSITORY_FACTORY } from '../ports/tokens';
 import { CycleDashboardController } from './cycle-dashboard.controller';
@@ -50,6 +51,7 @@ describe('CycleDashboardController', () => {
   let scheduledRepo: jest.Mocked<ICycleScheduledWorkoutRepository>;
   let liftRecordRepo: jest.Mocked<ILiftRecordRepository>;
   let overrideRepo: jest.Mocked<IWorkoutDateOverrideRepository>;
+  let skipRepo: jest.Mocked<IWorkoutSkipOverrideRepository>;
   let factory: jest.Mocked<IRepositoryFactory>;
 
   beforeEach(async () => {
@@ -73,6 +75,11 @@ describe('CycleDashboardController', () => {
       getOverridesForCycle: jest.fn().mockResolvedValue(new Map()),
       upsertOverride: jest.fn(),
     };
+    skipRepo = {
+      getSkipsForCycle: jest.fn().mockResolvedValue(new Set<number>()),
+      skipWorkout: jest.fn(),
+      unskipWorkout: jest.fn(),
+    };
     factory = {
       forUser: jest.fn().mockResolvedValue({
         cycleDashboard: repo,
@@ -80,6 +87,7 @@ describe('CycleDashboardController', () => {
         liftingProgramSpec: specRepo,
         liftRecord: liftRecordRepo,
         workoutDateOverride: overrideRepo,
+        workoutSkipOverride: skipRepo,
       }),
     };
 
@@ -138,14 +146,14 @@ describe('CycleDashboardController', () => {
     expect(result.weeks[0]).toEqual({
       week: 1,
       workouts: [
-        { workoutNum: 1, date: '2026-04-21' },
-        { workoutNum: 2, date: '2026-04-23' },
+        { workoutNum: 1, date: '2026-04-21', skipped: false },
+        { workoutNum: 2, date: '2026-04-23', skipped: false },
       ],
       completed: false,
     });
     expect(result.weeks[1]).toEqual({
       week: 2,
-      workouts: [{ workoutNum: 3, date: '2026-04-28' }],
+      workouts: [{ workoutNum: 3, date: '2026-04-28', skipped: false }],
       completed: false,
     });
   });
@@ -160,7 +168,7 @@ describe('CycleDashboardController', () => {
 
     const result = await controller.getCurrentCycle('5-3-1', MOCK_USER);
 
-    expect(result.weeks[0]?.workouts).toEqual([{ workoutNum: 1, date: '2026-04-25' }]);
+    expect(result.weeks[0]?.workouts).toEqual([{ workoutNum: 1, date: '2026-04-25', skipped: false }]);
   });
 
   it('marks a week as completed when all its workouts have lift records', async () => {

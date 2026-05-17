@@ -18,7 +18,7 @@ export class CycleDashboardController {
     @Param('program') program: string,
     @CurrentUser() user: AuthUser,
   ): Promise<CycleDashboardResponse> {
-    const { cycleDashboard, cycleScheduledWorkout, liftingProgramSpec, liftRecord, workoutDateOverride } =
+    const { cycleDashboard, cycleScheduledWorkout, liftingProgramSpec, liftRecord, workoutDateOverride, workoutSkipOverride } =
       await this.factory.forUser(user);
 
     const [dashboard, programSpec] = await Promise.all([
@@ -27,13 +27,14 @@ export class CycleDashboardController {
     ]);
     dashboard.currentWeekType = weekTypeForDate(dashboard.cycleDate, programSpec);
 
-    const [scheduledWorkouts, liftRecords, overrideMap] = await Promise.all([
+    const [scheduledWorkouts, liftRecords, overrideMap, skippedNums] = await Promise.all([
       cycleScheduledWorkout.getScheduledWorkouts(program, dashboard.cycleNum),
       liftRecord.getLiftRecords(program, dashboard.cycleNum),
       workoutDateOverride.getOverridesForCycle(program, dashboard.cycleNum),
+      workoutSkipOverride.getSkipsForCycle(program, dashboard.cycleNum),
     ]);
     const completedWorkoutNums = new Set(liftRecords.map((r) => r.workoutNum));
 
-    return buildCycleDashboardResponse(dashboard, scheduledWorkouts, overrideMap, completedWorkoutNums);
+    return buildCycleDashboardResponse(dashboard, scheduledWorkouts, overrideMap, completedWorkoutNums, skippedNums);
   }
 }

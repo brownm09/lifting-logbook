@@ -107,13 +107,14 @@ export const toCycleDashboardResponse = (
  * Builds a CycleDashboardResponse with per-week summaries derived from scheduled
  * workout dates. When an override date exists for a workout it wins over the
  * system-assigned scheduled date. A week is marked completed when every workout
- * in that week has at least one lift record for the current cycle.
+ * in that week has at least one lift record or is explicitly skipped.
  */
 export function buildCycleDashboardResponse(
   d: CycleDashboard,
   scheduled: ScheduledWorkout[],
   overrides: Map<number, Date>,
   completedWorkoutNums: Set<number>,
+  skippedNums: Set<number> = new Set(),
 ): CycleDashboardResponse {
   if (scheduled.length === 0) {
     return toCycleDashboardResponse(d);
@@ -123,7 +124,11 @@ export function buildCycleDashboardResponse(
   for (const sw of scheduled) {
     const effectiveDate = overrides.get(sw.workoutNum) ?? sw.scheduledDate;
     const acc = weekAcc.get(sw.weekNum) ?? { workouts: [], scheduled: [] };
-    acc.workouts.push({ workoutNum: sw.workoutNum, date: isoDate(effectiveDate) });
+    acc.workouts.push({
+      workoutNum: sw.workoutNum,
+      date: isoDate(effectiveDate),
+      skipped: skippedNums.has(sw.workoutNum),
+    });
     acc.scheduled.push(sw);
     weekAcc.set(sw.weekNum, acc);
   }
@@ -135,7 +140,9 @@ export function buildCycleDashboardResponse(
       return {
         week: weekNum as WeekNumber,
         workouts,
-        completed: scheduled.every((sw) => completedWorkoutNums.has(sw.workoutNum)),
+        completed: scheduled.every(
+          (sw) => completedWorkoutNums.has(sw.workoutNum) || skippedNums.has(sw.workoutNum),
+        ),
       };
     });
 

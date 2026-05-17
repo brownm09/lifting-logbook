@@ -15,6 +15,7 @@ import { InMemoryUserSettingsRepository } from '../in-memory/user-settings.adapt
 import { InMemoryWorkoutDateOverrideRepository } from '../in-memory/workout-date-override.adapter';
 import { InMemoryWorkoutLiftOverrideRepository } from '../in-memory/workout-lift-override.adapter';
 import { InMemoryWorkoutRepository } from '../in-memory/workout.adapter';
+import { InMemoryWorkoutSkipOverrideRepository } from '../in-memory/workout-skip-override.adapter';
 import { SEED_PROGRAM, seedLiftRecords } from '../in-memory/fixtures';
 
 // The dev seed user gets pre-populated training maxes so existing tests that
@@ -47,6 +48,7 @@ export class InMemoryRepositoryFactory implements IRepositoryFactory {
         workout: new InMemoryWorkoutRepository(sharedRecords),
         workoutDateOverride: new InMemoryWorkoutDateOverrideRepository(),
         workoutLiftOverride: new InMemoryWorkoutLiftOverrideRepository(),
+        workoutSkipOverride: new InMemoryWorkoutSkipOverrideRepository(),
       });
     }
     return this.bundles.get(user.id)!;
