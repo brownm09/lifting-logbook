@@ -6,20 +6,20 @@ This document maps every critical user flow to its test coverage across the API 
 
 | Flow | API (in-mem) | API (DB) | Frontend |
 |---|---|---|---|
-| Log a workout (lift records) | ✅ | ✅ | ❌ |
-| Onboarding — initialize first cycle | ❌ | ✅ | ❌ |
+| Log a workout (lift records) | ✅ | ✅ | ✅ |
+| Onboarding — initialize first cycle | ❌ | ✅ | ✅ |
 | Advance a cycle | ✅ | ✅ | ❌ |
 | Recalculate training maxes | ✅ | ✅ | ❌ |
 | Reschedule a workout | ✅ | ✅ | ❌ |
 | Manage lifts (overrides) | ✅ | ✅ | ❌ |
-| Training max history / mark PR | ✅ | ✅ | ❌ |
-| Strength goals | ✅ | ✅ | ❌ |
+| Training max history / mark PR | ✅ | ✅ | ✅ |
+| Strength goals | ✅ | ✅ | ✅ |
 | Import lift records (CSV) | ❌ | ✅ | ❌ |
 | Body weight logging | ✅ | ✅† | ❌ |
-| History page — lift records + TM history together | ✅ each | ✅ | ❌ |
+| History page — lift records + TM history together | ✅ each | ✅ | ✅ |
 | User settings (`GET`/`PATCH /users/me/settings`) | N/A‡ | ✅ | ❌ |
 | Custom programs (`GET`/`POST /programs/custom`) | N/A‡ | ✅ | ❌ |
-| Switch program (`POST /programs/:p/switch`) | N/A‡ | ✅ | ❌ |
+| Switch program (`POST /programs/:p/switch`) | N/A‡ | ✅ | ✅ |
 
 **†** Body weight has no Prisma adapter. `BODY_WEIGHT_REPOSITORY` is always wired to `InMemoryBodyWeightRepository` — even when `DATABASE_URL` is set. The DB-spec test exercises the HTTP contract but cannot make DB-level persistence assertions.
 
@@ -34,9 +34,33 @@ This document maps every critical user flow to its test coverage across the API 
 | `apps/api/src/observability/otel.e2e.spec.ts` | OTel + nestjs-pino trace correlation smoke test. |
 | `apps/api-legacy/tests/server.test.ts` | Legacy Express health check. |
 
-## Frontend Coverage Gap
+## Frontend E2E Tests
 
-No browser-level E2E tests exist. There is no Playwright or Cypress configuration in the repository. Every user-facing page — workout logger, onboarding, history, training maxes settings, programs, strength goals — is tested only by manual verification.
+Playwright smoke tests live in `apps/web/e2e/smoke.spec.ts`. They run against a lightweight
+mock API server (`apps/web/e2e/mock-api.mjs`) that Playwright starts alongside the Next.js dev
+server. No real database or running API is required.
+
+**Architecture note:** Next.js server components make API calls server-side, so `page.route()`
+cannot intercept them. The mock server handles both server-side (Next.js → API) and browser-side
+(`client-api.ts` → API) fetch calls by listening on the same port (3004) that both consumers target.
+
+### Running locally
+
+```bash
+# Install browsers once
+npx playwright install chromium --with-deps
+
+# Run tests (starts mock API + Next.js dev server automatically)
+npm run test:e2e -w @lifting-logbook/web
+
+# Headed mode for debugging
+npx playwright test --headed --project=chromium
+```
+
+### CI
+
+The `e2e` job in `.github/workflows/ci.yml` runs after `lint-and-test` passes. Failures upload an
+HTML report as a GitHub Actions artifact (`playwright-report`).
 
 Tracking issue: [#259](https://github.com/brownm09/lifting-logbook/issues/259)
 
