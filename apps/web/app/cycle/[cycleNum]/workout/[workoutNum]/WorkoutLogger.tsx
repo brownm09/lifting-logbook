@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { LiftRecordResponse } from '@lifting-logbook/types';
 import {
   createLiftRecord,
@@ -480,6 +480,7 @@ export default function WorkoutLogger({
 
   // Editable date — initialized from the server-provided scheduled date, user can override.
   const [effectiveDate, setEffectiveDate] = useState(date);
+  useEffect(() => { setEffectiveDate(date); }, [date]);
 
   // Initialize loggedSets from any pre-existing records passed via server props
   const [loggedSets, setLoggedSets] = useState<Map<string, LiftRecordResponse>>(
