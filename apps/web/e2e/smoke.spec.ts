@@ -84,19 +84,16 @@ test('workout logger renders planned sets and accepts a submission', async ({ pa
   await expect(page.locator('text=195').first()).toBeVisible();
   await expect(page.locator('text=255').first()).toBeVisible();
 
-  // Find the first weight input in the working sets and enter a value
-  const weightInput = page.getByLabel(/weight/i).first();
-  if (await weightInput.isVisible()) {
-    await weightInput.fill('255');
-  }
+  // Working set inputs have known aria-labels; require them to be present
+  const weightInput = page.getByLabel('Weight in lbs').first();
+  await expect(weightInput).toBeVisible();
+  await weightInput.fill('255');
 
-  // Find and click the first log/save button for a set
-  const logBtn = page.getByRole('button', { name: /log|save|✓/i }).first();
-  if (await logBtn.isVisible() && await logBtn.isEnabled()) {
-    await logBtn.click();
-  }
+  const logBtn = page.getByRole('button', { name: 'Log' }).first();
+  await expect(logBtn).toBeEnabled();
+  await logBtn.click();
 
-  // The page should still be visible (no navigation away = success for planned sets)
+  // Page stays on workout after logging a set
   await expect(page.locator('text=squat').first()).toBeVisible();
 });
 
@@ -108,18 +105,15 @@ test('training maxes page loads values and submits update', async ({ page }) => 
   await page.goto('/settings/training-maxes');
 
   // The page should show the current TMs from the mock (squat: 300 lbs)
-  await expect(page.locator('text=squat').first()).toBeVisible();
-  await expect(page.locator('text=300').first()).toBeVisible();
+  const squatInput = page.getByLabel('squat training max');
+  await expect(squatInput).toBeVisible();
+  await expect(squatInput).toHaveValue('300');
 
   // Update squat TM
-  const squatInput = page.getByLabel(/squat/i).first();
-  if (await squatInput.isVisible()) {
-    await squatInput.fill('315');
-    const saveBtn = page.getByRole('button', { name: /save|update/i }).first();
-    if (await saveBtn.isVisible()) {
-      await saveBtn.click();
-    }
-  }
+  await squatInput.fill('315');
+  const saveBtn = page.getByRole('button', { name: 'Save' });
+  await expect(saveBtn).toBeVisible();
+  await saveBtn.click();
 
   // History section should be present
   await expect(page.locator('text=2025-01-01').first()).toBeVisible();
@@ -151,16 +145,20 @@ test('history page tabs render lift history and TM timeline', async ({ page }) =
 test('programs page catalog loads and switch dialog can be opened', async ({ page }) => {
   await page.goto('/programs');
 
-  // The Browse tab should show programs from the local PROGRAMS catalog
-  await expect(page.getByRole('heading', { name: /program/i }).first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Programs' })).toBeVisible();
 
-  // At least one program card should be visible — try to find any program button
-  const firstProgram = page.getByRole('button').filter({ hasText: /training|program|strength|lift/i }).first();
-  if (await firstProgram.isVisible()) {
-    await firstProgram.click();
-    // Detail panel or dialog should open
-    await expect(page.locator('text=switch').or(page.locator('text=Choose')).or(page.locator('text=details')).first()).toBeVisible({ timeout: 3_000 }).catch(() => {/* detail may not have these exact words */});
-  }
+  // Filter to Intermediate (where RPT lives) and expand it
+  await page.getByRole('button', { name: 'Intermediate' }).click();
+  await page.getByRole('button', { name: /Reverse Pyramid Training/i }).click();
+
+  // "Choose This Program" opens the switch confirmation dialog
+  await page.getByRole('button', { name: 'Choose This Program' }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Confirm Switch' })).toBeVisible();
+
+  // Dismiss without switching
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByRole('dialog')).not.toBeVisible();
 });
 
 // ---------------------------------------------------------------------------

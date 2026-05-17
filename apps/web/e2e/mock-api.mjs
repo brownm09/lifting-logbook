@@ -220,12 +220,15 @@ const server = createServer(async (req, res) => {
     if (method === 'PATCH' && rest[0] === 'training-maxes' && rest.length === 1) {
       const body = await readBody(req);
       if (Array.isArray(body.maxes)) {
+        const today = new Date().toISOString().split('T')[0];
         for (const update of body.maxes) {
           const existing = state.trainingMaxes.find((m) => m.lift === update.lift);
           if (existing) {
             existing.weight = update.weight;
-            existing.unit = update.unit;
-            existing.dateUpdated = new Date().toISOString().split('T')[0];
+            existing.unit = update.unit ?? existing.unit;
+            existing.dateUpdated = today;
+          } else {
+            state.trainingMaxes.push({ lift: update.lift, weight: update.weight, unit: update.unit ?? 'lbs', dateUpdated: today });
           }
         }
       }
