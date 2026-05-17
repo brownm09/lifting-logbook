@@ -76,6 +76,32 @@ describe('UserSettingsController', () => {
     expect(fetched.workoutSchedule).toEqual({ type: 'fixed', days: [0, 2, 4] });
   });
 
+  it('returns null when the DB row holds a malformed schedule', async () => {
+    // Simulates a row written by a pre-validator code path or a manual edit. The
+    // repository's parseSchedule guard should coerce to null rather than letting
+    // malformed JSON reach the client.
+    prismaMock.store.set(MOCK_USER.id, {
+      userId: MOCK_USER.id,
+      activeProgram: null,
+      workoutSchedule: { type: 'fixed', days: [0, 99] },
+    });
+    const result = await controller.getSettings(MOCK_USER);
+    expect(result.workoutSchedule).toBeNull();
+  });
+
+  it('clears the schedule when patched with null', async () => {
+    prismaMock.store.set(MOCK_USER.id, {
+      userId: MOCK_USER.id,
+      activeProgram: null,
+      workoutSchedule: { type: 'fixed', days: [0, 2, 4] },
+    });
+    const dto = plainToInstance(UpdateSettingsDto, { workoutSchedule: null });
+    const errors = await validate(dto);
+    expect(errors).toEqual([]);
+    const result = await controller.updateSettings(MOCK_USER, dto);
+    expect(result.workoutSchedule).toBeNull();
+  });
+
   it('persists a rotating schedule', async () => {
     const dto = plainToInstance(UpdateSettingsDto, {
       workoutSchedule: {
@@ -138,6 +164,39 @@ describe('UpdateSettingsDto validation', () => {
 
   it('accepts an empty patch (no-op)', async () => {
     expect(await check({})).toEqual([]);
+  });
+
+  it('accepts an explicit null to clear the schedule', async () => {
+    expect(await check({ workoutSchedule: null })).toEqual([]);
+  });
+
+  it('rejects a fixed schedule that also carries weeks', async () => {
+    const errs = await check({
+      workoutSchedule: { type: 'fixed', days: [0, 2], weeks: [[1, 3]] },
+    });
+    expect(errs.length).toBeGreaterThan(0);
+  });
+
+  it('rejects a rotating schedule that also carries days', async () => {
+    const errs = await check({
+      workoutSchedule: { type: 'rotating', weeks: [[0, 2]], days: [1] },
+    });
+    expect(errs.length).toBeGreaterThan(0);
+  });
+
+  it('rejects a fixed schedule with no days field', async () => {
+    const errs = await check({ workoutSchedule: { type: 'fixed' } });
+    expect(errs.length).toBeGreaterThan(0);
+  });
+
+  it('rejects a non-object workoutSchedule (string)', async () => {
+    const errs = await check({ workoutSchedule: 'hacker' });
+    expect(errs.length).toBeGreaterThan(0);
+  });
+
+  it('rejects a non-object workoutSchedule (number)', async () => {
+    const errs = await check({ workoutSchedule: 42 });
+    expect(errs.length).toBeGreaterThan(0);
   });
 
   // Documenting expected wiring — the global ValidationPipe is what surfaces these errors as 400s.

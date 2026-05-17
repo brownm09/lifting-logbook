@@ -47,6 +47,18 @@ export default function ScheduleForm({
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
 
+  // Switching modes resets the other mode's draft state so buildPayload never silently
+  // carries selections the user no longer sees. Without this, fixed → rotating → fixed
+  // would restore previously-picked days, which surprises users (and risks a future
+  // auto-save sending stale data).
+  function switchMode(next: Mode) {
+    setMode(next);
+    if (next !== 'fixed') setFixedDays([]);
+    if (next !== 'rotating') setRotatingWeeks([[]]);
+    setError(null);
+    setSavedAt(null);
+  }
+
   function buildPayload(): UserWorkoutSchedule | null {
     if (mode === 'none') return null;
     if (mode === 'fixed') return { type: 'fixed', days: fixedDays };
@@ -102,7 +114,7 @@ export default function ScheduleForm({
             type="radio"
             name="mode"
             checked={mode === 'none'}
-            onChange={() => setMode('none')}
+            onChange={() => switchMode('none')}
           />
           No schedule (date is set when you log)
         </label>
@@ -111,7 +123,7 @@ export default function ScheduleForm({
             type="radio"
             name="mode"
             checked={mode === 'fixed'}
-            onChange={() => setMode('fixed')}
+            onChange={() => switchMode('fixed')}
           />
           Fixed days
         </label>
@@ -120,7 +132,7 @@ export default function ScheduleForm({
             type="radio"
             name="mode"
             checked={mode === 'rotating'}
-            onChange={() => setMode('rotating')}
+            onChange={() => switchMode('rotating')}
           />
           Rotating weeks
         </label>
