@@ -12,6 +12,7 @@ import { IUserSettingsRepository } from './IUserSettingsRepository';
 import { IWorkoutDateOverrideRepository } from './IWorkoutDateOverrideRepository';
 import { IWorkoutLiftOverrideRepository } from './IWorkoutLiftOverrideRepository';
 import { IWorkoutRepository } from './IWorkoutRepository';
+import { IWorkoutSkipOverrideRepository } from './IWorkoutSkipOverrideRepository';
 
 export interface RepositoryBundle {
   cycleDashboard: ICycleDashboardRepository;
@@ -27,6 +28,7 @@ export interface RepositoryBundle {
   workout: IWorkoutRepository;
   workoutDateOverride: IWorkoutDateOverrideRepository;
   workoutLiftOverride: IWorkoutLiftOverrideRepository;
+  workoutSkipOverride: IWorkoutSkipOverrideRepository;
 }
 
 export interface IRepositoryFactory {

@@ -23,6 +23,7 @@ import { IUserSettingsRepository } from './IUserSettingsRepository';
 import { IWorkoutDateOverrideRepository } from './IWorkoutDateOverrideRepository';
 import { IWorkoutLiftOverrideRepository } from './IWorkoutLiftOverrideRepository';
 import { IWorkoutRepository } from './IWorkoutRepository';
+import { IWorkoutSkipOverrideRepository } from './IWorkoutSkipOverrideRepository';
 
 // ---------------------------------------------------------------------------
 // IAuthProvider
@@ -149,6 +150,12 @@ const _cycleScheduledWorkoutRepo: ICycleScheduledWorkoutRepository = {
   saveScheduledWorkouts: () => Promise.resolve(),
 };
 
+const _workoutSkipOverrideRepo: IWorkoutSkipOverrideRepository = {
+  getSkipsForCycle: () => Promise.resolve(new Set<number>()),
+  skipWorkout: () => Promise.resolve(),
+  unskipWorkout: () => Promise.resolve(),
+};
+
 const _userSettingsRepo: IUserSettingsRepository = {
   getSettings: () => Promise.resolve({ activeProgram: null, workoutSchedule: null }),
 };
@@ -167,6 +174,7 @@ const _repositoryBundle: RepositoryBundle = {
   workout: _workoutRepo,
   workoutDateOverride: _workoutDateOverrideRepo,
   workoutLiftOverride: _workoutLiftOverrideRepo,
+  workoutSkipOverride: _workoutSkipOverrideRepo,
 };
 
 const _repositoryFactory: IRepositoryFactory = {

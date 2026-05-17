@@ -183,6 +183,7 @@ export interface UpsertStrengthGoalRequest {
 export interface WorkoutSummary {
   workoutNum: number;
   date: string; // ISO 8601 scheduled date
+  skipped: boolean;
 }
 
 /** Per-week summary within a cycle dashboard. */

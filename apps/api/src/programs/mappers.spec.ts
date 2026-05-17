@@ -204,18 +204,18 @@ describe('buildCycleDashboardResponse', () => {
     const week1 = result.weeks[0]!;
     expect(week1.week).toBe(1);
     expect(week1.workouts).toHaveLength(2);
-    expect(week1.workouts[0]).toEqual({ workoutNum: 1, date: '2026-05-19' });
-    expect(week1.workouts[1]).toEqual({ workoutNum: 2, date: '2026-05-21' });
+    expect(week1.workouts[0]).toEqual({ workoutNum: 1, date: '2026-05-19', skipped: false });
+    expect(week1.workouts[1]).toEqual({ workoutNum: 2, date: '2026-05-21', skipped: false });
     expect(week1.completed).toBe(false);
     const week2 = result.weeks[1]!;
-    expect(week2.workouts[0]).toEqual({ workoutNum: 3, date: '2026-05-26' });
+    expect(week2.workouts[0]).toEqual({ workoutNum: 3, date: '2026-05-26', skipped: false });
   });
 
   it('applies override date when present', () => {
     const scheduled = [sw(1, 1, '2026-05-19')];
     const overrides = new Map([[1, new Date('2026-05-20T00:00:00.000Z')]]);
     const result = buildCycleDashboardResponse(baseDashboard, scheduled, overrides, new Set());
-    expect(result.weeks[0]!.workouts[0]).toEqual({ workoutNum: 1, date: '2026-05-20' });
+    expect(result.weeks[0]!.workouts[0]).toEqual({ workoutNum: 1, date: '2026-05-20', skipped: false });
   });
 
   it('marks week completed when all workouts have records', () => {
@@ -229,6 +229,29 @@ describe('buildCycleDashboardResponse', () => {
     const scheduled = [sw(1, 1, '2026-05-19'), sw(2, 1, '2026-05-21')];
     const completed = new Set([1]);
     const result = buildCycleDashboardResponse(baseDashboard, scheduled, new Map(), completed);
+    expect(result.weeks[0]!.completed).toBe(false);
+  });
+
+  it('marks skipped workout as skipped:true in output', () => {
+    const scheduled = [sw(1, 1, '2026-05-19'), sw(2, 1, '2026-05-21')];
+    const skipped = new Set([1]);
+    const result = buildCycleDashboardResponse(baseDashboard, scheduled, new Map(), new Set(), skipped);
+    expect(result.weeks[0]!.workouts[0]!.skipped).toBe(true);
+    expect(result.weeks[0]!.workouts[1]!.skipped).toBe(false);
+  });
+
+  it('week is completed when all workouts are either logged or skipped', () => {
+    const scheduled = [sw(1, 1, '2026-05-19'), sw(2, 1, '2026-05-21')];
+    const completed = new Set([1]);
+    const skipped = new Set([2]);
+    const result = buildCycleDashboardResponse(baseDashboard, scheduled, new Map(), completed, skipped);
+    expect(result.weeks[0]!.completed).toBe(true);
+  });
+
+  it('week is incomplete when a skipped workout still has an un-logged sibling', () => {
+    const scheduled = [sw(1, 1, '2026-05-19'), sw(2, 1, '2026-05-21'), sw(3, 1, '2026-05-23')];
+    const skipped = new Set([1]);
+    const result = buildCycleDashboardResponse(baseDashboard, scheduled, new Map(), new Set(), skipped);
     expect(result.weeks[0]!.completed).toBe(false);
   });
 });
