@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lifting Logbook - Workout Scheduling</title>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      background: #fafaf8;
+      color: #1a1a1a;
+      line-height: 1.5;
+    }
+
+    .viewport {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      padding: 24px;
+      max-width: 100%;
+      min-height: 100vh;
+    }
+
+    .panel {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+      color: white;
+      padding: 16px 20px;
+      flex-shrink: 0;
+    }
+
+    .panel-header h2 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .panel-header p {
+      font-size: 12px;
+      opacity: 0.85;
+    }
+
+    .panel-content {
+      padding: 20px;
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .section {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #2c3e50;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 1px;
+      background: #ecf0f1;
+      padding: 1px;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .calendar-cell {
+      background: white;
+      padding: 8px;
+      min-height: 70px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 11px;
+    }
+
+    .calendar-cell.header {
+      background: #2c3e50;
+      color: white;
+      font-weight: 700;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      min-height: auto;
+      padding: 6px 4px;
+    }
+
+    .calendar-cell.other-month {
+      background: #f8f9fa;
+      color: #bdc3c7;
+    }
+
+    .calendar-cell.today {
+      background: #e8f4f8;
+      border: 1px solid #3498db;
+      padding: 7px;
+    }
+
+    .calendar-date {
+      font-weight: 700;
+      color: #2c3e50;
+      font-size: 12px;
+    }
+
+    .calendar-cell.other-month .calendar-date {
+      color: #bdc3c7;
+    }
+
+    .calendar-workout {
+      display: inline-block;
+      padding: 2px 4px;
+      background: #27ae60;
+      color: white;
+      border-radius: 2px;
+      font-size: 9px;
+      font-weight: 600;
+      width: 100%;
+      text-align: center;
+    }
+
+    .calendar-rest {
+      display: inline-block;
+      padding: 2px 4px;
+      background: #ecf0f1;
+      color: #7f8c8d;
+      border-radius: 2px;
+      font-size: 9px;
+      font-weight: 600;
+      width: 100%;
+      text-align: center;
+    }
+
+    .legend {
+      display: flex;
+      gap: 12px;
+      padding: 12px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      font-size: 11px;
+      flex-wrap: wrap;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-swatch {
+      width: 16px;
+      height: 16px;
+      border-radius: 2px;
+    }
+
+    .day-selector {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+    }
+
+    .day-button {
+      aspect-ratio: 1;
+      border: 2px solid #ecf0f1;
+      border-radius: 6px;
+      background: white;
+      color: #7f8c8d;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+    }
+
+    .day-button:hover {
+      border-color: #3498db;
+      background: #f0f7ff;
+    }
+
+    .day-button.selected {
+      background: #3498db;
+      color: white;
+      border-color: #3498db;
+    }
+
+    .pattern-presets {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .preset-button {
+      padding: 12px 16px;
+      border: 1px solid #ecf0f1;
+      border-radius: 6px;
+      background: white;
+      color: #2c3e50;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.2s ease;
+    }
+
+    .preset-button:hover {
+      background: #f8f9fa;
+      border-color: #3498db;
+    }
+
+    .preset-button.active {
+      background: #e3f2fd;
+      border-color: #3498db;
+      color: #1976d2;
+      font-weight: 600;
+    }
+
+    .rotating-pattern {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 12px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      border-left: 3px solid #3498db;
+    }
+
+    .rotating-week {
+      font-size: 12px;
+      font-weight: 600;
+      color: #1a1a1a;
+      margin-bottom: 4px;
+    }
+
+    .rotating-days {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .day-tag {
+      display: inline-block;
+      padding: 4px 8px;
+      background: white;
+      border: 1px solid #bdc3c7;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+      color: #2c3e50;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #2c3e50;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .form-input,
+    .form-select {
+      padding: 10px 12px;
+      border: 1px solid #ecf0f1;
+      border-radius: 6px;
+      font-size: 13px;
+      transition: border-color 0.2s ease;
+      font-family: inherit;
+    }
+
+    .form-input:focus,
+    .form-select:focus {
+      outline: none;
+      border-color: #3498db;
+      box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+    }
+
+    .button {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .button-primary {
+      background: #3498db;
+      color: white;
+    }
+
+    .button-primary:hover {
+      background: #2980b9;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
+    }
+
+    .button-secondary {
+      background: #ecf0f1;
+      color: #2c3e50;
+    }
+
+    .button-secondary:hover {
+      background: #bdc3c7;
+    }
+
+    .calendar {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+      background: #ecf0f1;
+      padding: 2px;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .calendar-header {
+      background: #2c3e50;
+      color: white;
+      padding: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+
+    .calendar-day {
+      background: white;
+      padding: 8px;
+      min-height: 60px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 11px;
+    }
+
+    .calendar-day.other-month {
+      background: #f8f9fa;
+      color: #bdc3c7;
+    }
+
+    .calendar-day.today {
+      background: #e8f4f8;
+      border: 1px solid #3498db;
+    }
+
+    .calendar-day-num {
+      font-weight: 700;
+      color: #2c3e50;
+    }
+
+    .calendar-day.other-month .calendar-day-num {
+      color: #bdc3c7;
+    }
+
+    .workout-marker {
+      display: inline-block;
+      padding: 2px 6px;
+      background: #27ae60;
+      color: white;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 600;
+      text-align: center;
+      width: 100%;
+    }
+
+    .rest-marker {
+      display: inline-block;
+      padding: 2px 6px;
+      background: #bdc3c7;
+      color: white;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 600;
+      text-align: center;
+      width: 100%;
+    }
+
+    .info-box {
+      padding: 12px;
+      background: #e8f4f8;
+      border-left: 3px solid #3498db;
+      border-radius: 6px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .info-box strong {
+      color: #2c3e50;
+    }
+
+    .cycle-info {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 12px;
+      background: #f8f9fa;
+      border-left: 3px solid #3498db;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+
+    .cycle-info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .cycle-info-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #7f8c8d;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+
+    .cycle-info-value {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1a1a1a;
+    }
+
+    .alert-box {
+      padding: 12px;
+      background: #fff3cd;
+      border-left: 3px solid #f39c12;
+      border-radius: 6px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .alert-box strong {
+      color: #856404;
+    }
+
+    @media (max-width: 1200px) {
+      .viewport {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useMemo } = React;
+
+    const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+    const PRESET_PATTERNS = {
+      'Mon-Wed-Fri': { type: 'fixed', days: [0, 2, 4] },
+      'Mon-Tue-Thu-Fri': { type: 'fixed', days: [0, 1, 3, 4] },
+      'Tue-Thu-Sat': { type: 'fixed', days: [1, 3, 5] },
+      'Rotating (A/B)': {
+        type: 'rotating',
+        weeks: [
+          [0, 2, 4],        // Week A: Mon-Wed-Fri
+          [1, 3, 5],        // Week B: Tue-Thu-Sat
+        ]
+      },
+      'Rotating (3-4)': {
+        type: 'rotating',
+        weeks: [
+          [0, 2, 4, 5],     // Week A: Mon-Wed-Fri-Sat
+          [1, 3, 5],        // Week B: Tue-Thu-Sat
+        ]
+      }
+    };
+
+    function SettingsPanel({ patternType, setPatternType, selectedDays, toggleDay, rotatingWeeks, toggleRotatingDay, applyPreset }) {
+
+      const workoutsPerWeek = patternType === 'fixed' 
+        ? selectedDays.length 
+        : Math.max(...rotatingWeeks.map((w) => w.length));
+
+      return (
+        <div className="panel">
+          <div className="panel-header">
+            <h2>Workout Schedule Settings</h2>
+            <p>Define your preferred training days</p>
+          </div>
+          <div className="panel-content">
+            <div className="section">
+              <div className="section-title">Quick Presets</div>
+              <div className="pattern-presets">
+                {Object.keys(PRESET_PATTERNS).map((key) => (
+                  <button
+                    key={key}
+                    className={`preset-button ${
+                      patternType === PRESET_PATTERNS[key].type && 
+                      JSON.stringify(patternType === 'fixed' ? selectedDays : rotatingWeeks) === 
+                      JSON.stringify(patternType === 'fixed' ? PRESET_PATTERNS[key].days : PRESET_PATTERNS[key].weeks)
+                        ? 'active'
+                        : ''
+                    }`}
+                    onClick={() => applyPreset(key)}
+                  >
+                    {key}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="section">
+              <div className="section-title">Pattern Type</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  className={`button ${patternType === 'fixed' ? 'button-primary' : 'button-secondary'}`}
+                  onClick={() => setPatternType('fixed')}
+                >
+                  Fixed Schedule
+                </button>
+                <button
+                  className={`button ${patternType === 'rotating' ? 'button-primary' : 'button-secondary'}`}
+                  onClick={() => setPatternType('rotating')}
+                >
+                  Rotating
+                </button>
+              </div>
+            </div>
+
+            {patternType === 'fixed' && (
+              <div className="section">
+                <div className="section-title">Select Training Days</div>
+                <div className="day-selector">
+                  {DAYS_OF_WEEK.map((day, idx) => (
+                    <button
+                      key={idx}
+                      className={`day-button ${selectedDays.includes(idx) ? 'selected' : ''}`}
+                      onClick={() => toggleDay(idx)}
+                    >
+                      {day}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {patternType === 'rotating' && (
+              <div className="section">
+                <div className="section-title">Rotating Pattern</div>
+                {rotatingWeeks.map((weekDays, weekIdx) => (
+                  <div key={weekIdx} className="rotating-pattern">
+                    <div className="rotating-week">Week {String.fromCharCode(65 + weekIdx)}</div>
+                    <div className="day-selector">
+                      {DAYS_OF_WEEK.map((day, dayIdx) => (
+                        <button
+                          key={dayIdx}
+                          className={`day-button ${weekDays.includes(dayIdx) ? 'selected' : ''}`}
+                          onClick={() => toggleRotatingDay(weekIdx, dayIdx)}
+                        >
+                          {day}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="info-box">
+              <strong>Current Schedule:</strong> {
+                patternType === 'fixed'
+                  ? `${selectedDays.map((i) => DAYS_OF_WEEK[i]).join(', ')} (${selectedDays.length}/week)`
+                  : `${rotatingWeeks.map((w, i) => `Week ${String.fromCharCode(65 + i)}: ${w.map((d) => DAYS_OF_WEEK[d]).join(', ')}`).join('; ')}`
+              }
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function ProgramEditPanel({ selectedDays, rotatingWeeks, patternType }) {
+      const [programName, setProgramName] = useState('5/3/1 (Custom)');
+      const [baseWorkoutsPerWeek, setBaseWorkoutsPerWeek] = useState(4);
+      const [overrideWorkoutsPerWeek, setOverrideWorkoutsPerWeek] = useState(3);
+      const [cycleWorkouts, setCycleWorkouts] = useState(12);
+      const [useOverride, setUseOverride] = useState(true);
+      const [cycleStartDate, setCycleStartDate] = useState(new Date(2026, 4, 19)); // May 19, 2026
+      const [showCalendar, setShowCalendar] = useState(true);
+
+      const effectiveWorkoutsPerWeek = useOverride ? overrideWorkoutsPerWeek : baseWorkoutsPerWeek;
+      
+      const weeksToCompleteCycle = useMemo(() => {
+        if (effectiveWorkoutsPerWeek <= 0) return 0;
+        return Math.ceil(cycleWorkouts / effectiveWorkoutsPerWeek);
+      }, [cycleWorkouts, effectiveWorkoutsPerWeek]);
+
+      const estimatedEndDate = useMemo(() => {
+        const date = new Date(cycleStartDate);
+        date.setDate(date.getDate() + (weeksToCompleteCycle * 7) - 1);
+        return date;
+      }, [cycleStartDate, weeksToCompleteCycle]);
+
+      // Generate workout distribution across weeks using the user's schedule
+      const workoutDistribution = useMemo(() => {
+        const distribution = [];
+        let workoutsPlaced = 0;
+        let currentDate = new Date(cycleStartDate);
+        let weekCounter = 0;
+
+        while (workoutsPlaced < cycleWorkouts) {
+          const workoutDays = patternType === 'fixed' 
+            ? selectedDays 
+            : rotatingWeeks[weekCounter % rotatingWeeks.length];
+          
+          const weekWorkouts = [];
+          for (const dayIdx of workoutDays) {
+            if (workoutsPlaced >= cycleWorkouts) break;
+            
+            const workoutDate = new Date(currentDate);
+            const currentDayOfWeek = workoutDate.getDay();
+            let daysToAdd = (dayIdx === 0 ? 1 : dayIdx) - currentDayOfWeek;
+            if (daysToAdd <= 0) daysToAdd += 7;
+            
+            workoutDate.setDate(workoutDate.getDate() + daysToAdd);
+            weekWorkouts.push(new Date(workoutDate));
+            workoutsPlaced++;
+          }
+          
+          if (weekWorkouts.length > 0) {
+            distribution.push({
+              weekNum: weekCounter + 1,
+              workouts: weekWorkouts
+            });
+          }
+          
+          currentDate.setDate(currentDate.getDate() + 7);
+          weekCounter++;
+        }
+
+        return distribution;
+      }, [cycleWorkouts, effectiveWorkoutsPerWeek, cycleStartDate, selectedDays, rotatingWeeks, patternType]);
+
+      // Generate calendar grid with workout markers
+      const calendarData = useMemo(() => {
+        const start = new Date(cycleStartDate);
+        start.setDate(start.getDate() - start.getDay() + 1); // Start on Monday
+        
+        const workoutDates = new Set();
+        workoutDistribution.forEach((week) => {
+          week.workouts.forEach((date) => {
+            workoutDates.add(date.toDateString());
+          });
+        });
+
+        const days = [];
+        const current = new Date(start);
+        const end = new Date(estimatedEndDate);
+        end.setDate(end.getDate() + 7);
+
+        while (current <= end) {
+          days.push({
+            date: new Date(current),
+            isWorkout: workoutDates.has(current.toDateString()),
+            isInCycle: current >= cycleStartDate && current <= estimatedEndDate,
+            isToday: current.toDateString() === new Date().toDateString()
+          });
+          current.setDate(current.getDate() + 1);
+        }
+
+        return days;
+      }, [cycleStartDate, estimatedEndDate, workoutDistribution]);
+
+      const formatDate = (date) => {
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      };
+
+      return (
+        <div className="panel">
+          <div className="panel-header">
+            <h2>Program Editor</h2>
+            <p>Adjust workouts per week and see cycle duration</p>
+          </div>
+          <div className="panel-content">
+            <div className="form-group">
+              <label className="form-label">Program Name</label>
+              <input
+                type="text"
+                className="form-input"
+                value={programName}
+                onChange={(e) => setProgramName(e.target.value)}
+              />
+            </div>
+
+            <div className="section">
+              <div className="section-title">Program Spec</div>
+              <div className="form-group">
+                <label className="form-label">Workouts in Cycle</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  value={cycleWorkouts}
+                  onChange={(e) => setCycleWorkouts(Math.max(1, parseInt(e.target.value) || 1))}
+                  min="1"
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Prescribed Workouts/Week</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  value={baseWorkoutsPerWeek}
+                  onChange={(e) => setBaseWorkoutsPerWeek(Math.max(1, parseInt(e.target.value) || 1))}
+                  min="1"
+                />
+              </div>
+            </div>
+
+            <div className="section">
+              <div className="section-title">Override</div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input
+                  type="checkbox"
+                  id="useOverride"
+                  checked={useOverride}
+                  onChange={(e) => setUseOverride(e.target.checked)}
+                  style={{ width: 18, height: 18, cursor: 'pointer' }}
+                />
+                <label htmlFor="useOverride" style={{ cursor: 'pointer', flex: 1 }}>
+                  Override workouts/week for this program
+                </label>
+              </div>
+              {useOverride && (
+                <div className="form-group" style={{ marginTop: 12 }}>
+                  <label className="form-label">Your Workouts/Week</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={overrideWorkoutsPerWeek}
+                    onChange={(e) => setOverrideWorkoutsPerWeek(Math.max(1, parseInt(e.target.value) || 1))}
+                    min="1"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="cycle-info">
+              <div className="cycle-info-row">
+                <span className="cycle-info-label">Effective Workouts/Week</span>
+                <span className="cycle-info-value">{effectiveWorkoutsPerWeek}</span>
+              </div>
+              <div className="cycle-info-row">
+                <span className="cycle-info-label">Weeks to Complete</span>
+                <span className="cycle-info-value">{weeksToCompleteCycle}</span>
+              </div>
+              <div className="cycle-info-row">
+                <span className="cycle-info-label">Workouts Scheduled</span>
+                <span className="cycle-info-value">{workoutDistribution.reduce((sum, w) => sum + w.workouts.length, 0)} of {cycleWorkouts}</span>
+              </div>
+              <div className="cycle-info-row">
+                <span className="cycle-info-label">Est. End Date</span>
+                <span className="cycle-info-value">{estimatedEndDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+              </div>
+            </div>
+
+            <div className="info-box">
+              <strong>How it works:</strong> The cycle contains {cycleWorkouts} workouts. At {effectiveWorkoutsPerWeek} workouts/week, it takes {weeksToCompleteCycle} weeks to complete. Your schedule distributes them across your preferred days.
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Cycle Start Date</label>
+              <input
+                type="date"
+                className="form-input"
+                value={formatDate(cycleStartDate)}
+                onChange={(e) => setCycleStartDate(new Date(e.target.value))}
+              />
+            </div>
+
+            <button
+              className="button button-secondary"
+              onClick={() => setShowCalendar(!showCalendar)}
+              style={{ marginTop: 12 }}
+            >
+              {showCalendar ? 'Hide Calendar' : 'Show Calendar'}
+            </button>
+
+            {showCalendar && (
+              <div style={{ marginTop: 16 }}>
+                <div className="section-title" style={{ marginBottom: 12 }}>Workout Distribution</div>
+                
+                <div className="legend" style={{ marginBottom: 12 }}>
+                  <div className="legend-item">
+                    <div className="legend-swatch" style={{ background: '#27ae60' }}></div>
+                    <span>Workout Day</span>
+                  </div>
+                  <div className="legend-item">
+                    <div className="legend-swatch" style={{ background: '#ecf0f1' }}></div>
+                    <span>Rest Day</span>
+                  </div>
+                  <div className="legend-item">
+                    <div className="legend-swatch" style={{ background: '#e8f4f8', border: '1px solid #3498db' }}></div>
+                    <span>Today</span>
+                  </div>
+                </div>
+
+                <div className="calendar-grid">
+                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
+                    <div key={day} className="calendar-cell header">
+                      {day}
+                    </div>
+                  ))}
+                  {calendarData.map((day, idx) => {
+                    const isOtherMonth = day.date < cycleStartDate || day.date > estimatedEndDate;
+                    return (
+                      <div
+                        key={idx}
+                        className={`calendar-cell ${isOtherMonth ? 'other-month' : ''} ${day.isToday ? 'today' : ''}`}
+                      >
+                        <div className="calendar-date">{day.date.getDate()}</div>
+                        {day.isInCycle && (day.isWorkout ? (
+                          <div className="calendar-workout">WO</div>
+                        ) : (
+                          <div className="calendar-rest">Rest</div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {workoutDistribution.length > 0 && (
+                  <div style={{ marginTop: 16 }}>
+                    <div className="section-title" style={{ marginBottom: 12 }}>Week Breakdown</div>
+                    {workoutDistribution.map((week, idx) => (
+                      <div key={idx} className="cycle-info" style={{ marginBottom: 8 }}>
+                        <div className="cycle-info-row">
+                          <span className="cycle-info-label">Week {week.weekNum}</span>
+                          <span className="cycle-info-value">{week.workouts.length} workouts</span>
+                        </div>
+                        <div style={{ fontSize: 11, color: '#7f8c8d' }}>
+                          {week.workouts.map((d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })).join(', ')}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    function App() {
+      const [patternType, setPatternType] = useState('fixed');
+      const [selectedDays, setSelectedDays] = useState([0, 2, 4]); // Mon-Wed-Fri
+      const [rotatingWeeks, setRotatingWeeks] = useState([
+        [0, 2, 4],
+        [1, 3, 5]
+      ]);
+
+      const toggleDay = (dayIndex) => {
+        setSelectedDays((prev) =>
+          prev.includes(dayIndex)
+            ? prev.filter((d) => d !== dayIndex)
+            : [...prev, dayIndex].sort((a, b) => a - b)
+        );
+      };
+
+      const toggleRotatingDay = (weekIndex, dayIndex) => {
+        setRotatingWeeks((prev) => {
+          const newWeeks = prev.map((week) => [...week]);
+          const dayList = newWeeks[weekIndex];
+          if (dayList.includes(dayIndex)) {
+            newWeeks[weekIndex] = dayList.filter((d) => d !== dayIndex);
+          } else {
+            newWeeks[weekIndex] = [...dayList, dayIndex].sort((a, b) => a - b);
+          }
+          return newWeeks;
+        });
+      };
+
+      const applyPreset = (presetKey) => {
+        const preset = PRESET_PATTERNS[presetKey];
+        setPatternType(preset.type);
+        if (preset.type === 'fixed') {
+          setSelectedDays(preset.days);
+        } else {
+          setRotatingWeeks(preset.weeks);
+        }
+      };
+
+      return (
+        <div className="viewport">
+          <SettingsPanel 
+            patternType={patternType}
+            setPatternType={setPatternType}
+            selectedDays={selectedDays}
+            setSelectedDays={setSelectedDays}
+            toggleDay={toggleDay}
+            rotatingWeeks={rotatingWeeks}
+            setRotatingWeeks={setRotatingWeeks}
+            toggleRotatingDay={toggleRotatingDay}
+            applyPreset={applyPreset}
+          />
+          <ProgramEditPanel 
+            selectedDays={selectedDays}
+            rotatingWeeks={rotatingWeeks}
+            patternType={patternType}
+          />
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
