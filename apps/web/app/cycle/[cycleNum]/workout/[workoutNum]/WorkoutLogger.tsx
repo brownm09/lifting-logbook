@@ -610,9 +610,13 @@ export default function WorkoutLogger({
           value={effectiveDate}
           onChange={(e) => {
             const newDate = e.target.value;
+            const prevDate = effectiveDate;
             setEffectiveDate(newDate);
             if (isReadOnly) {
-              rescheduleWorkout(program, cycleNum, workoutNum, newDate).catch(console.error);
+              rescheduleWorkout(program, cycleNum, workoutNum, newDate).catch((err) => {
+                console.error(err);
+                setEffectiveDate(prevDate);
+              });
             }
           }}
         />
