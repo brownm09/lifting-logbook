@@ -111,31 +111,32 @@ export const toCycleDashboardResponse = (
 export function buildCycleDashboardResponse(
   d: CycleDashboard,
   scheduled: ScheduledWorkout[],
-  overrides: Map<number, Date | null>,
+  overrides: Map<number, Date>,
   completedWorkoutNums: Set<number>,
 ): CycleDashboardResponse {
   if (scheduled.length === 0) {
     return toCycleDashboardResponse(d);
   }
 
-  const weekMap = new Map<number, string[]>();
+  const weekAcc = new Map<number, { dates: string[]; workouts: ScheduledWorkout[] }>();
   for (const sw of scheduled) {
     const effectiveDate = overrides.get(sw.workoutNum) ?? sw.scheduledDate;
-    const dateStr = isoDate(effectiveDate);
-    const existing = weekMap.get(sw.weekNum) ?? [];
-    existing.push(dateStr);
-    weekMap.set(sw.weekNum, existing);
+    const acc = weekAcc.get(sw.weekNum) ?? { dates: [], workouts: [] };
+    acc.dates.push(isoDate(effectiveDate));
+    acc.workouts.push(sw);
+    weekAcc.set(sw.weekNum, acc);
   }
 
-  const weekNums = [...new Set(scheduled.map((sw) => sw.weekNum))].sort((a, b) => a - b);
-  const weeks: CycleWeekSummary[] = weekNums.map((weekNum) => {
-    const workoutsInWeek = scheduled.filter((sw) => sw.weekNum === weekNum);
-    return {
-      week: weekNum as WeekNumber,
-      workoutDates: weekMap.get(weekNum) ?? [],
-      completed: workoutsInWeek.every((sw) => completedWorkoutNums.has(sw.workoutNum)),
-    };
-  });
+  const weeks: CycleWeekSummary[] = [...weekAcc.keys()]
+    .sort((a, b) => a - b)
+    .map((weekNum) => {
+      const { dates, workouts } = weekAcc.get(weekNum)!;
+      return {
+        week: weekNum as WeekNumber,
+        workoutDates: dates,
+        completed: workouts.every((sw) => completedWorkoutNums.has(sw.workoutNum)),
+      };
+    });
 
   return {
     program: d.program,

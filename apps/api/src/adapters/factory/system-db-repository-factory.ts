@@ -91,7 +91,7 @@ export class SystemDbRepositoryFactory implements IRepositoryFactory, OnModuleDe
         strengthGoal: new PrismaStrengthGoalRepository(prisma, userId),
         trainingMax: new PrismaTrainingMaxRepository(prisma, userId),
         trainingMaxHistory: new PrismaTrainingMaxHistoryRepository(prisma, userId),
-        userSettings: new UserSettingsRepository(prisma as never, userId),
+        userSettings: new UserSettingsRepository(prisma, userId),
         workout: new PrismaWorkoutRepository(prisma, userId),
         workoutDateOverride: new PrismaWorkoutDateOverrideRepository(prisma, userId),
         workoutLiftOverride: new PrismaWorkoutLiftOverrideRepository(prisma, userId),

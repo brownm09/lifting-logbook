@@ -70,6 +70,7 @@ describe('CycleDashboardController', () => {
     };
     overrideRepo = {
       getOverride: jest.fn().mockResolvedValue(null),
+      getOverridesForCycle: jest.fn().mockResolvedValue(new Map()),
       upsertOverride: jest.fn(),
     };
     factory = {
@@ -152,7 +153,8 @@ describe('CycleDashboardController', () => {
     scheduledRepo.getScheduledWorkouts.mockResolvedValue([
       { workoutNum: 1, weekNum: 1, scheduledDate: new Date('2026-04-21T00:00:00.000Z') },
     ]);
-    overrideRepo.getOverride.mockResolvedValue(new Date('2026-04-25T00:00:00.000Z'));
+    overrideRepo.getOverridesForCycle.mockResolvedValue(new Map([[1, new Date('2026-04-25T00:00:00.000Z')]]));
+
 
     const result = await controller.getCurrentCycle('5-3-1', MOCK_USER);
 

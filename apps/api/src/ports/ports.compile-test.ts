@@ -122,6 +122,7 @@ const _programPhilosophyRepo: IProgramPhilosophyRepository = {
 
 const _workoutDateOverrideRepo: IWorkoutDateOverrideRepository = {
   getOverride: () => Promise.resolve(null),
+  getOverridesForCycle: () => Promise.resolve(new Map()),
   upsertOverride: () => Promise.resolve(),
 };
 

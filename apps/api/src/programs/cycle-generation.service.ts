@@ -1,9 +1,11 @@
 import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import { UserWorkoutSchedule } from '@lifting-logbook/types';
 import {
   CycleDashboard,
   LiftingProgramSpec,
   distributeWorkouts,
   formatDateYYYYMMDD,
+  getScheduleWorkoutsPerWeek,
   MaxReductionFlag,
   TrainingMax,
   TrainingMaxHistoryEntry,
@@ -51,17 +53,16 @@ const PROGRAM_DEFAULTS: Record<string, { cycleUnit: string; programType: string 
 };
 
 async function saveScheduledDates(
-  repos: Pick<CycleRepos, 'userSettings' | 'cycleScheduledWorkout'>,
+  repos: Pick<CycleRepos, 'cycleScheduledWorkout'>,
   program: string,
   cycleNum: number,
   cycleDate: Date,
   programSpec: LiftingProgramSpec[],
+  workoutSchedule: UserWorkoutSchedule,
 ): Promise<void> {
-  const settings = await repos.userSettings.getSettings();
-  if (!settings.workoutSchedule) return;
-
-  const offsets = [...new Set(programSpec.map((s) => s.offset))].sort((a, b) => a - b);
-  const distributed = distributeWorkouts(offsets.length, settings.workoutSchedule, cycleDate);
+  const numWeeks = Math.max(...programSpec.map((s) => s.week));
+  const workoutsPerWeek = getScheduleWorkoutsPerWeek(workoutSchedule);
+  const distributed = distributeWorkouts(numWeeks * workoutsPerWeek, workoutSchedule, cycleDate);
 
   const workouts: ScheduledWorkout[] = [];
   let workoutNum = 1;
@@ -140,11 +141,15 @@ export class CycleGenerationService {
     // to the caller when advancing a cycle. Use recalculateMaxes to review flagged reductions.
     const { maxes: newMaxes } = updateMaxes(programSpec, trainingMaxes, liftRecords);
 
-    // Write order: maxes before dashboard — if dashboard write fails, cycle counter
-    // hasn't advanced and a retry is safe. True atomicity requires a transaction.
+    // Write order: maxes → scheduled dates → dashboard. If dashboard write fails,
+    // cycleNum hasn't advanced in the dashboard so a retry is safe. Scheduled date
+    // rows use replace-all semantics and are idempotent across retries.
     await repos.trainingMax.saveTrainingMaxes(program, newMaxes);
+    const settings = await repos.userSettings.getSettings();
+    if (settings.workoutSchedule) {
+      await saveScheduledDates(repos, program, newCycle.cycleNum, newCycle.cycleDate, programSpec, settings.workoutSchedule);
+    }
     await repos.cycleDashboard.saveCycleDashboard(newCycle);
-    await saveScheduledDates(repos, program, newCycle.cycleNum, newCycle.cycleDate, programSpec);
 
     const source = dashboard.currentWeekType === 'test' ? 'test' : 'program';
     const historyEntries = buildHistoryEntries(trainingMaxes, newMaxes, newCycle.cycleDate, source);
@@ -197,9 +202,12 @@ export class CycleGenerationService {
       programType: defaults.programType,
     };
 
+    const settings = await repos.userSettings.getSettings();
+    if (settings.workoutSchedule) {
+      const spec = await repos.liftingProgramSpec.getProgramSpec(program);
+      await saveScheduledDates(repos, program, dashboard.cycleNum, dashboard.cycleDate, spec, settings.workoutSchedule);
+    }
     await repos.cycleDashboard.saveCycleDashboard(dashboard);
-    const spec = await repos.liftingProgramSpec.getProgramSpec(program);
-    await saveScheduledDates(repos, program, dashboard.cycleNum, dashboard.cycleDate, spec);
     return dashboard;
   }
 

@@ -27,19 +27,11 @@ export class CycleDashboardController {
     ]);
     dashboard.currentWeekType = weekTypeForDate(dashboard.cycleDate, programSpec);
 
-    const [scheduledWorkouts, liftRecords] = await Promise.all([
+    const [scheduledWorkouts, liftRecords, overrideMap] = await Promise.all([
       cycleScheduledWorkout.getScheduledWorkouts(program, dashboard.cycleNum),
       liftRecord.getLiftRecords(program, dashboard.cycleNum),
+      workoutDateOverride.getOverridesForCycle(program, dashboard.cycleNum),
     ]);
-
-    const overrideDates = await Promise.all(
-      scheduledWorkouts.map((sw) =>
-        workoutDateOverride.getOverride(program, dashboard.cycleNum, sw.workoutNum),
-      ),
-    );
-    const overrideMap = new Map<number, Date | null>(
-      scheduledWorkouts.map((sw, i) => [sw.workoutNum, overrideDates[i]!]),
-    );
     const completedWorkoutNums = new Set(liftRecords.map((r) => r.workoutNum));
 
     return buildCycleDashboardResponse(dashboard, scheduledWorkouts, overrideMap, completedWorkoutNums);

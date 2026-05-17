@@ -5,6 +5,11 @@ export interface IWorkoutDateOverrideRepository {
     workoutNum: number,
   ): Promise<Date | null>;
 
+  getOverridesForCycle(
+    program: string,
+    cycleNum: number,
+  ): Promise<Map<number, Date>>;
+
   upsertOverride(
     program: string,
     cycleNum: number,

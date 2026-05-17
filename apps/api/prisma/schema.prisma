@@ -149,7 +149,7 @@ model CycleScheduledWorkout {
   cycleNum      Int
   workoutNum    Int
   weekNum       Int
-  scheduledDate DateTime
+  scheduledDate DateTime @db.Date
 
   @@unique([userId, program, cycleNum, workoutNum])
   @@index([userId, program, cycleNum])
