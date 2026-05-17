@@ -4,4 +4,5 @@ export * from "./extractLiftRecords";
 export * from "./findWorkoutRowsToHideOnEdit";
 export * from "./generateLiftPlan";
 export * from "./generateLiftSpec";
+export * from "./distributeWorkouts";
 export * from "./updateLiftDates";
