@@ -199,8 +199,33 @@ describe('UpdateSettingsDto validation', () => {
     expect(errs.length).toBeGreaterThan(0);
   });
 
-  // Documenting expected wiring — the global ValidationPipe is what surfaces these errors as 400s.
-  it('ValidationPipe class is importable', () => {
-    expect(ValidationPipe).toBeDefined();
+  // Locks in the production pipe config from apps/api/src/main.ts. If main.ts ever weakens
+  // these flags (e.g., drops `forbidNonWhitelisted`), this test fails — without it, the DTO's
+  // implicit reliance on whitelist behavior to strip/reject unknown nested keys would silently
+  // degrade. Keep this test's pipe construction byte-identical to main.ts.
+  describe('production ValidationPipe wiring', () => {
+    const pipe = new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true });
+    const meta = { type: 'body' as const, metatype: UpdateSettingsDto };
+
+    it('rejects an unknown top-level sibling field', async () => {
+      await expect(
+        pipe.transform({ workoutSchedule: { type: 'fixed', days: [0] }, evil: 'x' }, meta),
+      ).rejects.toThrow();
+    });
+
+    it('rejects an unknown field nested inside workoutSchedule', async () => {
+      await expect(
+        pipe.transform(
+          { workoutSchedule: { type: 'fixed', days: [0], evil: 'x' } },
+          meta,
+        ),
+      ).rejects.toThrow();
+    });
+
+    it('accepts a clean payload', async () => {
+      await expect(
+        pipe.transform({ workoutSchedule: { type: 'fixed', days: [0, 2, 4] } }, meta),
+      ).resolves.toBeDefined();
+    });
   });
 });

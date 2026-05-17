@@ -17,25 +17,18 @@ import {
   ValidatorConstraintInterface,
   ValidationArguments,
 } from 'class-validator';
+import { SCHEDULE_LIMITS, isValidSchedule } from '@lifting-logbook/types';
 import type { UserWorkoutSchedule } from '@lifting-logbook/types';
 
+// Delegates to the shared `isValidSchedule` predicate so the write-side and read-side
+// bounds (range, uniqueness, max weeks, max days/week) cannot drift.
 @ValidatorConstraint({ name: 'IsWeekPatternArray', async: false })
 class IsWeekPatternArrayConstraint implements ValidatorConstraintInterface {
   validate(value: unknown): boolean {
-    if (!Array.isArray(value) || value.length < 1 || value.length > 8) return false;
-    for (const week of value) {
-      if (!Array.isArray(week) || week.length < 1 || week.length > 7) return false;
-      const seen = new Set<number>();
-      for (const day of week) {
-        if (!Number.isInteger(day) || day < 0 || day > 6) return false;
-        if (seen.has(day)) return false;
-        seen.add(day);
-      }
-    }
-    return true;
+    return isValidSchedule({ type: 'rotating', weeks: value });
   }
   defaultMessage(): string {
-    return 'weeks must be 1-8 arrays of unique day indices (0-6)';
+    return `weeks must be 1-${SCHEDULE_LIMITS.MAX_ROTATING_WEEKS} arrays of unique day indices (0-6, max ${SCHEDULE_LIMITS.MAX_DAYS_PER_WEEK} per week)`;
   }
 }
 
@@ -62,7 +55,7 @@ export class WorkoutScheduleDto implements UserWorkoutSchedule {
   @ValidateIf((o: WorkoutScheduleDto) => o.type === 'fixed')
   @IsArray()
   @ArrayMinSize(1)
-  @ArrayMaxSize(7)
+  @ArrayMaxSize(SCHEDULE_LIMITS.MAX_DAYS_PER_WEEK)
   @ArrayUnique()
   @IsInt({ each: true })
   @Min(0, { each: true })

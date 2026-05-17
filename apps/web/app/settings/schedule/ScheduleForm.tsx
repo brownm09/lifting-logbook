@@ -90,7 +90,15 @@ export default function ScheduleForm({
     }
     setSaving(true);
     try {
-      await saveSchedule({ workoutSchedule: payload });
+      // Re-seed local state from the canonical server response. `useState` initializers
+      // only run on mount, so without this the form would keep showing optimistic local
+      // state if the server normalized the payload (e.g., re-sorted days, dropped dupes)
+      // or if a future code path returns a stored value different from what we sent.
+      const result = await saveSchedule({ workoutSchedule: payload });
+      const next = initialState(result.workoutSchedule);
+      setMode(next.mode);
+      setFixedDays(next.fixedDays);
+      setRotatingWeeks(next.rotatingWeeks);
       setSavedAt(new Date().toLocaleTimeString());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save schedule.');

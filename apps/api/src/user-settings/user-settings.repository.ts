@@ -1,6 +1,10 @@
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../adapters/prisma/prisma.service';
-import { UserSettingsResponse, UserWorkoutSchedule } from '@lifting-logbook/types';
+import {
+  UserSettingsResponse,
+  UserWorkoutSchedule,
+  isValidSchedule,
+} from '@lifting-logbook/types';
 
 export interface UpsertSettingsPatch {
   activeProgram?: string;
@@ -9,30 +13,12 @@ export interface UpsertSettingsPatch {
 }
 
 // Runtime guard for values read from the JSONB column. Prisma returns whatever JSON is
-// stored — a manual DB edit or a pre-validator row could violate the type. Return null
-// (treated as no-schedule) rather than letting malformed data reach clients.
+// stored — a manual DB edit or a pre-validator row could violate the type. Delegates to
+// the shared `isValidSchedule` predicate so the read-side bounds stay locked to the
+// write-side DTO bounds.
 function parseSchedule(value: unknown): UserWorkoutSchedule | null {
   if (value === null || value === undefined) return null;
-  if (typeof value !== 'object' || Array.isArray(value)) return null;
-  const v = value as { type?: unknown; days?: unknown; weeks?: unknown };
-  if (v.type === 'fixed') {
-    if (!Array.isArray(v.days) || v.days.length === 0) return null;
-    for (const d of v.days) {
-      if (!Number.isInteger(d) || (d as number) < 0 || (d as number) > 6) return null;
-    }
-    return { type: 'fixed', days: v.days as number[] };
-  }
-  if (v.type === 'rotating') {
-    if (!Array.isArray(v.weeks) || v.weeks.length === 0) return null;
-    for (const week of v.weeks) {
-      if (!Array.isArray(week) || week.length === 0) return null;
-      for (const d of week) {
-        if (!Number.isInteger(d) || (d as number) < 0 || (d as number) > 6) return null;
-      }
-    }
-    return { type: 'rotating', weeks: v.weeks as number[][] };
-  }
-  return null;
+  return isValidSchedule(value) ? value : null;
 }
 
 export class UserSettingsRepository {
