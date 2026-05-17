@@ -155,7 +155,6 @@ describe('CycleDashboardController', () => {
     ]);
     overrideRepo.getOverridesForCycle.mockResolvedValue(new Map([[1, new Date('2026-04-25T00:00:00.000Z')]]));
 
-
     const result = await controller.getCurrentCycle('5-3-1', MOCK_USER);
 
     expect(result.weeks[0]?.workoutDates).toEqual(['2026-04-25']);

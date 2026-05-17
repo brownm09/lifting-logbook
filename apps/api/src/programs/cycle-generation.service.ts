@@ -60,13 +60,21 @@ async function saveScheduledDates(
   programSpec: LiftingProgramSpec[],
   workoutSchedule: UserWorkoutSchedule,
 ): Promise<void> {
+  // numWeeks * workoutsPerWeek assumes schedule days/week equals program
+  // workouts/week. Phase 5 adds a user-confirmation prompt that validates
+  // this match before schedule mode is activated.
   const numWeeks = Math.max(...programSpec.map((s) => s.week));
   const workoutsPerWeek = getScheduleWorkoutsPerWeek(workoutSchedule);
   const distributed = distributeWorkouts(numWeeks * workoutsPerWeek, workoutSchedule, cycleDate);
 
   const workouts: ScheduledWorkout[] = [];
   let workoutNum = 1;
+  let lastWeek = 0;
   for (const week of distributed) {
+    if (week.week <= lastWeek) {
+      throw new Error(`distributeWorkouts returned out-of-order week: ${week.week}`);
+    }
+    lastWeek = week.week;
     for (const date of week.workouts) {
       workouts.push({ workoutNum, weekNum: week.week, scheduledDate: date });
       workoutNum++;

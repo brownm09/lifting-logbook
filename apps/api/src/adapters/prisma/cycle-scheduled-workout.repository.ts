@@ -20,6 +20,10 @@ export class PrismaCycleScheduledWorkoutRepository implements ICycleScheduledWor
   }
 
   async saveScheduledWorkouts(program: string, cycleNum: number, workouts: ScheduledWorkout[]): Promise<void> {
+    // deleteMany + createMany replaces the full row set for (userId, program, cycleNum).
+    // Concurrent cycle creation (e.g., double-submit) can race and hit the unique constraint.
+    // Acceptable given cycle creation is a rare, deliberate user action; harden with
+    // upsert-per-row semantics if this surfaces in practice.
     await this.prisma.$transaction([
       this.prisma.cycleScheduledWorkout.deleteMany({
         where: { userId: this.userId, program, cycleNum },
