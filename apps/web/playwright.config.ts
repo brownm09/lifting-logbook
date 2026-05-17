@@ -24,7 +24,7 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
     },
     {
-      command: process.env.CI ? 'npm run build && npm run start' : 'npm run dev',
+      command: process.env.CI ? 'npm run start' : 'npm run dev',
       port: 3000,
       env: {
         API_URL: 'http://localhost:3004',
@@ -33,7 +33,7 @@ export default defineConfig({
         NEXT_PUBLIC_DEV_AUTH_TOKEN: 'e2e-test',
       },
       reuseExistingServer: !process.env.CI,
-      timeout: process.env.CI ? 300_000 : 120_000,
+      timeout: process.env.CI ? 30_000 : 120_000,
     },
   ],
 });
