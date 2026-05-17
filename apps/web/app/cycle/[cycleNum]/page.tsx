@@ -41,6 +41,15 @@ export default async function CycleDashboardPage({
     workoutDays.map((w, i) => [w.workoutNum, workoutResponseList[i]]),
   );
 
+  // Build a flat workoutNum → scheduled date lookup from the cycle dashboard response.
+  // This is populated when schedule mode is active; empty when no schedule is set.
+  const scheduledDateMap = new Map<number, string>();
+  for (const week of dashboard.weeks) {
+    for (const ws of week.workouts) {
+      scheduledDateMap.set(ws.workoutNum, ws.date);
+    }
+  }
+
   const today = new Date().toISOString().slice(0, 10);
   const maxMap = new Map(maxes.map((m) => [m.lift, m.weight]));
 
@@ -53,9 +62,8 @@ export default async function CycleDashboardPage({
       .map((w): WorkoutCell => {
         const response = workoutResponseMap.get(w.workoutNum);
         const logged = response != null && response.lifts.length > 0;
-        // Prefer the user's overridden date when one exists; fall back to the computed schedule date.
-        // Status comparison uses UTC date strings (ISO YYYY-MM-DD) consistently across dashboard and detail page.
-        const effectiveDate = response?.overrideDate ?? w.date;
+        // Priority: user override date > API scheduled date > spec-computed date.
+        const effectiveDate = response?.overrideDate ?? scheduledDateMap.get(w.workoutNum) ?? w.date;
         const status: WorkoutCell['status'] = logged
           ? 'completed'
           : effectiveDate < today

@@ -137,12 +137,15 @@ describe('CycleDashboardController', () => {
     expect(result.weeks).toHaveLength(2);
     expect(result.weeks[0]).toEqual({
       week: 1,
-      workoutDates: ['2026-04-21', '2026-04-23'],
+      workouts: [
+        { workoutNum: 1, date: '2026-04-21' },
+        { workoutNum: 2, date: '2026-04-23' },
+      ],
       completed: false,
     });
     expect(result.weeks[1]).toEqual({
       week: 2,
-      workoutDates: ['2026-04-28'],
+      workouts: [{ workoutNum: 3, date: '2026-04-28' }],
       completed: false,
     });
   });
@@ -157,7 +160,7 @@ describe('CycleDashboardController', () => {
 
     const result = await controller.getCurrentCycle('5-3-1', MOCK_USER);
 
-    expect(result.weeks[0]?.workoutDates).toEqual(['2026-04-25']);
+    expect(result.weeks[0]?.workouts).toEqual([{ workoutNum: 1, date: '2026-04-25' }]);
   });
 
   it('marks a week as completed when all its workouts have lift records', async () => {

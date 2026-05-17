@@ -1018,12 +1018,87 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
       // Mon-Wed-Fri schedule: week 1 should have dates on Mon/Wed/Fri
       const week1 = body.weeks[0];
       expect(week1.week).toBe(1);
-      expect(week1.workoutDates.length).toBeGreaterThan(0);
+      expect(Array.isArray(week1.workouts)).toBe(true);
+      expect(week1.workouts.length).toBeGreaterThan(0);
       expect(week1.completed).toBe(false);
-      // Each date should be a valid ISO date string
-      for (const d of week1.workoutDates) {
-        expect(d).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      // Each workout entry should have workoutNum and a valid ISO date string
+      for (const ws of week1.workouts) {
+        expect(typeof ws.workoutNum).toBe('number');
+        expect(ws.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       }
+    });
+
+    it('GET workout returns scheduled date as date when no records exist and schedule is active', async () => {
+      const userId = 'schedule-e2e-workout-date';
+      const token = `Bearer ${userId}`;
+      await setScheduleForUser(userId);
+
+      await app.getHttpAdapter().getInstance().inject({
+        method: 'POST',
+        url: `/programs/${SEED_PROGRAM}/cycles/initialize`,
+        headers: { 'content-type': 'application/json', authorization: token },
+        payload: JSON.stringify({ cycleDate: '2026-05-19' }),
+      });
+
+      // Get the scheduled date for workout 1 from the dashboard
+      const dashRes = await app.getHttpAdapter().getInstance().inject({
+        method: 'GET',
+        url: `/programs/${SEED_PROGRAM}/cycles/current`,
+        headers: { authorization: token },
+      });
+      const dashBody = dashRes.json();
+      const allWorkouts = dashBody.weeks.flatMap((w: { workouts: { workoutNum: number; date: string }[] }) => w.workouts);
+      const scheduled = allWorkouts.find((ws: { workoutNum: number }) => ws.workoutNum === 1);
+      expect(scheduled).toBeDefined();
+
+      // GET workout 1 — should return the scheduled date as `date`
+      const workoutRes = await app.getHttpAdapter().getInstance().inject({
+        method: 'GET',
+        url: `/programs/${SEED_PROGRAM}/workouts/1`,
+        headers: { authorization: token },
+      });
+      expect(workoutRes.statusCode).toBe(200);
+      expect(workoutRes.json().date).toBe(scheduled!.date);
+    });
+
+    it('POST lift-records without date uses scheduled date', async () => {
+      const userId = 'schedule-e2e-lift-record-date';
+      const token = `Bearer ${userId}`;
+      await setScheduleForUser(userId);
+
+      await app.getHttpAdapter().getInstance().inject({
+        method: 'POST',
+        url: `/programs/${SEED_PROGRAM}/cycles/initialize`,
+        headers: { 'content-type': 'application/json', authorization: token },
+        payload: JSON.stringify({ cycleDate: '2026-05-19' }),
+      });
+
+      // Get the scheduled date for workout 1
+      const dashRes = await app.getHttpAdapter().getInstance().inject({
+        method: 'GET',
+        url: `/programs/${SEED_PROGRAM}/cycles/current`,
+        headers: { authorization: token },
+      });
+      const allWorkouts = dashRes.json().weeks.flatMap((w: { workouts: { workoutNum: number; date: string }[] }) => w.workouts);
+      const scheduledDate = allWorkouts.find((ws: { workoutNum: number }) => ws.workoutNum === 1)!.date;
+
+      // POST lift record without date
+      const recordRes = await app.getHttpAdapter().getInstance().inject({
+        method: 'POST',
+        url: `/programs/${SEED_PROGRAM}/lift-records`,
+        headers: { 'content-type': 'application/json', authorization: token },
+        payload: JSON.stringify({
+          program: SEED_PROGRAM,
+          cycleNum: 1,
+          workoutNum: 1,
+          lift: 'Squat',
+          setNum: 1,
+          weight: 135,
+          reps: 5,
+        }),
+      });
+      expect(recordRes.statusCode).toBe(201);
+      expect(recordRes.json().date).toBe(scheduledDate);
     });
 
     it('GET cycle dashboard returns weeks:[] when no schedule is set (schedule user baseline)', async () => {

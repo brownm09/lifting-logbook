@@ -35,7 +35,7 @@ export class WorkoutsController {
     if (!isValidWorkoutNum(workoutNum)) {
       throw new BadRequestException('workoutNum must be a positive integer');
     }
-    const { workout, cycleDashboard, liftingProgramSpec, workoutDateOverride, workoutLiftOverride } =
+    const { workout, cycleDashboard, cycleScheduledWorkout, liftingProgramSpec, workoutDateOverride, workoutLiftOverride } =
       await this.factory.forUser(user);
     const [dashboard, spec] = await Promise.all([
       cycleDashboard.getCycleDashboard(program).catch((err: unknown) => {
@@ -54,7 +54,7 @@ export class WorkoutsController {
     // Spec lifts for this workout's week — used to build the planned lift list.
     const specLifts = [...new Set(spec.filter((s) => s.week === week).map((s) => s.lift))];
 
-    const [records, overrideDate, liftOverrides] = await Promise.all([
+    const [records, overrideDate, liftOverrides, scheduledWorkouts] = await Promise.all([
       workout
         .getWorkout(program, dashboard.cycleNum, workoutNum)
         .catch((err: unknown) => {
@@ -64,7 +64,9 @@ export class WorkoutsController {
         }),
       workoutDateOverride.getOverride(program, dashboard.cycleNum, workoutNum),
       workoutLiftOverride.getOverrides(program, dashboard.cycleNum, workoutNum),
+      cycleScheduledWorkout.getScheduledWorkouts(program, dashboard.cycleNum),
     ]);
+    const scheduledDate = scheduledWorkouts.find((s) => s.workoutNum === workoutNum)?.scheduledDate;
 
     const plannedLifts = applyLiftOverrides(specLifts, liftOverrides);
 
@@ -91,6 +93,7 @@ export class WorkoutsController {
       adjustedRecords,
       overrideDate ?? undefined,
       plannedLifts,
+      scheduledDate,
     );
   }
 }

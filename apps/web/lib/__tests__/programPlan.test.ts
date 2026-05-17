@@ -3,9 +3,13 @@ import { deriveProgramPhases, deriveProgramSummary } from '../programPlan';
 
 const makeWeek = (
   week: number,
-  workoutDates: string[],
+  dates: string[],
   completed: boolean,
-): CycleWeekSummary => ({ week, workoutDates, completed });
+): CycleWeekSummary => ({
+  week,
+  workouts: dates.map((date, i) => ({ workoutNum: i + 1, date })),
+  completed,
+});
 
 const makeSpec = (
   overrides: Partial<LiftingProgramSpecResponse>,

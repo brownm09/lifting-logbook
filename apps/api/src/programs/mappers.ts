@@ -20,6 +20,7 @@ import {
   WeekNumber,
   WorkoutLiftResponse,
   WorkoutResponse,
+  WorkoutSummary,
 } from '@lifting-logbook/types';
 import { CyclePlanResult } from '../ports/ICyclePlanningAgent';
 import { ScheduledWorkout } from '../ports/ICycleScheduledWorkoutRepository';
@@ -118,23 +119,23 @@ export function buildCycleDashboardResponse(
     return toCycleDashboardResponse(d);
   }
 
-  const weekAcc = new Map<number, { dates: string[]; workouts: ScheduledWorkout[] }>();
+  const weekAcc = new Map<number, { workouts: WorkoutSummary[]; scheduled: ScheduledWorkout[] }>();
   for (const sw of scheduled) {
     const effectiveDate = overrides.get(sw.workoutNum) ?? sw.scheduledDate;
-    const acc = weekAcc.get(sw.weekNum) ?? { dates: [], workouts: [] };
-    acc.dates.push(isoDate(effectiveDate));
-    acc.workouts.push(sw);
+    const acc = weekAcc.get(sw.weekNum) ?? { workouts: [], scheduled: [] };
+    acc.workouts.push({ workoutNum: sw.workoutNum, date: isoDate(effectiveDate) });
+    acc.scheduled.push(sw);
     weekAcc.set(sw.weekNum, acc);
   }
 
   const weeks: CycleWeekSummary[] = [...weekAcc.keys()]
     .sort((a, b) => a - b)
     .map((weekNum) => {
-      const { dates, workouts } = weekAcc.get(weekNum)!;
+      const { workouts, scheduled } = weekAcc.get(weekNum)!;
       return {
         week: weekNum as WeekNumber,
-        workoutDates: dates,
-        completed: workouts.every((sw) => completedWorkoutNums.has(sw.workoutNum)),
+        workouts,
+        completed: scheduled.every((sw) => completedWorkoutNums.has(sw.workoutNum)),
       };
     });
 
@@ -225,6 +226,7 @@ export const toWorkoutResponse = (
   records: LiftRecord[],
   overrideDate?: Date,
   plannedLifts?: string[],
+  scheduledDate?: Date,
 ): WorkoutResponse => {
   const liftMap = new Map<string, SetResponse[]>();
   for (const r of records) {
@@ -261,7 +263,11 @@ export const toWorkoutResponse = (
     }));
   }
 
-  const date = records[0] ? isoDate(records[0].date) : isoDate(new Date());
+  const date = records[0]
+    ? isoDate(records[0].date)
+    : scheduledDate
+      ? isoDate(scheduledDate)
+      : isoDate(new Date());
   return {
     program,
     cycleNum,
