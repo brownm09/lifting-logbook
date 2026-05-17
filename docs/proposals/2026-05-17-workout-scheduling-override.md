@@ -2,7 +2,7 @@
 
 **Status:** Proposal  
 **Linked Design:** [`docs/design/workout-scheduling-integration.md`](../design/workout-scheduling-integration.md)  
-**Linked Prototype:** `docs/mockups/workout-scheduling.html`  
+**Linked Prototype:** [`docs/mockups/workout-scheduling.html`](../mockups/workout-scheduling.html)  
 **Epic:** Client Applications  
 **Milestone:** v0.3 — Client Applications
 

@@ -650,7 +650,9 @@
           const weekWorkouts = [];
           for (const dayIdx of workoutDays) {
             if (workoutsPlaced >= cycleWorkouts) break;
-            
+
+            // Simplified placement for prototype only — not the canonical algorithm.
+            // See docs/design/workout-scheduling-integration.md → distributeWorkouts()
             const workoutDate = new Date(currentDate);
             const currentDayOfWeek = workoutDate.getDay();
             let daysToAdd = (dayIdx === 0 ? 1 : dayIdx) - currentDayOfWeek;
