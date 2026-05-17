@@ -11,6 +11,7 @@ import { AuthUser, IAuthProvider } from './auth';
 import { IBodyWeightRepository } from './IBodyWeightRepository';
 import { IRepositoryFactory, RepositoryBundle } from './factory';
 import { ICycleDashboardRepository } from './ICycleDashboardRepository';
+import { ICycleScheduledWorkoutRepository } from './ICycleScheduledWorkoutRepository';
 import { ILiftingProgramSpecRepository } from './ILiftingProgramSpecRepository';
 import { ILiftRecordRepository } from './ILiftRecordRepository';
 import { IProgramPhilosophyRepository } from './IProgramPhilosophyRepository';
@@ -18,6 +19,7 @@ import { ITrainingMaxRepository } from './ITrainingMaxRepository';
 import { ITrainingMaxHistoryRepository } from './ITrainingMaxHistoryRepository';
 import { ILiftMetadataRepository } from './ILiftMetadataRepository';
 import { IStrengthGoalRepository } from './IStrengthGoalRepository';
+import { IUserSettingsRepository } from './IUserSettingsRepository';
 import { IWorkoutDateOverrideRepository } from './IWorkoutDateOverrideRepository';
 import { IWorkoutLiftOverrideRepository } from './IWorkoutLiftOverrideRepository';
 import { IWorkoutRepository } from './IWorkoutRepository';
@@ -141,8 +143,18 @@ const _workoutLiftOverrideRepo: IWorkoutLiftOverrideRepository = {
   deleteOverride: () => Promise.resolve(),
 };
 
+const _cycleScheduledWorkoutRepo: ICycleScheduledWorkoutRepository = {
+  getScheduledWorkouts: () => Promise.resolve([]),
+  saveScheduledWorkouts: () => Promise.resolve(),
+};
+
+const _userSettingsRepo: IUserSettingsRepository = {
+  getSettings: () => Promise.resolve({ activeProgram: null, workoutSchedule: null }),
+};
+
 const _repositoryBundle: RepositoryBundle = {
   cycleDashboard: _cycleDashboardRepo,
+  cycleScheduledWorkout: _cycleScheduledWorkoutRepo,
   liftMetadata: _liftMetadataRepo,
   liftingProgramSpec: _programSpecRepo,
   liftRecord: _liftRecordRepo,
@@ -150,6 +162,7 @@ const _repositoryBundle: RepositoryBundle = {
   strengthGoal: _strengthGoalRepo,
   trainingMax: _trainingMaxRepo,
   trainingMaxHistory: _trainingMaxHistoryRepo,
+  userSettings: _userSettingsRepo,
   workout: _workoutRepo,
   workoutDateOverride: _workoutDateOverrideRepo,
   workoutLiftOverride: _workoutLiftOverrideRepo,
@@ -173,5 +186,7 @@ void _liftMetadataRepo;
 void _strengthGoalRepo;
 void _workoutDateOverrideRepo;
 void _workoutLiftOverrideRepo;
+void _cycleScheduledWorkoutRepo;
+void _userSettingsRepo;
 void _repositoryBundle;
 void _repositoryFactory;

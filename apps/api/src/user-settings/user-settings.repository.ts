@@ -1,10 +1,10 @@
-import { Prisma } from '@prisma/client';
-import { PrismaService } from '../adapters/prisma/prisma.service';
+import { Prisma, PrismaClient } from '@prisma/client';
 import {
   UserSettingsResponse,
   UserWorkoutSchedule,
   isValidSchedule,
 } from '@lifting-logbook/types';
+import { IUserSettingsRepository } from '../ports/IUserSettingsRepository';
 
 export interface UpsertSettingsPatch {
   activeProgram?: string;
@@ -21,9 +21,9 @@ function parseSchedule(value: unknown): UserWorkoutSchedule | null {
   return isValidSchedule(value) ? value : null;
 }
 
-export class UserSettingsRepository {
+export class UserSettingsRepository implements IUserSettingsRepository {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly prisma: PrismaClient,
     private readonly userId: string,
   ) {}
 

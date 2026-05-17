@@ -1,6 +1,8 @@
 import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import {
   CycleDashboard,
+  LiftingProgramSpec,
+  distributeWorkouts,
   formatDateYYYYMMDD,
   MaxReductionFlag,
   TrainingMax,
@@ -11,12 +13,19 @@ import {
   Weekday,
 } from '@lifting-logbook/core';
 import { RepositoryBundle } from '../ports';
+import { ScheduledWorkout } from '../ports/ICycleScheduledWorkoutRepository';
 import { ProgramNotFoundError } from '../ports/errors';
 import { StartNewCycleDto } from './start-new-cycle.dto';
 
 type CycleRepos = Pick<
   RepositoryBundle,
-  'cycleDashboard' | 'liftingProgramSpec' | 'trainingMax' | 'trainingMaxHistory' | 'liftRecord'
+  | 'cycleDashboard'
+  | 'cycleScheduledWorkout'
+  | 'liftingProgramSpec'
+  | 'liftRecord'
+  | 'trainingMax'
+  | 'trainingMaxHistory'
+  | 'userSettings'
 >;
 
 /**
@@ -40,6 +49,33 @@ const PROGRAM_DEFAULTS: Record<string, { cycleUnit: string; programType: string 
   'juggernaut': { cycleUnit: 'week', programType: 'juggernaut' },
   'creeping-death-2': { cycleUnit: 'week', programType: 'creeping-death-2' },
 };
+
+async function saveScheduledDates(
+  repos: Pick<CycleRepos, 'userSettings' | 'cycleScheduledWorkout'>,
+  program: string,
+  cycleNum: number,
+  cycleDate: Date,
+  programSpec: LiftingProgramSpec[],
+): Promise<void> {
+  const settings = await repos.userSettings.getSettings();
+  if (!settings.workoutSchedule) return;
+
+  const offsets = [...new Set(programSpec.map((s) => s.offset))].sort((a, b) => a - b);
+  const distributed = distributeWorkouts(offsets.length, settings.workoutSchedule, cycleDate);
+
+  const workouts: ScheduledWorkout[] = [];
+  let workoutNum = 1;
+  for (const week of distributed) {
+    for (const date of week.workouts) {
+      workouts.push({ workoutNum, weekNum: week.week, scheduledDate: date });
+      workoutNum++;
+    }
+  }
+
+  if (workouts.length > 0) {
+    await repos.cycleScheduledWorkout.saveScheduledWorkouts(program, cycleNum, workouts);
+  }
+}
 
 function round1dp(w: number): number {
   return Math.round(w * 10) / 10;
@@ -108,6 +144,7 @@ export class CycleGenerationService {
     // hasn't advanced and a retry is safe. True atomicity requires a transaction.
     await repos.trainingMax.saveTrainingMaxes(program, newMaxes);
     await repos.cycleDashboard.saveCycleDashboard(newCycle);
+    await saveScheduledDates(repos, program, newCycle.cycleNum, newCycle.cycleDate, programSpec);
 
     const source = dashboard.currentWeekType === 'test' ? 'test' : 'program';
     const historyEntries = buildHistoryEntries(trainingMaxes, newMaxes, newCycle.cycleDate, source);
@@ -119,7 +156,7 @@ export class CycleGenerationService {
   }
 
   async initializeFirstCycle(
-    repos: Pick<CycleRepos, 'cycleDashboard'>,
+    repos: Pick<CycleRepos, 'cycleDashboard' | 'cycleScheduledWorkout' | 'liftingProgramSpec' | 'userSettings'>,
     program: string,
     dto: { cycleDate?: string } = {},
   ): Promise<CycleDashboard> {
@@ -161,6 +198,8 @@ export class CycleGenerationService {
     };
 
     await repos.cycleDashboard.saveCycleDashboard(dashboard);
+    const spec = await repos.liftingProgramSpec.getProgramSpec(program);
+    await saveScheduledDates(repos, program, dashboard.cycleNum, dashboard.cycleDate, spec);
     return dashboard;
   }
 

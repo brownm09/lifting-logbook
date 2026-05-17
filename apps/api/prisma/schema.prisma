@@ -142,6 +142,20 @@ model UserSettings {
   @@map("user_settings")
 }
 
+model CycleScheduledWorkout {
+  id            String   @id @default(uuid())
+  userId        String
+  program       String
+  cycleNum      Int
+  workoutNum    Int
+  weekNum       Int
+  scheduledDate DateTime
+
+  @@unique([userId, program, cycleNum, workoutNum])
+  @@index([userId, program, cycleNum])
+  @@map("cycle_scheduled_workout")
+}
+
 model CustomProgram {
   id           String              @id @default(uuid())
   userId       String

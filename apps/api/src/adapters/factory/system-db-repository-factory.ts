@@ -21,9 +21,13 @@ import { InMemoryProgramPhilosophyRepository } from '../in-memory/program-philos
 import { InMemoryStrengthGoalRepository } from '../in-memory/strength-goal.adapter';
 import { InMemoryTrainingMaxRepository } from '../in-memory/training-max.adapter';
 import { InMemoryTrainingMaxHistoryRepository } from '../in-memory/training-max-history.adapter';
+import { InMemoryCycleScheduledWorkoutRepository } from '../in-memory/cycle-scheduled-workout.adapter';
+import { InMemoryUserSettingsRepository } from '../in-memory/user-settings.adapter';
 import { InMemoryWorkoutDateOverrideRepository } from '../in-memory/workout-date-override.adapter';
 import { InMemoryWorkoutLiftOverrideRepository } from '../in-memory/workout-lift-override.adapter';
 import { InMemoryWorkoutRepository } from '../in-memory/workout.adapter';
+import { PrismaCycleScheduledWorkoutRepository } from '../prisma/cycle-scheduled-workout.repository';
+import { UserSettingsRepository } from '../../user-settings/user-settings.repository';
 
 interface UserDataSourceRow {
   adapter_type: string;
@@ -79,17 +83,19 @@ export class SystemDbRepositoryFactory implements IRepositoryFactory, OnModuleDe
     if (adapterType === 'postgres') {
       const prisma = this.getOrCreatePrisma();
       return {
+        cycleDashboard: new PrismaCycleDashboardRepository(prisma, userId),
+        cycleScheduledWorkout: new PrismaCycleScheduledWorkoutRepository(prisma, userId),
         liftMetadata: new PrismaLiftMetadataRepository(prisma, userId),
         liftRecord: new PrismaLiftRecordRepository(prisma, userId),
+        programPhilosophy: this.philosophyRepo,
         strengthGoal: new PrismaStrengthGoalRepository(prisma, userId),
         trainingMax: new PrismaTrainingMaxRepository(prisma, userId),
         trainingMaxHistory: new PrismaTrainingMaxHistoryRepository(prisma, userId),
-        cycleDashboard: new PrismaCycleDashboardRepository(prisma, userId),
+        userSettings: new UserSettingsRepository(prisma as never, userId),
         workout: new PrismaWorkoutRepository(prisma, userId),
         workoutDateOverride: new PrismaWorkoutDateOverrideRepository(prisma, userId),
         workoutLiftOverride: new PrismaWorkoutLiftOverrideRepository(prisma, userId),
         liftingProgramSpec: this.programSpecRepo,
-        programPhilosophy: this.philosophyRepo,
       };
     }
 
@@ -99,6 +105,7 @@ export class SystemDbRepositoryFactory implements IRepositoryFactory, OnModuleDe
     const sharedRecords: Map<string, LiftRecord[]> = new Map();
     return {
       cycleDashboard: new InMemoryCycleDashboardRepository(),
+      cycleScheduledWorkout: new InMemoryCycleScheduledWorkoutRepository(),
       liftMetadata: new InMemoryLiftMetadataRepository(),
       liftingProgramSpec: this.programSpecRepo,
       liftRecord: new InMemoryLiftRecordRepository(sharedRecords),
@@ -106,6 +113,7 @@ export class SystemDbRepositoryFactory implements IRepositoryFactory, OnModuleDe
       strengthGoal: new InMemoryStrengthGoalRepository(),
       trainingMax: new InMemoryTrainingMaxRepository(),
       trainingMaxHistory: new InMemoryTrainingMaxHistoryRepository(),
+      userSettings: new InMemoryUserSettingsRepository(),
       workout: new InMemoryWorkoutRepository(sharedRecords),
       workoutDateOverride: new InMemoryWorkoutDateOverrideRepository(),
       workoutLiftOverride: new InMemoryWorkoutLiftOverrideRepository(),
