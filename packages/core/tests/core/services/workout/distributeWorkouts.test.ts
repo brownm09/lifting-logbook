@@ -5,9 +5,10 @@ import {
 } from "@src/core/services/workout/distributeWorkouts";
 
 // All test dates use local time to match addDaysLocal in the implementation.
-// 2026-05-18 is a Monday; 2026-05-20 is a Wednesday.
-const MON_2026_05_18 = new Date(2026, 4, 18);
-const WED_2026_05_20 = new Date(2026, 4, 20);
+// JS Date months are 0-indexed: 4 = May. 2026-05-18 is a Monday; 2026-05-20 is a Wednesday.
+const MAY = 4;
+const MON_2026_05_18 = new Date(2026, MAY, 18);
+const WED_2026_05_20 = new Date(2026, MAY, 20);
 
 function ymd(d: Date): string {
   const y = d.getFullYear();
@@ -98,7 +99,7 @@ describe("distributeWorkouts", () => {
     const result = distributeWorkouts(1, schedule, MON_2026_05_18);
 
     expect(result).toEqual([
-      { week: 1, workouts: [new Date(2026, 4, 20)] },
+      { week: 1, workouts: [new Date(2026, MAY, 20)] },
     ]);
   });
 
@@ -121,6 +122,16 @@ describe("distributeWorkouts", () => {
       days: [DAY_INDEX.MON],
     };
     expect(distributeWorkouts(0, schedule, MON_2026_05_18)).toEqual([]);
+  });
+
+  it("throws when cycleWorkouts is negative", () => {
+    const schedule: UserWorkoutSchedule = {
+      type: "fixed",
+      days: [DAY_INDEX.MON],
+    };
+    expect(() => distributeWorkouts(-1, schedule, MON_2026_05_18)).toThrow(
+      /non-negative/,
+    );
   });
 });
 
