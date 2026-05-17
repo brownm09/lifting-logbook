@@ -148,10 +148,8 @@ test('programs page catalog loads and switch dialog can be opened', async ({ pag
 
   await expect(page.getByRole('heading', { name: 'Programs' })).toBeVisible();
 
-  // RPT is visible by default (experience filter starts at "all"); no filter click needed
-  await page.getByRole('button', { name: /Reverse Pyramid Training/i }).click();
-
-  // "Choose This Program" opens the switch confirmation dialog
+  // RPT is the only available program. "Choose This Program" is always visible in the
+  // collapsed card actions row — no need to expand "View Details" first.
   await page.getByRole('button', { name: 'Choose This Program' }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Confirm Switch' })).toBeVisible();
