@@ -44,7 +44,7 @@ function phaseStatus(
   const summaries = weeks.map((w) => weekMap.get(w));
   if (summaries.every((s) => s?.completed)) return 'completed';
   const hasStarted = summaries.some((s) =>
-    s?.workoutDates.some((d) => d <= today),
+    s?.workouts.some((w) => w.date <= today),
   );
   return hasStarted ? 'in-progress' : 'upcoming';
 }

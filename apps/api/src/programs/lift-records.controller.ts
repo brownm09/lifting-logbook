@@ -58,12 +58,22 @@ export class LiftRecordsController {
     @Body() body: CreateLiftRecordRequest,
     @CurrentUser() user: AuthUser,
   ): Promise<LiftRecordResponse> {
-    const { liftRecord } = await this.factory.forUser(user);
+    const { liftRecord, cycleScheduledWorkout } = await this.factory.forUser(user);
+
+    let effectiveDate: Date;
+    if (body.date) {
+      effectiveDate = new Date(body.date);
+    } else {
+      const scheduled = await cycleScheduledWorkout.getScheduledWorkouts(program, body.cycleNum);
+      const match = scheduled.find((s) => s.workoutNum === body.workoutNum);
+      effectiveDate = match?.scheduledDate ?? new Date();
+    }
+
     const record = {
       program,
       cycleNum: body.cycleNum,
       workoutNum: body.workoutNum,
-      date: new Date(body.date),
+      date: effectiveDate,
       lift: body.lift,
       setNum: body.setNum,
       weight: body.weight,

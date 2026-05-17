@@ -1,6 +1,7 @@
-import { LiftingProgramSpec } from '@lifting-logbook/core';
-import { applyLiftOverrides, toWorkoutResponse, weekForWorkoutNum } from './mappers';
+import { CycleDashboard, LiftingProgramSpec, Weekday } from '@lifting-logbook/core';
+import { applyLiftOverrides, buildCycleDashboardResponse, toWorkoutResponse, weekForWorkoutNum } from './mappers';
 import { LiftOverride } from '../ports/IWorkoutLiftOverrideRepository';
+import { ScheduledWorkout } from '../ports/ICycleScheduledWorkoutRepository';
 
 const baseFields: Omit<LiftingProgramSpec, 'offset' | 'lift' | 'week'> = {
   increment: 5,
@@ -158,5 +159,76 @@ describe('toWorkoutResponse with plannedLifts', () => {
     const records = [record('Squat', 1, 200)];
     const result = toWorkoutResponse(program, cycleNum, workoutNum, week, records);
     expect(result.lifts[0]).toMatchObject({ lift: 'Squat', planned: false });
+  });
+
+  it('uses scheduledDate as date when no records exist', () => {
+    const scheduledDate = new Date('2026-06-02T00:00:00.000Z');
+    const result = toWorkoutResponse(program, cycleNum, workoutNum, week, [], undefined, undefined, scheduledDate);
+    expect(result.date).toBe('2026-06-02');
+  });
+
+  it('prefers first record date over scheduledDate when records exist', () => {
+    const records = [record('Squat', 1, 200)];
+    const scheduledDate = new Date('2026-06-02T00:00:00.000Z');
+    const result = toWorkoutResponse(program, cycleNum, workoutNum, week, records, undefined, undefined, scheduledDate);
+    expect(result.date).toBe(records[0]!.date.toISOString().slice(0, 10));
+  });
+});
+
+describe('buildCycleDashboardResponse', () => {
+  const baseDashboard: CycleDashboard = {
+    program: 'test-531',
+    cycleNum: 1,
+    cycleDate: new Date('2026-05-19T00:00:00.000Z'),
+    currentWeekType: 1,
+    cycleUnit: 'week',
+    sheetName: 'Sheet1',
+    cycleStartWeekday: Weekday.Monday,
+  };
+
+  const sw = (workoutNum: number, weekNum: number, date: string): ScheduledWorkout => ({
+    workoutNum,
+    weekNum,
+    scheduledDate: new Date(`${date}T00:00:00.000Z`),
+  });
+
+  it('returns base response when scheduled array is empty', () => {
+    const result = buildCycleDashboardResponse(baseDashboard, [], new Map(), new Set());
+    expect(result.weeks).toEqual([]);
+  });
+
+  it('emits workouts[] with workoutNum and date per entry', () => {
+    const scheduled = [sw(1, 1, '2026-05-19'), sw(2, 1, '2026-05-21'), sw(3, 2, '2026-05-26')];
+    const result = buildCycleDashboardResponse(baseDashboard, scheduled, new Map(), new Set());
+    expect(result.weeks).toHaveLength(2);
+    const week1 = result.weeks[0]!;
+    expect(week1.week).toBe(1);
+    expect(week1.workouts).toHaveLength(2);
+    expect(week1.workouts[0]).toEqual({ workoutNum: 1, date: '2026-05-19' });
+    expect(week1.workouts[1]).toEqual({ workoutNum: 2, date: '2026-05-21' });
+    expect(week1.completed).toBe(false);
+    const week2 = result.weeks[1]!;
+    expect(week2.workouts[0]).toEqual({ workoutNum: 3, date: '2026-05-26' });
+  });
+
+  it('applies override date when present', () => {
+    const scheduled = [sw(1, 1, '2026-05-19')];
+    const overrides = new Map([[1, new Date('2026-05-20T00:00:00.000Z')]]);
+    const result = buildCycleDashboardResponse(baseDashboard, scheduled, overrides, new Set());
+    expect(result.weeks[0]!.workouts[0]).toEqual({ workoutNum: 1, date: '2026-05-20' });
+  });
+
+  it('marks week completed when all workouts have records', () => {
+    const scheduled = [sw(1, 1, '2026-05-19'), sw(2, 1, '2026-05-21')];
+    const completed = new Set([1, 2]);
+    const result = buildCycleDashboardResponse(baseDashboard, scheduled, new Map(), completed);
+    expect(result.weeks[0]!.completed).toBe(true);
+  });
+
+  it('week is incomplete when only some workouts have records', () => {
+    const scheduled = [sw(1, 1, '2026-05-19'), sw(2, 1, '2026-05-21')];
+    const completed = new Set([1]);
+    const result = buildCycleDashboardResponse(baseDashboard, scheduled, new Map(), completed);
+    expect(result.weeks[0]!.completed).toBe(false);
   });
 });

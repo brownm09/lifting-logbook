@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Weekday } from '@lifting-logbook/core';
 import { ICycleDashboardRepository } from '../ports/ICycleDashboardRepository';
+import { ICycleScheduledWorkoutRepository } from '../ports/ICycleScheduledWorkoutRepository';
 import { ILiftingProgramSpecRepository } from '../ports/ILiftingProgramSpecRepository';
 import { IWorkoutDateOverrideRepository } from '../ports/IWorkoutDateOverrideRepository';
 import { IWorkoutLiftOverrideRepository } from '../ports/IWorkoutLiftOverrideRepository';
@@ -20,6 +21,7 @@ describe('WorkoutsController', () => {
   let specRepo: jest.Mocked<ILiftingProgramSpecRepository>;
   let overrideRepo: jest.Mocked<IWorkoutDateOverrideRepository>;
   let liftOverrideRepo: jest.Mocked<IWorkoutLiftOverrideRepository>;
+  let scheduledWorkoutRepo: jest.Mocked<ICycleScheduledWorkoutRepository>;
   let factory: jest.Mocked<IRepositoryFactory>;
 
   beforeEach(async () => {
@@ -38,10 +40,15 @@ describe('WorkoutsController', () => {
       upsertOverride: jest.fn().mockResolvedValue(undefined),
       deleteOverride: jest.fn().mockResolvedValue(undefined),
     };
+    scheduledWorkoutRepo = {
+      getScheduledWorkouts: jest.fn().mockResolvedValue([]),
+      saveScheduledWorkouts: jest.fn().mockResolvedValue(undefined),
+    };
     factory = {
       forUser: jest.fn().mockResolvedValue({
         workout: workoutRepo,
         cycleDashboard: dashboardRepo,
+        cycleScheduledWorkout: scheduledWorkoutRepo,
         liftingProgramSpec: specRepo,
         workoutDateOverride: overrideRepo,
         workoutLiftOverride: liftOverrideRepo,

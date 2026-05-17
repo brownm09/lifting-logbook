@@ -119,7 +119,8 @@ export interface CreateLiftRecordRequest {
   program: string;
   cycleNum: CycleNumber;
   workoutNum: number;
-  date: string; // ISO 8601 date string
+  /** ISO 8601 date string. When omitted the server uses the scheduled date for this workout, falling back to today. */
+  date?: string;
   lift: LiftName;
   setNum: number;
   weight: number;
@@ -178,10 +179,16 @@ export interface UpsertStrengthGoalRequest {
 // Cycle Dashboard
 // ---------------------------------------------------------------------------
 
+/** Per-workout entry within a cycle week summary. */
+export interface WorkoutSummary {
+  workoutNum: number;
+  date: string; // ISO 8601 scheduled date
+}
+
 /** Per-week summary within a cycle dashboard. */
 export interface CycleWeekSummary {
   week: WeekNumber;
-  workoutDates: string[]; // ISO 8601 date strings
+  workouts: WorkoutSummary[];
   completed: boolean;
 }
 

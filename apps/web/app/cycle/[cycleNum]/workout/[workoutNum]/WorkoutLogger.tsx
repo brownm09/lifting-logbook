@@ -478,6 +478,9 @@ export default function WorkoutLogger({
 }: WorkoutLoggerProps) {
   const router = useRouter();
 
+  // Editable date — initialized from the server-provided scheduled date, user can override.
+  const [effectiveDate, setEffectiveDate] = useState(date);
+
   // Initialize loggedSets from any pre-existing records passed via server props
   const [loggedSets, setLoggedSets] = useState<Map<string, LiftRecordResponse>>(
     () => {
@@ -503,7 +506,7 @@ export default function WorkoutLogger({
 
   async function handleBodyWeightSubmit(weight: number) {
     await recordBodyWeight(program, {
-      date,
+      date: effectiveDate,
       weight,
       unit: 'lbs',
     });
@@ -594,6 +597,21 @@ export default function WorkoutLogger({
         </button>
       </header>
 
+      {!isReadOnly && (
+        <div className={styles.dateRow}>
+          <label className={styles.dateLabel} htmlFor="workout-date">
+            Date
+          </label>
+          <input
+            id="workout-date"
+            className={styles.dateInput}
+            type="date"
+            value={effectiveDate}
+            onChange={(e) => setEffectiveDate(e.target.value)}
+          />
+        </div>
+      )}
+
       {/* Navigation dots */}
       <nav className={styles.navDots} aria-label="Exercise navigation">
         {lifts.map((lift, i) => {
@@ -624,7 +642,7 @@ export default function WorkoutLogger({
           program={program}
           cycleNum={cycleNum}
           workoutNum={workoutNum}
-          date={date}
+          date={effectiveDate}
           onLogged={handleLogged}
           onEditStart={handleEditStart}
           onEditSave={handleEditSave}
