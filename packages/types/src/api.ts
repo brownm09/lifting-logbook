@@ -281,8 +281,21 @@ export interface LiftingProgramSpecResponse {
 // User Settings
 // ---------------------------------------------------------------------------
 
+export interface UserWorkoutSchedule {
+  type: 'fixed' | 'rotating';
+  /** For fixed schedules: array of day indices (0=Mon, 6=Sun). */
+  days?: number[];
+  /** For rotating schedules: array of week patterns, each containing day indices. */
+  weeks?: number[][];
+}
+
 export interface UserSettingsResponse {
   activeProgram: string | null;
+  workoutSchedule: UserWorkoutSchedule | null;
+}
+
+export interface UpdateUserSettingsRequest {
+  workoutSchedule?: UserWorkoutSchedule | null;
 }
 
 // ---------------------------------------------------------------------------

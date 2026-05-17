@@ -135,8 +135,9 @@ model LiftMetadata {
 }
 
 model UserSettings {
-  userId        String  @id
-  activeProgram String?
+  userId          String  @id
+  activeProgram   String?
+  workoutSchedule Json?
 
   @@map("user_settings")
 }

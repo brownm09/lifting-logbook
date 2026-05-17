@@ -20,6 +20,7 @@ import type {
   UpdateCustomProgramRequest,
   UpdateLiftRecordRequest,
   UpdateTrainingMaxesRequest,
+  UpdateUserSettingsRequest,
   UserSettingsResponse,
   WorkoutResponse,
 } from '@lifting-logbook/types';
@@ -291,6 +292,17 @@ export function fetchLiftMetadata(lift: string): Promise<LiftMetadataResponse> {
 
 export function fetchUserSettings(): Promise<UserSettingsResponse> {
   return apiFetch<UserSettingsResponse>('/users/me/settings', { cache: 'no-store' });
+}
+
+export function updateUserSettings(
+  body: UpdateUserSettingsRequest,
+): Promise<UserSettingsResponse> {
+  return apiFetch<UserSettingsResponse>('/users/me/settings', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    cache: 'no-store',
+  });
 }
 
 export function switchProgram(programId: string): Promise<SwitchProgramResponse> {
