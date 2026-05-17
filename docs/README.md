@@ -168,6 +168,20 @@ monorepo/
 
 ---
 
+## Feature Design Documents
+
+Design, proposal, and prototype artifacts live under three sibling directories:
+
+| Directory | Purpose |
+|-----------|---------|
+| [`docs/design/`](design/) | Integration design docs: data model, API contracts, algorithm pseudo-code, testing strategy |
+| [`docs/proposals/`](proposals/) | Feature proposals created via `/propose`: problem statement, acceptance criteria, phased roadmap |
+| [`docs/mockups/`](mockups/) | Interactive HTML prototypes for UI features |
+
+Proposals link to their corresponding design doc and mockup. See [`docs/proposals/README.md`](proposals/README.md) for the proposal lifecycle (`draft` → `accepted` → `shipped`).
+
+---
+
 ## Architecture Diagrams
 
 Visual representations of the system are in [`docs/diagrams/`](diagrams/):
