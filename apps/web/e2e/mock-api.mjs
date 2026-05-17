@@ -1,0 +1,317 @@
+// Lightweight mock API server for Playwright E2E tests.
+// Started by playwright.config.ts via webServer; Next.js is pointed at it via API_URL.
+// No npm dependencies — plain Node.js http module only.
+import { createServer } from 'node:http';
+
+// ---------------------------------------------------------------------------
+// Canned data
+// ---------------------------------------------------------------------------
+
+const CYCLE_DASHBOARD = {
+  program: '5-3-1',
+  cycleNum: 1,
+  cycleStartDate: '2025-01-06',
+  currentWeekType: 'regular',
+  weeks: [
+    {
+      week: 1,
+      completed: false,
+      workouts: [
+        { workoutNum: 1, date: '2025-01-06', skipped: false },
+        { workoutNum: 2, date: '2025-01-08', skipped: false },
+        { workoutNum: 3, date: '2025-01-10', skipped: false },
+      ],
+    },
+  ],
+};
+
+const WORKOUT = {
+  program: '5-3-1',
+  cycleNum: 1,
+  workoutNum: 1,
+  week: 1,
+  date: '2025-01-06',
+  lifts: [
+    {
+      lift: 'squat',
+      planned: true,
+      sets: [
+        { setNum: 1, weight: 195, reps: 5, amrap: false },
+        { setNum: 2, weight: 225, reps: 5, amrap: false },
+        { setNum: 3, weight: 255, reps: 5, amrap: true },
+      ],
+    },
+    {
+      lift: 'deadlift',
+      planned: true,
+      sets: [
+        { setNum: 1, weight: 230, reps: 5, amrap: false },
+        { setNum: 2, weight: 265, reps: 5, amrap: false },
+        { setNum: 3, weight: 300, reps: 5, amrap: true },
+      ],
+    },
+  ],
+};
+
+const PROGRAM_SPEC = [
+  { week: 1, lift: 'squat', order: 1, offset: 0, increment: 5, sets: 3, reps: 5, amrap: true, warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0, activation: 'none' },
+  { week: 1, lift: 'deadlift', order: 2, offset: 0, increment: 5, sets: 3, reps: 5, amrap: true, warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0, activation: 'none' },
+  { week: 1, lift: 'bench-press', order: 3, offset: 0, increment: 5, sets: 3, reps: 5, amrap: true, warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0, activation: 'none' },
+  { week: 1, lift: 'overhead-press', order: 4, offset: 0, increment: 5, sets: 3, reps: 5, amrap: true, warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0, activation: 'none' },
+];
+
+const TM_HISTORY = {
+  entries: [
+    { id: 'h1', lift: 'squat', weight: 300, unit: 'lbs', date: '2025-01-01', isPR: false, source: 'test', goalMet: false },
+    { id: 'h2', lift: 'bench-press', weight: 200, unit: 'lbs', date: '2025-01-01', isPR: false, source: 'test', goalMet: false },
+    { id: 'h3', lift: 'deadlift', weight: 350, unit: 'lbs', date: '2025-01-01', isPR: false, source: 'test', goalMet: false },
+    { id: 'h4', lift: 'overhead-press', weight: 135, unit: 'lbs', date: '2025-01-01', isPR: false, source: 'test', goalMet: false },
+  ],
+};
+
+const INITIAL_TRAINING_MAXES = [
+  { lift: 'squat', weight: 300, unit: 'lbs', dateUpdated: '2025-01-01' },
+  { lift: 'bench-press', weight: 200, unit: 'lbs', dateUpdated: '2025-01-01' },
+  { lift: 'deadlift', weight: 350, unit: 'lbs', dateUpdated: '2025-01-01' },
+  { lift: 'overhead-press', weight: 135, unit: 'lbs', dateUpdated: '2025-01-01' },
+];
+
+const LIFT_RECORDS = [
+  { id: 'r1', program: '5-3-1', cycleNum: 1, workoutNum: 1, date: '2025-01-06', lift: 'squat', setNum: 1, weight: 195, reps: 5, notes: '' },
+  { id: 'r2', program: '5-3-1', cycleNum: 1, workoutNum: 1, date: '2025-01-06', lift: 'deadlift', setNum: 1, weight: 230, reps: 5, notes: '' },
+];
+
+// ---------------------------------------------------------------------------
+// In-memory state (reset between tests via GET /__reset)
+// ---------------------------------------------------------------------------
+
+function createInitialState() {
+  return {
+    noCurrentCycle: false,
+    trainingMaxes: structuredClone(INITIAL_TRAINING_MAXES),
+    strengthGoals: [],
+  };
+}
+
+let state = createInitialState();
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function json(res, data, status = 200) {
+  res.writeHead(status, {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+  });
+  res.end(JSON.stringify(data));
+}
+
+function noContent(res) {
+  res.writeHead(204, { 'Access-Control-Allow-Origin': '*' });
+  res.end();
+}
+
+async function readBody(req) {
+  return new Promise((resolve) => {
+    let body = '';
+    req.on('data', (chunk) => (body += chunk));
+    req.on('end', () => {
+      try {
+        resolve(JSON.parse(body));
+      } catch {
+        resolve({});
+      }
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Router
+// ---------------------------------------------------------------------------
+
+const server = createServer(async (req, res) => {
+  const url = new URL(req.url, 'http://localhost:3004');
+  const parts = url.pathname.split('/').filter(Boolean);
+  const method = req.method;
+
+  // CORS preflight
+  if (method === 'OPTIONS') {
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': '*',
+      'Access-Control-Allow-Headers': '*',
+    });
+    res.end();
+    return;
+  }
+
+  // -------------------------------------------------------------------------
+  // Test control: reset state between tests
+  // GET /__reset           — reset to defaults
+  // GET /__reset?noCurrentCycle=true — reset with no active cycle
+  // -------------------------------------------------------------------------
+  if (url.pathname === '/__reset') {
+    state = createInitialState();
+    if (url.searchParams.get('noCurrentCycle') === 'true') {
+      state.noCurrentCycle = true;
+    }
+    json(res, { ok: true });
+    return;
+  }
+
+  // -------------------------------------------------------------------------
+  // GET /users/me/settings
+  // -------------------------------------------------------------------------
+  if (method === 'GET' && url.pathname === '/users/me/settings') {
+    json(res, { activeProgram: '5-3-1', workoutSchedule: null });
+    return;
+  }
+
+  // -------------------------------------------------------------------------
+  // GET /programs/custom
+  // -------------------------------------------------------------------------
+  if (method === 'GET' && url.pathname === '/programs/custom') {
+    json(res, []);
+    return;
+  }
+
+  // -------------------------------------------------------------------------
+  // Program-scoped routes: /programs/:program/...
+  // -------------------------------------------------------------------------
+  if (parts[0] === 'programs' && parts.length >= 3) {
+    const rest = parts.slice(2);
+
+    // GET /programs/:p/cycles/current
+    if (method === 'GET' && rest[0] === 'cycles' && rest[1] === 'current') {
+      if (state.noCurrentCycle) {
+        json(res, { statusCode: 404, message: 'No active cycle' }, 404);
+      } else {
+        json(res, CYCLE_DASHBOARD);
+      }
+      return;
+    }
+
+    // POST /programs/:p/cycles/initialize
+    if (method === 'POST' && rest[0] === 'cycles' && rest[1] === 'initialize') {
+      json(res, CYCLE_DASHBOARD);
+      return;
+    }
+
+    // GET /programs/:p/workouts/:workoutNum
+    if (method === 'GET' && rest[0] === 'workouts' && rest.length === 2) {
+      json(res, WORKOUT);
+      return;
+    }
+
+    // GET /programs/:p/spec
+    if (method === 'GET' && rest[0] === 'spec') {
+      json(res, PROGRAM_SPEC);
+      return;
+    }
+
+    // GET /programs/:p/training-maxes
+    if (method === 'GET' && rest[0] === 'training-maxes' && rest.length === 1) {
+      json(res, state.trainingMaxes);
+      return;
+    }
+
+    // PATCH /programs/:p/training-maxes
+    if (method === 'PATCH' && rest[0] === 'training-maxes' && rest.length === 1) {
+      const body = await readBody(req);
+      if (Array.isArray(body.maxes)) {
+        for (const update of body.maxes) {
+          const existing = state.trainingMaxes.find((m) => m.lift === update.lift);
+          if (existing) {
+            existing.weight = update.weight;
+            existing.unit = update.unit;
+            existing.dateUpdated = new Date().toISOString().split('T')[0];
+          }
+        }
+      }
+      json(res, state.trainingMaxes);
+      return;
+    }
+
+    // GET /programs/:p/training-maxes/history
+    if (method === 'GET' && rest[0] === 'training-maxes' && rest[1] === 'history') {
+      json(res, TM_HISTORY);
+      return;
+    }
+
+    // GET /programs/:p/lift-records
+    if (method === 'GET' && rest[0] === 'lift-records' && rest.length === 1) {
+      json(res, LIFT_RECORDS);
+      return;
+    }
+
+    // POST /programs/:p/lift-records
+    if (method === 'POST' && rest[0] === 'lift-records' && rest.length === 1) {
+      const body = await readBody(req);
+      const record = { id: `r-${Date.now()}`, ...body };
+      json(res, record, 201);
+      return;
+    }
+
+    // GET /programs/:p/strength-goals
+    if (method === 'GET' && rest[0] === 'strength-goals' && rest.length === 1) {
+      json(res, state.strengthGoals);
+      return;
+    }
+
+    // PUT /programs/:p/strength-goals/:lift
+    if (method === 'PUT' && rest[0] === 'strength-goals' && rest.length === 2) {
+      const lift = decodeURIComponent(rest[1]);
+      const body = await readBody(req);
+      const goal = { lift, ...body, updatedAt: new Date().toISOString() };
+      const idx = state.strengthGoals.findIndex((g) => g.lift === lift);
+      if (idx >= 0) {
+        state.strengthGoals[idx] = goal;
+      } else {
+        state.strengthGoals.push(goal);
+      }
+      json(res, goal);
+      return;
+    }
+
+    // DELETE /programs/:p/strength-goals/:lift
+    if (method === 'DELETE' && rest[0] === 'strength-goals' && rest.length === 2) {
+      const lift = decodeURIComponent(rest[1]);
+      state.strengthGoals = state.strengthGoals.filter((g) => g.lift !== lift);
+      noContent(res);
+      return;
+    }
+
+    // GET /programs/:p/body-weight/latest
+    if (method === 'GET' && rest[0] === 'body-weight' && rest[1] === 'latest') {
+      json(res, { statusCode: 404, message: 'Not found' }, 404);
+      return;
+    }
+
+    // POST /programs/:p/body-weight
+    if (method === 'POST' && rest[0] === 'body-weight' && rest.length === 1) {
+      noContent(res);
+      return;
+    }
+
+    // POST /programs/:p/switch
+    if (method === 'POST' && rest[0] === 'switch') {
+      json(res, { activeProgram: parts[1], cycleNum: 1 });
+      return;
+    }
+
+    // GET /programs/:p/lifts
+    if (method === 'GET' && rest[0] === 'lifts' && rest.length === 1) {
+      json(res, ['squat', 'bench-press', 'deadlift', 'overhead-press', 'barbell-row']);
+      return;
+    }
+  }
+
+  // 404 fallback
+  console.warn(`[mock-api] Unhandled: ${method} ${url.pathname}`);
+  json(res, { statusCode: 404, message: `Not found: ${method} ${url.pathname}` }, 404);
+});
+
+server.listen(3004, () => {
+  console.log('[mock-api] Listening on http://localhost:3004');
+});
