@@ -281,8 +281,87 @@ export interface LiftingProgramSpecResponse {
 // User Settings
 // ---------------------------------------------------------------------------
 
+/**
+ * Day-of-week convention used throughout the schedule subsystem.
+ * 0 = Monday … 6 = Sunday.
+ *
+ * IMPORTANT: do NOT use JavaScript's `Date.getDay()` directly — it returns
+ * 0=Sunday. Convert via `(d.getDay() + 6) % 7` to land in this convention.
+ */
+export const DAY_INDEX = {
+  MON: 0,
+  TUE: 1,
+  WED: 2,
+  THU: 3,
+  FRI: 4,
+  SAT: 5,
+  SUN: 6,
+} as const;
+
+/** Upper bounds enforced at both the write (DTO) and read (parseSchedule) boundaries. */
+export const SCHEDULE_LIMITS = {
+  MAX_DAYS_PER_WEEK: 7,
+  MAX_ROTATING_WEEKS: 8,
+} as const;
+
+export interface UserWorkoutSchedule {
+  type: 'fixed' | 'rotating';
+  /** For fixed schedules: array of day indices using `DAY_INDEX` (0=Mon … 6=Sun). */
+  days?: number[];
+  /** For rotating schedules: array of week patterns, each containing day indices. */
+  weeks?: number[][];
+}
+
+/**
+ * Single source of truth for `UserWorkoutSchedule` shape validation.
+ * Used by the API DTO write-side check and the repository read-side guard
+ * so the two boundaries cannot drift (e.g., upper bounds tightened in only
+ * one place). Returns the value narrowed to `UserWorkoutSchedule` when valid.
+ */
+export function isValidSchedule(value: unknown): value is UserWorkoutSchedule {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  const v = value as { type?: unknown; days?: unknown; weeks?: unknown };
+  const isDayIdx = (d: unknown): d is number =>
+    Number.isInteger(d) && (d as number) >= 0 && (d as number) <= 6;
+
+  if (v.type === 'fixed') {
+    if (v.weeks !== undefined) return false;
+    if (!Array.isArray(v.days)) return false;
+    if (v.days.length < 1 || v.days.length > SCHEDULE_LIMITS.MAX_DAYS_PER_WEEK) return false;
+    const seen = new Set<number>();
+    for (const d of v.days) {
+      if (!isDayIdx(d) || seen.has(d)) return false;
+      seen.add(d);
+    }
+    return true;
+  }
+
+  if (v.type === 'rotating') {
+    if (v.days !== undefined) return false;
+    if (!Array.isArray(v.weeks)) return false;
+    if (v.weeks.length < 1 || v.weeks.length > SCHEDULE_LIMITS.MAX_ROTATING_WEEKS) return false;
+    for (const week of v.weeks) {
+      if (!Array.isArray(week)) return false;
+      if (week.length < 1 || week.length > SCHEDULE_LIMITS.MAX_DAYS_PER_WEEK) return false;
+      const seen = new Set<number>();
+      for (const d of week) {
+        if (!isDayIdx(d) || seen.has(d)) return false;
+        seen.add(d);
+      }
+    }
+    return true;
+  }
+
+  return false;
+}
+
 export interface UserSettingsResponse {
   activeProgram: string | null;
+  workoutSchedule: UserWorkoutSchedule | null;
+}
+
+export interface UpdateUserSettingsRequest {
+  workoutSchedule?: UserWorkoutSchedule | null;
 }
 
 // ---------------------------------------------------------------------------

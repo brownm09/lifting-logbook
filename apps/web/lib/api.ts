@@ -20,6 +20,7 @@ import type {
   UpdateCustomProgramRequest,
   UpdateLiftRecordRequest,
   UpdateTrainingMaxesRequest,
+  UpdateUserSettingsRequest,
   UserSettingsResponse,
   WorkoutResponse,
 } from '@lifting-logbook/types';
@@ -44,6 +45,20 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
   }
 }
 
+// NestJS ValidationPipe returns { statusCode, message: string | string[], error }.
+// Surface that detail so client-side error UIs can show actionable text instead of just
+// "Request failed: 400".
+async function extractErrorMessage(res: Response, path: string): Promise<string> {
+  try {
+    const body = (await res.json()) as { message?: string | string[] };
+    if (Array.isArray(body.message)) return body.message.join('; ');
+    if (typeof body.message === 'string') return body.message;
+  } catch {
+    // fall through to generic
+  }
+  return `API ${res.status} ${res.statusText} for ${path}`;
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const authHeaders = await getAuthHeaders();
   const res = await fetch(`${API_URL}${path}`, {
@@ -51,7 +66,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { ...(init?.headers as Record<string, string> | undefined), ...authHeaders },
   });
   if (!res.ok) {
-    throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
+    throw new Error(await extractErrorMessage(res, path));
   }
   return res.json() as Promise<T>;
 }
@@ -291,6 +306,17 @@ export function fetchLiftMetadata(lift: string): Promise<LiftMetadataResponse> {
 
 export function fetchUserSettings(): Promise<UserSettingsResponse> {
   return apiFetch<UserSettingsResponse>('/users/me/settings', { cache: 'no-store' });
+}
+
+export function updateUserSettings(
+  body: UpdateUserSettingsRequest,
+): Promise<UserSettingsResponse> {
+  return apiFetch<UserSettingsResponse>('/users/me/settings', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    cache: 'no-store',
+  });
 }
 
 export function switchProgram(programId: string): Promise<SwitchProgramResponse> {
