@@ -6,6 +6,7 @@ import type { LiftRecordResponse } from '@lifting-logbook/types';
 import {
   createLiftRecord,
   recordBodyWeight,
+  rescheduleWorkout,
   updateLiftRecord,
 } from '@/lib/client-api';
 import styles from './WorkoutLogger.module.css';
@@ -598,20 +599,28 @@ export default function WorkoutLogger({
         </button>
       </header>
 
-      {!isReadOnly && (
-        <div className={styles.dateRow}>
-          <label className={styles.dateLabel} htmlFor="workout-date">
-            Date
-          </label>
-          <input
-            id="workout-date"
-            className={styles.dateInput}
-            type="date"
-            value={effectiveDate}
-            onChange={(e) => setEffectiveDate(e.target.value)}
-          />
-        </div>
-      )}
+      <div className={styles.dateRow}>
+        <label className={styles.dateLabel} htmlFor="workout-date">
+          Date
+        </label>
+        <input
+          id="workout-date"
+          className={styles.dateInput}
+          type="date"
+          value={effectiveDate}
+          onChange={(e) => {
+            const newDate = e.target.value;
+            const prevDate = effectiveDate;
+            setEffectiveDate(newDate);
+            if (isReadOnly) {
+              rescheduleWorkout(program, cycleNum, workoutNum, newDate).catch((err) => {
+                console.error(err);
+                setEffectiveDate(prevDate);
+              });
+            }
+          }}
+        />
+      </div>
 
       {/* Navigation dots */}
       <nav className={styles.navDots} aria-label="Exercise navigation">
