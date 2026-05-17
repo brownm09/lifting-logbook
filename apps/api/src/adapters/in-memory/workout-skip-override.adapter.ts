@@ -11,7 +11,7 @@ export class InMemoryWorkoutSkipOverrideRepository implements IWorkoutSkipOverri
     return new Set(this.store.get(this.key(program, cycleNum)) ?? []);
   }
 
-  async skipWorkout(program: string, cycleNum: number, workoutNum: number): Promise<void> {
+  async skipWorkout(program: string, cycleNum: number, workoutNum: number, _reason?: string): Promise<void> {
     const k = this.key(program, cycleNum);
     const set = this.store.get(k) ?? new Set<number>();
     set.add(workoutNum);

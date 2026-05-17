@@ -9,6 +9,7 @@ import {
   Param,
   Post,
 } from '@nestjs/common';
+import { IsOptional, IsString } from 'class-validator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthUser } from '../ports/auth';
 import { IRepositoryFactory } from '../ports/factory';
@@ -16,6 +17,8 @@ import { REPOSITORY_FACTORY } from '../ports/tokens';
 import { isValidWorkoutNum } from './mappers';
 
 class SkipWorkoutDto {
+  @IsOptional()
+  @IsString()
   reason?: string;
 }
 
