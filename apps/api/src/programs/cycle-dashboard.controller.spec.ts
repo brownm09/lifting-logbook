@@ -1,7 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Weekday } from '@lifting-logbook/core';
 import { ICycleDashboardRepository } from '../ports/ICycleDashboardRepository';
+import { ICycleScheduledWorkoutRepository, ScheduledWorkout } from '../ports/ICycleScheduledWorkoutRepository';
+import { ILiftRecordRepository } from '../ports/ILiftRecordRepository';
 import { ILiftingProgramSpecRepository } from '../ports/ILiftingProgramSpecRepository';
+import { IWorkoutDateOverrideRepository } from '../ports/IWorkoutDateOverrideRepository';
 import { IRepositoryFactory } from '../ports/factory';
 import { REPOSITORY_FACTORY } from '../ports/tokens';
 import { CycleDashboardController } from './cycle-dashboard.controller';
@@ -34,10 +37,19 @@ const stubSpec = (weekType: 'training' | 'test' | 'deload' = 'training') => [{
   weekType,
 }];
 
+const stubScheduled = (): ScheduledWorkout[] => [
+  { workoutNum: 1, weekNum: 1, scheduledDate: new Date('2026-04-21T00:00:00.000Z') },
+  { workoutNum: 2, weekNum: 1, scheduledDate: new Date('2026-04-23T00:00:00.000Z') },
+  { workoutNum: 3, weekNum: 2, scheduledDate: new Date('2026-04-28T00:00:00.000Z') },
+];
+
 describe('CycleDashboardController', () => {
   let controller: CycleDashboardController;
   let repo: jest.Mocked<ICycleDashboardRepository>;
   let specRepo: jest.Mocked<ILiftingProgramSpecRepository>;
+  let scheduledRepo: jest.Mocked<ICycleScheduledWorkoutRepository>;
+  let liftRecordRepo: jest.Mocked<ILiftRecordRepository>;
+  let overrideRepo: jest.Mocked<IWorkoutDateOverrideRepository>;
   let factory: jest.Mocked<IRepositoryFactory>;
 
   beforeEach(async () => {
@@ -46,10 +58,28 @@ describe('CycleDashboardController', () => {
       saveCycleDashboard: jest.fn(),
     };
     specRepo = { getProgramSpec: jest.fn() };
+    scheduledRepo = {
+      getScheduledWorkouts: jest.fn().mockResolvedValue([]),
+      saveScheduledWorkouts: jest.fn(),
+    };
+    liftRecordRepo = {
+      getLiftRecords: jest.fn().mockResolvedValue([]),
+      appendLiftRecords: jest.fn(),
+      findExistingRecords: jest.fn(),
+      updateLiftRecord: jest.fn(),
+    };
+    overrideRepo = {
+      getOverride: jest.fn().mockResolvedValue(null),
+      getOverridesForCycle: jest.fn().mockResolvedValue(new Map()),
+      upsertOverride: jest.fn(),
+    };
     factory = {
       forUser: jest.fn().mockResolvedValue({
         cycleDashboard: repo,
+        cycleScheduledWorkout: scheduledRepo,
         liftingProgramSpec: specRepo,
+        liftRecord: liftRecordRepo,
+        workoutDateOverride: overrideRepo,
       }),
     };
 
@@ -85,5 +115,81 @@ describe('CycleDashboardController', () => {
     const result = await controller.getCurrentCycle('5-3-1', MOCK_USER);
 
     expect(result.currentWeekType).toBe('test');
+  });
+
+  it('returns weeks:[] when no scheduled workouts exist (no-schedule mode)', async () => {
+    repo.getCycleDashboard.mockResolvedValue(stubDashboard());
+    specRepo.getProgramSpec.mockResolvedValue(stubSpec());
+    scheduledRepo.getScheduledWorkouts.mockResolvedValue([]);
+
+    const result = await controller.getCurrentCycle('5-3-1', MOCK_USER);
+
+    expect(result.weeks).toEqual([]);
+  });
+
+  it('returns populated weeks when scheduled workouts exist', async () => {
+    repo.getCycleDashboard.mockResolvedValue(stubDashboard());
+    specRepo.getProgramSpec.mockResolvedValue(stubSpec());
+    scheduledRepo.getScheduledWorkouts.mockResolvedValue(stubScheduled());
+
+    const result = await controller.getCurrentCycle('5-3-1', MOCK_USER);
+
+    expect(result.weeks).toHaveLength(2);
+    expect(result.weeks[0]).toEqual({
+      week: 1,
+      workoutDates: ['2026-04-21', '2026-04-23'],
+      completed: false,
+    });
+    expect(result.weeks[1]).toEqual({
+      week: 2,
+      workoutDates: ['2026-04-28'],
+      completed: false,
+    });
+  });
+
+  it('uses override date instead of scheduled date when override exists', async () => {
+    repo.getCycleDashboard.mockResolvedValue(stubDashboard());
+    specRepo.getProgramSpec.mockResolvedValue(stubSpec());
+    scheduledRepo.getScheduledWorkouts.mockResolvedValue([
+      { workoutNum: 1, weekNum: 1, scheduledDate: new Date('2026-04-21T00:00:00.000Z') },
+    ]);
+    overrideRepo.getOverridesForCycle.mockResolvedValue(new Map([[1, new Date('2026-04-25T00:00:00.000Z')]]));
+
+    const result = await controller.getCurrentCycle('5-3-1', MOCK_USER);
+
+    expect(result.weeks[0]?.workoutDates).toEqual(['2026-04-25']);
+  });
+
+  it('marks a week as completed when all its workouts have lift records', async () => {
+    repo.getCycleDashboard.mockResolvedValue(stubDashboard());
+    specRepo.getProgramSpec.mockResolvedValue(stubSpec());
+    scheduledRepo.getScheduledWorkouts.mockResolvedValue([
+      { workoutNum: 1, weekNum: 1, scheduledDate: new Date('2026-04-21T00:00:00.000Z') },
+      { workoutNum: 2, weekNum: 1, scheduledDate: new Date('2026-04-23T00:00:00.000Z') },
+    ]);
+    liftRecordRepo.getLiftRecords.mockResolvedValue([
+      { program: '5-3-1', cycleNum: 2, workoutNum: 1, date: new Date(), lift: 'Squat', setNum: 1, weight: 200, reps: 5, notes: '' },
+      { program: '5-3-1', cycleNum: 2, workoutNum: 2, date: new Date(), lift: 'Bench', setNum: 1, weight: 150, reps: 5, notes: '' },
+    ]);
+
+    const result = await controller.getCurrentCycle('5-3-1', MOCK_USER);
+
+    expect(result.weeks[0]?.completed).toBe(true);
+  });
+
+  it('marks a week as not completed when only some workouts have lift records', async () => {
+    repo.getCycleDashboard.mockResolvedValue(stubDashboard());
+    specRepo.getProgramSpec.mockResolvedValue(stubSpec());
+    scheduledRepo.getScheduledWorkouts.mockResolvedValue([
+      { workoutNum: 1, weekNum: 1, scheduledDate: new Date('2026-04-21T00:00:00.000Z') },
+      { workoutNum: 2, weekNum: 1, scheduledDate: new Date('2026-04-23T00:00:00.000Z') },
+    ]);
+    liftRecordRepo.getLiftRecords.mockResolvedValue([
+      { program: '5-3-1', cycleNum: 2, workoutNum: 1, date: new Date(), lift: 'Squat', setNum: 1, weight: 200, reps: 5, notes: '' },
+    ]);
+
+    const result = await controller.getCurrentCycle('5-3-1', MOCK_USER);
+
+    expect(result.weeks[0]?.completed).toBe(false);
   });
 });

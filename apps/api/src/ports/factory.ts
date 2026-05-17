@@ -1,5 +1,6 @@
 import { AuthUser } from './auth';
 import { ICycleDashboardRepository } from './ICycleDashboardRepository';
+import { ICycleScheduledWorkoutRepository } from './ICycleScheduledWorkoutRepository';
 import { ILiftMetadataRepository } from './ILiftMetadataRepository';
 import { ILiftingProgramSpecRepository } from './ILiftingProgramSpecRepository';
 import { ILiftRecordRepository } from './ILiftRecordRepository';
@@ -7,12 +8,14 @@ import { IProgramPhilosophyRepository } from './IProgramPhilosophyRepository';
 import { IStrengthGoalRepository } from './IStrengthGoalRepository';
 import { ITrainingMaxHistoryRepository } from './ITrainingMaxHistoryRepository';
 import { ITrainingMaxRepository } from './ITrainingMaxRepository';
+import { IUserSettingsRepository } from './IUserSettingsRepository';
 import { IWorkoutDateOverrideRepository } from './IWorkoutDateOverrideRepository';
 import { IWorkoutLiftOverrideRepository } from './IWorkoutLiftOverrideRepository';
 import { IWorkoutRepository } from './IWorkoutRepository';
 
 export interface RepositoryBundle {
   cycleDashboard: ICycleDashboardRepository;
+  cycleScheduledWorkout: ICycleScheduledWorkoutRepository;
   liftMetadata: ILiftMetadataRepository;
   liftingProgramSpec: ILiftingProgramSpecRepository;
   liftRecord: ILiftRecordRepository;
@@ -20,6 +23,7 @@ export interface RepositoryBundle {
   strengthGoal: IStrengthGoalRepository;
   trainingMax: ITrainingMaxRepository;
   trainingMaxHistory: ITrainingMaxHistoryRepository;
+  userSettings: IUserSettingsRepository;
   workout: IWorkoutRepository;
   workoutDateOverride: IWorkoutDateOverrideRepository;
   workoutLiftOverride: IWorkoutLiftOverrideRepository;

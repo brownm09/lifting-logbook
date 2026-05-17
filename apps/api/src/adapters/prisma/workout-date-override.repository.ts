@@ -27,6 +27,13 @@ export class PrismaWorkoutDateOverrideRepository
     return row?.newDate ?? null;
   }
 
+  async getOverridesForCycle(program: string, cycleNum: number): Promise<Map<number, Date>> {
+    const rows = await this.prisma.workoutDateOverride.findMany({
+      where: { userId: this.userId, program, cycleNum },
+    });
+    return new Map(rows.map((r) => [r.workoutNum, r.newDate]));
+  }
+
   async upsertOverride(
     program: string,
     cycleNum: number,

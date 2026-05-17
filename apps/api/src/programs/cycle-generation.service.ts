@@ -1,7 +1,11 @@
 import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import { UserWorkoutSchedule } from '@lifting-logbook/types';
 import {
   CycleDashboard,
+  LiftingProgramSpec,
+  distributeWorkouts,
   formatDateYYYYMMDD,
+  getScheduleWorkoutsPerWeek,
   MaxReductionFlag,
   TrainingMax,
   TrainingMaxHistoryEntry,
@@ -11,12 +15,19 @@ import {
   Weekday,
 } from '@lifting-logbook/core';
 import { RepositoryBundle } from '../ports';
+import { ScheduledWorkout } from '../ports/ICycleScheduledWorkoutRepository';
 import { ProgramNotFoundError } from '../ports/errors';
 import { StartNewCycleDto } from './start-new-cycle.dto';
 
 type CycleRepos = Pick<
   RepositoryBundle,
-  'cycleDashboard' | 'liftingProgramSpec' | 'trainingMax' | 'trainingMaxHistory' | 'liftRecord'
+  | 'cycleDashboard'
+  | 'cycleScheduledWorkout'
+  | 'liftingProgramSpec'
+  | 'liftRecord'
+  | 'trainingMax'
+  | 'trainingMaxHistory'
+  | 'userSettings'
 >;
 
 /**
@@ -40,6 +51,40 @@ const PROGRAM_DEFAULTS: Record<string, { cycleUnit: string; programType: string 
   'juggernaut': { cycleUnit: 'week', programType: 'juggernaut' },
   'creeping-death-2': { cycleUnit: 'week', programType: 'creeping-death-2' },
 };
+
+async function saveScheduledDates(
+  repos: Pick<CycleRepos, 'cycleScheduledWorkout'>,
+  program: string,
+  cycleNum: number,
+  cycleDate: Date,
+  programSpec: LiftingProgramSpec[],
+  workoutSchedule: UserWorkoutSchedule,
+): Promise<void> {
+  // numWeeks * workoutsPerWeek assumes schedule days/week equals program
+  // workouts/week. Phase 5 adds a user-confirmation prompt that validates
+  // this match before schedule mode is activated.
+  const numWeeks = Math.max(...programSpec.map((s) => s.week));
+  const workoutsPerWeek = getScheduleWorkoutsPerWeek(workoutSchedule);
+  const distributed = distributeWorkouts(numWeeks * workoutsPerWeek, workoutSchedule, cycleDate);
+
+  const workouts: ScheduledWorkout[] = [];
+  let workoutNum = 1;
+  let lastWeek = 0;
+  for (const week of distributed) {
+    if (week.week <= lastWeek) {
+      throw new Error(`distributeWorkouts returned out-of-order week: ${week.week}`);
+    }
+    lastWeek = week.week;
+    for (const date of week.workouts) {
+      workouts.push({ workoutNum, weekNum: week.week, scheduledDate: date });
+      workoutNum++;
+    }
+  }
+
+  if (workouts.length > 0) {
+    await repos.cycleScheduledWorkout.saveScheduledWorkouts(program, cycleNum, workouts);
+  }
+}
 
 function round1dp(w: number): number {
   return Math.round(w * 10) / 10;
@@ -104,9 +149,14 @@ export class CycleGenerationService {
     // to the caller when advancing a cycle. Use recalculateMaxes to review flagged reductions.
     const { maxes: newMaxes } = updateMaxes(programSpec, trainingMaxes, liftRecords);
 
-    // Write order: maxes before dashboard — if dashboard write fails, cycle counter
-    // hasn't advanced and a retry is safe. True atomicity requires a transaction.
+    // Write order: maxes → scheduled dates → dashboard. If dashboard write fails,
+    // cycleNum hasn't advanced in the dashboard so a retry is safe. Scheduled date
+    // rows use replace-all semantics and are idempotent across retries.
     await repos.trainingMax.saveTrainingMaxes(program, newMaxes);
+    const settings = await repos.userSettings.getSettings();
+    if (settings.workoutSchedule) {
+      await saveScheduledDates(repos, program, newCycle.cycleNum, newCycle.cycleDate, programSpec, settings.workoutSchedule);
+    }
     await repos.cycleDashboard.saveCycleDashboard(newCycle);
 
     const source = dashboard.currentWeekType === 'test' ? 'test' : 'program';
@@ -119,7 +169,7 @@ export class CycleGenerationService {
   }
 
   async initializeFirstCycle(
-    repos: Pick<CycleRepos, 'cycleDashboard'>,
+    repos: Pick<CycleRepos, 'cycleDashboard' | 'cycleScheduledWorkout' | 'liftingProgramSpec' | 'userSettings'>,
     program: string,
     dto: { cycleDate?: string } = {},
   ): Promise<CycleDashboard> {
@@ -160,6 +210,11 @@ export class CycleGenerationService {
       programType: defaults.programType,
     };
 
+    const settings = await repos.userSettings.getSettings();
+    if (settings.workoutSchedule) {
+      const spec = await repos.liftingProgramSpec.getProgramSpec(program);
+      await saveScheduledDates(repos, program, dashboard.cycleNum, dashboard.cycleDate, spec, settings.workoutSchedule);
+    }
     await repos.cycleDashboard.saveCycleDashboard(dashboard);
     return dashboard;
   }

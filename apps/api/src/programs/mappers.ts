@@ -9,6 +9,7 @@ import {
 import {
   CycleDashboardResponse,
   CyclePlanResponse,
+  CycleWeekSummary,
   LiftOverrideResponse,
   LiftRecordResponse,
   LiftingProgramSpecResponse,
@@ -21,6 +22,7 @@ import {
   WorkoutResponse,
 } from '@lifting-logbook/types';
 import { CyclePlanResult } from '../ports/ICyclePlanningAgent';
+import { ScheduledWorkout } from '../ports/ICycleScheduledWorkoutRepository';
 import { LiftOverride } from '../ports/IWorkoutLiftOverrideRepository';
 
 // All API date fields are emitted as `YYYY-MM-DD` in UTC. Domain `Date`
@@ -87,10 +89,8 @@ export const toLiftingProgramSpecResponse = (
 });
 
 /**
- * Maps a CycleDashboard to a CycleDashboardResponse.
- * Per-week summary composition (workout dates, completion status) requires
- * combining the dashboard with workouts and lift records — that belongs in a
- * core use case, not the mapper. Returns weeks=[] until that lands.
+ * Maps a CycleDashboard to a CycleDashboardResponse with no schedule data.
+ * Used when no scheduled workouts exist (no-schedule mode).
  */
 export const toCycleDashboardResponse = (
   d: CycleDashboard,
@@ -101,6 +101,51 @@ export const toCycleDashboardResponse = (
   weeks: [],
   currentWeekType: d.currentWeekType,
 });
+
+/**
+ * Builds a CycleDashboardResponse with per-week summaries derived from scheduled
+ * workout dates. When an override date exists for a workout it wins over the
+ * system-assigned scheduled date. A week is marked completed when every workout
+ * in that week has at least one lift record for the current cycle.
+ */
+export function buildCycleDashboardResponse(
+  d: CycleDashboard,
+  scheduled: ScheduledWorkout[],
+  overrides: Map<number, Date>,
+  completedWorkoutNums: Set<number>,
+): CycleDashboardResponse {
+  if (scheduled.length === 0) {
+    return toCycleDashboardResponse(d);
+  }
+
+  const weekAcc = new Map<number, { dates: string[]; workouts: ScheduledWorkout[] }>();
+  for (const sw of scheduled) {
+    const effectiveDate = overrides.get(sw.workoutNum) ?? sw.scheduledDate;
+    const acc = weekAcc.get(sw.weekNum) ?? { dates: [], workouts: [] };
+    acc.dates.push(isoDate(effectiveDate));
+    acc.workouts.push(sw);
+    weekAcc.set(sw.weekNum, acc);
+  }
+
+  const weeks: CycleWeekSummary[] = [...weekAcc.keys()]
+    .sort((a, b) => a - b)
+    .map((weekNum) => {
+      const { dates, workouts } = weekAcc.get(weekNum)!;
+      return {
+        week: weekNum as WeekNumber,
+        workoutDates: dates,
+        completed: workouts.every((sw) => completedWorkoutNums.has(sw.workoutNum)),
+      };
+    });
+
+  return {
+    program: d.program,
+    cycleNum: d.cycleNum,
+    cycleStartDate: isoDate(d.cycleDate),
+    weeks,
+    currentWeekType: d.currentWeekType,
+  };
+}
 
 export const toCyclePlanResponse = (r: CyclePlanResult): CyclePlanResponse => ({
   proposedChanges: r.proposedChanges.map((c) => ({

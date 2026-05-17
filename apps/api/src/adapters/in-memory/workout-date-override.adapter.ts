@@ -11,6 +11,17 @@ export class InMemoryWorkoutDateOverrideRepository
     return `${program}\0${cycleNum}\0${workoutNum}`;
   }
 
+  async getOverridesForCycle(program: string, cycleNum: number): Promise<Map<number, Date>> {
+    const result = new Map<number, Date>();
+    for (const [k, date] of this.store) {
+      const parts = k.split('\0');
+      if (parts[0] === program && Number(parts[1]) === cycleNum) {
+        result.set(Number(parts[2]), date);
+      }
+    }
+    return result;
+  }
+
   async getOverride(
     program: string,
     cycleNum: number,

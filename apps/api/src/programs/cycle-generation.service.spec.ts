@@ -7,6 +7,8 @@ import {
   ITrainingMaxHistoryRepository,
   ITrainingMaxRepository,
 } from '../ports';
+import { ICycleScheduledWorkoutRepository } from '../ports/ICycleScheduledWorkoutRepository';
+import { IUserSettingsRepository } from '../ports/IUserSettingsRepository';
 import { ProgramNotFoundError } from '../ports/errors';
 import { CycleGenerationService } from './cycle-generation.service';
 
@@ -67,12 +69,16 @@ describe('CycleGenerationService', () => {
   let trainingMaxRepo: jest.Mocked<ITrainingMaxRepository>;
   let trainingMaxHistoryRepo: jest.Mocked<ITrainingMaxHistoryRepository>;
   let liftRecordRepo: jest.Mocked<ILiftRecordRepository>;
+  let userSettingsRepo: jest.Mocked<IUserSettingsRepository>;
+  let cycleScheduledWorkoutRepo: jest.Mocked<ICycleScheduledWorkoutRepository>;
   let repos: {
     cycleDashboard: jest.Mocked<ICycleDashboardRepository>;
+    cycleScheduledWorkout: jest.Mocked<ICycleScheduledWorkoutRepository>;
     liftingProgramSpec: jest.Mocked<ILiftingProgramSpecRepository>;
     trainingMax: jest.Mocked<ITrainingMaxRepository>;
     trainingMaxHistory: jest.Mocked<ITrainingMaxHistoryRepository>;
     liftRecord: jest.Mocked<ILiftRecordRepository>;
+    userSettings: jest.Mocked<IUserSettingsRepository>;
   };
 
   beforeEach(() => {
@@ -81,7 +87,7 @@ describe('CycleGenerationService', () => {
       saveCycleDashboard: jest.fn().mockResolvedValue(undefined),
     };
     programSpecRepo = {
-      getProgramSpec: jest.fn(),
+      getProgramSpec: jest.fn().mockResolvedValue(stubProgramSpec()),
     };
     trainingMaxRepo = {
       getTrainingMaxes: jest.fn(),
@@ -96,12 +102,21 @@ describe('CycleGenerationService', () => {
       getLiftRecords: jest.fn(),
       appendLiftRecords: jest.fn().mockResolvedValue(undefined),
     };
+    userSettingsRepo = {
+      getSettings: jest.fn().mockResolvedValue({ activeProgram: null, workoutSchedule: null }),
+    };
+    cycleScheduledWorkoutRepo = {
+      getScheduledWorkouts: jest.fn().mockResolvedValue([]),
+      saveScheduledWorkouts: jest.fn().mockResolvedValue(undefined),
+    };
     repos = {
       cycleDashboard: cycleDashboardRepo,
+      cycleScheduledWorkout: cycleScheduledWorkoutRepo,
       liftingProgramSpec: programSpecRepo,
       trainingMax: trainingMaxRepo,
       trainingMaxHistory: trainingMaxHistoryRepo,
       liftRecord: liftRecordRepo,
+      userSettings: userSettingsRepo,
     };
     service = new CycleGenerationService();
   });
@@ -184,6 +199,38 @@ describe('CycleGenerationService', () => {
 
       expect(result.cycleDate).toEqual(new Date('2026-06-01T00:00:00.000Z'));
     });
+
+    it('saves scheduled dates when user has a workout schedule', async () => {
+      cycleDashboardRepo.getCycleDashboard.mockResolvedValue(stubDashboard());
+      programSpecRepo.getProgramSpec.mockResolvedValue(stubProgramSpec());
+      trainingMaxRepo.getTrainingMaxes.mockResolvedValue(stubTrainingMaxes());
+      liftRecordRepo.getLiftRecords.mockResolvedValue(stubLiftRecords());
+      userSettingsRepo.getSettings.mockResolvedValue({
+        activeProgram: null,
+        workoutSchedule: { type: 'fixed', days: [0, 2, 4] },
+      });
+
+      await service.startNewCycle(repos, PROGRAM);
+
+      expect(cycleScheduledWorkoutRepo.saveScheduledWorkouts).toHaveBeenCalledWith(
+        PROGRAM,
+        2,
+        expect.arrayContaining([
+          expect.objectContaining({ workoutNum: 1, weekNum: 1 }),
+        ]),
+      );
+    });
+
+    it('does not save scheduled dates when user has no workout schedule', async () => {
+      cycleDashboardRepo.getCycleDashboard.mockResolvedValue(stubDashboard());
+      programSpecRepo.getProgramSpec.mockResolvedValue(stubProgramSpec());
+      trainingMaxRepo.getTrainingMaxes.mockResolvedValue(stubTrainingMaxes());
+      liftRecordRepo.getLiftRecords.mockResolvedValue(stubLiftRecords());
+
+      await service.startNewCycle(repos, PROGRAM);
+
+      expect(cycleScheduledWorkoutRepo.saveScheduledWorkouts).not.toHaveBeenCalled();
+    });
   });
 
   describe('initializeFirstCycle', () => {
@@ -241,6 +288,37 @@ describe('CycleGenerationService', () => {
       ).rejects.toThrow(BadRequestException);
 
       expect(cycleDashboardRepo.saveCycleDashboard).not.toHaveBeenCalled();
+    });
+
+    it('saves scheduled dates when user has a workout schedule', async () => {
+      cycleDashboardRepo.getCycleDashboard.mockRejectedValue(
+        new ProgramNotFoundError(PROGRAM),
+      );
+      programSpecRepo.getProgramSpec.mockResolvedValue(stubProgramSpec());
+      userSettingsRepo.getSettings.mockResolvedValue({
+        activeProgram: null,
+        workoutSchedule: { type: 'fixed', days: [0, 2, 4] },
+      });
+
+      await service.initializeFirstCycle(repos, PROGRAM, { cycleDate: '2026-05-12' });
+
+      expect(cycleScheduledWorkoutRepo.saveScheduledWorkouts).toHaveBeenCalledWith(
+        PROGRAM,
+        1,
+        expect.arrayContaining([
+          expect.objectContaining({ workoutNum: 1, weekNum: 1 }),
+        ]),
+      );
+    });
+
+    it('does not save scheduled dates when user has no workout schedule', async () => {
+      cycleDashboardRepo.getCycleDashboard.mockRejectedValue(
+        new ProgramNotFoundError(PROGRAM),
+      );
+
+      await service.initializeFirstCycle(repos, PROGRAM, { cycleDate: '2026-05-12' });
+
+      expect(cycleScheduledWorkoutRepo.saveScheduledWorkouts).not.toHaveBeenCalled();
     });
   });
 

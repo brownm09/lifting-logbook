@@ -5,7 +5,7 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthUser } from '../ports/auth';
 import { IRepositoryFactory } from '../ports/factory';
 import { REPOSITORY_FACTORY } from '../ports/tokens';
-import { toCycleDashboardResponse } from './mappers';
+import { buildCycleDashboardResponse } from './mappers';
 
 @Controller('programs/:program')
 export class CycleDashboardController {
@@ -18,12 +18,22 @@ export class CycleDashboardController {
     @Param('program') program: string,
     @CurrentUser() user: AuthUser,
   ): Promise<CycleDashboardResponse> {
-    const { cycleDashboard, liftingProgramSpec } = await this.factory.forUser(user);
+    const { cycleDashboard, cycleScheduledWorkout, liftingProgramSpec, liftRecord, workoutDateOverride } =
+      await this.factory.forUser(user);
+
     const [dashboard, programSpec] = await Promise.all([
       cycleDashboard.getCycleDashboard(program),
       liftingProgramSpec.getProgramSpec(program),
     ]);
     dashboard.currentWeekType = weekTypeForDate(dashboard.cycleDate, programSpec);
-    return toCycleDashboardResponse(dashboard);
+
+    const [scheduledWorkouts, liftRecords, overrideMap] = await Promise.all([
+      cycleScheduledWorkout.getScheduledWorkouts(program, dashboard.cycleNum),
+      liftRecord.getLiftRecords(program, dashboard.cycleNum),
+      workoutDateOverride.getOverridesForCycle(program, dashboard.cycleNum),
+    ]);
+    const completedWorkoutNums = new Set(liftRecords.map((r) => r.workoutNum));
+
+    return buildCycleDashboardResponse(dashboard, scheduledWorkouts, overrideMap, completedWorkoutNums);
   }
 }

@@ -6,7 +6,10 @@ import {
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
 import { AppModule } from '../app.module';
+import { InMemoryRepositoryFactory } from '../adapters/factory/in-memory-repository-factory';
+import { InMemoryUserSettingsRepository } from '../adapters/in-memory/user-settings.adapter';
 import { SEED_PROGRAM } from '../adapters/in-memory/fixtures';
+import { REPOSITORY_FACTORY } from '../ports/tokens';
 import { DomainNotFoundFilter } from './not-found.filter';
 
 describe('Programs HTTP (e2e, in-memory adapters)', () => {
@@ -949,6 +952,99 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
       expect(body.muscleGroups).toEqual([]);
       expect(body.substitutions).toEqual([]);
       expect(body.foundational).toBe(false);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Schedule mode: verify distributeWorkouts() integrates with cycle lifecycle
+  // Uses a fresh user ID to avoid interfering with the seeded dev-token state.
+  // ---------------------------------------------------------------------------
+
+  describe('schedule mode', () => {
+    const SCHEDULE_USER_TOKEN = 'schedule-e2e-user';
+    const AS_SCHEDULE_USER = { authorization: `Bearer ${SCHEDULE_USER_TOKEN}` };
+
+    const scheduleGet = (url: string) =>
+      app.getHttpAdapter().getInstance().inject({ method: 'GET', url, headers: AS_SCHEDULE_USER });
+
+    const schedulePost = (url: string, body?: unknown) =>
+      app.getHttpAdapter().getInstance().inject({
+        method: 'POST',
+        url,
+        headers: body
+          ? { 'content-type': 'application/json', ...AS_SCHEDULE_USER }
+          : AS_SCHEDULE_USER,
+        ...(body ? { payload: JSON.stringify(body) } : {}),
+      });
+
+    async function setScheduleForUser(userId: string): Promise<void> {
+      const factory = app.get<InMemoryRepositoryFactory>(REPOSITORY_FACTORY);
+      const bundle = await factory.forUser({ id: userId, email: '', provider: 'dev' });
+      (bundle.userSettings as InMemoryUserSettingsRepository).setSchedule({
+        type: 'fixed',
+        days: [0, 2, 4], // Mon, Wed, Fri
+      });
+    }
+
+    it('GET cycle dashboard returns weeks:[] when no schedule is set', async () => {
+      await schedulePost(`/programs/${SEED_PROGRAM}/cycles/initialize`, { cycleDate: '2026-05-19' });
+      const res = await scheduleGet(`/programs/${SEED_PROGRAM}/cycles/current`);
+      expect(res.statusCode).toBe(200);
+      expect(res.json().weeks).toEqual([]);
+    });
+
+    it('GET cycle dashboard returns populated weeks when schedule is set before cycle init', async () => {
+      const userId = 'schedule-e2e-with-schedule';
+      const token = `Bearer ${userId}`;
+      await setScheduleForUser(userId);
+
+      const initRes = await app.getHttpAdapter().getInstance().inject({
+        method: 'POST',
+        url: `/programs/${SEED_PROGRAM}/cycles/initialize`,
+        headers: { 'content-type': 'application/json', authorization: token },
+        payload: JSON.stringify({ cycleDate: '2026-05-19' }),
+      });
+      expect(initRes.statusCode).toBe(201);
+
+      const dashRes = await app.getHttpAdapter().getInstance().inject({
+        method: 'GET',
+        url: `/programs/${SEED_PROGRAM}/cycles/current`,
+        headers: { authorization: token },
+      });
+      expect(dashRes.statusCode).toBe(200);
+      const body = dashRes.json();
+      expect(Array.isArray(body.weeks)).toBe(true);
+      expect(body.weeks.length).toBeGreaterThan(0);
+      // Mon-Wed-Fri schedule: week 1 should have dates on Mon/Wed/Fri
+      const week1 = body.weeks[0];
+      expect(week1.week).toBe(1);
+      expect(week1.workoutDates.length).toBeGreaterThan(0);
+      expect(week1.completed).toBe(false);
+      // Each date should be a valid ISO date string
+      for (const d of week1.workoutDates) {
+        expect(d).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      }
+    });
+
+    it('GET cycle dashboard returns weeks:[] when no schedule is set (schedule user baseline)', async () => {
+      // A fresh user with no schedule should still see weeks:[]
+      const userId = 'schedule-e2e-no-schedule';
+      const token = `Bearer ${userId}`;
+
+      await app.getHttpAdapter().getInstance().inject({
+        method: 'POST',
+        url: `/programs/${SEED_PROGRAM}/cycles/initialize`,
+        headers: { 'content-type': 'application/json', authorization: token },
+        payload: JSON.stringify({ cycleDate: '2026-05-19' }),
+      });
+
+      const dashRes = await app.getHttpAdapter().getInstance().inject({
+        method: 'GET',
+        url: `/programs/${SEED_PROGRAM}/cycles/current`,
+        headers: { authorization: token },
+      });
+      expect(dashRes.statusCode).toBe(200);
+      expect(dashRes.json().weeks).toEqual([]);
     });
   });
 });
