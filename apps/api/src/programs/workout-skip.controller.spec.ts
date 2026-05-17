@@ -70,6 +70,18 @@ describe('WorkoutSkipController', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
+    it('throws 400 for cycleNum < 1', async () => {
+      await expect(
+        controller.unskipWorkout('5-3-1', '0', '1', MOCK_USER),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws 400 for non-numeric workoutNum', async () => {
+      await expect(
+        controller.unskipWorkout('5-3-1', '1', 'abc', MOCK_USER),
+      ).rejects.toThrow(BadRequestException);
+    });
+
     it('throws 400 for workoutNum < 1', async () => {
       await expect(
         controller.unskipWorkout('5-3-1', '1', '0', MOCK_USER),
