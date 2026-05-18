@@ -4,6 +4,8 @@
 # Per ADR-009: GKE receives 90% of traffic; Cloud Run receives 10%.
 
 resource "google_container_cluster" "main" {
+  count = var.enable_gke ? 1 : 0
+
   provider = google-beta
 
   name     = "${local.name_prefix}-cluster"
@@ -72,6 +74,8 @@ resource "google_project_iam_member" "api_workload_roles" {
 # Allow the Kubernetes service account (in the app namespace) to impersonate
 # this GCP service account via Workload Identity.
 resource "google_service_account_iam_member" "api_workload_k8s_binding" {
+  count = var.enable_gke ? 1 : 0
+
   service_account_id = google_service_account.api_workload.name
   role               = "roles/iam.workloadIdentityUser"
   member             = "serviceAccount:${var.project_id}.svc.id.goog[${var.environment}/api]"

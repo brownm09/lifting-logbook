@@ -58,3 +58,15 @@ variable "image_tag" {
   type        = string
   default     = "latest"
 }
+
+variable "enable_gke" {
+  description = "Provision the GKE Autopilot cluster (per ADR-009 A/B comparison). Set false for single-user / Cloud-Run-only deployments to skip ~$30/mo of cluster cost."
+  type        = bool
+  default     = true
+}
+
+variable "cloud_run_min_instances" {
+  description = "Minimum Cloud Run instances per service. null = use environment default (1 in production, 0 in staging). Set 0 in production for scale-to-zero (adds ~2s cold start to first request, near-zero idle cost)."
+  type        = number
+  default     = null
+}
