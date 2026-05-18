@@ -48,6 +48,9 @@ export default async function WorkoutDetailPage({
 
   const effectiveDate = workout.overrideDate ?? workout.date;
   const hasLogs = workout.lifts.some((l) => !l.planned);
+  // completed wins over skipped intentionally: a partially-logged workout can also be
+  // marked skipped (the two states are independent records). When both are true the
+  // workout still shows as completed and SkipForm is hidden.
   const status = workoutStatus(effectiveDate, hasLogs, workout.skipped);
   const maxMap = new Map(maxes.map((m) => [m.lift, m.weight]));
 

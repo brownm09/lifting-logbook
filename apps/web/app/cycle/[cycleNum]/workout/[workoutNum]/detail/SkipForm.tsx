@@ -19,20 +19,31 @@ export default function SkipForm({ program, cycleNum, workoutNum, skipped }: Pro
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function handleConfirm() {
+  async function handleSkip() {
     setLoading(true);
     setError(null);
     try {
-      if (skipped) {
-        await unskipWorkout(program, cycleNum, workoutNum);
-      } else {
-        await skipWorkout(program, cycleNum, workoutNum, reason || undefined);
-      }
+      await skipWorkout(program, cycleNum, workoutNum, reason || undefined);
       setOpen(false);
       router.refresh();
     } catch (e) {
-      console.error('[SkipForm] mutation failed', e);
-      setError(skipped ? 'Failed to undo skip. Please try again.' : 'Failed to skip workout. Please try again.');
+      console.error('[SkipForm] skip failed', e);
+      setError('Failed to skip workout. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleUnskip() {
+    setLoading(true);
+    setError(null);
+    try {
+      await unskipWorkout(program, cycleNum, workoutNum);
+      setOpen(false);
+      router.refresh();
+    } catch (e) {
+      console.error('[SkipForm] unskip failed', e);
+      setError('Failed to undo skip. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -92,16 +103,25 @@ export default function SkipForm({ program, cycleNum, workoutNum, skipped }: Pro
         >
           Cancel
         </button>
-        <button
-          type="button"
-          className={skipped ? styles.undo : styles.skip}
-          onClick={handleConfirm}
-          disabled={loading}
-        >
-          {loading
-            ? skipped ? 'Undoing…' : 'Skipping…'
-            : skipped ? 'Undo Skip' : 'Skip Workout'}
-        </button>
+        {skipped ? (
+          <button
+            type="button"
+            className={styles.undo}
+            onClick={handleUnskip}
+            disabled={loading}
+          >
+            {loading ? 'Undoing…' : 'Undo Skip'}
+          </button>
+        ) : (
+          <button
+            type="button"
+            className={styles.skip}
+            onClick={handleSkip}
+            disabled={loading}
+          >
+            {loading ? 'Skipping…' : 'Skip Workout'}
+          </button>
+        )}
       </div>
     </div>
   );

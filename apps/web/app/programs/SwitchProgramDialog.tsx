@@ -49,7 +49,6 @@ export default function SwitchProgramDialog({
         if (workoutSchedule) {
           setCycleNum(result.cycleNum);
           setStep('schedule-info');
-          router.refresh();
         } else {
           router.push(`/cycle/${result.cycleNum}`);
         }
@@ -62,8 +61,14 @@ export default function SwitchProgramDialog({
   function handleGoToCycle() {
     if (cycleNum !== null) {
       router.push(`/cycle/${cycleNum}`);
-      router.refresh();
     }
+  }
+
+  function handleClose() {
+    setStep('confirm');
+    setCycleNum(null);
+    setError(null);
+    onClose();
   }
 
   const currentLabel = currentProgramId ? `your current program` : 'your dashboard';
@@ -77,7 +82,7 @@ export default function SwitchProgramDialog({
       className={styles.dialogOverlay}
       role="dialog"
       aria-modal="true"
-      onKeyDown={(e) => { if (e.key === 'Escape' && !isPending && step === 'confirm') onClose(); }}
+      onKeyDown={(e) => { if (e.key === 'Escape' && !isPending) handleClose(); }}
     >
       <div className={styles.dialog}>
         {step === 'schedule-info' && workoutSchedule && cycleNum !== null ? (
@@ -95,6 +100,9 @@ export default function SwitchProgramDialog({
               </div>
             </div>
             <div className={styles.dialogActions}>
+              <button type="button" className={styles.btnSecondary} onClick={handleClose}>
+                Close
+              </button>
               <button
                 type="button"
                 className={styles.btnPrimary}
@@ -113,7 +121,7 @@ export default function SwitchProgramDialog({
             </p>
             {error && <p className={styles.errorNote}>{error}</p>}
             <div className={styles.dialogActions}>
-              <button type="button" className={styles.btnSecondary} onClick={onClose} disabled={isPending}>
+              <button type="button" className={styles.btnSecondary} onClick={handleClose} disabled={isPending}>
                 Cancel
               </button>
               <button type="button" className={styles.btnPrimary} onClick={handleConfirm} disabled={isPending}>
