@@ -35,7 +35,7 @@ export class WorkoutsController {
     if (!isValidWorkoutNum(workoutNum)) {
       throw new BadRequestException('workoutNum must be a positive integer');
     }
-    const { workout, cycleDashboard, cycleScheduledWorkout, liftingProgramSpec, workoutDateOverride, workoutLiftOverride } =
+    const { workout, cycleDashboard, cycleScheduledWorkout, liftingProgramSpec, workoutDateOverride, workoutLiftOverride, workoutSkipOverride } =
       await this.factory.forUser(user);
     const [dashboard, spec] = await Promise.all([
       cycleDashboard.getCycleDashboard(program).catch((err: unknown) => {
@@ -54,7 +54,7 @@ export class WorkoutsController {
     // Spec lifts for this workout's week — used to build the planned lift list.
     const specLifts = [...new Set(spec.filter((s) => s.week === week).map((s) => s.lift))];
 
-    const [records, overrideDate, liftOverrides, scheduledWorkouts] = await Promise.all([
+    const [records, overrideDate, liftOverrides, scheduledWorkouts, skippedNums] = await Promise.all([
       workout
         .getWorkout(program, dashboard.cycleNum, workoutNum)
         .catch((err: unknown) => {
@@ -65,6 +65,10 @@ export class WorkoutsController {
       workoutDateOverride.getOverride(program, dashboard.cycleNum, workoutNum),
       workoutLiftOverride.getOverrides(program, dashboard.cycleNum, workoutNum),
       cycleScheduledWorkout.getScheduledWorkouts(program, dashboard.cycleNum),
+      workoutSkipOverride.getSkipsForCycle(program, dashboard.cycleNum).catch((err: unknown) => {
+        console.error('[WorkoutsController] getSkipsForCycle failed; defaulting to empty set', err);
+        return new Set<number>();
+      }),
     ]);
     const scheduledDate = scheduledWorkouts.find((s) => s.workoutNum === workoutNum)?.scheduledDate;
 
@@ -94,6 +98,7 @@ export class WorkoutsController {
       overrideDate ?? undefined,
       plannedLifts,
       scheduledDate,
+      skippedNums.has(workoutNum),
     );
   }
 }

@@ -234,6 +234,7 @@ export const toWorkoutResponse = (
   overrideDate?: Date,
   plannedLifts?: string[],
   scheduledDate?: Date,
+  skipped = false,
 ): WorkoutResponse => {
   const liftMap = new Map<string, SetResponse[]>();
   for (const r of records) {
@@ -282,6 +283,7 @@ export const toWorkoutResponse = (
     week,
     date,
     ...(overrideDate !== undefined && { overrideDate: isoDate(overrideDate) }),
+    skipped,
     lifts,
   };
 };

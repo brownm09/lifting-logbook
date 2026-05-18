@@ -222,6 +222,11 @@
 .dialogBody { font-size: 0.9375rem; color: var(--color-text, #111827); margin-bottom: 1.25rem; }
 .dialogActions { display: flex; gap: 0.5rem; justify-content: flex-end; }
 
+.scheduleInfoBody { margin-bottom: 1.25rem; }
+.scheduleInfoText { font-size: 0.9375rem; color: var(--color-text-muted); margin: 0 0 0.75rem; }
+.scheduleSummary { display: flex; flex-direction: column; gap: 0.25rem; }
+.scheduleDetail { font-size: 0.9375rem; font-weight: 600; color: var(--color-text); }
+
 /* ----- Editor ----- */
 .subTabs {
   display: flex;

@@ -90,6 +90,12 @@
   border-color: var(--color-missed-border);
 }
 
+.card_skipped {
+  background: var(--color-surface-alt);
+  border-color: var(--color-border);
+  opacity: 0.75;
+}
+
 .cardHeader {
   display: flex;
   justify-content: space-between;
@@ -124,6 +130,11 @@
 .badge_missed {
   background: var(--color-missed-bg);
   color: var(--color-upcoming-text);
+}
+
+.badge_skipped {
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
 }
 
 .liftList {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import type { UserWorkoutSchedule } from '@lifting-logbook/types';
 import {
   PROGRAMS,
   type Experience,
@@ -32,9 +33,10 @@ const GOAL_OPTIONS: { label: string; value: 'all' | Goal }[] = [
 
 type Props = {
   activeProgram: string | null;
+  workoutSchedule: UserWorkoutSchedule | null;
 };
 
-export default function BrowseTab({ activeProgram }: Props) {
+export default function BrowseTab({ activeProgram, workoutSchedule }: Props) {
   const [experienceFilter, setExperienceFilter] = useState<Experience | 'all'>('all');
   const [goalFilter, setGoalFilter] = useState<'all' | Goal>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -209,6 +211,7 @@ export default function BrowseTab({ activeProgram }: Props) {
           programId={switchTarget.id}
           programName={switchTarget.name}
           currentProgramId={activeProgram}
+          workoutSchedule={workoutSchedule}
           onClose={() => setSwitchTarget(null)}
         />
       )}

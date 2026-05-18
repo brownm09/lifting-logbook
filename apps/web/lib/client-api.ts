@@ -30,6 +30,7 @@ async function clientFetch<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok) {
     throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
   }
+  if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
 
@@ -78,6 +79,34 @@ export function rescheduleWorkout(
       body: JSON.stringify({ newDate }),
       cache: 'no-store',
     },
+  );
+}
+
+export function skipWorkout(
+  program: string,
+  cycleNum: number,
+  workoutNum: number,
+  reason?: string,
+): Promise<void> {
+  return clientFetch<void>(
+    `/programs/${encodeURIComponent(program)}/cycles/${cycleNum}/workouts/${workoutNum}/skip`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(reason !== undefined ? { reason } : {}),
+      cache: 'no-store',
+    },
+  );
+}
+
+export function unskipWorkout(
+  program: string,
+  cycleNum: number,
+  workoutNum: number,
+): Promise<void> {
+  return clientFetch<void>(
+    `/programs/${encodeURIComponent(program)}/cycles/${cycleNum}/workouts/${workoutNum}/skip`,
+    { method: 'DELETE', cache: 'no-store' },
   );
 }
 
