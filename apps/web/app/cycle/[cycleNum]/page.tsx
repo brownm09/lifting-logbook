@@ -63,7 +63,7 @@ export default async function CycleDashboardPage({
       .filter((w) => w.week === week)
       .map((w): WorkoutCell => {
         const response = workoutResponseMap.get(w.workoutNum);
-        const logged = response != null && response.lifts.length > 0;
+        const logged = response != null && response.lifts.some((l) => !l.planned);
         // Priority: user override date > API scheduled date > spec-computed date.
         const effectiveDate = response?.overrideDate ?? scheduledDateMap.get(w.workoutNum) ?? w.date;
         const status: WorkoutCell['status'] = logged

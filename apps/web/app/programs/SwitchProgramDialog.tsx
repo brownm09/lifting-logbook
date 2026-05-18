@@ -52,7 +52,6 @@ export default function SwitchProgramDialog({
           router.refresh();
         } else {
           router.push(`/cycle/${result.cycleNum}`);
-          router.refresh();
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to switch program.');
