@@ -49,6 +49,7 @@ export default function SwitchProgramDialog({
         if (workoutSchedule) {
           setCycleNum(result.cycleNum);
           setStep('schedule-info');
+          router.refresh();
         } else {
           router.push(`/cycle/${result.cycleNum}`);
           router.refresh();
@@ -67,64 +68,61 @@ export default function SwitchProgramDialog({
   }
 
   const currentLabel = currentProgramId ? `your current program` : 'your dashboard';
-
-  if (step === 'schedule-info' && workoutSchedule && cycleNum !== null) {
-    const workoutsPerWeek = getScheduleWorkoutsPerWeek(workoutSchedule);
-    return (
-      <div
-        className={styles.dialogOverlay}
-        role="dialog"
-        aria-modal="true"
-      >
-        <div className={styles.dialog}>
-          <p className={styles.dialogTitle}>Schedule applied to {programName}</p>
-          <div className={styles.scheduleInfoBody}>
-            <p className={styles.scheduleInfoText}>
-              Workout dates have been distributed using your schedule.
-            </p>
-            <div className={styles.scheduleSummary}>
-              <span className={styles.scheduleDetail}>{formatSchedule(workoutSchedule)}</span>
-              <span className={styles.scheduleDetail}>
-                {workoutsPerWeek} workout{workoutsPerWeek !== 1 ? 's' : ''}/week
-              </span>
-            </div>
-          </div>
-          <div className={styles.dialogActions}>
-            <button
-              type="button"
-              className={styles.btnPrimary}
-              onClick={handleGoToCycle}
-            >
-              Go to Cycle
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const workoutsPerWeek =
+    step === 'schedule-info' && workoutSchedule
+      ? getScheduleWorkoutsPerWeek(workoutSchedule)
+      : null;
 
   return (
     <div
       className={styles.dialogOverlay}
       role="dialog"
       aria-modal="true"
-      onKeyDown={(e) => { if (e.key === 'Escape' && !isPending) onClose(); }}
+      onKeyDown={(e) => { if (e.key === 'Escape' && !isPending && step === 'confirm') onClose(); }}
     >
       <div className={styles.dialog}>
-        <p className={styles.dialogTitle}>Switch to {programName}?</p>
-        <p className={styles.dialogBody}>
-          {programName} will become your active program. Your existing lift history and
-          training maxes for {currentLabel} are preserved and remain accessible.
-        </p>
-        {error && <p className={styles.errorNote}>{error}</p>}
-        <div className={styles.dialogActions}>
-          <button type="button" className={styles.btnSecondary} onClick={onClose} disabled={isPending}>
-            Cancel
-          </button>
-          <button type="button" className={styles.btnPrimary} onClick={handleConfirm} disabled={isPending}>
-            {isPending ? 'Switching…' : 'Confirm Switch'}
-          </button>
-        </div>
+        {step === 'schedule-info' && workoutSchedule && cycleNum !== null ? (
+          <>
+            <p className={styles.dialogTitle}>Schedule applied to {programName}</p>
+            <div className={styles.scheduleInfoBody}>
+              <p className={styles.scheduleInfoText}>
+                Workout dates have been distributed using your schedule.
+              </p>
+              <div className={styles.scheduleSummary}>
+                <span className={styles.scheduleDetail}>{formatSchedule(workoutSchedule)}</span>
+                <span className={styles.scheduleDetail}>
+                  {workoutsPerWeek} workout{workoutsPerWeek !== 1 ? 's' : ''}/week
+                </span>
+              </div>
+            </div>
+            <div className={styles.dialogActions}>
+              <button
+                type="button"
+                className={styles.btnPrimary}
+                onClick={handleGoToCycle}
+              >
+                Go to Cycle
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className={styles.dialogTitle}>Switch to {programName}?</p>
+            <p className={styles.dialogBody}>
+              {programName} will become your active program. Your existing lift history and
+              training maxes for {currentLabel} are preserved and remain accessible.
+            </p>
+            {error && <p className={styles.errorNote}>{error}</p>}
+            <div className={styles.dialogActions}>
+              <button type="button" className={styles.btnSecondary} onClick={onClose} disabled={isPending}>
+                Cancel
+              </button>
+              <button type="button" className={styles.btnPrimary} onClick={handleConfirm} disabled={isPending}>
+                {isPending ? 'Switching…' : 'Confirm Switch'}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

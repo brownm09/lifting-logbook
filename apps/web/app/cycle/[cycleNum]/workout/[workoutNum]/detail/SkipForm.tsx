@@ -30,7 +30,8 @@ export default function SkipForm({ program, cycleNum, workoutNum, skipped }: Pro
       }
       setOpen(false);
       router.refresh();
-    } catch {
+    } catch (e) {
+      console.error('[SkipForm] mutation failed', e);
       setError(skipped ? 'Failed to undo skip. Please try again.' : 'Failed to skip workout. Please try again.');
     } finally {
       setLoading(false);
@@ -67,6 +68,7 @@ export default function SkipForm({ program, cycleNum, workoutNum, skipped }: Pro
               onChange={(e) => setReason(e.target.value)}
               className={styles.input}
               placeholder="e.g. Travel, illness, rest day"
+              maxLength={500}
               aria-describedby={error ? 'skip-error' : undefined}
             />
           </div>

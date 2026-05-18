@@ -1,11 +1,13 @@
 import { fetchCustomPrograms, fetchUserSettings } from '@/lib/api';
-import type { UserWorkoutSchedule } from '@lifting-logbook/types';
+import type { UserSettingsResponse } from '@lifting-logbook/types';
 import ProgramsTabs from './ProgramsTabs';
 import styles from './programs.module.css';
 
+const DEFAULT_SETTINGS: UserSettingsResponse = { activeProgram: null, workoutSchedule: null };
+
 export default async function ProgramsPage() {
   const [settings, customPrograms] = await Promise.all([
-    fetchUserSettings().catch(() => ({ activeProgram: null, workoutSchedule: null as UserWorkoutSchedule | null })),
+    fetchUserSettings().catch(() => DEFAULT_SETTINGS),
     fetchCustomPrograms().catch(() => []),
   ]);
 

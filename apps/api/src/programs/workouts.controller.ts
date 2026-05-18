@@ -65,7 +65,7 @@ export class WorkoutsController {
       workoutDateOverride.getOverride(program, dashboard.cycleNum, workoutNum),
       workoutLiftOverride.getOverrides(program, dashboard.cycleNum, workoutNum),
       cycleScheduledWorkout.getScheduledWorkouts(program, dashboard.cycleNum),
-      workoutSkipOverride.getSkipsForCycle(program, dashboard.cycleNum),
+      workoutSkipOverride.getSkipsForCycle(program, dashboard.cycleNum).catch(() => new Set<number>()),
     ]);
     const scheduledDate = scheduledWorkouts.find((s) => s.workoutNum === workoutNum)?.scheduledDate;
 
