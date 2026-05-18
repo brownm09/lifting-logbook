@@ -92,6 +92,7 @@ export interface WorkoutResponse {
   week: WeekNumber;
   date: string; // ISO 8601 date string
   overrideDate?: string; // ISO 8601 date string; present when the user has rescheduled
+  skipped: boolean;
   lifts: WorkoutLiftResponse[];
   bodyWeightEntry?: Pick<BodyWeightEntry, 'weight' | 'unit'>;
 }

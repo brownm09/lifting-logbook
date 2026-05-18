@@ -2,13 +2,30 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { getScheduleWorkoutsPerWeek } from '@lifting-logbook/core';
+import type { UserWorkoutSchedule } from '@lifting-logbook/types';
 import { switchProgram } from './actions';
 import styles from './programs.module.css';
+
+const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+function formatSchedule(schedule: UserWorkoutSchedule): string {
+  if (schedule.type === 'fixed' && schedule.days) {
+    return schedule.days.map((d) => DAY_NAMES[d]).join(' / ');
+  }
+  if (schedule.type === 'rotating' && schedule.weeks) {
+    return schedule.weeks
+      .map((week, i) => `Week ${i + 1}: ${week.map((d) => DAY_NAMES[d]).join('/')}`)
+      .join(' · ');
+  }
+  return 'Custom schedule';
+}
 
 type Props = {
   programId: string;
   programName: string;
   currentProgramId: string | null;
+  workoutSchedule: UserWorkoutSchedule | null;
   onClose: () => void;
 };
 
@@ -16,25 +33,75 @@ export default function SwitchProgramDialog({
   programId,
   programName,
   currentProgramId,
+  workoutSchedule,
   onClose,
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [step, setStep] = useState<'confirm' | 'schedule-info'>('confirm');
+  const [cycleNum, setCycleNum] = useState<number | null>(null);
 
   function handleConfirm() {
     startTransition(async () => {
       try {
         const result = await switchProgram(programId);
-        router.push(`/cycle/${result.cycleNum}`);
-        router.refresh();
+        if (workoutSchedule) {
+          setCycleNum(result.cycleNum);
+          setStep('schedule-info');
+        } else {
+          router.push(`/cycle/${result.cycleNum}`);
+          router.refresh();
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to switch program.');
       }
     });
   }
 
+  function handleGoToCycle() {
+    if (cycleNum !== null) {
+      router.push(`/cycle/${cycleNum}`);
+      router.refresh();
+    }
+  }
+
   const currentLabel = currentProgramId ? `your current program` : 'your dashboard';
+
+  if (step === 'schedule-info' && workoutSchedule && cycleNum !== null) {
+    const workoutsPerWeek = getScheduleWorkoutsPerWeek(workoutSchedule);
+    return (
+      <div
+        className={styles.dialogOverlay}
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className={styles.dialog}>
+          <p className={styles.dialogTitle}>Schedule applied to {programName}</p>
+          <div className={styles.scheduleInfoBody}>
+            <p className={styles.scheduleInfoText}>
+              Workout dates have been distributed using your schedule.
+            </p>
+            <div className={styles.scheduleSummary}>
+              <span className={styles.scheduleDetail}>{formatSchedule(workoutSchedule)}</span>
+              <span className={styles.scheduleDetail}>
+                {workoutsPerWeek} workout{workoutsPerWeek !== 1 ? 's' : ''}/week
+              </span>
+            </div>
+          </div>
+          <div className={styles.dialogActions}>
+            <button
+              type="button"
+              className={styles.btnPrimary}
+              onClick={handleGoToCycle}
+            >
+              Go to Cycle
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

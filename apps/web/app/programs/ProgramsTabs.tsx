@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { CustomProgramSummaryResponse } from '@lifting-logbook/types';
+import type { CustomProgramSummaryResponse, UserWorkoutSchedule } from '@lifting-logbook/types';
 import BrowseTab from './BrowseTab';
 import EditorTab from './EditorTab';
 import styles from './programs.module.css';
@@ -10,10 +10,11 @@ type Tab = 'browse' | 'editor';
 
 type Props = {
   activeProgram: string | null;
+  workoutSchedule: UserWorkoutSchedule | null;
   customPrograms: CustomProgramSummaryResponse[];
 };
 
-export default function ProgramsTabs({ activeProgram, customPrograms }: Props) {
+export default function ProgramsTabs({ activeProgram, workoutSchedule, customPrograms }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('browse');
   const [currentActive, _setCurrentActive] = useState(activeProgram);
 
@@ -44,7 +45,7 @@ export default function ProgramsTabs({ activeProgram, customPrograms }: Props) {
       </div>
 
       {activeTab === 'browse' && (
-        <BrowseTab activeProgram={currentActive} />
+        <BrowseTab activeProgram={currentActive} workoutSchedule={workoutSchedule} />
       )}
 
       {activeTab === 'editor' && (

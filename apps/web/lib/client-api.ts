@@ -81,6 +81,34 @@ export function rescheduleWorkout(
   );
 }
 
+export function skipWorkout(
+  program: string,
+  cycleNum: number,
+  workoutNum: number,
+  reason?: string,
+): Promise<void> {
+  return clientFetch<void>(
+    `/programs/${encodeURIComponent(program)}/cycles/${cycleNum}/workouts/${workoutNum}/skip`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(reason !== undefined ? { reason } : {}),
+      cache: 'no-store',
+    },
+  );
+}
+
+export function unskipWorkout(
+  program: string,
+  cycleNum: number,
+  workoutNum: number,
+): Promise<void> {
+  return clientFetch<void>(
+    `/programs/${encodeURIComponent(program)}/cycles/${cycleNum}/workouts/${workoutNum}/skip`,
+    { method: 'DELETE', cache: 'no-store' },
+  );
+}
+
 export function recordBodyWeight(
   program: string,
   body: RecordBodyWeightRequest,

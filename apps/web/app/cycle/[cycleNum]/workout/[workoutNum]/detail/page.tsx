@@ -5,14 +5,17 @@ import { getActiveProgram } from '@/lib/active-program';
 import { computePlannedSets } from '@/lib/workoutPlan';
 import CollapsibleLiftList from './CollapsibleLiftList';
 import RescheduleForm from './RescheduleForm';
+import SkipForm from './SkipForm';
 import styles from './detail.module.css';
 
 function workoutStatus(
   date: string,
   hasLogs: boolean,
-): 'completed' | 'upcoming' | 'missed' {
+  skipped: boolean,
+): 'completed' | 'upcoming' | 'missed' | 'skipped' {
   const today = new Date().toISOString().slice(0, 10);
   if (hasLogs) return 'completed';
+  if (skipped) return 'skipped';
   if (date < today) return 'missed';
   return 'upcoming';
 }
@@ -45,7 +48,7 @@ export default async function WorkoutDetailPage({
 
   const effectiveDate = workout.overrideDate ?? workout.date;
   const hasLogs = workout.lifts.some((l) => !l.planned);
-  const status = workoutStatus(effectiveDate, hasLogs);
+  const status = workoutStatus(effectiveDate, hasLogs, workout.skipped);
   const maxMap = new Map(maxes.map((m) => [m.lift, m.weight]));
 
   // For each lift, compute warm-up and work set counts from spec
@@ -63,7 +66,10 @@ export default async function WorkoutDetailPage({
   const displaySets = status === 'completed' ? actualSets : plannedSets;
 
   const statusLabel =
-    status === 'completed' ? '✓ Done' : status === 'upcoming' ? 'Upcoming' : 'Missed';
+    status === 'completed' ? '✓ Done'
+    : status === 'upcoming' ? 'Upcoming'
+    : status === 'skipped' ? '⊘ Skipped'
+    : 'Missed';
 
   return (
     <main className={styles.container}>
@@ -118,7 +124,7 @@ export default async function WorkoutDetailPage({
         >
           ✏️ Manage Lifts
         </Link>
-        {status !== 'completed' && (
+        {status !== 'completed' && status !== 'skipped' && (
           <Link
             href={`/cycle/${cycleNum}/workout/${workoutNum}`}
             className={styles.btnPrimary}
@@ -132,6 +138,14 @@ export default async function WorkoutDetailPage({
           workoutNum={workoutNum}
           currentDate={effectiveDate}
         />
+        {status !== 'completed' && (
+          <SkipForm
+            program={program}
+            cycleNum={cycleNum}
+            workoutNum={workoutNum}
+            skipped={workout.skipped}
+          />
+        )}
       </section>
     </main>
   );

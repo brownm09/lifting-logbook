@@ -69,6 +69,11 @@
   color: var(--color-upcoming-text);
 }
 
+.badge_skipped {
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
+}
+
 .sectionHeading {
   font-size: var(--font-size-base);
   font-weight: 600;

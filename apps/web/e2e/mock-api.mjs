@@ -31,6 +31,7 @@ const WORKOUT = {
   workoutNum: 1,
   week: 1,
   date: '2025-01-06',
+  skipped: false,
   lifts: [
     {
       lift: 'squat',
@@ -90,6 +91,8 @@ function createInitialState() {
     noCurrentCycle: false,
     trainingMaxes: structuredClone(INITIAL_TRAINING_MAXES),
     strengthGoals: [],
+    skippedWorkouts: new Set(),
+    workoutSchedule: null,
   };
 }
 
@@ -156,6 +159,9 @@ const server = createServer(async (req, res) => {
     if (url.searchParams.get('noCurrentCycle') === 'true') {
       state.noCurrentCycle = true;
     }
+    if (url.searchParams.get('withSchedule') === 'true') {
+      state.workoutSchedule = { type: 'fixed', days: [0, 2, 4] }; // Mon/Wed/Fri
+    }
     json(res, { ok: true });
     return;
   }
@@ -164,7 +170,7 @@ const server = createServer(async (req, res) => {
   // GET /users/me/settings
   // -------------------------------------------------------------------------
   if (method === 'GET' && url.pathname === '/users/me/settings') {
-    json(res, { activeProgram: '5-3-1', workoutSchedule: null });
+    json(res, { activeProgram: '5-3-1', workoutSchedule: state.workoutSchedule });
     return;
   }
 
@@ -187,7 +193,14 @@ const server = createServer(async (req, res) => {
       if (state.noCurrentCycle) {
         json(res, { statusCode: 404, message: 'No active cycle' }, 404);
       } else {
-        json(res, CYCLE_DASHBOARD);
+        const dashboard = structuredClone(CYCLE_DASHBOARD);
+        for (const week of dashboard.weeks) {
+          for (const wo of week.workouts) {
+            wo.skipped = state.skippedWorkouts.has(wo.workoutNum);
+          }
+          week.completed = week.workouts.every((wo) => wo.skipped);
+        }
+        json(res, dashboard);
       }
       return;
     }
@@ -200,7 +213,24 @@ const server = createServer(async (req, res) => {
 
     // GET /programs/:p/workouts/:workoutNum
     if (method === 'GET' && rest[0] === 'workouts' && rest.length === 2) {
-      json(res, WORKOUT);
+      const workoutNum = Number(rest[1]);
+      json(res, { ...WORKOUT, workoutNum, skipped: state.skippedWorkouts.has(workoutNum) });
+      return;
+    }
+
+    // POST /programs/:p/cycles/:cycleNum/workouts/:workoutNum/skip
+    if (method === 'POST' && rest[0] === 'cycles' && rest[2] === 'workouts' && rest[4] === 'skip') {
+      const workoutNum = Number(rest[3]);
+      state.skippedWorkouts.add(workoutNum);
+      noContent(res);
+      return;
+    }
+
+    // DELETE /programs/:p/cycles/:cycleNum/workouts/:workoutNum/skip
+    if (method === 'DELETE' && rest[0] === 'cycles' && rest[2] === 'workouts' && rest[4] === 'skip') {
+      const workoutNum = Number(rest[3]);
+      state.skippedWorkouts.delete(workoutNum);
+      noContent(res);
       return;
     }
 

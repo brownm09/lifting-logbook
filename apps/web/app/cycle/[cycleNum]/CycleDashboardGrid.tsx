@@ -14,16 +14,17 @@ function findCurrentWeek(weeks: WeekRow[]): number {
   return weeks[weeks.length - 1]?.week ?? 1;
 }
 
+const STATUS_LABELS: Record<WorkoutCell['status'], string> = {
+  completed: 'Completed',
+  upcoming: 'Upcoming',
+  missed: 'Missed',
+  skipped: 'Skipped',
+};
+
 function StatusBadge({ status }: { status: WorkoutCell['status'] }) {
-  const label =
-    status === 'completed'
-      ? 'Completed'
-      : status === 'upcoming'
-        ? 'Upcoming'
-        : 'Missed';
   return (
     <span className={`${styles.badge} ${styles[`badge_${status}`]}`}>
-      {label}
+      {STATUS_LABELS[status]}
     </span>
   );
 }

@@ -24,7 +24,7 @@ export interface WorkoutDay {
 export interface WorkoutCell {
   workoutNum: number;
   date: string; // YYYY-MM-DD
-  status: 'completed' | 'upcoming' | 'missed';
+  status: 'completed' | 'upcoming' | 'missed' | 'skipped';
   lifts: { name: string; sets: PlannedSet[] }[];
 }
 

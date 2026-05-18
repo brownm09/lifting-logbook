@@ -44,9 +44,11 @@ export default async function CycleDashboardPage({
   // Build a flat workoutNum → scheduled date lookup from the cycle dashboard response.
   // This is populated when schedule mode is active; empty when no schedule is set.
   const scheduledDateMap = new Map<number, string>();
+  const skippedWorkoutNums = new Set<number>();
   for (const week of dashboard.weeks) {
     for (const ws of week.workouts) {
       scheduledDateMap.set(ws.workoutNum, ws.date);
+      if (ws.skipped) skippedWorkoutNums.add(ws.workoutNum);
     }
   }
 
@@ -66,9 +68,11 @@ export default async function CycleDashboardPage({
         const effectiveDate = response?.overrideDate ?? scheduledDateMap.get(w.workoutNum) ?? w.date;
         const status: WorkoutCell['status'] = logged
           ? 'completed'
-          : effectiveDate < today
-            ? 'missed'
-            : 'upcoming';
+          : skippedWorkoutNums.has(w.workoutNum)
+            ? 'skipped'
+            : effectiveDate < today
+              ? 'missed'
+              : 'upcoming';
         return {
           workoutNum: w.workoutNum,
           date: effectiveDate,

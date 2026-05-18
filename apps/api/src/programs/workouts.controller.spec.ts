@@ -7,6 +7,7 @@ import { ILiftingProgramSpecRepository } from '../ports/ILiftingProgramSpecRepos
 import { IWorkoutDateOverrideRepository } from '../ports/IWorkoutDateOverrideRepository';
 import { IWorkoutLiftOverrideRepository } from '../ports/IWorkoutLiftOverrideRepository';
 import { IWorkoutRepository } from '../ports/IWorkoutRepository';
+import { IWorkoutSkipOverrideRepository } from '../ports/IWorkoutSkipOverrideRepository';
 import { ProgramNotFoundError, WorkoutNotFoundError } from '../ports/errors';
 import { IRepositoryFactory } from '../ports/factory';
 import { REPOSITORY_FACTORY } from '../ports/tokens';
@@ -22,6 +23,7 @@ describe('WorkoutsController', () => {
   let overrideRepo: jest.Mocked<IWorkoutDateOverrideRepository>;
   let liftOverrideRepo: jest.Mocked<IWorkoutLiftOverrideRepository>;
   let scheduledWorkoutRepo: jest.Mocked<ICycleScheduledWorkoutRepository>;
+  let skipOverrideRepo: jest.Mocked<IWorkoutSkipOverrideRepository>;
   let factory: jest.Mocked<IRepositoryFactory>;
 
   beforeEach(async () => {
@@ -44,6 +46,11 @@ describe('WorkoutsController', () => {
       getScheduledWorkouts: jest.fn().mockResolvedValue([]),
       saveScheduledWorkouts: jest.fn().mockResolvedValue(undefined),
     };
+    skipOverrideRepo = {
+      getSkipsForCycle: jest.fn().mockResolvedValue(new Set<number>()),
+      skipWorkout: jest.fn().mockResolvedValue(undefined),
+      unskipWorkout: jest.fn().mockResolvedValue(undefined),
+    };
     factory = {
       forUser: jest.fn().mockResolvedValue({
         workout: workoutRepo,
@@ -52,6 +59,7 @@ describe('WorkoutsController', () => {
         liftingProgramSpec: specRepo,
         workoutDateOverride: overrideRepo,
         workoutLiftOverride: liftOverrideRepo,
+        workoutSkipOverride: skipOverrideRepo,
       }),
     };
     const module: TestingModule = await Test.createTestingModule({
@@ -319,6 +327,54 @@ describe('WorkoutsController', () => {
 
       expect(result.lifts).toHaveLength(2);
       expect(result.lifts[0]).toMatchObject({ lift: 'Squat', planned: true });
+    });
+  });
+
+  describe('skipped field', () => {
+    const dashboard = {
+      program: '5-3-1',
+      cycleUnit: 'week',
+      cycleNum: 3,
+      cycleDate: new Date('2026-04-20T00:00:00.000Z'),
+      sheetName: '',
+      cycleStartWeekday: Weekday.Monday,
+      currentWeekType: 'training' as const,
+    };
+    const spec = [
+      { week: 1, offset: 0, lift: 'Squat', increment: 5, order: 1, sets: 3, reps: 5, amrap: false, warmUpPct: '', wtDecrementPct: 0, activation: 'compound' },
+    ];
+
+    it('returns skipped: false when the workout is not in the skip set', async () => {
+      dashboardRepo.getCycleDashboard.mockResolvedValue(dashboard);
+      specRepo.getProgramSpec.mockResolvedValue(spec);
+      workoutRepo.getWorkout.mockRejectedValue(new WorkoutNotFoundError('5-3-1', 3, 1));
+      skipOverrideRepo.getSkipsForCycle.mockResolvedValue(new Set<number>());
+
+      const result = await controller.getWorkout('5-3-1', '1', MOCK_USER);
+
+      expect(result.skipped).toBe(false);
+    });
+
+    it('returns skipped: true when the workout is in the skip set', async () => {
+      dashboardRepo.getCycleDashboard.mockResolvedValue(dashboard);
+      specRepo.getProgramSpec.mockResolvedValue(spec);
+      workoutRepo.getWorkout.mockRejectedValue(new WorkoutNotFoundError('5-3-1', 3, 1));
+      skipOverrideRepo.getSkipsForCycle.mockResolvedValue(new Set([1]));
+
+      const result = await controller.getWorkout('5-3-1', '1', MOCK_USER);
+
+      expect(result.skipped).toBe(true);
+    });
+
+    it('fetches skip set for the current cycle', async () => {
+      dashboardRepo.getCycleDashboard.mockResolvedValue(dashboard);
+      specRepo.getProgramSpec.mockResolvedValue(spec);
+      workoutRepo.getWorkout.mockRejectedValue(new WorkoutNotFoundError('5-3-1', 3, 1));
+      skipOverrideRepo.getSkipsForCycle.mockResolvedValue(new Set<number>());
+
+      await controller.getWorkout('5-3-1', '1', MOCK_USER);
+
+      expect(skipOverrideRepo.getSkipsForCycle).toHaveBeenCalledWith('5-3-1', 3);
     });
   });
 });
