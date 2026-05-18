@@ -1,0 +1,300 @@
+# Single-User Production Deploy
+
+This guide walks one person through standing up lifting-logbook on their own GCP
+project for personal use. It is a slimmed-down counterpart to the canonical
+[`docs/deploy.md`](deploy.md) — same building blocks (Terraform, Cloud Run, Cloud SQL,
+GitHub Actions), but **GKE Autopilot is skipped** via the `enable_gke = false`
+Terraform variable, removing the ~\$30/mo cluster cost and the entire Helm /
+kubectl pipeline. Cloud Run also runs at `min_instance_count = 0` so the API and
+web services scale to zero when idle.
+
+> The default deploy in `docs/deploy.md` provisions both GKE and Cloud Run to
+> satisfy the 90/10 A/B comparison in [ADR-009](adr/ADR-009-infrastructure.md).
+> Single-user mode is an opt-out, not a replacement: the same Terraform module
+> and the same workflow run, with the GKE-only resources gated off.
+
+Target cost: **~\$15–30/mo** (Cloud SQL + small Cloud Run usage + Artifact
+Registry). New GCP accounts get \$300 in free credit, which covers ~10 months.
+
+---
+
+## Step 0 — Get a GCP account and billing account (one-time, ~15 min)
+
+If you have never used GCP:
+
+1. Sign in to https://console.cloud.google.com with the Google account you want
+   to own the project. Accept terms.
+2. **Free credit:** new users get \$300 / 90 days. Google will not auto-charge
+   when the credit runs out — you have to opt in to a paid account first.
+3. **Create a billing account:**
+   - https://console.cloud.google.com/billing → **Create account**
+   - Enter a credit card (required even for the free credit; Google will not
+     charge until you opt in to a paid account)
+   - Pick **Individual** account type
+4. **Find your billing account ID:**
+   - https://console.cloud.google.com/billing → click the billing account →
+     **Account management** — the ID is at the top, formatted
+     `XXXXXX-XXXXXX-XXXXXX`
+   - Or from CLI after installing `gcloud`: `gcloud billing accounts list`
+5. **Install the `gcloud` CLI:**
+   - Windows installer: https://cloud.google.com/sdk/docs/install#windows
+   - macOS / Linux: see the same install page for your platform
+6. **Authenticate (two separate logins are required):**
+   ```bash
+   gcloud auth login                       # for gcloud CLI itself
+   gcloud auth application-default login   # for Terraform / SDKs
+   ```
+7. **Verify:**
+   ```bash
+   gcloud auth list                        # shows the logged-in account
+   gcloud projects list                    # confirms API access
+   ```
+
+### Git Bash on Windows — gotchas
+
+- The installer puts `gcloud` on the Windows `PATH`, but **Git Bash needs a
+  restart** to pick it up. Close all Git Bash windows and reopen.
+- Verify with `which gcloud`. If empty, add this to `~/.bashrc`:
+  ```bash
+  export PATH="$PATH:/c/Users/$USER/AppData/Local/Google/Cloud SDK/google-cloud-sdk/bin"
+  ```
+  then `source ~/.bashrc`.
+- `gcloud` on Windows is `gcloud.cmd` under the hood. If a command parses its
+  arguments oddly in Git Bash, prefix it with `winpty`:
+  ```bash
+  winpty gcloud auth login
+  ```
+
+### Cost guardrail
+
+Set a budget alert before running the bootstrap:
+
+- https://console.cloud.google.com/billing → **Budgets & alerts** → **Create
+  budget** → threshold \$50/mo → alert at 50%, 90%, 100%. You'll get email
+  before any surprise bill.
+
+---
+
+## Step 1 — Run the bootstrap script (~5 min)
+
+[`scripts/bootstrap-gcp-prod.sh`](../scripts/bootstrap-gcp-prod.sh) creates the
+project, links your billing account, enables the two APIs Terraform itself
+needs, and creates the Terraform state bucket. Every step is idempotent — re-run
+it if anything fails partway.
+
+```bash
+./scripts/bootstrap-gcp-prod.sh XXXXXX-XXXXXX-XXXXXX
+```
+
+To use a different project ID or region:
+
+```bash
+./scripts/bootstrap-gcp-prod.sh XXXXXX-XXXXXX-XXXXXX \
+  --project-id my-lifting-prod \
+  --region us-east1
+```
+
+The script's `--help` flag prints the full header documentation.
+
+---
+
+## Step 2 — Create a Clerk production app (~5 min)
+
+[Clerk](https://clerk.com) handles authentication. The free tier covers a
+single user.
+
+1. Sign up at https://clerk.com.
+2. Create an application named `lifting-logbook-production`.
+3. Pick auth methods (email + password is simplest).
+4. From the dashboard, **API Keys** → copy:
+   - Publishable key (`pk_live_…`)
+   - Secret key (`sk_live_…`)
+
+You'll load these into Secret Manager in Step 6.
+
+---
+
+## Step 3 — Configure Terraform for single-user mode
+
+Open [`infra/terraform/terraform.tfvars.production`](../infra/terraform/terraform.tfvars.production)
+and set, at minimum:
+
+```hcl
+project_id              = "lifting-logbook-prod"   # or whatever you passed to bootstrap
+environment             = "production"
+enable_gke              = false                    # skips the GKE Autopilot cluster
+cloud_run_min_instances = 0                        # scale Cloud Run to zero when idle
+# db_tier               = "db-f1-micro"            # optional: cheapest Cloud SQL tier
+```
+
+The `billing_account` variable is supplied on the command line (Step 5), not
+written to a file — billing IDs are sensitive.
+
+---
+
+## Step 4 — Add GitHub Actions secrets
+
+In the repo → **Settings → Secrets and variables → Actions** →
+**Repository secrets** (not the **Environments** tab):
+
+| Secret | Value |
+|---|---|
+| `GCP_PROD_PROJECT_ID` | `lifting-logbook-prod` |
+| `TF_STATE_BUCKET` | `lifting-logbook-prod-tfstate` |
+| `GCP_BILLING_ACCOUNT` | your billing account ID |
+| `GCP_PROD_WORKLOAD_IDENTITY_PROVIDER` | filled in **after** Step 5 |
+| `GCP_PROD_SERVICE_ACCOUNT` | filled in **after** Step 5 |
+
+If you also intend to deploy a staging environment later, also add the
+`GCP_STAGING_*` secrets per [`docs/deploy.md`](deploy.md#step-5--add-github-repository-secrets).
+
+> **Hardening (optional, for later):** move `GCP_PROD_*` into a GitHub
+> `production` environment so they're only readable from the production job
+> (which is already gated behind the required-reviewer rule). Not required for
+> a working single-user deploy. See
+> [Using secrets in GitHub Actions — Creating secrets for an environment](https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions#creating-secrets-for-an-environment).
+
+---
+
+## Step 5 — First Terraform apply (local, not CI)
+
+CI needs the Workload Identity outputs as secrets before it can authenticate,
+so the very first apply runs from your laptop:
+
+```bash
+cd infra/terraform
+terraform init -backend-config="bucket=lifting-logbook-prod-tfstate"
+terraform workspace new production
+terraform apply \
+  -var-file=terraform.tfvars.production \
+  -var="billing_account=XXXXXX-XXXXXX-XXXXXX"
+
+# Capture the values for the two GitHub secrets above
+terraform output workload_identity_provider
+terraform output cicd_service_account_email
+```
+
+This creates: VPC, Cloud SQL, Artifact Registry, Secret Manager (empty
+placeholder secrets), KMS keyring, IAM, and the Cloud Run service shells. With
+`enable_gke = false`, the GKE cluster and its Workload Identity binding are
+skipped; the `api_workload` service account itself is still created because
+Cloud Run reuses it as the API service identity.
+
+---
+
+## Step 6 — Populate Clerk secrets
+
+Terraform created empty secret containers with
+`lifecycle.ignore_changes = [secret_data]`. Add the actual values now:
+
+```bash
+echo -n "sk_live_..." | gcloud secrets versions add \
+  lifting-logbook-prod-clerk-secret-key --data-file=-
+
+echo -n "pk_live_..." | gcloud secrets versions add \
+  lifting-logbook-prod-clerk-publishable-key --data-file=-
+```
+
+---
+
+## Step 7 — Apply database migrations (one-time)
+
+The API container does **not** run `prisma migrate deploy` on startup. Use the
+Cloud SQL Auth Proxy:
+
+```bash
+# Download once: https://cloud.google.com/sql/docs/postgres/connect-auth-proxy
+./cloud-sql-proxy lifting-logbook-prod:us-central1:lifting-logbook-prod-db-XXXX &
+
+DATABASE_URL=$(gcloud secrets versions access latest \
+  --secret=lifting-logbook-prod-database-url)
+
+psql "$DATABASE_URL" -f infra/migrations/001_create_user_data_source.sql
+cd apps/api && DATABASE_URL="$DATABASE_URL" npx prisma migrate deploy
+```
+
+---
+
+## Step 8 — Trigger the first deploy
+
+Merge any branch to `main` (or push directly if you have the workflow set up
+that way). The [Deploy workflow](../.github/workflows/deploy.yml):
+
+1. Builds the api and web Docker images, pushes to Artifact Registry.
+2. Runs `terraform apply` (idempotent — no-op since you just applied locally).
+3. Runs `gcloud run deploy` for both services.
+4. **Skips** all GKE / Helm / kubectl steps because `enable_gke=false`
+   propagates from the Terraform output `gke_enabled` into a step-level
+   `if:` condition.
+
+The `production` GitHub environment has a required-reviewer protection rule
+(set up in [`docs/deploy.md` Step 6](deploy.md#step-6--configure-github-environment-protection-rules)),
+so the production job will pause until you approve it.
+
+---
+
+## Step 9 — Create your Clerk user, log in, verify
+
+Self-serve signup isn't wired by default. Provision yourself:
+
+1. Clerk dashboard → **Users** → **Create user**.
+2. Get the web URL:
+   ```bash
+   gcloud run services describe lifting-logbook-prod-web \
+     --region=us-central1 --format='value(status.url)'
+   ```
+3. Open the URL, log in, complete onboarding, generate a cycle, log a workout.
+
+---
+
+## Flipping `enable_gke` on an existing environment
+
+You can move between modes after the initial deploy, but **uninstall Helm
+releases before disabling GKE** so any cluster-managed cloud resources (load
+balancer IPs, attached disks, etc.) get torn down cleanly. Terraform will
+destroy the cluster but does not know about the in-cluster Helm state.
+
+**To go from GKE-enabled → Cloud-Run-only:**
+
+```bash
+# 1. Remove Helm releases first (run for each namespace you deployed to)
+helm uninstall api -n production
+helm uninstall web -n production
+
+# 2. Set enable_gke = false in terraform.tfvars.production, then apply
+cd infra/terraform
+terraform apply \
+  -var-file=terraform.tfvars.production \
+  -var="billing_account=XXXXXX-XXXXXX-XXXXXX"
+```
+
+The apply will destroy `google_container_cluster.main[0]` and its Workload
+Identity binding; the `api_workload` service account and its IAM roles stay
+because Cloud Run still uses them.
+
+**To go from Cloud-Run-only → GKE-enabled:**
+
+```bash
+# 1. Set enable_gke = true in terraform.tfvars.production
+# 2. Apply
+terraform apply -var-file=terraform.tfvars.production \
+  -var="billing_account=XXXXXX-XXXXXX-XXXXXX"
+
+# 3. Push to main; GitHub Actions will deploy via Helm on the next run.
+```
+
+No Helm cleanup needed in this direction — the cluster comes up empty and the
+workflow deploys to it.
+
+---
+
+## What's intentionally not in this guide
+
+These come from [`docs/deploy.md`](deploy.md). Skip them for single-user; add
+them later if you ever invite a second person:
+
+- A separate `lifting-logbook-staging` project and the full A/B `90/10` split.
+- A custom domain via Cloud Load Balancer.
+- Self-serve signup / open registration.
+- Rate limiting beyond what Cloud Run gives you by default.
+- On-call runbook / alert routing.

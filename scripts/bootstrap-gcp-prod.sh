@@ -26,6 +26,17 @@ PROJECT_NAME="Lifting Logbook Prod"
 REGION="us-central1"
 BILLING=""
 
+usage() {
+  # Print the leading comment block (everything from line 2 up to the first
+  # non-comment line). Resilient to header growth, unlike a fixed sed range.
+  awk '
+    NR == 1 { next }                    # skip shebang
+    /^[^#]/ { exit }                    # stop at first non-comment line
+    /^#$/   { print ""; next }          # blank-comment line → blank
+    /^# ?/  { sub(/^# ?/, ""); print }  # strip "# " prefix
+  ' "$0"
+}
+
 while (( $# > 0 )); do
   case "$1" in
     --project-id)
@@ -37,7 +48,7 @@ while (( $# > 0 )); do
       shift 2
       ;;
     --help|-h)
-      sed -n '2,20p' "$0"
+      usage
       exit 0
       ;;
     -*)
@@ -64,11 +75,15 @@ if [[ -z "$BILLING" ]]; then
   exit 2
 fi
 
-if ! [[ "$BILLING" =~ ^[A-Z0-9]{6}-[A-Z0-9]{6}-[A-Z0-9]{6}$ ]]; then
+# Shape check only — `gcloud billing accounts describe` below is the real validator.
+# Accept any case; gcloud normalizes to uppercase.
+if ! [[ "$BILLING" =~ ^[A-Za-z0-9]{6}-[A-Za-z0-9]{6}-[A-Za-z0-9]{6}$ ]]; then
   echo "Billing account ID '$BILLING' does not look right." >&2
-  echo "Expected format: XXXXXX-XXXXXX-XXXXXX (uppercase letters/digits)." >&2
+  echo "Expected format: XXXXXX-XXXXXX-XXXXXX (alphanumeric, three 6-char groups)." >&2
+  echo "Find your billing account ID with: gcloud billing accounts list" >&2
   exit 2
 fi
+BILLING=$(echo "$BILLING" | tr '[:lower:]' '[:upper:]')
 
 command -v gcloud >/dev/null \
   || { echo "gcloud not found on PATH. See https://cloud.google.com/sdk/docs/install" >&2; exit 1; }

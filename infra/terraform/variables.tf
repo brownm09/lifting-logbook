@@ -60,7 +60,17 @@ variable "image_tag" {
 }
 
 variable "enable_gke" {
-  description = "Provision the GKE Autopilot cluster (per ADR-009 A/B comparison). Set false for single-user / Cloud-Run-only deployments to skip ~$30/mo of cluster cost."
+  description = <<-EOT
+    Provision the GKE Autopilot cluster (per ADR-009 A/B comparison).
+    Set false for single-user / Cloud-Run-only deployments to skip ~$30/mo of cluster cost.
+
+    Flipping on an existing environment:
+      * true → false: `helm uninstall` every release in the cluster namespaces FIRST
+        (otherwise cluster-managed cloud resources like LB IPs and PVCs are orphaned
+        when terraform destroys the cluster), then apply. See docs/deploy.md.
+      * false → true: no cleanup needed; apply, then push to main so CI deploys Helm
+        releases onto the freshly created cluster.
+  EOT
   type        = bool
   default     = true
 }
