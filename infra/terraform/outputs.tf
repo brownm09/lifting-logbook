@@ -1,11 +1,16 @@
+output "gke_enabled" {
+  description = "Whether GKE is provisioned for this environment"
+  value       = var.enable_gke
+}
+
 output "gke_cluster_name" {
-  description = "GKE cluster name (used by helm deploy step in CI/CD)"
-  value       = google_container_cluster.main.name
+  description = "GKE cluster name (used by helm deploy step in CI/CD). Empty when enable_gke = false."
+  value       = var.enable_gke ? google_container_cluster.main[0].name : ""
 }
 
 output "gke_cluster_location" {
-  description = "GKE cluster region"
-  value       = google_container_cluster.main.location
+  description = "GKE cluster region. Empty when enable_gke = false."
+  value       = var.enable_gke ? google_container_cluster.main[0].location : ""
 }
 
 output "cloud_run_api_url" {

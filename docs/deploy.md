@@ -4,6 +4,11 @@ This project deploys to Google Cloud Platform using Terraform (infrastructure) a
 GitHub Actions (CI/CD). The deployment topology follows [ADR-009](adr/ADR-009-infrastructure.md):
 GKE Autopilot receives 90% of traffic; Cloud Run receives 10% as an A/B comparison target.
 
+> **Just deploying for yourself?** See [`deploy-single-user.md`](deploy-single-user.md)
+> for a slimmer walkthrough that sets `enable_gke = false` and skips the entire
+> Helm/kubectl pipeline. The remainder of this document is the canonical
+> two-deploy-target setup that satisfies ADR-009.
+
 ---
 
 ## Architecture overview
@@ -27,6 +32,46 @@ GitHub Actions (push to main)
 Two GCP projects are used for environment isolation:
 - `lifting-logbook-staging` — staging environment
 - `lifting-logbook-prod` — production environment
+
+---
+
+## Deploy modes
+
+The Terraform module supports two modes via the `enable_gke` variable
+([`infra/terraform/variables.tf`](../infra/terraform/variables.tf)):
+
+| Mode | `enable_gke` | What runs | When to use |
+|---|---|---|---|
+| Default / ADR-009 A/B | `true` (default) | GKE Autopilot **and** Cloud Run | Multi-user or portfolio deploy; preserves the A/B comparison this project is built around. |
+| Single-user / Cloud-Run-only | `false` | Cloud Run only | One-person deploys where ~\$30/mo of GKE Autopilot cost has no benefit. Full walkthrough: [`deploy-single-user.md`](deploy-single-user.md). |
+
+The `cloud_run_min_instances` variable controls Cloud Run scale-to-zero
+(`null` = environment default; `0` = always scale to zero for personal
+deployments; `1` = production-grade warm start).
+
+In default mode, this guide applies as written. In single-user mode, follow
+[`deploy-single-user.md`](deploy-single-user.md) instead — the bootstrap is
+scripted (`scripts/bootstrap-gcp-prod.sh`), only one GCP project is needed,
+and the GKE-only Helm/kubectl steps in the CI workflow are skipped via an
+`if: <ctx>.gke_enabled == 'true'` guard.
+
+### Flipping between modes on an existing environment
+
+You can move an environment from one mode to the other by toggling
+`enable_gke` and re-applying. **Uninstall Helm releases before disabling GKE**
+so any cluster-managed cloud resources (load balancer IPs, attached PVCs)
+are torn down before Terraform destroys the cluster:
+
+```bash
+# GKE-enabled → Cloud-Run-only
+helm uninstall api -n production
+helm uninstall web -n production
+# then set enable_gke = false and run terraform apply
+```
+
+Going the other direction (Cloud-Run-only → GKE-enabled) needs no cleanup —
+flip the variable, `terraform apply`, then push to `main` to let CI deploy
+the Helm releases onto the freshly created cluster.
 
 ---
 
@@ -228,13 +273,13 @@ gcloud logging read "resource.type=cloud_run_revision AND \
 
 ## Cost estimates
 
-| Resource | Staging | Production |
-|---|---|---|
-| GKE Autopilot (1 replica × 250m CPU × 256Mi) | ~$15/mo | ~$30/mo (2 replicas) |
-| Cloud SQL (db-f1-micro / db-g1-small) | ~$8/mo | ~$25/mo |
-| Cloud Run (low traffic) | ~$0–2/mo | ~$0–5/mo |
-| Artifact Registry | <$1/mo | <$1/mo |
-| **Total** | **~$24/mo** | **~$61/mo** |
+| Resource | Staging | Production | Production (single-user, `enable_gke=false`) |
+|---|---|---|---|
+| GKE Autopilot (1 replica × 250m CPU × 256Mi) | ~$15/mo | ~$30/mo (2 replicas) | — (skipped) |
+| Cloud SQL (db-f1-micro / db-g1-small) | ~$8/mo | ~$25/mo | ~$10–25/mo (tier-dependent) |
+| Cloud Run (low traffic) | ~$0–2/mo | ~$0–5/mo | ~$0–5/mo |
+| Artifact Registry | <$1/mo | <$1/mo | <$1/mo |
+| **Total** | **~$24/mo** | **~$61/mo** | **~$15–30/mo** |
 
 > GKE Autopilot charges for requested pod resources, not node capacity.
 > Idle pods with minimal resource requests keep costs low.

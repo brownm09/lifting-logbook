@@ -34,6 +34,7 @@ jobs:
       contents: read
       id-token: write
     outputs:
+      gke_enabled: ${{ steps.tf-outputs.outputs.gke_enabled }}
       gke_cluster_name: ${{ steps.tf-outputs.outputs.gke_cluster_name }}
       cloud_run_api_url: ${{ steps.tf-outputs.outputs.cloud_run_api_url }}
       cloud_run_web_url: ${{ steps.tf-outputs.outputs.cloud_run_web_url }}
@@ -76,6 +77,7 @@ jobs:
         id: tf-outputs
         working-directory: ${{ env.TF_DIR }}
         run: |
+          echo "gke_enabled=$(terraform output -raw gke_enabled)" >> "$GITHUB_OUTPUT"
           echo "gke_cluster_name=$(terraform output -raw gke_cluster_name)" >> "$GITHUB_OUTPUT"
           echo "cloud_run_api_url=$(terraform output -raw cloud_run_api_url)" >> "$GITHUB_OUTPUT"
           echo "cloud_run_web_url=$(terraform output -raw cloud_run_web_url)" >> "$GITHUB_OUTPUT"
@@ -153,7 +155,10 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_STAGING_SERVICE_ACCOUNT }}
 
+      # GKE-only steps below are skipped when terraform var enable_gke = false
+      # (single-user / Cloud-Run-only deployments).
       - name: Set up GKE credentials
+        if: needs.terraform-staging.outputs.gke_enabled == 'true'
         uses: google-github-actions/get-gke-credentials@v2
         with:
           cluster_name: ${{ needs.terraform-staging.outputs.gke_cluster_name }}
@@ -161,13 +166,16 @@ jobs:
           project_id: ${{ secrets.GCP_STAGING_PROJECT_ID }}
 
       - name: Set up Helm
+        if: needs.terraform-staging.outputs.gke_enabled == 'true'
         uses: azure/setup-helm@v4
 
       - name: Ensure staging namespace
+        if: needs.terraform-staging.outputs.gke_enabled == 'true'
         run: kubectl create namespace staging --dry-run=client -o yaml | kubectl apply -f -
 
       # Sync secrets from Secret Manager → Kubernetes Secrets
       - name: Sync API secrets to Kubernetes
+        if: needs.terraform-staging.outputs.gke_enabled == 'true'
         run: |
           DB_URL=$(gcloud secrets versions access latest \
             --secret="lifting-logbook-stg-database-url" \
@@ -186,6 +194,7 @@ jobs:
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Sync web secrets to Kubernetes
+        if: needs.terraform-staging.outputs.gke_enabled == 'true'
         run: |
           CLERK_PUB=$(gcloud secrets versions access latest \
             --secret="lifting-logbook-stg-clerk-publishable-key" \
@@ -196,6 +205,7 @@ jobs:
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Helm deploy API (GKE staging)
+        if: needs.terraform-staging.outputs.gke_enabled == 'true'
         run: |
           helm upgrade --install api ./infra/kubernetes/charts/api \
             --namespace=staging \
@@ -209,6 +219,7 @@ jobs:
             --wait --timeout=5m
 
       - name: Helm deploy web (GKE staging)
+        if: needs.terraform-staging.outputs.gke_enabled == 'true'
         run: |
           API_CLUSTER_URL="http://api.staging.svc.cluster.local:3000"
           helm upgrade --install web ./infra/kubernetes/charts/web \
@@ -319,6 +330,7 @@ jobs:
         id: tf-prod
         working-directory: ${{ env.TF_DIR }}
         run: |
+          echo "gke_enabled=$(terraform output -raw gke_enabled)" >> "$GITHUB_OUTPUT"
           echo "gke_cluster_name=$(terraform output -raw gke_cluster_name)" >> "$GITHUB_OUTPUT"
           echo "cloud_run_api_url=$(terraform output -raw cloud_run_api_url)" >> "$GITHUB_OUTPUT"
           echo "cloud_run_web_url=$(terraform output -raw cloud_run_web_url)" >> "$GITHUB_OUTPUT"
@@ -327,7 +339,10 @@ jobs:
           echo "api_wi_sa=$(terraform output -raw cicd_service_account_email)" >> "$GITHUB_OUTPUT"
           echo "web_workload_sa=$(terraform output -raw web_workload_sa)" >> "$GITHUB_OUTPUT"
 
+      # GKE-only steps below are skipped when terraform var enable_gke = false
+      # (single-user / Cloud-Run-only deployments).
       - name: Set up GKE credentials (production)
+        if: steps.tf-prod.outputs.gke_enabled == 'true'
         uses: google-github-actions/get-gke-credentials@v2
         with:
           cluster_name: ${{ steps.tf-prod.outputs.gke_cluster_name }}
@@ -335,12 +350,15 @@ jobs:
           project_id: ${{ secrets.GCP_PROD_PROJECT_ID }}
 
       - name: Set up Helm
+        if: steps.tf-prod.outputs.gke_enabled == 'true'
         uses: azure/setup-helm@v4
 
       - name: Ensure production namespace
+        if: steps.tf-prod.outputs.gke_enabled == 'true'
         run: kubectl create namespace production --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Sync API secrets to Kubernetes (production)
+        if: steps.tf-prod.outputs.gke_enabled == 'true'
         run: |
           DB_URL=$(gcloud secrets versions access latest \
             --secret="lifting-logbook-prod-database-url" \
@@ -359,6 +377,7 @@ jobs:
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Sync web secrets to Kubernetes (production)
+        if: steps.tf-prod.outputs.gke_enabled == 'true'
         run: |
           CLERK_PUB=$(gcloud secrets versions access latest \
             --secret="lifting-logbook-prod-clerk-publishable-key" \
@@ -369,6 +388,7 @@ jobs:
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Helm deploy API (GKE production)
+        if: steps.tf-prod.outputs.gke_enabled == 'true'
         run: |
           helm upgrade --install api ./infra/kubernetes/charts/api \
             --namespace=production \
@@ -382,6 +402,7 @@ jobs:
             --wait --timeout=5m
 
       - name: Helm deploy web (GKE production)
+        if: steps.tf-prod.outputs.gke_enabled == 'true'
         run: |
           API_CLUSTER_URL="http://api.production.svc.cluster.local:3000"
           helm upgrade --install web ./infra/kubernetes/charts/web \

@@ -7,6 +7,10 @@ locals {
   image_tag = var.image_tag
   api_image = "${var.artifact_registry_region}-docker.pkg.dev/${var.project_id}/${var.app_name}/api:${local.image_tag}"
   web_image = "${var.artifact_registry_region}-docker.pkg.dev/${var.project_id}/${var.app_name}/web:${local.image_tag}"
+
+  # Cloud Run min instances. var.cloud_run_min_instances overrides the per-environment
+  # default when set (use 0 in production for scale-to-zero / single-user deploys).
+  cloud_run_min_instances = var.cloud_run_min_instances != null ? var.cloud_run_min_instances : (var.environment == "production" ? 1 : 0)
 }
 
 # ─── API ──────────────────────────────────────────────────────────────────────
@@ -19,7 +23,7 @@ resource "google_cloud_run_v2_service" "api" {
     service_account = google_service_account.api_workload.email
 
     scaling {
-      min_instance_count = var.environment == "production" ? 1 : 0
+      min_instance_count = local.cloud_run_min_instances
       max_instance_count = var.environment == "production" ? 10 : 3
     }
 
@@ -110,7 +114,7 @@ resource "google_cloud_run_v2_service" "web" {
     service_account = google_service_account.web_workload.email
 
     scaling {
-      min_instance_count = var.environment == "production" ? 1 : 0
+      min_instance_count = local.cloud_run_min_instances
       max_instance_count = var.environment == "production" ? 10 : 3
     }
 
