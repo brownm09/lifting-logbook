@@ -97,6 +97,7 @@ Web and mobile clients functional end-to-end. Key user-facing features implement
 | Lift metadata | Per-user, per-lift metadata: muscle groups (`string[]`), substitutions (`string[]`), foundational flag (`boolean`); `GET /lifts/:lift/metadata` + `PATCH /lifts/:lift/metadata`; `LiftEditor` component + edit page + Edit link in manage-lifts | [#179](https://github.com/brownm09/lifting-logbook/issues/179) |
 | Onboarding program catalog | Full 13-program catalog with `Purpose`/`Goal` union types, experience + goal filters, "View Full Catalog" cross-tier sub-view, rich detail view (purpose tags, Core Lifts, duration/frequency grid, sample schedule), server-side availability guard, `useTransition` + Server Action wiring → `/cycle/1` | [#180](https://github.com/brownm09/lifting-logbook/issues/180) |
 | Integration tests | Cross-cutting e2e scenarios for strength goals, training max history, rescheduling, manage lifts, and lift metadata; `?isPR=true` filter coverage in DB suite; in-memory adapter wiring audit | [#181](https://github.com/brownm09/lifting-logbook/issues/181) |
+| Workout Scheduling Override | User-defined fixed or rotating A/B schedule; auto-distributes cycle workout dates; skip/unskip UI with optional reason; schedule-mode confirmation prompt on program switch; Playwright E2E coverage | [#269](https://github.com/brownm09/lifting-logbook/issues/269) |
 
 ### Proposals
 
@@ -108,7 +109,7 @@ Web and mobile clients functional end-to-end. Key user-facing features implement
 | [Initial Training Max Discovery](docs/proposals/2026-04-30-initial-training-max-discovery.md) | Estimation utility (Brzycki) and test-week cycle phase for users with no existing training maxes | [#129](https://github.com/brownm09/lifting-logbook/issues/129) | shipped |
 | [On-Call Readiness](docs/proposals/2026-05-08-on-call-readiness.md) | Runbooks, SLOs, incident response guide, and severity/escalation framework; sequences after #199 | [#201](https://github.com/brownm09/lifting-logbook/issues/201) | shipped |
 | [Historical Lift Data Backfill](docs/proposals/2026-05-11-historical-lift-data-backfill.md) | CSV upload endpoint and web UI to ingest historical `LiftRecord` rows with all-or-nothing validation | [#225](https://github.com/brownm09/lifting-logbook/issues/225) | draft |
-| [Workout Scheduling Override](docs/proposals/2026-05-17-workout-scheduling-override.md) | User-defined preferred workout days (fixed or rotating A/B) + per-program `workoutsPerWeek` override with automatic cycle date distribution | [#267](https://github.com/brownm09/lifting-logbook/issues/267) | draft |
+| [Workout Scheduling Override](docs/proposals/2026-05-17-workout-scheduling-override.md) | User-defined preferred workout days (fixed or rotating A/B) + per-program `workoutsPerWeek` override with automatic cycle date distribution | [#267](https://github.com/brownm09/lifting-logbook/issues/267) | shipped |
 
 ---
 
