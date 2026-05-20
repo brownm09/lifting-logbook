@@ -14,6 +14,10 @@ terraform {
       source  = "hashicorp/random"
       version = "~> 3.6"
     }
+    time = {
+      source  = "hashicorp/time"
+      version = "~> 0.11"
+    }
   }
 
   # Remote state in GCS — bucket is created during bootstrap (see docs/deploy.md)
@@ -50,6 +54,7 @@ resource "google_project_service" "required_apis" {
     "compute.googleapis.com",            # VPC, Load Balancer
     "servicenetworking.googleapis.com",  # Private service networking (Cloud SQL)
     "secretmanager.googleapis.com",      # Secret Manager
+    "vpcaccess.googleapis.com",          # Serverless VPC Access (Cloud Run connector)
     "iam.googleapis.com",
     "cloudresourcemanager.googleapis.com",
   ])
@@ -60,12 +65,19 @@ resource "google_project_service" "required_apis" {
   disable_on_destroy         = false
 }
 
+# GCP API enablement is eventually consistent — wait for propagation before
+# creating any resources that depend on newly-enabled APIs.
+resource "time_sleep" "api_propagation" {
+  depends_on      = [google_project_service.required_apis]
+  create_duration = "60s"
+}
+
 # ─── VPC ─────────────────────────────────────────────────────────────────────
 
 resource "google_compute_network" "main" {
   name                    = "${local.name_prefix}-vpc"
   auto_create_subnetworks = false
-  depends_on              = [google_project_service.required_apis]
+  depends_on              = [time_sleep.api_propagation]
 }
 
 resource "google_compute_subnetwork" "main" {
@@ -186,7 +198,9 @@ resource "google_sql_user" "app" {
 
 resource "google_secret_manager_secret" "database_url" {
   secret_id = "${local.name_prefix}-database-url"
-  replication { auto {} }
+  replication {
+    auto {}
+  }
   depends_on = [google_project_service.required_apis]
 }
 
@@ -197,7 +211,9 @@ resource "google_secret_manager_secret_version" "database_url" {
 
 resource "google_secret_manager_secret" "system_database_url" {
   secret_id = "${local.name_prefix}-system-database-url"
-  replication { auto {} }
+  replication {
+    auto {}
+  }
   depends_on = [google_project_service.required_apis]
 }
 
@@ -208,7 +224,9 @@ resource "google_secret_manager_secret_version" "system_database_url" {
 
 resource "google_secret_manager_secret" "clerk_secret_key" {
   secret_id = "${local.name_prefix}-clerk-secret-key"
-  replication { auto {} }
+  replication {
+    auto {}
+  }
   depends_on = [google_project_service.required_apis]
 }
 
@@ -224,7 +242,9 @@ resource "google_secret_manager_secret_version" "clerk_secret_key" {
 
 resource "google_secret_manager_secret" "clerk_publishable_key" {
   secret_id = "${local.name_prefix}-clerk-publishable-key"
-  replication { auto {} }
+  replication {
+    auto {}
+  }
   depends_on = [google_project_service.required_apis]
 }
 

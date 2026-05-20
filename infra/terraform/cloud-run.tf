@@ -5,8 +5,12 @@
 
 locals {
   image_tag = var.image_tag
-  api_image = "${var.artifact_registry_region}-docker.pkg.dev/${var.project_id}/${var.app_name}/api:${local.image_tag}"
-  web_image = "${var.artifact_registry_region}-docker.pkg.dev/${var.project_id}/${var.app_name}/web:${local.image_tag}"
+  # "bootstrap" is a sentinel used on first apply before CI/CD has pushed any images.
+  # CI/CD overwrites this via gcloud run deploy; lifecycle.ignore_changes prevents Terraform
+  # from reverting it on subsequent applies.
+  placeholder_image = "us-docker.pkg.dev/cloudrun/container/hello:latest"
+  api_image = var.image_tag == "bootstrap" ? local.placeholder_image : "${var.artifact_registry_region}-docker.pkg.dev/${var.project_id}/${var.app_name}/api:${local.image_tag}"
+  web_image = var.image_tag == "bootstrap" ? local.placeholder_image : "${var.artifact_registry_region}-docker.pkg.dev/${var.project_id}/${var.app_name}/web:${local.image_tag}"
 
   # Cloud Run min instances. var.cloud_run_min_instances overrides the per-environment
   # default when set (use 0 in production for scale-to-zero / single-user deploys).
@@ -50,11 +54,6 @@ resource "google_cloud_run_v2_service" "api" {
       env {
         name  = "NODE_ENV"
         value = var.environment == "production" ? "production" : "staging"
-      }
-
-      env {
-        name  = "PORT"
-        value = "3000"
       }
 
       env {
@@ -139,11 +138,6 @@ resource "google_cloud_run_v2_service" "web" {
       }
 
       env {
-        name  = "PORT"
-        value = "3001"
-      }
-
-      env {
         name  = "API_URL"
         value = google_cloud_run_v2_service.api.uri
       }
@@ -199,6 +193,12 @@ resource "google_cloud_run_v2_service_iam_member" "web_invoker_on_api" {
   name     = google_cloud_run_v2_service.api.name
   role     = "roles/run.invoker"
   member   = "serviceAccount:${google_service_account.web_workload.email}"
+}
+
+resource "google_project_iam_member" "web_workload_secret_accessor" {
+  project = var.project_id
+  role    = "roles/secretmanager.secretAccessor"
+  member  = "serviceAccount:${google_service_account.web_workload.email}"
 }
 
 # ─── Serverless VPC Connector (private Cloud SQL access from Cloud Run) ───────
