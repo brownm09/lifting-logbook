@@ -82,14 +82,14 @@ if $PLAN_ONLY; then
 else
   echo "==> terraform apply"
   terraform apply -var-file="$TFVARS"
-
-  echo ""
-  echo "==> GitHub Actions secrets — copy these into the repo settings:"
-  echo "    WIF_PROVIDER  = $(terraform output -raw workload_identity_provider 2>/dev/null || echo '(not yet available)')"
-  echo "    CICD_SA_EMAIL = $(terraform output -raw cicd_service_account_email 2>/dev/null || echo '(not yet available)')"
-
-  echo ""
-  echo "==> Next: populate Clerk keys in Secret Manager (see docs/deploy.md step 5):"
-  echo "    echo -n 'sk_live_...' | gcloud secrets versions add ${PROJECT_ID}-clerk-secret-key --data-file=-"
-  echo "    echo -n 'pk_live_...' | gcloud secrets versions add ${PROJECT_ID}-clerk-publishable-key --data-file=-"
 fi
+
+echo ""
+echo "==> GitHub Actions secrets — copy these into the repo settings:"
+echo "    WIF_PROVIDER  = $(terraform output -raw workload_identity_provider 2>/dev/null || echo '(not yet available)')"
+echo "    CICD_SA_EMAIL = $(terraform output -raw cicd_service_account_email 2>/dev/null || echo '(not yet available)')"
+
+echo ""
+echo "==> Next: populate Clerk keys in Secret Manager (see docs/deploy.md step 5):"
+echo "    echo -n 'sk_live_...' | gcloud secrets versions add ${PROJECT_ID}-clerk-secret-key --data-file=-"
+echo "    echo -n 'pk_live_...' | gcloud secrets versions add ${PROJECT_ID}-clerk-publishable-key --data-file=-"
