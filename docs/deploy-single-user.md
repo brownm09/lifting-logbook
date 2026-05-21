@@ -98,19 +98,29 @@ The script's `--help` flag prints the full header documentation.
 
 ---
 
-## Step 2 — Create a Clerk production app (~5 min)
+## Step 2 — Create and configure a Clerk production instance (~10 min)
 
-[Clerk](https://clerk.com) handles authentication. The free tier covers a
-single user.
+[Clerk](https://clerk.com) handles authentication. The free tier covers a single user.
 
-1. Sign up at https://clerk.com.
-2. Create an application named `lifting-logbook-production`.
-3. Pick auth methods (email + password is simplest).
-4. From the dashboard, **API Keys** → copy:
+1. Sign up / log in at https://clerk.com and create an application named `lifting-logbook-production`.
+2. Choose auth methods (email + password is simplest for a single user).
+3. **Switch to Production mode:** click the **Development** badge at the top of the dashboard → **Switch to Production**.
+4. **Set the application domain:** enter your domain (e.g. `liftinglogbook.com`). Clerk uses it to scope cookies, generate auth redirect URLs, and configure CORS.
+5. **Add Clerk DNS records at your registrar:** Clerk shows five CNAME records to add. These are separate from the Cloud Run A/AAAA records. Once DNS propagates, click **Verify** (or **Check DNS**) in Clerk. The records are found under **Configure → DNS Records** in the sidebar if the overlay is dismissed.
+6. **Copy your production API keys:** go to **API Keys** → copy:
    - Publishable key (`pk_live_…`)
    - Secret key (`sk_live_…`)
+7. **Configure paths:** under **Settings → Paths**, set:
 
-You'll load these into Secret Manager in Step 7.
+   | Path | Value |
+   |---|---|
+   | Home URL | `https://your-domain.com` |
+   | Sign-in URL | `https://your-domain.com/sign-in` |
+   | Sign-up URL | `https://your-domain.com/sign-up` |
+   | After sign-in URL | `https://your-domain.com` |
+   | After sign-up URL | `https://your-domain.com` |
+
+You'll load the API keys into Secret Manager in Step 7.
 
 ---
 
@@ -270,19 +280,23 @@ echo -n "pk_live_..." | gcloud secrets versions add \
 
 ## Step 9 — Apply database migrations (one-time)
 
-The API container does **not** run `prisma migrate deploy` on startup. Use the
-Cloud SQL Auth Proxy:
+The API container does **not** run `prisma migrate deploy` on startup. Run the migration script from the repo root:
 
 ```bash
-# Download once: https://cloud.google.com/sql/docs/postgres/connect-auth-proxy
-./cloud-sql-proxy lifting-logbook-prod:us-central1:lifting-logbook-prod-db-XXXX &
-
-DATABASE_URL=$(gcloud secrets versions access latest \
-  --secret=lifting-logbook-prod-database-url)
-
-psql "$DATABASE_URL" -f infra/migrations/001_create_user_data_source.sql
-cd apps/api && DATABASE_URL="$DATABASE_URL" npx prisma migrate deploy
+./scripts/migrate-prod-db.sh
 ```
+
+The script:
+1. Downloads the Cloud SQL Auth Proxy automatically if not present
+2. Temporarily enables a public IP on the Cloud SQL instance (required to connect from a local machine; removed when done)
+3. Retrieves `DATABASE_URL` from Secret Manager
+4. Applies all 14 Prisma migrations via `prisma migrate deploy`
+5. Runs `infra/migrations/001_create_user_data_source.sql` (managed outside Prisma)
+6. Removes the temporary public IP
+
+**Prerequisites:** `gcloud` authenticated, `npm install` run from repo root.
+
+> **Subsequent migrations** (adding new migrations to a live database): run the same script — `prisma migrate deploy` is idempotent and only applies pending migrations.
 
 ---
 
