@@ -13,6 +13,7 @@ Repository automation scripts. Grouped by lifecycle.
 | Script | Purpose |
 |---|---|
 | [`bootstrap-gcp-prod.sh`](bootstrap-gcp-prod.sh) | One-time GCP bootstrap for a single-user production deploy: creates the project, links billing, enables the APIs Terraform needs, and provisions the Terraform state bucket. Idempotent. See [`docs/deploy-single-user.md`](../docs/deploy-single-user.md). |
+| [`deploy-prod-infra.sh`](deploy-prod-infra.sh) | Automates `terraform init` → workspace select → `apply` for the production environment. Maps custom domains and prints GitHub Actions secrets. Use `--plan-only` to preview. Run after `bootstrap-gcp-prod.sh`. |
 
 ## Repository / project management
 

@@ -195,10 +195,10 @@ resource "google_cloud_run_v2_service_iam_member" "web_invoker_on_api" {
   member   = "serviceAccount:${google_service_account.web_workload.email}"
 }
 
-resource "google_project_iam_member" "web_workload_secret_accessor" {
-  project = var.project_id
-  role    = "roles/secretmanager.secretAccessor"
-  member  = "serviceAccount:${google_service_account.web_workload.email}"
+resource "google_secret_manager_secret_iam_member" "web_workload_publishable_key" {
+  secret_id = google_secret_manager_secret.clerk_publishable_key.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.web_workload.email}"
 }
 
 # ─── Serverless VPC Connector (private Cloud SQL access from Cloud Run) ───────

@@ -4,7 +4,7 @@
 #   terraform apply -var="billing_account=$GCP_BILLING_ACCOUNT"
 
 project_id      = "lifting-logbook-prod"
-billing_account = "01F30C-20F0EA-D44922"
+billing_account = "REPLACE_ME"
 region          = "us-central1"
 environment     = "production"
 app_name        = "lifting-logbook"
