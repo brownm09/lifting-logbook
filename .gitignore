@@ -18,3 +18,5 @@ next-env.d.ts
 
 # Claude Code local overrides (machine-specific permissions, not for team sharing)
 .claude/settings.local.json
+scripts/cloud-sql-proxy
+scripts/cloud-sql-proxy.exe
