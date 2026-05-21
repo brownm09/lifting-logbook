@@ -22,6 +22,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TF_DIR="$(cd "$SCRIPT_DIR/../infra/terraform" && pwd)"
 
 PROJECT_ID="lifting-logbook-prod"
+REGION="us-central1"
 WORKSPACE="production"
 PLAN_ONLY=false
 
@@ -93,3 +94,28 @@ echo ""
 echo "==> Next: populate Clerk keys in Secret Manager (see docs/deploy.md step 5):"
 echo "    echo -n 'sk_live_...' | gcloud secrets versions add ${PROJECT_ID}-clerk-secret-key --data-file=-"
 echo "    echo -n 'pk_live_...' | gcloud secrets versions add ${PROJECT_ID}-clerk-publishable-key --data-file=-"
+
+if ! $PLAN_ONLY; then
+  echo ""
+  echo "==> Mapping custom domains to Cloud Run web service (idempotent)..."
+  for DOMAIN in "liftinglogbook.com" "www.liftinglogbook.com"; do
+    if gcloud run domain-mappings describe --domain "$DOMAIN" --region "$REGION" --project "$PROJECT_ID" &>/dev/null; then
+      echo "    $DOMAIN already mapped — skipping"
+    else
+      gcloud run domain-mappings create \
+        --service "${PROJECT_ID}-web" \
+        --domain "$DOMAIN" \
+        --region "$REGION" \
+        --project "$PROJECT_ID"
+      echo "    $DOMAIN mapped"
+    fi
+  done
+
+  echo ""
+  echo "==> DNS records required at your registrar:"
+  gcloud run domain-mappings describe \
+    --domain "liftinglogbook.com" \
+    --region "$REGION" \
+    --project "$PROJECT_ID" \
+    --format="table(status.resourceRecords[].type, status.resourceRecords[].name, status.resourceRecords[].rrdata)"
+fi
