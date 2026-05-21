@@ -99,10 +99,10 @@ if ! $PLAN_ONLY; then
   echo ""
   echo "==> Mapping custom domains to Cloud Run web service (idempotent)..."
   for DOMAIN in "liftinglogbook.com" "www.liftinglogbook.com"; do
-    if gcloud run domain-mappings describe --domain "$DOMAIN" --region "$REGION" --project "$PROJECT_ID" &>/dev/null; then
+    if gcloud beta run domain-mappings describe --domain "$DOMAIN" --region "$REGION" --project "$PROJECT_ID" &>/dev/null; then
       echo "    $DOMAIN already mapped — skipping"
     else
-      gcloud run domain-mappings create \
+      gcloud beta run domain-mappings create \
         --service "${PROJECT_ID}-web" \
         --domain "$DOMAIN" \
         --region "$REGION" \
@@ -113,7 +113,7 @@ if ! $PLAN_ONLY; then
 
   echo ""
   echo "==> DNS records required at your registrar:"
-  gcloud run domain-mappings describe \
+  gcloud beta run domain-mappings describe \
     --domain "liftinglogbook.com" \
     --region "$REGION" \
     --project "$PROJECT_ID" \
