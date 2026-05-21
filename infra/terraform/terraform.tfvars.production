@@ -10,5 +10,5 @@ environment     = "production"
 app_name        = "lifting-logbook"
 db_tier         = "db-g1-small"
 db_name         = "lifting_logbook"
-enable_gke      = "false"
+enable_gke      = false
 image_tag       = "bootstrap"

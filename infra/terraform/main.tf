@@ -67,6 +67,9 @@ resource "google_project_service" "required_apis" {
 
 # GCP API enablement is eventually consistent — wait for propagation before
 # creating any resources that depend on newly-enabled APIs.
+# 60s was observed sufficient on fresh projects in testing; vpcaccess propagation
+# can occasionally take longer. This only fires on create (first apply), not on
+# re-applies where the APIs are already enabled.
 resource "time_sleep" "api_propagation" {
   depends_on      = [google_project_service.required_apis]
   create_duration = "60s"

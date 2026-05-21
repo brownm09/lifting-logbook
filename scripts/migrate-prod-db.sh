@@ -4,8 +4,13 @@
 #
 # The production Cloud SQL instance has no public IP. This script temporarily enables
 # a public IP (required for the Cloud SQL Auth Proxy to connect from a local machine),
-# runs all migrations, then removes the public IP. The proxy still requires Google IAM
-# authentication throughout, so the temporary exposure is protected.
+# scoped to the operator's current IP via --authorized-networks, runs all migrations,
+# then removes the public IP. The proxy still requires Google IAM authentication
+# throughout, so the temporary exposure is double-protected.
+#
+# On re-runs (e.g., to apply new Prisma migrations after the initial bootstrap), the
+# DROP TABLE step is skipped automatically when _prisma_migrations already exists,
+# preserving any existing user_data_source rows.
 #
 # Starts the Cloud SQL Auth Proxy, retrieves DATABASE_URL from Secret Manager,
 # runs the raw SQL migration, then runs prisma migrate deploy. Downloads the
@@ -17,7 +22,7 @@
 #   * roles/cloudsql.client on the project (project owner has this by default)
 #
 # Usage:
-#   ./scripts/migrate-prod-db.sh [--project-id <id>]
+#   ./scripts/migrate-prod-db.sh [--project-id <id>] [--region <region>]
 #
 # Examples:
 #   ./scripts/migrate-prod-db.sh
@@ -33,6 +38,7 @@ PROJECT_ID="lifting-logbook-prod"
 REGION="us-central1"
 PROXY_PORT=5433
 PUBLIC_IP_ENABLED=false
+PROXY_PID=""
 
 usage() {
   awk '
@@ -46,11 +52,30 @@ usage() {
 while (( $# > 0 )); do
   case "$1" in
     --project-id) PROJECT_ID="$2"; shift 2 ;;
+    --region)     REGION="$2"; shift 2 ;;
     --help|-h)    usage; exit 0 ;;
     -*)           echo "Unknown flag: $1" >&2; exit 2 ;;
     *)            echo "Unexpected argument: $1" >&2; exit 2 ;;
   esac
 done
+
+# ─── Cleanup function (defined early so the trap can reference it) ─────────────
+
+remove_public_ip() {
+  if $PUBLIC_IP_ENABLED; then
+    echo "==> Removing temporary public IP from Cloud SQL instance ..."
+    gcloud sql instances patch "$INSTANCE_NAME" \
+      --no-assign-ip \
+      --project="$PROJECT_ID" \
+      --quiet \
+      || echo "WARNING: Failed to remove public IP — remove manually: gcloud sql instances patch $INSTANCE_NAME --no-assign-ip --project=$PROJECT_ID"
+  fi
+}
+
+# Install cleanup trap before any destructive operations so the public IP is always
+# removed even if the script is interrupted (Ctrl-C, set -e, early exit).
+# PROXY_PID is initialized to "" above; guard ensures kill only fires after proxy starts.
+trap '[[ -n "${PROXY_PID:-}" ]] && { echo "==> Stopping proxy (PID $PROXY_PID)"; kill "$PROXY_PID" 2>/dev/null || true; }; remove_public_ip' EXIT INT TERM
 
 # ─── Prereq checks ────────────────────────────────────────────────────────────
 
@@ -67,15 +92,18 @@ echo "Authenticated as: $ACTIVE_ACCOUNT"
 PROXY_BIN=""
 if command -v cloud-sql-proxy >/dev/null; then
   PROXY_BIN="cloud-sql-proxy"
+elif [[ -x "$SCRIPT_DIR/cloud-sql-proxy.exe" ]]; then
+  # Windows binary (downloaded with correct .exe extension)
+  PROXY_BIN="$SCRIPT_DIR/cloud-sql-proxy.exe"
 elif [[ -x "$SCRIPT_DIR/cloud-sql-proxy" ]]; then
   PROXY_BIN="$SCRIPT_DIR/cloud-sql-proxy"
 else
-  echo "==> cloud-sql-proxy not found — downloading to $SCRIPT_DIR/cloud-sql-proxy ..."
+  echo "==> cloud-sql-proxy not found — downloading ..."
   PROXY_VERSION="v2.21.3"
   OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
   ARCH="$(uname -m)"
   # Filename convention differs by OS:
-  # Windows: cloud-sql-proxy.x64.exe / .arm64.exe
+  # Windows: cloud-sql-proxy.x64.exe / .arm64.exe  (saved with .exe extension)
   # Linux/macOS: cloud-sql-proxy.<os>.<arch>
   case "$OS" in
     linux)                OS_SLUG="linux" ;;
@@ -92,12 +120,14 @@ else
   if [[ "$OS_SLUG" == "windows" ]]; then
     WIN_ARCH="${ARCH_SLUG/amd64/x64}"
     PROXY_URL="${BASE}/cloud-sql-proxy.${WIN_ARCH}.exe"
+    PROXY_PATH="$SCRIPT_DIR/cloud-sql-proxy.exe"
   else
     PROXY_URL="${BASE}/cloud-sql-proxy.${OS_SLUG}.${ARCH_SLUG}"
+    PROXY_PATH="$SCRIPT_DIR/cloud-sql-proxy"
   fi
-  curl -fsSL -o "$SCRIPT_DIR/cloud-sql-proxy" "$PROXY_URL"
-  chmod +x "$SCRIPT_DIR/cloud-sql-proxy"
-  PROXY_BIN="$SCRIPT_DIR/cloud-sql-proxy"
+  curl -fsSL -o "$PROXY_PATH" "$PROXY_URL"
+  chmod +x "$PROXY_PATH"
+  PROXY_BIN="$PROXY_PATH"
   echo "    Downloaded to $PROXY_BIN"
 fi
 
@@ -114,15 +144,27 @@ echo "    Instance: $INSTANCE_CONNECTION_NAME"
 # ─── Temporarily enable public IP (required for proxy from local machine) ─────
 #
 # The Cloud SQL Auth Proxy requires a public IP to connect from outside GCP's VPC.
-# We enable it, run migrations, then remove it. The proxy still requires IAM auth
-# throughout — the public IP alone does not grant database access.
+# We enable it scoped to the operator's current IP, run migrations, then remove it.
+# The proxy still requires IAM auth — the public IP alone does not grant DB access.
 
 echo "==> Enabling temporary public IP on Cloud SQL instance ..."
-gcloud sql instances patch "$INSTANCE_NAME" \
-  --assign-ip \
-  --project="$PROJECT_ID" \
-  --quiet
+OPERATOR_IP=$(curl -fsSL ifconfig.me 2>/dev/null || curl -fsSL api.ipify.org 2>/dev/null || echo "")
+if [[ -n "$OPERATOR_IP" ]]; then
+  echo "    Scoping authorized_networks to operator IP: $OPERATOR_IP/32"
+  gcloud sql instances patch "$INSTANCE_NAME" \
+    --assign-ip \
+    --authorized-networks="$OPERATOR_IP/32" \
+    --project="$PROJECT_ID" \
+    --quiet
+else
+  echo "WARNING: Could not detect operator IP — public IP enabled without authorized_networks restriction." >&2
+  gcloud sql instances patch "$INSTANCE_NAME" \
+    --assign-ip \
+    --project="$PROJECT_ID" \
+    --quiet
+fi
 PUBLIC_IP_ENABLED=true
+
 echo "    Waiting for instance to be ready ..."
 until gcloud sql instances describe "$INSTANCE_NAME" \
   --project="$PROJECT_ID" \
@@ -132,17 +174,6 @@ until gcloud sql instances describe "$INSTANCE_NAME" \
 done
 echo "    Instance ready. Waiting an additional 15s for IP to become routable ..."
 sleep 15
-
-remove_public_ip() {
-  if $PUBLIC_IP_ENABLED; then
-    echo "==> Removing temporary public IP from Cloud SQL instance ..."
-    gcloud sql instances patch "$INSTANCE_NAME" \
-      --no-assign-ip \
-      --project="$PROJECT_ID" \
-      --quiet \
-      || echo "WARNING: Failed to remove public IP — remove manually: gcloud sql instances patch $INSTANCE_NAME --no-assign-ip --project=$PROJECT_ID"
-  fi
-}
 
 # ─── Get DATABASE_URL from Secret Manager ────────────────────────────────────
 
@@ -159,34 +190,60 @@ PROXY_DB_URL=$(echo "$RAW_DB_URL" | sed -E "s|@[^/]+/|@127.0.0.1:${PROXY_PORT}/|
 echo "==> Starting Cloud SQL Auth Proxy on port $PROXY_PORT ..."
 "$PROXY_BIN" "${INSTANCE_CONNECTION_NAME}?port=${PROXY_PORT}" &
 PROXY_PID=$!
-trap 'echo "==> Stopping proxy (PID $PROXY_PID)"; kill "$PROXY_PID" 2>/dev/null || true; remove_public_ip' EXIT
 
-# Give the proxy a moment to establish the connection
-sleep 3
+# Poll until proxy is accepting connections (up to 30s) rather than using a fixed sleep.
+echo "==> Waiting for proxy to be ready ..."
+WAIT_LIMIT=30
+WAIT_COUNT=0
+until node -e "require('net').createConnection(${PROXY_PORT},'127.0.0.1').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))" 2>/dev/null; do
+  WAIT_COUNT=$((WAIT_COUNT + 1))
+  if [[ $WAIT_COUNT -ge $WAIT_LIMIT ]]; then
+    echo "Proxy not ready after ${WAIT_LIMIT}s — giving up." >&2; exit 1
+  fi
+  sleep 1
+done
+echo "    Proxy ready."
 
 # ─── Run migrations ───────────────────────────────────────────────────────────
 
-# user_data_source is managed outside Prisma (infra/migrations/).
-# If it exists from a previous run, drop it so prisma migrate deploy sees an empty DB.
-# The app user owns this table, so it has permission to drop it.
-echo "==> Clearing any pre-existing user_data_source table ..."
-node -e "
+# Check whether Prisma migrations have already been applied.
+# If _prisma_migrations exists this is a re-run — skip the DROP TABLE to preserve data.
+echo "==> Checking migration state ..."
+MIGRATIONS_EXIST=$(node -e "
   const { Client } = require('pg');
   const client = new Client({ connectionString: process.argv[1] });
   client.connect()
-    .then(() => client.query('DROP TABLE IF EXISTS user_data_source'))
-    .then(() => { console.log('    Done.'); client.end(); })
+    .then(() => client.query(\"SELECT to_regclass('public._prisma_migrations')\"))
+    .then(r => { console.log(r.rows[0].to_regclass ? 'yes' : 'no'); client.end(); })
     .catch(err => { console.error(err.message); client.end(); process.exit(1); });
-" "$PROXY_DB_URL"
+" "$PROXY_DB_URL")
+
+if [[ "$MIGRATIONS_EXIST" == "no" ]]; then
+  # user_data_source is managed outside Prisma (infra/migrations/).
+  # On a fresh database it may exist from a prior partial run — drop it so
+  # prisma migrate deploy sees a clean state. The app user owns this table.
+  echo "==> Fresh database — clearing any pre-existing user_data_source table ..."
+  node -e "
+    const { Client } = require('pg');
+    const client = new Client({ connectionString: process.argv[1] });
+    client.connect()
+      .then(() => client.query('DROP TABLE IF EXISTS user_data_source'))
+      .then(() => { console.log('    Done.'); client.end(); })
+      .catch(err => { console.error(err.message); client.end(); process.exit(1); });
+  " "$PROXY_DB_URL"
+else
+  echo "    Migrations already applied — skipping user_data_source drop (preserving existing data)."
+fi
 
 # prisma migrate deploy applies all pending migrations in order.
 # It requires an empty database (or one that already has the _prisma_migrations table).
-echo "==> Running prisma migrate deploy (14 migrations) ..."
+echo "==> Running prisma migrate deploy ..."
 cd "$REPO_ROOT/apps/api"
 DATABASE_URL="$PROXY_DB_URL" npx prisma migrate deploy
 echo "    Done."
 
 # Run infra migration after Prisma — user_data_source is not in the Prisma schema.
+# Uses CREATE TABLE IF NOT EXISTS, so it is idempotent on re-runs.
 echo "==> Running infra/migrations/001_create_user_data_source.sql ..."
 SQL_FILE="$(cygpath -w "$REPO_ROOT/infra/migrations/001_create_user_data_source.sql" 2>/dev/null \
   || echo "$REPO_ROOT/infra/migrations/001_create_user_data_source.sql")"
