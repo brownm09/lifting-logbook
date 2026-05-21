@@ -110,7 +110,7 @@ single user.
    - Publishable key (`pk_live_…`)
    - Secret key (`sk_live_…`)
 
-You'll load these into Secret Manager in Step 6.
+You'll load these into Secret Manager in Step 7.
 
 ---
 
@@ -182,7 +182,78 @@ Cloud Run reuses it as the API service identity.
 
 ---
 
-## Step 6 — Populate Clerk secrets
+## Step 6 — Map a custom domain (optional)
+
+Skip this step if you're happy using the Cloud Run URL directly.
+
+### 6a — Verify domain ownership
+
+Google requires one-time domain ownership verification before a Cloud Run domain mapping will be accepted.
+
+```bash
+gcloud domains verify your-domain.com
+```
+
+This opens Google Search Console in your browser. Add the TXT record it shows at your registrar:
+
+| Field | Value |
+|---|---|
+| Type | TXT |
+| Name / Host | `@` |
+| Value | the string Google provides |
+
+> **Important:** the Name field must be exactly `@`. Other values (blank, the full domain name, etc.) fail silently.
+
+Click **Verify** in Search Console once the record is live. DNS propagation can take a few minutes.
+
+### 6b — Create the domain mappings
+
+```bash
+gcloud beta run domain-mappings create \
+  --service lifting-logbook-prod-web \
+  --domain your-domain.com \
+  --region us-central1 \
+  --project lifting-logbook-prod
+
+gcloud beta run domain-mappings create \
+  --service lifting-logbook-prod-web \
+  --domain www.your-domain.com \
+  --region us-central1 \
+  --project lifting-logbook-prod
+```
+
+### 6c — Add DNS records
+
+```bash
+gcloud beta run domain-mappings describe \
+  --domain your-domain.com \
+  --region us-central1 \
+  --project lifting-logbook-prod \
+  --format="table(status.resourceRecords[].type, status.resourceRecords[].name, status.resourceRecords[].rrdata)"
+```
+
+At your registrar, add:
+- Four `A` records pointing `@` to the IPs shown
+- Four `AAAA` records pointing `@` to the IPv6 addresses shown
+- One `CNAME` record pointing `www` to `ghs.googlehosted.com.`
+
+Replace any existing `A`/`AAAA` records for the apex; keep existing `MX` and `TXT` records.
+
+SSL is provisioned automatically once DNS propagates. Check status with:
+
+```bash
+gcloud beta run domain-mappings describe \
+  --domain your-domain.com \
+  --region us-central1 \
+  --project lifting-logbook-prod \
+  --format="value(status.conditions[0].reason)"
+```
+
+`CertificateProvisioned` means the cert is active. Provisioning typically completes within 15–60 minutes.
+
+---
+
+## Step 7 — Populate Clerk secrets
 
 Terraform created empty secret containers with
 `lifecycle.ignore_changes = [secret_data]`. Add the actual values now:
@@ -197,7 +268,7 @@ echo -n "pk_live_..." | gcloud secrets versions add \
 
 ---
 
-## Step 7 — Apply database migrations (one-time)
+## Step 9 — Apply database migrations (one-time)
 
 The API container does **not** run `prisma migrate deploy` on startup. Use the
 Cloud SQL Auth Proxy:
@@ -215,7 +286,7 @@ cd apps/api && DATABASE_URL="$DATABASE_URL" npx prisma migrate deploy
 
 ---
 
-## Step 8 — Trigger the first deploy
+## Step 10 — Trigger the first deploy
 
 Merge any branch to `main` (or push directly if you have the workflow set up
 that way). The [Deploy workflow](../.github/workflows/deploy.yml):
@@ -233,7 +304,7 @@ so the production job will pause until you approve it.
 
 ---
 
-## Step 9 — Create your Clerk user, log in, verify
+## Step 11 — Create your Clerk user, log in, verify
 
 Self-serve signup isn't wired by default. Provision yourself:
 
@@ -294,7 +365,6 @@ These come from [`docs/deploy.md`](deploy.md). Skip them for single-user; add
 them later if you ever invite a second person:
 
 - A separate `lifting-logbook-staging` project and the full A/B `90/10` split.
-- A custom domain via Cloud Load Balancer.
 - Self-serve signup / open registration.
 - Rate limiting beyond what Cloud Run gives you by default.
 - On-call runbook / alert routing.
