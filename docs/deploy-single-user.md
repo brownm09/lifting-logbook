@@ -144,16 +144,27 @@ written to a file — billing IDs are sensitive.
 
 ## Step 4 — Add GitHub Actions secrets
 
-In the repo → **Settings → Secrets and variables → Actions** →
+In the repo → **Settings → Secrets and variables → Actions**:
+
 **Repository secrets** (not the **Environments** tab):
 
 | Secret | Value |
 |---|---|
-| `GCP_PROD_PROJECT_ID` | `lifting-logbook-prod` |
 | `TF_STATE_BUCKET` | `lifting-logbook-prod-tfstate` |
 | `GCP_BILLING_ACCOUNT` | your billing account ID |
 | `GCP_PROD_WORKLOAD_IDENTITY_PROVIDER` | filled in **after** Step 5 |
 | `GCP_PROD_SERVICE_ACCOUNT` | filled in **after** Step 5 |
+
+**Repository variables** (same page → **Variables** tab):
+
+| Variable | Value |
+|---|---|
+| `GCP_PROD_PROJECT_ID` | `lifting-logbook-prod` |
+
+> **Why a variable, not a secret?** GCP project IDs are not sensitive — they appear in
+> Cloud Console URLs, API responses, and `gcloud` output. Storing them as secrets causes
+> GitHub Actions to mask any workflow output that contains the value, which silently breaks
+> job-to-job data passing (the `ar_repo` output used to resolve the Artifact Registry URL).
 
 If you also intend to deploy a staging environment later, also add the
 `GCP_STAGING_*` secrets per [`docs/deploy.md`](deploy.md#step-5--add-github-repository-secrets).

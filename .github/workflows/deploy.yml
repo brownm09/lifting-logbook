@@ -9,16 +9,20 @@ name: Deploy
 # deploy-production (production-only / single-user mode).
 #
 # Required GitHub repository secrets (see docs/deploy.md):
-#   GCP_PROD_PROJECT_ID
 #   GCP_PROD_WORKLOAD_IDENTITY_PROVIDER
 #   GCP_PROD_SERVICE_ACCOUNT
 #   TF_STATE_BUCKET
 #   GCP_BILLING_ACCOUNT   — never commit real value to tfvars; pass here instead
 #
+# Required GitHub repository variables (Settings → Variables, not Secrets):
+#   GCP_PROD_PROJECT_ID   — project IDs are not sensitive; vars.* is not masked in outputs
+#
 # Optional secrets (required only when staging environment is configured):
-#   GCP_STAGING_PROJECT_ID
 #   GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER
 #   GCP_STAGING_SERVICE_ACCOUNT
+#
+# Optional variables (required only when staging environment is configured):
+#   GCP_STAGING_PROJECT_ID
 
 on:
   push:
@@ -43,7 +47,7 @@ jobs:
       - id: check
         env:
           STAGING_WIF: ${{ secrets.GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER }}
-          PROD_PROJECT: ${{ secrets.GCP_PROD_PROJECT_ID }}
+          PROD_PROJECT: ${{ vars.GCP_PROD_PROJECT_ID }}
         run: |
           if [[ -n "$STAGING_WIF" ]]; then
             echo "staging_enabled=true" >> "$GITHUB_OUTPUT"
@@ -168,7 +172,7 @@ jobs:
             # Production-only mode: gcloud auth is already done above.
             URL=$(gcloud run services describe lifting-logbook-prod-api \
               --region="${{ env.REGION }}" \
-              --project="${{ secrets.GCP_PROD_PROJECT_ID }}" \
+              --project="${{ vars.GCP_PROD_PROJECT_ID }}" \
               --format="value(status.url)")
             echo "url=${URL}" >> "$GITHUB_OUTPUT"
           fi
@@ -233,7 +237,7 @@ jobs:
         with:
           cluster_name: ${{ needs.terraform-staging.outputs.gke_cluster_name }}
           location: ${{ env.REGION }}
-          project_id: ${{ secrets.GCP_STAGING_PROJECT_ID }}
+          project_id: ${{ vars.GCP_STAGING_PROJECT_ID }}
 
       - name: Set up Helm
         if: needs.terraform-staging.outputs.gke_enabled == 'true'
@@ -249,13 +253,13 @@ jobs:
         run: |
           DB_URL=$(gcloud secrets versions access latest \
             --secret="lifting-logbook-stg-database-url" \
-            --project="${{ secrets.GCP_STAGING_PROJECT_ID }}")
+            --project="${{ vars.GCP_STAGING_PROJECT_ID }}")
           SYS_DB_URL=$(gcloud secrets versions access latest \
             --secret="lifting-logbook-stg-system-database-url" \
-            --project="${{ secrets.GCP_STAGING_PROJECT_ID }}")
+            --project="${{ vars.GCP_STAGING_PROJECT_ID }}")
           CLERK_KEY=$(gcloud secrets versions access latest \
             --secret="lifting-logbook-stg-clerk-secret-key" \
-            --project="${{ secrets.GCP_STAGING_PROJECT_ID }}")
+            --project="${{ vars.GCP_STAGING_PROJECT_ID }}")
           kubectl create secret generic api-secrets \
             --namespace=staging \
             --from-literal=database-url="$DB_URL" \
@@ -268,7 +272,7 @@ jobs:
         run: |
           CLERK_PUB=$(gcloud secrets versions access latest \
             --secret="lifting-logbook-stg-clerk-publishable-key" \
-            --project="${{ secrets.GCP_STAGING_PROJECT_ID }}")
+            --project="${{ vars.GCP_STAGING_PROJECT_ID }}")
           kubectl create secret generic web-secrets \
             --namespace=staging \
             --from-literal=clerk-publishable-key="$CLERK_PUB" \
@@ -282,7 +286,7 @@ jobs:
             --values=infra/kubernetes/values/staging-api.yaml \
             --set image.repository="${{ needs.build-images.outputs.ar_repo }}/api" \
             --set image.tag="${{ github.sha }}" \
-            --set gcp.projectId="${{ secrets.GCP_STAGING_PROJECT_ID }}" \
+            --set gcp.projectId="${{ vars.GCP_STAGING_PROJECT_ID }}" \
             --set gcp.kmsKeyName="${{ needs.terraform-staging.outputs.kms_key_name }}" \
             --set gcp.serviceAccountEmail="${{ needs.terraform-staging.outputs.api_wi_sa }}" \
             --set env.NODE_ENV=staging \
@@ -297,7 +301,7 @@ jobs:
             --values=infra/kubernetes/values/staging-web.yaml \
             --set image.repository="${{ needs.build-images.outputs.ar_repo }}/web" \
             --set image.tag="${{ github.sha }}" \
-            --set gcp.projectId="${{ secrets.GCP_STAGING_PROJECT_ID }}" \
+            --set gcp.projectId="${{ vars.GCP_STAGING_PROJECT_ID }}" \
             --set env.NODE_ENV=staging \
             --set env.API_URL="$API_CLUSTER_URL" \
             --wait --timeout=5m
@@ -308,7 +312,7 @@ jobs:
           gcloud run deploy lifting-logbook-stg-api \
             --image="${{ needs.build-images.outputs.ar_repo }}/api:${{ github.sha }}" \
             --region="${{ env.REGION }}" \
-            --project="${{ secrets.GCP_STAGING_PROJECT_ID }}" \
+            --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
             --platform=managed \
             --no-allow-unauthenticated \
             --quiet
@@ -318,7 +322,7 @@ jobs:
           gcloud run deploy lifting-logbook-stg-web \
             --image="${{ needs.build-images.outputs.ar_repo }}/web:${{ github.sha }}" \
             --region="${{ env.REGION }}" \
-            --project="${{ secrets.GCP_STAGING_PROJECT_ID }}" \
+            --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
             --platform=managed \
             --allow-unauthenticated \
             --service-account="${{ needs.terraform-staging.outputs.web_workload_sa }}" \
@@ -428,7 +432,7 @@ jobs:
         with:
           cluster_name: ${{ steps.tf-prod.outputs.gke_cluster_name }}
           location: ${{ env.REGION }}
-          project_id: ${{ secrets.GCP_PROD_PROJECT_ID }}
+          project_id: ${{ vars.GCP_PROD_PROJECT_ID }}
 
       - name: Set up Helm
         if: steps.tf-prod.outputs.gke_enabled == 'true'
@@ -443,13 +447,13 @@ jobs:
         run: |
           DB_URL=$(gcloud secrets versions access latest \
             --secret="lifting-logbook-prod-database-url" \
-            --project="${{ secrets.GCP_PROD_PROJECT_ID }}")
+            --project="${{ vars.GCP_PROD_PROJECT_ID }}")
           SYS_DB_URL=$(gcloud secrets versions access latest \
             --secret="lifting-logbook-prod-system-database-url" \
-            --project="${{ secrets.GCP_PROD_PROJECT_ID }}")
+            --project="${{ vars.GCP_PROD_PROJECT_ID }}")
           CLERK_KEY=$(gcloud secrets versions access latest \
             --secret="lifting-logbook-prod-clerk-secret-key" \
-            --project="${{ secrets.GCP_PROD_PROJECT_ID }}")
+            --project="${{ vars.GCP_PROD_PROJECT_ID }}")
           kubectl create secret generic api-secrets \
             --namespace=production \
             --from-literal=database-url="$DB_URL" \
@@ -462,7 +466,7 @@ jobs:
         run: |
           CLERK_PUB=$(gcloud secrets versions access latest \
             --secret="lifting-logbook-prod-clerk-publishable-key" \
-            --project="${{ secrets.GCP_PROD_PROJECT_ID }}")
+            --project="${{ vars.GCP_PROD_PROJECT_ID }}")
           kubectl create secret generic web-secrets \
             --namespace=production \
             --from-literal=clerk-publishable-key="$CLERK_PUB" \
@@ -476,7 +480,7 @@ jobs:
             --values=infra/kubernetes/values/production-api.yaml \
             --set image.repository="${{ steps.tf-prod.outputs.ar_repo }}/api" \
             --set image.tag="${{ github.sha }}" \
-            --set gcp.projectId="${{ secrets.GCP_PROD_PROJECT_ID }}" \
+            --set gcp.projectId="${{ vars.GCP_PROD_PROJECT_ID }}" \
             --set gcp.kmsKeyName="${{ steps.tf-prod.outputs.kms_key_name }}" \
             --set gcp.serviceAccountEmail="${{ steps.tf-prod.outputs.api_wi_sa }}" \
             --set env.NODE_ENV=production \
@@ -491,7 +495,7 @@ jobs:
             --values=infra/kubernetes/values/production-web.yaml \
             --set image.repository="${{ steps.tf-prod.outputs.ar_repo }}/web" \
             --set image.tag="${{ github.sha }}" \
-            --set gcp.projectId="${{ secrets.GCP_PROD_PROJECT_ID }}" \
+            --set gcp.projectId="${{ vars.GCP_PROD_PROJECT_ID }}" \
             --set env.NODE_ENV=production \
             --set env.API_URL="$API_CLUSTER_URL" \
             --wait --timeout=5m
@@ -501,7 +505,7 @@ jobs:
           gcloud run deploy lifting-logbook-prod-api \
             --image="${{ steps.tf-prod.outputs.ar_repo }}/api:${{ github.sha }}" \
             --region="${{ env.REGION }}" \
-            --project="${{ secrets.GCP_PROD_PROJECT_ID }}" \
+            --project="${{ vars.GCP_PROD_PROJECT_ID }}" \
             --platform=managed \
             --no-allow-unauthenticated \
             --quiet
@@ -511,7 +515,7 @@ jobs:
           gcloud run deploy lifting-logbook-prod-web \
             --image="${{ steps.tf-prod.outputs.ar_repo }}/web:${{ github.sha }}" \
             --region="${{ env.REGION }}" \
-            --project="${{ secrets.GCP_PROD_PROJECT_ID }}" \
+            --project="${{ vars.GCP_PROD_PROJECT_ID }}" \
             --platform=managed \
             --allow-unauthenticated \
             --service-account="${{ steps.tf-prod.outputs.web_workload_sa }}" \
