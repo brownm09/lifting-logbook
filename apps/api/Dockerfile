@@ -33,8 +33,16 @@ WORKDIR /app
 RUN addgroup --system --gid 1001 nodejs \
  && adduser  --system --uid 1001 --ingroup nodejs nestjs
 
-# Copy the hoisted root node_modules.
+# Copy the hoisted root node_modules. This contains symlinks like
+# @lifting-logbook/core -> ../../packages/core, so the linked workspace
+# packages need to be copied too (next block).
 COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
+
+# Copy workspace packages that api depends on. node_modules/@lifting-logbook/*
+# symlinks here, and require('@lifting-logbook/core') resolves to the linked
+# packages/core/dist files at runtime. Without these the symlinks are dangling.
+COPY --from=builder --chown=nestjs:nodejs /app/packages/core ./packages/core
+COPY --from=builder --chown=nestjs:nodejs /app/packages/types ./packages/types
 
 # Copy the api workspace tree under its real path so workspace-local
 # node_modules (e.g., @fastify/multipart) is visible to node's module
