@@ -33,13 +33,19 @@ COPY --from=installer /app/tsconfig.base.json ./tsconfig.base.json
 RUN npx prisma generate --schema=apps/api/prisma/schema.prisma
 RUN npx turbo run build --filter=@lifting-logbook/api
 
-# Install production-only dependencies for the final image. This is a fresh
-# `npm ci` which destroys /app/node_modules and reinstalls — including the
-# Prisma client generated above. We re-run `prisma generate` after to repopulate
-# /app/node_modules/.prisma/client; without it, runtime fails with
-# "Cannot find module '.prisma/client/default'".
-RUN npm ci --omit=dev --workspace=@lifting-logbook/api
-RUN npx prisma generate --schema=apps/api/prisma/schema.prisma
+# NOTE: we intentionally do NOT run a second `npm ci --omit=dev` here to
+# produce a leaner production tree. `npm ci --omit=dev --workspace=<X>`
+# silently omits some transitive runtime dependencies of <X> (observed:
+# @fastify/multipart was missing from the resulting tree even though it
+# is in apps/api/package.json `dependencies`). Until we have time to
+# diagnose the npm workspaces interaction, ship the full builder
+# node_modules from the first `npm ci` above. The image is larger by
+# the size of devDependencies (~50–100 MB) — acceptable cost for a
+# reliable production deploy.
+#
+# Re-running prisma generate here is also unnecessary: the first
+# prisma generate above produced /app/node_modules/.prisma/client and
+# nothing has wiped it since.
 
 # ── Stage 3: runner ──────────────────────────────────────────────────────────
 # Minimal production image: compiled output + production node_modules only.
