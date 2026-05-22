@@ -1,0 +1,3 @@
+# Preserve the public/ directory in version control.
+# The Docker runner stage copies this directory; if it's empty/untracked,
+# turbo prune --docker omits it from out/full/ and the COPY fails.
