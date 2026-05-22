@@ -320,15 +320,54 @@ so the production job will pause until you approve it.
 
 ## Step 11 — Create your Clerk user, log in, verify
 
-Self-serve signup isn't wired by default. Provision yourself:
+Self-serve signup is disabled by default — there is no public "Sign Up" flow. You
+provision yourself directly through the Clerk dashboard:
 
-1. Clerk dashboard → **Users** → **Create user**.
-2. Get the web URL:
+1. Go to https://dashboard.clerk.com → your `lifting-logbook-production` app.
+2. Sidebar → **Users** → **Create user**.
+3. Enter your email and password. Clerk creates the account server-side.
+4. Get the web URL:
    ```bash
    gcloud run services describe lifting-logbook-prod-web \
      --region=us-central1 --format='value(status.url)'
    ```
-3. Open the URL, log in, complete onboarding, generate a cycle, log a workout.
+5. Open the URL, click **Sign In**, use the credentials from step 3.
+6. Complete onboarding, generate a cycle, log a workout.
+
+---
+
+## Optional — Enable Google OAuth
+
+If you prefer signing in with Google instead of email + password:
+
+### 1. Configure OAuth consent screen (one-time)
+
+1. https://console.cloud.google.com/apis/credentials/consent — choose your `lifting-logbook-prod` project.
+2. User type: **External** (required even for a single user).
+3. Fill in the required fields (app name, support email).
+4. Under **Test users**, add your Google account. In Testing mode Clerk's
+   callback domain is also on the allowlist automatically.
+5. Save — no need to submit for Google verification for a single-user app.
+
+### 2. Create an OAuth client ID
+
+1. https://console.cloud.google.com/apis/credentials → **Create Credentials → OAuth client ID**.
+2. Application type: **Web application**.
+3. Name it anything (e.g., `lifting-logbook-clerk`).
+4. Under **Authorized redirect URIs**, paste the callback URL from Clerk:
+   - Clerk dashboard → **Configure → Social connections → Google → Settings**.
+   - The URI looks like `https://accounts.<your-clerk-frontend-api>.clerk.accounts.dev/v1/oauth_callback`.
+5. Click **Create** — Google shows you the **Client ID** and **Client Secret**.
+
+### 3. Add credentials to Clerk
+
+1. Clerk dashboard → **Configure → Social connections → Google**.
+2. Toggle Google on, paste the **Client ID** and **Client Secret**.
+3. Save.
+
+Users (including you) can now sign in with Google. You still need to provision the
+account via **Users → Create user** first, or enable self-serve signup if you want
+Google sign-in to create the account automatically.
 
 ---
 
