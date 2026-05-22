@@ -297,21 +297,32 @@ resource "google_service_account" "cicd" {
 
 resource "google_project_iam_member" "cicd_roles" {
   for_each = toset([
-    # ── Runtime roles (used by the workloads themselves) ─────────────────
-    "roles/container.developer",          # GKE deploy
-    "roles/run.admin",                    # Cloud Run deploy
-    "roles/artifactregistry.writer",      # Push images
-    "roles/secretmanager.secretAccessor", # Read secrets
-    "roles/cloudsql.client",
+    # The CI/CD service account is the trusted automation identity for
+    # this project — it runs `terraform apply` and `gcloud run deploy`
+    # for every push to main. For a single-user production project,
+    # granting Owner is the pragmatic choice:
+    #
+    #   * Editor + projectIamAdmin still excludes `setIamPolicy` on
+    #     several resource types (Secret Manager secrets, KMS keys,
+    #     storage buckets) that Terraform's `*_iam_member` resources
+    #     need to manage. Closing each gap individually with a
+    #     resource-specific admin role is a whack-a-mole pattern that
+    #     this module has already iterated through twice (#301, #303).
+    #   * Owner gives the SA the same authority the human operator
+    #     already has when they run the first local terraform apply.
+    #     The only thing Owner adds beyond Editor+projectIamAdmin that
+    #     a deploy automation arguably should not have is the ability
+    #     to delete the project itself — acceptable here because access
+    #     to the SA is gated by WIF (only this repo's main branch).
+    #
+    # For multi-tenant production projects, replace `owner` with a
+    # narrower combination (e.g., editor + projectIamAdmin +
+    # secretmanager.admin + cloudkms.admin + storage.admin) and accept
+    # that adding new resource types may require adding more roles.
+    "roles/owner",
+
+    # Identity-token issuance for workload identity is not in `owner`.
     "roles/iam.serviceAccountTokenCreator",
-    # ── Terraform-from-CI admin roles ────────────────────────────────────
-    # Required so that `terraform apply` running as this SA from CI can
-    # manage every resource in this module. Editor covers Cloud SQL,
-    # Artifact Registry, Secret Manager, Compute (VPC), KMS, Cloud Run,
-    # and GKE admin. projectIamAdmin is needed separately because
-    # roles/editor explicitly excludes IAM binding management.
-    "roles/editor",
-    "roles/resourcemanager.projectIamAdmin",
   ])
   project = var.project_id
   role    = each.value

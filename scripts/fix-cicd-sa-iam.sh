@@ -4,13 +4,13 @@
 # for `terraform apply` from GitHub Actions to succeed.
 #
 # This is a one-time recovery script for production projects that were
-# bootstrapped *before* infra/terraform/main.tf was updated to include these
-# roles in the `cicd_roles` list. Without these grants, the Deploy workflow
-# fails with one of:
+# bootstrapped *before* infra/terraform/main.tf was updated to grant the
+# cicd SA roles/owner. Without it, the Deploy workflow fails with one of:
 #
 #   * "does not have storage.objects.list access" (on tfstate bucket)
 #   * "Error retrieving IAM policy for project ... 403 forbidden"
-#   * Other 403s when terraform tries to read/manage project resources
+#   * "Permission 'secretmanager.secrets.setIamPolicy' denied"
+#   * Other 403s when terraform tries to manage resource IAM policies
 #
 # The chicken-and-egg: `terraform apply` from CI needs these permissions
 # before it can grant them to itself. Run this script once, as a user identity
@@ -79,23 +79,27 @@ if ! gcloud iam service-accounts describe "$SA_EMAIL" --project="$PROJECT_ID" >/
   exit 1
 fi
 
+# Granting Owner covers every permission Terraform needs across Cloud SQL,
+# Secret Manager, KMS, Cloud Storage, Compute, Cloud Run, GKE, Artifact
+# Registry, and project IAM management — including the setIamPolicy
+# permissions that Editor + projectIamAdmin exclude on several resource
+# types. See infra/terraform/main.tf for the rationale on choosing Owner
+# over a narrower combination for a single-user production project.
+echo "==> Granting roles/owner on project $PROJECT_ID ..."
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:$SA_EMAIL" \
+  --role="roles/owner" \
+  --condition=None >/dev/null
+
+# storage.objectAdmin on the tfstate bucket is technically redundant once
+# Owner is granted at the project level, but we keep it as an explicit
+# binding so that revoking Owner later (when moving to multi-tenant) does
+# not silently break CI's access to terraform state.
 echo "==> Granting roles/storage.objectAdmin on gs://$STATE_BUCKET ..."
 gcloud storage buckets add-iam-policy-binding "gs://$STATE_BUCKET" \
   --member="serviceAccount:$SA_EMAIL" \
   --role="roles/storage.objectAdmin" \
   --project="$PROJECT_ID" \
-  --condition=None >/dev/null
-
-echo "==> Granting roles/editor on project $PROJECT_ID ..."
-gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-  --member="serviceAccount:$SA_EMAIL" \
-  --role="roles/editor" \
-  --condition=None >/dev/null
-
-echo "==> Granting roles/resourcemanager.projectIamAdmin on project $PROJECT_ID ..."
-gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-  --member="serviceAccount:$SA_EMAIL" \
-  --role="roles/resourcemanager.projectIamAdmin" \
   --condition=None >/dev/null
 
 echo ""
