@@ -1,18 +1,24 @@
 name: Deploy
 
 # Runs on every push to main.
-# Pipeline: terraform staging → build images → deploy staging →
+# Pipeline: [preflight] → terraform staging → build images → deploy staging →
 #           smoke test → [manual approval] → terraform production → deploy production
 #
+# Staging is optional. When GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER is not set,
+# staging jobs are skipped and the pipeline goes directly from build-images to
+# deploy-production (production-only / single-user mode).
+#
 # Required GitHub repository secrets (see docs/deploy.md):
-#   GCP_STAGING_PROJECT_ID
 #   GCP_PROD_PROJECT_ID
-#   GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER
-#   GCP_STAGING_SERVICE_ACCOUNT
 #   GCP_PROD_WORKLOAD_IDENTITY_PROVIDER
 #   GCP_PROD_SERVICE_ACCOUNT
 #   TF_STATE_BUCKET
 #   GCP_BILLING_ACCOUNT   — never commit real value to tfvars; pass here instead
+#
+# Optional secrets (required only when staging environment is configured):
+#   GCP_STAGING_PROJECT_ID
+#   GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER
+#   GCP_STAGING_SERVICE_ACCOUNT
 
 on:
   push:
@@ -26,10 +32,35 @@ env:
   TF_DIR: infra/terraform
 
 jobs:
+  # ── 0. Preflight: detect which environments are configured ───────────────
+  preflight:
+    name: Preflight
+    runs-on: ubuntu-latest
+    outputs:
+      staging_enabled: ${{ steps.check.outputs.staging_enabled }}
+      ar_repo: ${{ steps.check.outputs.ar_repo }}
+    steps:
+      - id: check
+        env:
+          STAGING_WIF: ${{ secrets.GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER }}
+          PROD_PROJECT: ${{ secrets.GCP_PROD_PROJECT_ID }}
+        run: |
+          if [[ -n "$STAGING_WIF" ]]; then
+            echo "staging_enabled=true" >> "$GITHUB_OUTPUT"
+            echo "ar_repo=" >> "$GITHUB_OUTPUT"   # filled by terraform-staging
+            echo "Staging credentials found — full pipeline will run."
+          else
+            echo "staging_enabled=false" >> "$GITHUB_OUTPUT"
+            echo "ar_repo=${{ env.REGISTRY }}/${PROD_PROJECT}/${{ env.ARTIFACT_REPO }}" >> "$GITHUB_OUTPUT"
+            echo "Staging not configured — production-only mode."
+          fi
+
   # ── 1. Terraform: staging ────────────────────────────────────────────────
   terraform-staging:
     name: Terraform (staging)
     runs-on: ubuntu-latest
+    needs: [preflight]
+    if: needs.preflight.outputs.staging_enabled == 'true'
     permissions:
       contents: read
       id-token: write
@@ -90,19 +121,43 @@ jobs:
   build-images:
     name: Build & Push Images
     runs-on: ubuntu-latest
-    needs: terraform-staging
+    needs: [preflight, terraform-staging]
+    # Run when preflight succeeds and terraform-staging either succeeded or was skipped.
+    if: |
+      always() &&
+      needs.preflight.result == 'success' &&
+      (needs.terraform-staging.result == 'success' || needs.terraform-staging.result == 'skipped')
     permissions:
       contents: read
       id-token: write
+    outputs:
+      ar_repo: ${{ steps.ar.outputs.repo }}
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Authenticate to GCP (staging — where Artifact Registry lives)
+      # In staging mode, Artifact Registry lives in the staging project.
+      - name: Authenticate to GCP (staging)
+        if: needs.preflight.outputs.staging_enabled == 'true'
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_STAGING_SERVICE_ACCOUNT }}
+
+      # In production-only mode, use production credentials for the prod AR repo.
+      - name: Authenticate to GCP (production-only mode)
+        if: needs.preflight.outputs.staging_enabled != 'true'
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_PROD_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_PROD_SERVICE_ACCOUNT }}
+
+      - name: Resolve Artifact Registry repo
+        id: ar
+        run: |
+          STAGING_REPO="${{ needs.terraform-staging.outputs.ar_repo }}"
+          PREFLIGHT_REPO="${{ needs.preflight.outputs.ar_repo }}"
+          echo "repo=${STAGING_REPO:-$PREFLIGHT_REPO}" >> "$GITHUB_OUTPUT"
 
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
@@ -117,8 +172,8 @@ jobs:
           file: apps/api/Dockerfile
           push: true
           tags: |
-            ${{ needs.terraform-staging.outputs.ar_repo }}/api:${{ github.sha }}
-            ${{ needs.terraform-staging.outputs.ar_repo }}/api:latest
+            ${{ steps.ar.outputs.repo }}/api:${{ github.sha }}
+            ${{ steps.ar.outputs.repo }}/api:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -129,8 +184,8 @@ jobs:
           file: apps/web/Dockerfile
           push: true
           tags: |
-            ${{ needs.terraform-staging.outputs.ar_repo }}/web:${{ github.sha }}
-            ${{ needs.terraform-staging.outputs.ar_repo }}/web:latest
+            ${{ steps.ar.outputs.repo }}/web:${{ github.sha }}
+            ${{ steps.ar.outputs.repo }}/web:latest
           build-args: |
             NEXT_PUBLIC_API_URL=${{ needs.terraform-staging.outputs.cloud_run_api_url }}
           cache-from: type=gha
@@ -140,7 +195,8 @@ jobs:
   deploy-staging:
     name: Deploy (staging)
     runs-on: ubuntu-latest
-    needs: [terraform-staging, build-images]
+    needs: [preflight, terraform-staging, build-images]
+    if: needs.preflight.outputs.staging_enabled == 'true' && needs.build-images.result == 'success'
     permissions:
       contents: read
       id-token: write
@@ -210,7 +266,7 @@ jobs:
           helm upgrade --install api ./infra/kubernetes/charts/api \
             --namespace=staging \
             --values=infra/kubernetes/values/staging-api.yaml \
-            --set image.repository="${{ needs.terraform-staging.outputs.ar_repo }}/api" \
+            --set image.repository="${{ needs.build-images.outputs.ar_repo }}/api" \
             --set image.tag="${{ github.sha }}" \
             --set gcp.projectId="${{ secrets.GCP_STAGING_PROJECT_ID }}" \
             --set gcp.kmsKeyName="${{ needs.terraform-staging.outputs.kms_key_name }}" \
@@ -225,7 +281,7 @@ jobs:
           helm upgrade --install web ./infra/kubernetes/charts/web \
             --namespace=staging \
             --values=infra/kubernetes/values/staging-web.yaml \
-            --set image.repository="${{ needs.terraform-staging.outputs.ar_repo }}/web" \
+            --set image.repository="${{ needs.build-images.outputs.ar_repo }}/web" \
             --set image.tag="${{ github.sha }}" \
             --set gcp.projectId="${{ secrets.GCP_STAGING_PROJECT_ID }}" \
             --set env.NODE_ENV=staging \
@@ -236,7 +292,7 @@ jobs:
       - name: Deploy API to Cloud Run (staging)
         run: |
           gcloud run deploy lifting-logbook-stg-api \
-            --image="${{ needs.terraform-staging.outputs.ar_repo }}/api:${{ github.sha }}" \
+            --image="${{ needs.build-images.outputs.ar_repo }}/api:${{ github.sha }}" \
             --region="${{ env.REGION }}" \
             --project="${{ secrets.GCP_STAGING_PROJECT_ID }}" \
             --platform=managed \
@@ -246,7 +302,7 @@ jobs:
       - name: Deploy web to Cloud Run (staging)
         run: |
           gcloud run deploy lifting-logbook-stg-web \
-            --image="${{ needs.terraform-staging.outputs.ar_repo }}/web:${{ github.sha }}" \
+            --image="${{ needs.build-images.outputs.ar_repo }}/web:${{ github.sha }}" \
             --region="${{ env.REGION }}" \
             --project="${{ secrets.GCP_STAGING_PROJECT_ID }}" \
             --platform=managed \
@@ -259,7 +315,8 @@ jobs:
   smoke-test:
     name: Smoke Test (staging)
     runs-on: ubuntu-latest
-    needs: [deploy-staging, terraform-staging]
+    needs: [preflight, deploy-staging, terraform-staging]
+    if: needs.preflight.outputs.staging_enabled == 'true' && needs.deploy-staging.result == 'success'
 
     steps:
       - name: Smoke test Cloud Run staging (web)
@@ -294,7 +351,17 @@ jobs:
   deploy-production:
     name: Deploy (production)
     runs-on: ubuntu-latest
-    needs: [smoke-test]
+    needs: [preflight, build-images, deploy-staging, smoke-test]
+    # Run when:
+    #   - build-images succeeded, AND
+    #   - either staging is not configured (skipped), or smoke-test passed.
+    if: |
+      always() &&
+      needs.build-images.result == 'success' &&
+      (
+        needs.preflight.outputs.staging_enabled != 'true' ||
+        needs.smoke-test.result == 'success'
+      )
     permissions:
       contents: read
       id-token: write
