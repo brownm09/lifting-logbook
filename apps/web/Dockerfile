@@ -21,6 +21,11 @@ RUN npm ci
 
 # Copy full source and build.
 COPY --from=installer /app/out/full/ .
+# tsconfig.base.json lives at the repo root and is not a workspace package, so
+# turbo prune --docker does not include it in out/full/. packages/types (a
+# dependency of web) extends ../../tsconfig.base.json and fails with TS5083
+# without this explicit copy.
+COPY --from=installer /app/tsconfig.base.json ./tsconfig.base.json
 ARG NEXT_PUBLIC_API_URL
 RUN npx turbo run build --filter=@lifting-logbook/web
 
