@@ -33,8 +33,13 @@ COPY --from=installer /app/tsconfig.base.json ./tsconfig.base.json
 RUN npx prisma generate --schema=apps/api/prisma/schema.prisma
 RUN npx turbo run build --filter=@lifting-logbook/api
 
-# Install production-only dependencies for the final image.
+# Install production-only dependencies for the final image. This is a fresh
+# `npm ci` which destroys /app/node_modules and reinstalls — including the
+# Prisma client generated above. We re-run `prisma generate` after to repopulate
+# /app/node_modules/.prisma/client; without it, runtime fails with
+# "Cannot find module '.prisma/client/default'".
 RUN npm ci --omit=dev --workspace=@lifting-logbook/api
+RUN npx prisma generate --schema=apps/api/prisma/schema.prisma
 
 # ── Stage 3: runner ──────────────────────────────────────────────────────────
 # Minimal production image: compiled output + production node_modules only.
@@ -46,9 +51,19 @@ RUN addgroup --system --gid 1001 nodejs \
  && adduser  --system --uid 1001 --ingroup nodejs nestjs
 
 # Copy compiled output and production dependencies.
+#
+# Source for node_modules is /app/node_modules (the hoisted root tree), NOT
+# /app/apps/api/node_modules. npm workspaces hoists most dependencies to the
+# repo root; the workspace-local node_modules contains only conflict-resolution
+# entries and is typically near-empty. Copying the workspace-local path leaves
+# the runtime missing every hoisted dependency (e.g., @opentelemetry/sdk-node)
+# and the container fails to start with "Cannot find module ...".
 COPY --from=builder --chown=nestjs:nodejs /app/apps/api/dist ./dist
-COPY --from=builder --chown=nestjs:nodejs /app/apps/api/node_modules ./node_modules
+COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nestjs:nodejs /app/apps/api/package.json ./package.json
+# The Prisma client looks for the schema file at runtime to bind to the
+# generated default-client. Include it so the client can self-locate.
+COPY --from=builder --chown=nestjs:nodejs /app/apps/api/prisma ./prisma
 
 USER nestjs
 
