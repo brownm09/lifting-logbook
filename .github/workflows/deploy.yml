@@ -159,6 +159,20 @@ jobs:
           PREFLIGHT_REPO="${{ needs.preflight.outputs.ar_repo }}"
           echo "repo=${STAGING_REPO:-$PREFLIGHT_REPO}" >> "$GITHUB_OUTPUT"
 
+      - name: Resolve API URL for web image build
+        id: api-url
+        run: |
+          if [[ "${{ needs.preflight.outputs.staging_enabled }}" == "true" ]]; then
+            echo "url=${{ needs.terraform-staging.outputs.cloud_run_api_url }}" >> "$GITHUB_OUTPUT"
+          else
+            # Production-only mode: gcloud auth is already done above.
+            URL=$(gcloud run services describe lifting-logbook-prod-api \
+              --region="${{ env.REGION }}" \
+              --project="${{ secrets.GCP_PROD_PROJECT_ID }}" \
+              --format="value(status.url)")
+            echo "url=${URL}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
 
@@ -187,7 +201,7 @@ jobs:
             ${{ steps.ar.outputs.repo }}/web:${{ github.sha }}
             ${{ steps.ar.outputs.repo }}/web:latest
           build-args: |
-            NEXT_PUBLIC_API_URL=${{ needs.terraform-staging.outputs.cloud_run_api_url }}
+            NEXT_PUBLIC_API_URL=${{ steps.api-url.outputs.url }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
