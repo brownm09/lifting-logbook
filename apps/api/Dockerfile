@@ -26,6 +26,11 @@ COPY --from=installer /app/out/full/ .
 # (packages/types, packages/core, apps/api) extends ../../tsconfig.base.json,
 # so the build fails with TS5083 without this explicit copy.
 COPY --from=installer /app/tsconfig.base.json ./tsconfig.base.json
+# Generate the Prisma client from the schema before TypeScript compilation.
+# Without this, tsc fails with TS2694 ("no exported member 'InputJsonValue'")
+# because the .prisma/client/default scaffold installed by `npm ci` is empty
+# until `prisma generate` runs against schema.prisma.
+RUN npx prisma generate --schema=apps/api/prisma/schema.prisma
 RUN npx turbo run build --filter=@lifting-logbook/api
 
 # Install production-only dependencies for the final image.
