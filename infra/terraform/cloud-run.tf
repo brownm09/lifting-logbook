@@ -96,8 +96,17 @@ resource "google_cloud_run_v2_service" "api" {
   # Image and template updates are managed exclusively by gcloud run deploy in CI/CD.
   # Terraform creates the service on first apply; subsequent image/env/scale changes
   # are applied by the deploy-staging / deploy-production jobs, not Terraform.
+  #
+  # `client` and `client_version` are set by `gcloud run deploy` (e.g.,
+  # "gcloud" / "568.0.0"). Without ignoring them, terraform sees them as drift
+  # and tries to revert to null on the next apply. The revert triggers an
+  # in-place Service modification, which Cloud Run validates by re-attempting
+  # to start the current template's image. If that image is broken (e.g., a
+  # bad deploy that pre-dates the current commit), the modification fails
+  # with "container failed to start", blocking every subsequent terraform
+  # apply even though the live image issue is unrelated to terraform.
   lifecycle {
-    ignore_changes = [template]
+    ignore_changes = [template, client, client_version]
   }
 
   depends_on = [google_project_service.required_apis]
