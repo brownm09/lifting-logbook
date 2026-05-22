@@ -309,6 +309,16 @@ resource "google_project_iam_member" "cicd_roles" {
   member  = "serviceAccount:${google_service_account.cicd.email}"
 }
 
+# Grant the CI/CD service account access to the Terraform state bucket so the
+# Deploy workflow's `terraform init`/`apply` calls can read and write state.
+# The bucket itself is created by scripts/bootstrap-gcp-prod.sh (outside
+# Terraform), so we bind by computed name rather than by resource reference.
+resource "google_storage_bucket_iam_member" "cicd_tfstate" {
+  bucket = "${var.project_id}-tfstate"
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.cicd.email}"
+}
+
 # ─── IAM — Workload Identity Federation (keyless auth for GitHub Actions) ────
 
 resource "google_iam_workload_identity_pool" "github" {
