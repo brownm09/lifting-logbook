@@ -201,6 +201,30 @@ placeholder secrets), KMS keyring, IAM, and the Cloud Run service shells. With
 skipped; the `api_workload` service account itself is still created because
 Cloud Run reuses it as the API service identity.
 
+The CI/CD service account is created with both **runtime** roles (Cloud Run
+deploy, Artifact Registry write, Secret Manager read, Cloud SQL client) and
+**admin** roles (Editor + projectIamAdmin) so that `terraform apply` running
+from GitHub Actions can manage every resource in this module. The state
+bucket gets a `storage.objectAdmin` binding for the same SA so the CI run
+can read/write Terraform state.
+
+> **Recovery for pre-existing setups.** If you ran the first `terraform apply`
+> before this section existed — i.e., the `cicd_roles` list in
+> `infra/terraform/main.tf` didn't yet include `roles/editor` and
+> `roles/resourcemanager.projectIamAdmin` — CI cannot grant these roles to
+> itself (chicken-and-egg: terraform needs the perms to manage the perms).
+> Run the recovery script once from your laptop as a project owner, then
+> push to main:
+>
+> ```bash
+> ./scripts/fix-cicd-sa-iam.sh
+> ```
+>
+> It grants three roles: `storage.objectAdmin` on the tfstate bucket,
+> `editor` on the project, and `resourcemanager.projectIamAdmin` on the
+> project. All bindings are idempotent and will be taken over by Terraform
+> on the next CI apply, so they persist across re-applies.
+
 ---
 
 ## Step 6 — Map a custom domain (optional)

@@ -297,12 +297,21 @@ resource "google_service_account" "cicd" {
 
 resource "google_project_iam_member" "cicd_roles" {
   for_each = toset([
+    # ── Runtime roles (used by the workloads themselves) ─────────────────
     "roles/container.developer",          # GKE deploy
     "roles/run.admin",                    # Cloud Run deploy
     "roles/artifactregistry.writer",      # Push images
     "roles/secretmanager.secretAccessor", # Read secrets
     "roles/cloudsql.client",
     "roles/iam.serviceAccountTokenCreator",
+    # ── Terraform-from-CI admin roles ────────────────────────────────────
+    # Required so that `terraform apply` running as this SA from CI can
+    # manage every resource in this module. Editor covers Cloud SQL,
+    # Artifact Registry, Secret Manager, Compute (VPC), KMS, Cloud Run,
+    # and GKE admin. projectIamAdmin is needed separately because
+    # roles/editor explicitly excludes IAM binding management.
+    "roles/editor",
+    "roles/resourcemanager.projectIamAdmin",
   ])
   project = var.project_id
   role    = each.value
