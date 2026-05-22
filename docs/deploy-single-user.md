@@ -201,17 +201,21 @@ placeholder secrets), KMS keyring, IAM, and the Cloud Run service shells. With
 skipped; the `api_workload` service account itself is still created because
 Cloud Run reuses it as the API service identity.
 
-The CI/CD service account is created with both **runtime** roles (Cloud Run
-deploy, Artifact Registry write, Secret Manager read, Cloud SQL client) and
-**admin** roles (Editor + projectIamAdmin) so that `terraform apply` running
-from GitHub Actions can manage every resource in this module. The state
-bucket gets a `storage.objectAdmin` binding for the same SA so the CI run
-can read/write Terraform state.
+The CI/CD service account is created with `roles/owner` on the project plus
+`roles/iam.serviceAccountTokenCreator` (for workload identity token issuance).
+Owner is the pragmatic choice for a single-user production project: it covers
+every `setIamPolicy` permission across Secret Manager, KMS, Storage, and
+other resources where Editor + projectIamAdmin still fall short. For
+multi-tenant environments, replace Owner with a narrower combination —
+see the comments in `infra/terraform/main.tf` for the trade-off.
+
+The state bucket also gets an explicit `storage.objectAdmin` binding so
+that revoking Owner later (when narrowing for multi-tenant) does not
+silently break CI access to Terraform state.
 
 > **Recovery for pre-existing setups.** If you ran the first `terraform apply`
-> before this section existed — i.e., the `cicd_roles` list in
-> `infra/terraform/main.tf` didn't yet include `roles/editor` and
-> `roles/resourcemanager.projectIamAdmin` — CI cannot grant these roles to
+> before the cicd SA was granted Owner — i.e., you set up using an older
+> version of this guide — CI cannot grant the missing permissions to
 > itself (chicken-and-egg: terraform needs the perms to manage the perms).
 > Run the recovery script once from your laptop as a project owner, then
 > push to main:
@@ -220,10 +224,9 @@ can read/write Terraform state.
 > ./scripts/fix-cicd-sa-iam.sh
 > ```
 >
-> It grants three roles: `storage.objectAdmin` on the tfstate bucket,
-> `editor` on the project, and `resourcemanager.projectIamAdmin` on the
-> project. All bindings are idempotent and will be taken over by Terraform
-> on the next CI apply, so they persist across re-applies.
+> It grants `roles/owner` on the project and `roles/storage.objectAdmin`
+> on the tfstate bucket. Bindings are idempotent and will be taken over
+> by Terraform on the next CI apply so they persist across re-applies.
 
 ---
 
