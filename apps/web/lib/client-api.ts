@@ -1,6 +1,5 @@
 // Write operations called directly from the browser (Client Components).
-// These do not carry GCP identity tokens — browser code cannot obtain them.
-// In Cloud Run environments, browser-to-API auth is handled separately (e.g., JWT/Clerk).
+// Auth token is provided by ClerkApiInitializer via setAuthTokenGetter.
 
 import type {
   CreateLiftOverrideRequest,
@@ -19,13 +18,24 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3004';
 const isCloudRun = API_URL.startsWith('https://');
 const devToken = !isCloudRun ? process.env.NEXT_PUBLIC_DEV_AUTH_TOKEN : undefined;
 
+type TokenGetter = () => Promise<string | null>;
+let _getToken: TokenGetter | null = null;
+
+export function setAuthTokenGetter(fn: TokenGetter): void {
+  _getToken = fn;
+}
+
 async function clientFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const devAuthHeaders: Record<string, string> = devToken
-    ? { Authorization: `Bearer ${devToken}` }
-    : {};
+  let authHeaders: Record<string, string> = {};
+  if (devToken) {
+    authHeaders = { Authorization: `Bearer ${devToken}` };
+  } else if (_getToken) {
+    const token = await _getToken();
+    if (token) authHeaders = { Authorization: `Bearer ${token}` };
+  }
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
-    headers: { ...devAuthHeaders, ...(init?.headers as Record<string, string> | undefined) },
+    headers: { ...authHeaders, ...(init?.headers as Record<string, string> | undefined) },
   });
   if (!res.ok) {
     throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
@@ -180,14 +190,18 @@ export async function importLiftRecords(
 ): Promise<
   { ok: true; data: ImportLiftRecordsResponse } | { ok: false; errors: ImportError[] }
 > {
-  const devAuthHeaders: Record<string, string> = devToken
-    ? { Authorization: `Bearer ${devToken}` }
-    : {};
+  let authHeaders: Record<string, string> = {};
+  if (devToken) {
+    authHeaders = { Authorization: `Bearer ${devToken}` };
+  } else if (_getToken) {
+    const token = await _getToken();
+    if (token) authHeaders = { Authorization: `Bearer ${token}` };
+  }
   const form = new FormData();
   form.append('file', file);
   const res = await fetch(
     `${API_URL}/programs/${encodeURIComponent(program)}/lift-records/import`,
-    { method: 'POST', body: form, headers: devAuthHeaders },
+    { method: 'POST', body: form, headers: authHeaders },
   );
   if (res.status === 201) {
     return { ok: true, data: (await res.json()) as ImportLiftRecordsResponse };
