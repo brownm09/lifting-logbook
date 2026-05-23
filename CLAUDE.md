@@ -233,6 +233,31 @@ These files are large and never need to be read directly:
 
 ---
 
+## Worktree Setup
+
+Claude Code creates git worktrees under `.claude/worktrees/` when running tasks in isolation.
+A new worktree has its own directory but **does not inherit a working `node_modules`** from the
+main repo. Before the first commit in a worktree, always run:
+
+```bash
+npm install
+```
+
+**Why this is required:**
+
+- The pre-commit hook (`npx turbo run lint`) needs `turbo`, which is a native binary downloaded
+  during the `postinstall` script. Without `npm install`, the hook fails with
+  `Error: spawnSync ... EUNKNOWN` or `%1 is not a valid Win32 application`.
+- On Windows, worktrees under paths containing `.claude` cannot spawn the native `turbo.exe`
+  from that path. `.husky/pre-commit` works around this by setting `TURBO_BINARY_PATH` to
+  the main repo root's turbo binary — but this only works if `npm install` has been run in the
+  worktree first, so that `npx turbo` resolves correctly. See [ADR-022](docs/adr/ADR-022-monorepo-docker-build-strategy.md) for broader context on why the toolchain is sensitive to install state.
+
+**Symptom if skipped:** `Lint failed. Commit aborted.` or a Node.js `EUNKNOWN` crash on the first
+`git commit`.
+
+---
+
 ## CLI Scripting Checklist
 
 Before writing a `gh` or other CLI automation script:
