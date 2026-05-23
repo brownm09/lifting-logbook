@@ -145,7 +145,10 @@ fi
 
 echo "==> Getting Cloud SQL instance name from terraform output ..."
 cd "$TF_DIR"
-terraform init -backend-config="bucket=lifting-logbook-tfstate" \n               -backend-config="prefix=terraform/state" \n               -reconfigure -input=false >/dev/null 2>&1
+terraform init \r
+  -backend-config="bucket=lifting-logbook-tfstate" \r
+  -backend-config="prefix=terraform/state" \r
+  -reconfigure -input=false >/dev/null 2>&1
 terraform workspace select staging >/dev/null 2>&1
 INSTANCE_NAME=$(terraform output -raw database_instance_name)
 INSTANCE_CONNECTION_NAME="${PROJECT_ID}:${REGION}:${INSTANCE_NAME}"
@@ -158,7 +161,7 @@ echo "    Instance: $INSTANCE_CONNECTION_NAME"
 # The proxy still requires IAM auth — the public IP alone does not grant DB access.
 
 echo "==> Enabling temporary public IP on Cloud SQL instance ..."
-OPERATOR_IP=$(curl -fsSL ifconfig.me 2>/dev/null || curl -fsSL api.ipify.org 2>/dev/null || echo "")
+OPERATOR_IP=$(curl -fsSL api4.ipify.org 2>/dev/null || curl -fsSL ifconfig.me 2>/dev/null || echo "")
 if [[ -n "$OPERATOR_IP" ]]; then
   echo "    Scoping authorized_networks to operator IP: $OPERATOR_IP/32"
   gcloud sql instances patch "$INSTANCE_NAME" \
