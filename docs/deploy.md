@@ -170,6 +170,46 @@ terraform output cicd_service_account_email
 
 ---
 
+### Step 3.5 — Seed staging data
+
+After Terraform has provisioned the staging Cloud SQL instance and the database URL secret is set,
+run the Prisma seed script to populate the staging database with synthetic lift data. This gives
+the environment realistic data for testing cycle generation, reporting, and API endpoints without
+any real user PII.
+
+**When to run:** after `prisma migrate deploy` completes on the staging database (the deploy
+workflow runs migrations automatically; you can also run them manually via Cloud SQL Auth Proxy).
+
+**What it creates:**
+
+| Table | Rows |
+|---|---|
+| `user_settings` | 1 (seed user) |
+| `lift_metadata` | 6 lifts (squat, deadlift, bench-press, overhead-press, barbell-row, romanian-deadlift) |
+| `training_max` | 6 (current maxes after 12 cycles) |
+| `training_max_history` | ~24 (PR entries every 3rd cycle) |
+| `cycle_dashboard` | 1 (current cycle state) |
+| `strength_goal` | 6 (relative bodyweight ratio targets) |
+| `lift_record` | ~432 (12 cycles × 3 workouts × 6 lifts × 3 sets) |
+
+**Seed user ID:** `seed_user_clerkid_staging_001` — this is a synthetic Clerk user ID. It will
+not appear in your Clerk dashboard and cannot be accessed via a real auth token. It is useful for
+schema validation, API smoke tests, and query testing.
+
+**Command:**
+
+```bash
+# Via Cloud SQL Auth Proxy (connect to staging DB locally)
+cloud_sql_proxy lifting-logbook-staging:us-central1:lifting-logbook-stg-db-<suffix> &
+DATABASE_URL="postgresql://lifting-logbook-app:<password>@127.0.0.1:5432/lifting_logbook" \
+  npx --prefix apps/api prisma db seed
+```
+
+**Idempotency:** the seed script uses `upsert` on all tables. Re-running it is safe — existing
+rows are left unchanged, and no duplicates are created.
+
+---
+
 ### Step 4 — Sign up for Clerk and create two apps
 
 [Clerk](https://clerk.com) is the authentication provider. It has a free tier.

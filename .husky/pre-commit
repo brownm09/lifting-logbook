@@ -1,5 +1,15 @@
 #!/bin/sh
 
+# When running in a git worktree whose path contains directories (e.g. .claude)
+# that prevent Windows from spawning executables, turbo.exe fails with EUNKNOWN.
+# Resolve the binary from the main repo root (git common dir) to sidestep this.
+_COMMON=$(git rev-parse --git-common-dir 2>/dev/null)
+_MAIN_ROOT=${_COMMON%/.git}
+if [ -n "$_MAIN_ROOT" ] && [ -f "$_MAIN_ROOT/node_modules/@turbo/windows-64/bin/turbo.exe" ]; then
+  export TURBO_BINARY_PATH="$_MAIN_ROOT/node_modules/@turbo/windows-64/bin/turbo.exe"
+fi
+unset _COMMON _MAIN_ROOT
+
 # Excluded until scaffolded/clean:
 #   @lifting-logbook/web  — no src/ yet (issue #9)
 #   @lifting-logbook/core — 51 pre-existing GAS-migration lint errors (issue #51)

@@ -96,7 +96,7 @@ resource "google_compute_subnetwork" "main" {
 
   secondary_ip_range {
     range_name    = "services"
-    ip_cidr_range = var.environment == "production" ? "10.52.0.0/20" : "10.53.0.0/20"
+    ip_cidr_range = var.environment == "production" ? "10.52.0.0/20" : "10.56.0.0/20"
   }
 
   private_ip_google_access = true
