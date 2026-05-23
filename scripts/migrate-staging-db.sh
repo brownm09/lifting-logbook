@@ -2,6 +2,16 @@
 #
 # migrate-staging-db.sh — Apply database migrations to the lifting-logbook staging Cloud SQL instance.
 #
+# Differences from migrate-prod-db.sh:
+#   * PROJECT_ID=lifting-logbook-staging
+#   * PROXY_PORT=5434 (avoids conflict if the prod proxy is also running on 5433)
+#   * terraform workspace select staging
+#   * State bucket: lifting-logbook-tfstate (prefix=terraform/state) — staging uses
+#     the shared tfstate bucket, unlike prod which has its own lifting-logbook-prod-tfstate
+#   * Secret names use the -stg- suffix pattern (lifting-logbook-stg-database-url)
+#     rather than the full project name (${PROJECT_ID}-database-url)
+#   * PROXY_DB_URL has sslmode=disable appended (required for Prisma via Cloud SQL Auth Proxy)
+#
 # The staging Cloud SQL instance has no public IP. This script temporarily enables
 # a public IP (required for the Cloud SQL Auth Proxy to connect from a local machine),
 # scoped to the operator's current IP via --authorized-networks, runs all migrations,
@@ -135,7 +145,10 @@ fi
 
 echo "==> Getting Cloud SQL instance name from terraform output ..."
 cd "$TF_DIR"
-terraform init -backend-config="bucket=${PROJECT_ID}-tfstate" -reconfigure -input=false >/dev/null 2>&1
+terraform init \r
+  -backend-config="bucket=lifting-logbook-tfstate" \r
+  -backend-config="prefix=terraform/state" \r
+  -reconfigure -input=false >/dev/null 2>&1
 terraform workspace select staging >/dev/null 2>&1
 INSTANCE_NAME=$(terraform output -raw database_instance_name)
 INSTANCE_CONNECTION_NAME="${PROJECT_ID}:${REGION}:${INSTANCE_NAME}"
@@ -148,7 +161,7 @@ echo "    Instance: $INSTANCE_CONNECTION_NAME"
 # The proxy still requires IAM auth — the public IP alone does not grant DB access.
 
 echo "==> Enabling temporary public IP on Cloud SQL instance ..."
-OPERATOR_IP=$(curl -fsSL ifconfig.me 2>/dev/null || curl -fsSL api.ipify.org 2>/dev/null || echo "")
+OPERATOR_IP=$(curl -fsSL api4.ipify.org 2>/dev/null || curl -fsSL ifconfig.me 2>/dev/null || echo "")
 if [[ -n "$OPERATOR_IP" ]]; then
   echo "    Scoping authorized_networks to operator IP: $OPERATOR_IP/32"
   gcloud sql instances patch "$INSTANCE_NAME" \
@@ -179,11 +192,13 @@ sleep 15
 
 echo "==> Retrieving DATABASE_URL from Secret Manager ..."
 RAW_DB_URL=$(gcloud secrets versions access latest \
-  --secret="${PROJECT_ID}-database-url" \
+  --secret="lifting-logbook-stg-database-url" \
   --project="$PROJECT_ID")
 
 # Proxy listens on localhost:$PROXY_PORT — rewrite host/port in the URL
 PROXY_DB_URL=$(echo "$RAW_DB_URL" | sed -E "s|@[^/]+/|@127.0.0.1:${PROXY_PORT}/|")
+# Cloud SQL Auth Proxy handles TLS — strip any sslmode and force disable for Prisma
+PROXY_DB_URL=$(node -e "const u=process.argv[1].replace(/[?&]sslmode=[^&]*/g,''); console.log(u+(u.includes('?') ? '&' : '?')+'sslmode=disable')" "$PROXY_DB_URL")
 
 # ─── Start proxy ─────────────────────────────────────────────────────────────
 
