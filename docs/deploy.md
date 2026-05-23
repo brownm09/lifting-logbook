@@ -153,6 +153,21 @@ terraform output workload_identity_provider
 terraform output cicd_service_account_email
 ```
 
+> **CI/CD IAM recovery.** Each `terraform apply` above grants the CI/CD service account
+> `roles/owner` on its project so subsequent CI-driven applies can manage IAM bindings on
+> Secret Manager, KMS, and the tfstate bucket (Editor + projectIamAdmin fall short on
+> `setIamPolicy` for several resource types). If you bootstrap with an older toolchain
+> that predates this binding — symptom: CI fails with `Error 403 ... setIamPolicy denied`
+> or `does not have storage.objects.list access` — run the recovery script once from your
+> laptop as a project owner, then push to main:
+>
+> ```bash
+> ./scripts/fix-cicd-sa-iam.sh --project-id lifting-logbook-staging
+> ./scripts/fix-cicd-sa-iam.sh --project-id lifting-logbook-prod
+> ```
+>
+> Bindings are idempotent and get re-asserted by Terraform on the next apply.
+
 ---
 
 ### Step 4 — Sign up for Clerk and create two apps
@@ -190,19 +205,34 @@ echo -n "pk_live_YOUR_KEY" | gcloud secrets versions add \
 
 ---
 
-### Step 5 — Add GitHub repository secrets
+### Step 5 — Add GitHub repository secrets and variables
 
-In the GitHub repository → **Settings → Secrets and variables → Actions**, add:
+In the GitHub repository → **Settings → Secrets and variables → Actions**:
+
+**Repository secrets** (Secrets tab):
 
 | Secret | Value |
 |---|---|
-| `GCP_STAGING_PROJECT_ID` | `lifting-logbook-staging` |
-| `GCP_PROD_PROJECT_ID` | `lifting-logbook-prod` |
 | `GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER` | staging `terraform output workload_identity_provider` |
 | `GCP_STAGING_SERVICE_ACCOUNT` | staging `terraform output cicd_service_account_email` |
 | `GCP_PROD_WORKLOAD_IDENTITY_PROVIDER` | production `terraform output workload_identity_provider` |
 | `GCP_PROD_SERVICE_ACCOUNT` | production `terraform output cicd_service_account_email` |
+| `GCP_BILLING_ACCOUNT` | your billing account ID (used by terraform apply in CI) |
 | `TF_STATE_BUCKET` | `lifting-logbook-tfstate` |
+
+**Repository variables** (Variables tab):
+
+| Variable | Value |
+|---|---|
+| `GCP_STAGING_PROJECT_ID` | `lifting-logbook-staging` |
+| `GCP_PROD_PROJECT_ID` | `lifting-logbook-prod` |
+
+> **Why variables, not secrets?** GCP project IDs are not sensitive — they appear in
+> Cloud Console URLs, API responses, and `gcloud` output. Storing them as secrets causes
+> GitHub Actions to mask any workflow output that contains the value, which silently breaks
+> job-to-job data passing (e.g., the `ar_repo` output used to resolve the Artifact Registry
+> URL — a masked project ID produces `us-central1-docker.pkg.dev//lifting-logbook/api:tag`
+> with an empty path segment that fails buildx).
 
 ---
 
