@@ -10,3 +10,14 @@ environment     = "staging"
 app_name        = "lifting-logbook"
 db_tier         = "db-f1-micro"
 db_name         = "lifting_logbook"
+
+# Topology — set explicitly so the staging/prod difference is visible at a glance.
+# Staging runs the full ADR-009 A/B (GKE Autopilot + Cloud Run) so the comparison
+# this project is built around is exercised on every push to main. Production
+# (terraform.tfvars.production) flips enable_gke=false for single-user cost savings.
+enable_gke = true
+
+# cloud_run_min_instances=0 keeps idle cost at zero (staging gets no real traffic).
+# Cold-start latency is acceptable here — the A/B harness measures steady-state
+# performance, not first-request response time. Prod sets this to 1 for warm starts.
+cloud_run_min_instances = 0
