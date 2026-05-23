@@ -93,7 +93,7 @@ async function main() {
   const workoutDate = new Date(startDate);
 
   for (let cycle = 0; cycle < NUM_CYCLES; cycle++) {
-    const weekType = WEEK_TYPES[cycle % 3];
+    const weekType = WEEK_TYPES[cycle % 3]!;
     const cycleNum = cycle + 1;
 
     // TrainingMaxHistory — one entry per lift at cycle start (representing a PR test)
@@ -124,14 +124,14 @@ async function main() {
     }
 
     for (let workoutNum = 1; workoutNum <= 3; workoutNum++) {
-      const liftsThisWorkout = WORKOUT_LIFTS[workoutNum];
+      const liftsThisWorkout = WORKOUT_LIFTS[workoutNum]!;
 
       for (const liftName of liftsThisWorkout) {
         const lift = LIFTS.find((l) => l.name === liftName)!;
         const max = trainingMaxAt(lift, cycle);
 
         for (let setNum = 1; setNum <= 3; setNum++) {
-          const pct = weekType.pct[setNum - 1];
+          const pct = weekType.pct[setNum - 1]!;
           const weight = weightForSet(max, pct);
           const isAmrap = setNum === 3;
           const amrapReps = isAmrap ? 5 + ((cycle * workoutNum + setNum) % 4) : 5;
@@ -170,7 +170,7 @@ async function main() {
 
   // CycleDashboard — current cycle state
   const currentCycle = NUM_CYCLES;
-  const currentWeek = WEEK_TYPES[(currentCycle - 1) % 3];
+  const currentWeek = WEEK_TYPES[(currentCycle - 1) % 3]!;
   await prisma.cycleDashboard.upsert({
     where: { userId_program: { userId: SEED_USER_ID, program: PROGRAM } },
     update: {
@@ -210,7 +210,7 @@ async function main() {
         lift: lift.name,
         goalType: 'relative',
         unit: 'lb',
-        ratio: GOAL_RATIOS[lift.name],
+        ratio: GOAL_RATIOS[lift.name] ?? null,
       },
     });
   }
