@@ -316,7 +316,7 @@ echo -n "pk_live_..." | gcloud secrets versions add \
 
 ---
 
-## Step 9 — Apply database migrations (one-time)
+## Step 8 — Apply database migrations (one-time)
 
 The API container does **not** run `prisma migrate deploy` on startup. Run the migration script from the repo root:
 
@@ -338,7 +338,7 @@ The script:
 
 ---
 
-## Step 10 — Trigger the first deploy
+## Step 9 — Trigger the first deploy
 
 Merge any branch to `main` (or push directly if you have the workflow set up
 that way). The [Deploy workflow](../.github/workflows/deploy.yml):
@@ -356,7 +356,7 @@ so the production job will pause until you approve it.
 
 ---
 
-## Step 11 — Create your Clerk user, log in, verify
+## Step 10 — Create your Clerk user, log in, verify
 
 Self-serve signup is disabled by default — there is no public "Sign Up" flow. You
 provision yourself directly through the Clerk dashboard:
