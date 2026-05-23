@@ -1,4 +1,6 @@
+import { ClerkProvider } from '@clerk/nextjs';
 import type { Metadata } from "next";
+import { ClerkApiInitializer } from '@/components/ClerkApiInitializer';
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -18,13 +20,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
-      </head>
-      <body>
-        {children}
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en" suppressHydrationWarning>
+        <head>
+          <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        </head>
+        <body>
+          <ClerkApiInitializer />
+          {children}
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

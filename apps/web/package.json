@@ -12,6 +12,7 @@
     "test:e2e:ci": "playwright test --reporter=github"
   },
   "dependencies": {
+    "@clerk/nextjs": "^6.12.0",
     "@lifting-logbook/core": "*",
     "@lifting-logbook/types": "*",
     "@vercel/otel": "^1.0.0",

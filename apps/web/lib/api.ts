@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { GoogleAuth } from 'google-auth-library';
+import { auth } from '@clerk/nextjs/server';
 import type {
   BodyWeightResponse,
   CreateCustomProgramRequest,
@@ -28,19 +28,21 @@ import type {
 const API_URL = process.env.API_URL ?? 'http://localhost:3004';
 const isCloudRun = API_URL.startsWith('https://');
 
-let _auth: GoogleAuth | undefined;
-
 async function getAuthHeaders(): Promise<Record<string, string>> {
   if (!isCloudRun) {
     const devToken = process.env.DEV_AUTH_TOKEN;
     return devToken ? { Authorization: `Bearer ${devToken}` } : {};
   }
   try {
-    _auth ??= new GoogleAuth();
-    const client = await _auth.getIdTokenClient(API_URL);
-    return (await client.getRequestHeaders()) as Record<string, string>;
+    const { getToken } = await auth();
+    const token = await getToken();
+    if (!token) {
+      console.warn('[getAuthHeaders] No Clerk session token in Cloud Run — request will be unauthenticated');
+      return {};
+    }
+    return { Authorization: `Bearer ${token}` };
   } catch (e) {
-    console.error('[getAuthHeaders] GCP token acquisition failed:', e);
+    console.error('[getAuthHeaders] Clerk token acquisition failed:', e);
     return {};
   }
 }
