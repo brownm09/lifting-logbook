@@ -233,6 +233,11 @@ In the GitHub repository → **Settings → Secrets and variables → Actions**:
 > job-to-job data passing (e.g., the `ar_repo` output used to resolve the Artifact Registry
 > URL — a masked project ID produces `us-central1-docker.pkg.dev//lifting-logbook/api:tag`
 > with an empty path segment that fails buildx).
+>
+> **Migrating an existing deploy?** If you previously stored `GCP_STAGING_PROJECT_ID` or
+> `GCP_PROD_PROJECT_ID` as repository secrets, delete the secret entries after creating the
+> variables. A leftover masked secret with the same name is a foot-gun if any workflow is
+> ever changed to reference `secrets.GCP_*_PROJECT_ID` — the failure mode reappears silently.
 
 ---
 
@@ -261,6 +266,14 @@ the production URL will appear in the `deploy-production` job summary after appr
 ### Deploying a change
 
 Push or merge to `main`. The pipeline runs automatically.
+
+### Recovering from CI/CD IAM errors
+
+If a CI run fails with `Error 403 ... setIamPolicy denied` or `does not have
+storage.objects.list access`, the CI/CD service account is missing the `roles/owner`
+binding that subsequent applies depend on. Re-run the recovery script from your laptop
+as a project owner — see the [CI/CD IAM recovery callout under Step 3](#step-3--bootstrap-terraform-first-apply)
+for the full explanation and commands.
 
 ### Rolling back
 
