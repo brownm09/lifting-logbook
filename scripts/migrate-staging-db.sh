@@ -159,6 +159,11 @@ echo "    Instance: $INSTANCE_CONNECTION_NAME"
 
 echo "==> Enabling temporary public IP on Cloud SQL instance ..."
 OPERATOR_IP=$(curl -fsSL api4.ipify.org 2>/dev/null || curl -fsSL ifconfig.me 2>/dev/null || echo "")
+# Validate IPv4 -- Cloud SQL authorized-networks rejects IPv6; the gcloud error is not obvious
+if [[ -n "$OPERATOR_IP" ]] && ! [[ "$OPERATOR_IP" =~ ^[0-9]+[.][0-9]+[.][0-9]+[.][0-9]+$ ]]; then
+  echo "WARNING: Detected non-IPv4 address ($OPERATOR_IP) -- skipping authorized_networks restriction." >&2
+  OPERATOR_IP=""
+fi
 if [[ -n "$OPERATOR_IP" ]]; then
   echo "    Scoping authorized_networks to operator IP: $OPERATOR_IP/32"
   gcloud sql instances patch "$INSTANCE_NAME" \
@@ -182,8 +187,8 @@ until gcloud sql instances describe "$INSTANCE_NAME" \
   echo "    Instance not ready yet, retrying in 5s ..."
   sleep 5
 done
-echo "    Instance ready. Waiting an additional 15s for IP to become routable ..."
-sleep 15
+echo "    Instance ready. Waiting an additional 30s for proxy port 3307 to become routable ..."
+sleep 30
 
 # ─── Get DATABASE_URL from Secret Manager ────────────────────────────────────
 
@@ -194,8 +199,11 @@ RAW_DB_URL=$(gcloud secrets versions access latest \
 
 # Proxy listens on localhost:$PROXY_PORT — rewrite host/port in the URL
 PROXY_DB_URL=$(echo "$RAW_DB_URL" | sed -E "s|@[^/]+/|@127.0.0.1:${PROXY_PORT}/|")
-# Cloud SQL Auth Proxy handles TLS — strip any sslmode and force disable for Prisma
-PROXY_DB_URL=$(node -e "const u=process.argv[1].replace(/[?&]sslmode=[^&]*/g,''); console.log(u+(u.includes('?') ? '&' : '?')+'sslmode=disable')" "$PROXY_DB_URL")
+# Cloud SQL Auth Proxy handles TLS -- strip any existing sslmode, then force disable for Prisma.
+# Two-pass replace: first promote the next param to ? when sslmode is the leading param,
+# then strip any remaining sslmode= occurrence. This avoids a malformed URL when
+# sslmode is the first query param but not the only one (e.g. ?sslmode=require&sslrootcert=...).
+PROXY_DB_URL=$(node -e "var u=process.argv[1].replace(/[?]sslmode=[^&]*&/,'?').replace(/[?&]sslmode=[^&]*/g,''); console.log(u+(u.indexOf('?')>=0?'&':'?')+'sslmode=disable')" "$PROXY_DB_URL")
 
 # ─── Start proxy ─────────────────────────────────────────────────────────────
 
