@@ -178,7 +178,7 @@ the environment realistic data for testing cycle generation, reporting, and API 
 any real user PII.
 
 **When to run:** after `prisma migrate deploy` completes on the staging database (the deploy
-workflow runs migrations automatically; you can also run them manually via Cloud SQL Auth Proxy).
+workflow runs migrations automatically; for manual runs use `./scripts/migrate-staging-db.sh`).
 
 **What it creates:**
 
@@ -200,8 +200,10 @@ schema validation, API smoke tests, and query testing.
 
 ```bash
 # Via Cloud SQL Auth Proxy (connect to staging DB locally)
-cloud_sql_proxy lifting-logbook-staging:us-central1:lifting-logbook-stg-db-<suffix> &
-DATABASE_URL="postgresql://lifting-logbook-app:<password>@127.0.0.1:5432/lifting_logbook" \
+# Use port 5434 (avoids conflict with prod proxy on 5433)
+# sslmode=disable required: proxy handles TLS; Prisma must not negotiate SSL independently
+cloud-sql-proxy "lifting-logbook-staging:us-central1:lifting-logbook-stg-db-<suffix>?port=5434" &
+DATABASE_URL="postgresql://lifting-logbook-app:<password>@127.0.0.1:5434/lifting_logbook?sslmode=disable" \
   npx --prefix apps/api prisma db seed
 ```
 
