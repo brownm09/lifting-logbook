@@ -2,21 +2,31 @@
 
 # When running in a git worktree whose path contains directories (e.g. .claude)
 # that prevent Windows from spawning executables, turbo.exe fails with EUNKNOWN.
-# Resolve the binary from the main repo root (git common dir) to sidestep this.
+# Fix: run node directly (no cmd.exe hop) and set TURBO_BINARY_PATH inside the node
+# process. Node is a Windows native process so process.env mutations propagate to its
+# children via the Windows NT env block — unlike MSYS2 sh `export`, which only updates
+# the POSIX env and is invisible to cmd.exe subprocesses in git's hook context.
 _COMMON=$(git rev-parse --git-common-dir 2>/dev/null)
 _MAIN_ROOT=${_COMMON%/.git}
-if [ -n "$_MAIN_ROOT" ] && [ -f "$_MAIN_ROOT/node_modules/@turbo/windows-64/bin/turbo.exe" ]; then
-  export TURBO_BINARY_PATH="$_MAIN_ROOT/node_modules/@turbo/windows-64/bin/turbo.exe"
-fi
-unset _COMMON _MAIN_ROOT
+_WIN_TURBO="$_MAIN_ROOT/node_modules/@turbo/windows-64/bin/turbo.exe"
+unset _COMMON
+
+_TURBO_INLINE="process.env.TURBO_BINARY_PATH=process.argv[1]; require('./node_modules/turbo/bin/turbo')"
 
 # Excluded until scaffolded/clean:
 #   @lifting-logbook/web  — no src/ yet (issue #9)
 #   @lifting-logbook/core — 51 pre-existing GAS-migration lint errors (issue #51)
-npx turbo run lint \
-  --filter=!@lifting-logbook/web \
-  --filter=!@lifting-logbook/core
+if [ -n "$_MAIN_ROOT" ] && [ -f "$_WIN_TURBO" ]; then
+  node -e "$_TURBO_INLINE" "$_WIN_TURBO" run lint \
+    --filter=!@lifting-logbook/web \
+    --filter=!@lifting-logbook/core
+else
+  npx turbo run lint \
+    --filter=!@lifting-logbook/web \
+    --filter=!@lifting-logbook/core
+fi
 RESULT=$?
+unset _MAIN_ROOT _WIN_TURBO _TURBO_INLINE
 if [ $RESULT -ne 0 ]; then
   echo "Lint failed. Commit aborted."
   exit 1
