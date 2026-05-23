@@ -145,10 +145,7 @@ fi
 
 echo "==> Getting Cloud SQL instance name from terraform output ..."
 cd "$TF_DIR"
-terraform init \r
-  -backend-config="bucket=lifting-logbook-tfstate" \r
-  -backend-config="prefix=terraform/state" \r
-  -reconfigure -input=false >/dev/null 2>&1
+terraform init -backend-config="bucket=lifting-logbook-tfstate" -backend-config="prefix=terraform/state" -reconfigure -input=false >/dev/null 2>&1
 terraform workspace select staging >/dev/null 2>&1
 INSTANCE_NAME=$(terraform output -raw database_instance_name)
 INSTANCE_CONNECTION_NAME="${PROJECT_ID}:${REGION}:${INSTANCE_NAME}"
