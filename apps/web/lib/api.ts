@@ -36,7 +36,11 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
   try {
     const { getToken } = await auth();
     const token = await getToken();
-    return token ? { Authorization: `Bearer ${token}` } : {};
+    if (!token) {
+      console.warn('[getAuthHeaders] No Clerk session token in Cloud Run — request will be unauthenticated');
+      return {};
+    }
+    return { Authorization: `Bearer ${token}` };
   } catch (e) {
     console.error('[getAuthHeaders] Clerk token acquisition failed:', e);
     return {};

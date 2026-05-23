@@ -25,14 +25,17 @@ export function setAuthTokenGetter(fn: TokenGetter): void {
   _getToken = fn;
 }
 
-async function clientFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  let authHeaders: Record<string, string> = {};
-  if (devToken) {
-    authHeaders = { Authorization: `Bearer ${devToken}` };
-  } else if (_getToken) {
+async function getClientAuthHeaders(): Promise<Record<string, string>> {
+  if (devToken) return { Authorization: `Bearer ${devToken}` };
+  if (_getToken) {
     const token = await _getToken();
-    if (token) authHeaders = { Authorization: `Bearer ${token}` };
+    if (token) return { Authorization: `Bearer ${token}` };
   }
+  return {};
+}
+
+async function clientFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const authHeaders = await getClientAuthHeaders();
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
     headers: { ...authHeaders, ...(init?.headers as Record<string, string> | undefined) },
@@ -190,13 +193,7 @@ export async function importLiftRecords(
 ): Promise<
   { ok: true; data: ImportLiftRecordsResponse } | { ok: false; errors: ImportError[] }
 > {
-  let authHeaders: Record<string, string> = {};
-  if (devToken) {
-    authHeaders = { Authorization: `Bearer ${devToken}` };
-  } else if (_getToken) {
-    const token = await _getToken();
-    if (token) authHeaders = { Authorization: `Bearer ${token}` };
-  }
+  const authHeaders = await getClientAuthHeaders();
   const form = new FormData();
   form.append('file', file);
   const res = await fetch(
