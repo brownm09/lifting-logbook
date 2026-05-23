@@ -153,6 +153,7 @@ monorepo/
 | [ADR-019](adr/ADR-019-slo-methodology.md)                    | SLO Methodology — Burn-Rate Alerting over Threshold Alerting  | Accepted |
 | [ADR-020](adr/ADR-020-tail-based-sampling-policy.md)         | Tail-Based Sampling Policy — Errors Always, Slow Always, 20% Clean | Accepted |
 | [ADR-021](adr/ADR-021-no-test-tracing.md)                    | No OTel Tracing in Test Environment                                 | Accepted |
+| [ADR-022](adr/ADR-022-monorepo-docker-build-strategy.md)     | Monorepo Docker Build Strategy — Full Copy Over Turbo Prune         | Accepted |
 
 ---
 

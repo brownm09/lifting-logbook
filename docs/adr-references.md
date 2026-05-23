@@ -20,7 +20,9 @@ Each entry links back to the ADR where it is discussed and provides a brief desc
 | Source | Cited In | Relevance |
 |---|---|---|
 | [Turborepo — Getting Started](https://turbo.build/repo/docs) | [ADR-001](adr/ADR-001-monorepo-structure.md) | Official Turborepo docs; covers caching model, pipeline configuration, and workspace setup. |
-| [Turborepo — `turbo prune`](https://turbo.build/repo/docs/reference/prune) | [ADR-001](adr/ADR-001-monorepo-structure.md) | Pruning the monorepo for Docker builds; the approach used to scope `COPY` in each app's Dockerfile. |
+| [Turborepo — `turbo prune`](https://turbo.build/repo/docs/reference/prune) | [ADR-001](adr/ADR-001-monorepo-structure.md), [ADR-022](adr/ADR-022-monorepo-docker-build-strategy.md) | Pruning the monorepo for Docker builds; ADR-022 records why this approach was abandoned in favour of copying the full repo. |
+| [Turborepo — Docker guide](https://turbo.build/repo/docs/guides/tools/docker) | [ADR-022](adr/ADR-022-monorepo-docker-build-strategy.md) | Canonical Turborepo Docker build guide; documents the `turbo prune --docker` pattern and its assumptions about workspace layout. |
+| [npm workspaces — Hoisting behaviour](https://docs.npmjs.com/cli/v10/using-npm/workspaces#installing-workspaces) | [ADR-022](adr/ADR-022-monorepo-docker-build-strategy.md) | Documents when npm hoists workspace packages to root `node_modules` vs. leaving them in workspace-local `node_modules`; explains why the runner stage must copy both locations. |
 | [npm Workspaces](https://docs.npmjs.com/cli/v10/using-npm/workspaces) | [ADR-001](adr/ADR-001-monorepo-structure.md) | The npm workspace protocol enabling `"@logbook/core": "*"` inter-package references. |
 | [Nx — Getting Started](https://nx.dev/getting-started/intro) | [ADR-001](adr/ADR-001-monorepo-structure.md) | Primary alternative to Turborepo; ruled out as over-configured for this scale. |
 
