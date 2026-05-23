@@ -190,7 +190,7 @@ workflow runs migrations automatically; you can also run them manually via Cloud
 | `training_max_history` | ~24 (PR entries every 3rd cycle) |
 | `cycle_dashboard` | 1 (current cycle state) |
 | `strength_goal` | 6 (relative bodyweight ratio targets) |
-| `lift_record` | ~432 (12 cycles × 3 workouts × 6 lifts × 3 sets) |
+| `lift_record` | ~216 (12 cycles × 3 workouts × 2 lifts/workout × 3 sets) |
 
 **Seed user ID:** `seed_user_clerkid_staging_001` — this is a synthetic Clerk user ID. It will
 not appear in your Clerk dashboard and cannot be accessed via a real auth token. It is useful for

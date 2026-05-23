@@ -133,9 +133,8 @@ async function main() {
         for (let setNum = 1; setNum <= 3; setNum++) {
           const pct = weekType.pct[setNum - 1];
           const weight = weightForSet(max, pct);
-          const reps = setNum === 3 ? 5 : 5; // all sets 5 reps; AMRAP on set 3 would vary
           const isAmrap = setNum === 3;
-          const amrapReps = isAmrap ? Math.floor(5 + Math.random() * 4) : reps; // 5–8 on AMRAP
+          const amrapReps = isAmrap ? 5 + ((cycle * workoutNum + setNum) % 4) : 5;
 
           await prisma.liftRecord.upsert({
             where: {
