@@ -116,7 +116,7 @@ async function main() {
             reps: 1,
             date: histDate,
             isPR: true,
-            source: 'training-max-update',
+            source: 'test',
             goalMet: false,
           },
         });
@@ -209,7 +209,7 @@ async function main() {
         program: PROGRAM,
         lift: lift.name,
         goalType: 'relative',
-        unit: 'lb',
+        unit: 'lbs',
         ratio: GOAL_RATIOS[lift.name] ?? null,
       },
     });
