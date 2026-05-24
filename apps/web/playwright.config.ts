@@ -31,6 +31,12 @@ export default defineConfig({
         NEXT_PUBLIC_API_URL: 'http://localhost:3004',
         DEV_AUTH_TOKEN: 'e2e-test',
         NEXT_PUBLIC_DEV_AUTH_TOKEN: 'e2e-test',
+        // @clerk/testing@2 upgraded @clerk/clerk-react to a version that throws
+        // throwMissingSecretKeyError during startup when CLERK_SECRET_KEY is absent.
+        // A non-empty placeholder suppresses the throw; the middleware bypasses Clerk
+        // entirely when DEV_AUTH_TOKEN is set, so this key is never used for auth.
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: 'pk_test_ZXhhbXBsZS5jbGVyay5hY2NvdW50cy5kZXYk',
+        CLERK_SECRET_KEY: 'sk_test_e2e_placeholder',
       },
       reuseExistingServer: !process.env.CI,
       timeout: process.env.CI ? 30_000 : 120_000,
