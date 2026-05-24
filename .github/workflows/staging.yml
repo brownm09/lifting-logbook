@@ -286,6 +286,9 @@ jobs:
 
       - name: Helm deploy API (GKE staging)
         if: needs.terraform-staging.outputs.gke_enabled == 'true'
+        # GKE Autopilot node provisioning can exceed 10m on cold starts; treat as
+        # non-fatal so Cloud Run deploy (the integration-test target) always runs.
+        continue-on-error: true
         run: |
           helm upgrade --install api ./infra/kubernetes/charts/api \
             --namespace=staging \
@@ -300,6 +303,7 @@ jobs:
 
       - name: Helm deploy web (GKE staging)
         if: needs.terraform-staging.outputs.gke_enabled == 'true'
+        continue-on-error: true
         run: |
           API_CLUSTER_URL="http://api.staging.svc.cluster.local:3000"
           helm upgrade --install web ./infra/kubernetes/charts/web \
