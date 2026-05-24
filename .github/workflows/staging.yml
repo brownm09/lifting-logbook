@@ -268,6 +268,18 @@ jobs:
             --from-literal=clerk-publishable-key="$CLERK_PUB" \
             --dry-run=client -o yaml | kubectl apply -f -
 
+      - name: Rollback stuck Helm releases (GKE staging)
+        if: needs.terraform-staging.outputs.gke_enabled == 'true'
+        run: |
+          for release in api web; do
+            STATUS=$(helm status "$release" --namespace=staging --output=json 2>/dev/null \
+              | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['status'])" 2>/dev/null || echo "not-found")
+            if [[ "$STATUS" == "pending-upgrade" || "$STATUS" == "pending-install" || "$STATUS" == "pending-rollback" ]]; then
+              echo "Rolling back stuck release: $release (status=$STATUS)"
+              helm rollback "$release" --namespace=staging || true
+            fi
+          done
+
       - name: Helm deploy API (GKE staging)
         if: needs.terraform-staging.outputs.gke_enabled == 'true'
         run: |
