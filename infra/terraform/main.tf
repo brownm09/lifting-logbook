@@ -330,10 +330,9 @@ resource "google_project_iam_member" "cicd_roles" {
 }
 
 # TF state bucket IAM is managed out-of-band, not by Terraform.
-# The bucket (lifting-logbook-tfstate) lives in the lifting-logbook-staging GCP project.
-# The staging SA has roles/owner on that project and can manage the bucket, but neither SA
-# can reliably set cross-project IAM from within their own CI/CD context. Both SAs are
-# granted roles/storage.objectAdmin via a one-time gcloud command (see docs/deploy.md §2).
+# The bucket (lifting-logbook-prod-tfstate) lives in the lifting-logbook-prod GCP project.
+# Neither SA can manage IAM on a cross-project bucket from within their own CI/CD context.
+# Both SAs are granted roles/storage.objectAdmin via a one-time gcloud command (see docs/deploy.md §2).
 #
 # The removed block below drops the previously-tracked IAM binding from Terraform state
 # without issuing a delete call, so existing grants are preserved.
