@@ -9,7 +9,8 @@
     "lint": "eslint app",
     "test": "jest --passWithNoTests",
     "test:e2e": "playwright test",
-    "test:e2e:ci": "playwright test --reporter=github"
+    "test:e2e:ci": "playwright test --reporter=github",
+    "test:e2e:staging": "playwright test --config=playwright.config.staging.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.12.0",
@@ -23,6 +24,7 @@
     "server-only": "^0.0.1"
   },
   "devDependencies": {
+    "@clerk/testing": "^2.0.33",
     "@playwright/test": "^1.60.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",

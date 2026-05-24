@@ -1,0 +1,440 @@
+name: Staging
+
+# Fires on every PR push targeting main.
+# Pipeline: [preflight] → terraform staging → build images → deploy staging →
+#           staging integration tests → report status (PR comment)
+#
+# Production is NOT touched by this workflow — production deploys only via deploy.yml
+# on push to main. The structural separation (two trigger files) is the primary
+# production-safety guarantee. See docs/adr/ for rationale.
+#
+# Required GitHub repository secrets (must already be set for staging to function):
+#   GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER
+#   GCP_STAGING_SERVICE_ACCOUNT
+#   TF_STATE_BUCKET
+#   GCP_BILLING_ACCOUNT
+#
+# Required GitHub repository variables:
+#   GCP_STAGING_PROJECT_ID
+#
+# Environment-level secrets (Settings → Environments → staging → Environment secrets):
+#   STAGING_CLERK_TEST_EMAIL     — email of the dedicated Clerk test account
+#   STAGING_CLERK_TEST_PASSWORD  — password of the dedicated Clerk test account
+#
+# If GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER is not set, all jobs are skipped cleanly.
+
+on:
+  pull_request:
+    branches:
+      - main
+
+# Cancel superseded builds for the same PR; do NOT cancel running deploys
+# (see staging-deploy-mutex job-level concurrency for that).
+concurrency:
+  group: staging-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: us-central1-docker.pkg.dev
+  ARTIFACT_REPO: lifting-logbook
+  REGION: us-central1
+  TF_DIR: infra/terraform
+
+jobs:
+  # ── 0. Preflight: detect whether staging is configured ────────────────────
+  preflight:
+    name: Preflight
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.check.outputs.should_run }}
+      ar_repo: ${{ steps.check.outputs.ar_repo }}
+    steps:
+      - id: check
+        env:
+          STAGING_WIF: ${{ secrets.GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER }}
+        run: |
+          if [[ -n "$STAGING_WIF" ]]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "Staging credentials found — full pipeline will run."
+          else
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER not set — skipping staging pipeline."
+          fi
+
+  # ── 1. Terraform: staging ─────────────────────────────────────────────────
+  terraform-staging:
+    name: Terraform (staging)
+    runs-on: ubuntu-latest
+    needs: [preflight]
+    if: needs.preflight.outputs.should_run == 'true'
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      gke_enabled: ${{ steps.tf-outputs.outputs.gke_enabled }}
+      gke_cluster_name: ${{ steps.tf-outputs.outputs.gke_cluster_name }}
+      cloud_run_api_url: ${{ steps.tf-outputs.outputs.cloud_run_api_url }}
+      cloud_run_web_url: ${{ steps.tf-outputs.outputs.cloud_run_web_url }}
+      ar_repo: ${{ steps.tf-outputs.outputs.ar_repo }}
+      kms_key_name: ${{ steps.tf-outputs.outputs.kms_key_name }}
+      api_wi_sa: ${{ steps.tf-outputs.outputs.api_wi_sa }}
+      web_workload_sa: ${{ steps.tf-outputs.outputs.web_workload_sa }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP (staging)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_STAGING_SERVICE_ACCOUNT }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.7"
+          terraform_wrapper: false
+
+      - name: Terraform init (staging)
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="prefix=terraform/state"
+          terraform workspace select staging || terraform workspace new staging
+
+      - name: Terraform apply (staging)
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform apply -auto-approve \
+            -var-file=terraform.tfvars.staging \
+            -var="billing_account=${{ secrets.GCP_BILLING_ACCOUNT }}"
+
+      - name: Capture Terraform outputs
+        id: tf-outputs
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          echo "gke_enabled=$(terraform output -raw gke_enabled)" >> "$GITHUB_OUTPUT"
+          echo "gke_cluster_name=$(terraform output -raw gke_cluster_name)" >> "$GITHUB_OUTPUT"
+          echo "cloud_run_api_url=$(terraform output -raw cloud_run_api_url)" >> "$GITHUB_OUTPUT"
+          echo "cloud_run_web_url=$(terraform output -raw cloud_run_web_url)" >> "$GITHUB_OUTPUT"
+          echo "ar_repo=$(terraform output -raw artifact_registry_repo)" >> "$GITHUB_OUTPUT"
+          echo "kms_key_name=$(terraform output -raw kms_key_name)" >> "$GITHUB_OUTPUT"
+          echo "api_wi_sa=$(terraform output -raw cicd_service_account_email)" >> "$GITHUB_OUTPUT"
+          echo "web_workload_sa=$(terraform output -raw web_workload_sa)" >> "$GITHUB_OUTPUT"
+
+  # ── 2. Build and push Docker images ──────────────────────────────────────
+  build-images:
+    name: Build & Push Images
+    runs-on: ubuntu-latest
+    needs: [preflight, terraform-staging]
+    if: |
+      needs.preflight.outputs.should_run == 'true' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (needs.terraform-staging.result == 'success' || needs.terraform-staging.result == 'skipped')
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      ar_repo: ${{ steps.ar.outputs.repo }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP (staging)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_STAGING_SERVICE_ACCOUNT }}
+
+      - name: Resolve Artifact Registry repo
+        id: ar
+        run: echo "repo=${{ needs.terraform-staging.outputs.ar_repo }}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve API URL for web image build
+        id: api-url
+        run: echo "url=${{ needs.terraform-staging.outputs.cloud_run_api_url }}" >> "$GITHUB_OUTPUT"
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.ar.outputs.repo }}/api:${{ github.event.pull_request.head.sha }}
+            ${{ steps.ar.outputs.repo }}/api:pr-${{ github.event.pull_request.number }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.ar.outputs.repo }}/web:${{ github.event.pull_request.head.sha }}
+            ${{ steps.ar.outputs.repo }}/web:pr-${{ github.event.pull_request.number }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ steps.api-url.outputs.url }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ── 3. Deploy to staging ──────────────────────────────────────────────────
+  deploy-staging:
+    name: Deploy (staging)
+    runs-on: ubuntu-latest
+    needs: [preflight, terraform-staging, build-images]
+    if: |
+      needs.preflight.outputs.should_run == 'true' &&
+      needs.build-images.result == 'success'
+    permissions:
+      contents: read
+      id-token: write
+    environment: staging
+    # Serialize across all PRs — shared staging env must not be torn mid-deploy.
+    concurrency:
+      group: staging-deploy-mutex
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP (staging)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_STAGING_SERVICE_ACCOUNT }}
+
+      - name: Set up GKE credentials
+        if: needs.terraform-staging.outputs.gke_enabled == 'true'
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ needs.terraform-staging.outputs.gke_cluster_name }}
+          location: ${{ env.REGION }}
+          project_id: ${{ vars.GCP_STAGING_PROJECT_ID }}
+
+      - name: Set up Helm
+        if: needs.terraform-staging.outputs.gke_enabled == 'true'
+        uses: azure/setup-helm@v4
+
+      - name: Ensure staging namespace
+        if: needs.terraform-staging.outputs.gke_enabled == 'true'
+        run: kubectl create namespace staging --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Sync API secrets to Kubernetes
+        if: needs.terraform-staging.outputs.gke_enabled == 'true'
+        run: |
+          DB_URL=$(gcloud secrets versions access latest \
+            --secret="lifting-logbook-stg-database-url" \
+            --project="${{ vars.GCP_STAGING_PROJECT_ID }}")
+          SYS_DB_URL=$(gcloud secrets versions access latest \
+            --secret="lifting-logbook-stg-system-database-url" \
+            --project="${{ vars.GCP_STAGING_PROJECT_ID }}")
+          CLERK_KEY=$(gcloud secrets versions access latest \
+            --secret="lifting-logbook-stg-clerk-secret-key" \
+            --project="${{ vars.GCP_STAGING_PROJECT_ID }}")
+          kubectl create secret generic api-secrets \
+            --namespace=staging \
+            --from-literal=database-url="$DB_URL" \
+            --from-literal=system-database-url="$SYS_DB_URL" \
+            --from-literal=clerk-secret-key="$CLERK_KEY" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Sync web secrets to Kubernetes
+        if: needs.terraform-staging.outputs.gke_enabled == 'true'
+        run: |
+          CLERK_PUB=$(gcloud secrets versions access latest \
+            --secret="lifting-logbook-stg-clerk-publishable-key" \
+            --project="${{ vars.GCP_STAGING_PROJECT_ID }}")
+          kubectl create secret generic web-secrets \
+            --namespace=staging \
+            --from-literal=clerk-publishable-key="$CLERK_PUB" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Helm deploy API (GKE staging)
+        if: needs.terraform-staging.outputs.gke_enabled == 'true'
+        run: |
+          helm upgrade --install api ./infra/kubernetes/charts/api \
+            --namespace=staging \
+            --values=infra/kubernetes/values/staging-api.yaml \
+            --set image.repository="${{ needs.build-images.outputs.ar_repo }}/api" \
+            --set image.tag="${{ github.event.pull_request.head.sha }}" \
+            --set gcp.projectId="${{ vars.GCP_STAGING_PROJECT_ID }}" \
+            --set gcp.kmsKeyName="${{ needs.terraform-staging.outputs.kms_key_name }}" \
+            --set gcp.serviceAccountEmail="${{ needs.terraform-staging.outputs.api_wi_sa }}" \
+            --set env.NODE_ENV=staging \
+            --wait --timeout=5m
+
+      - name: Helm deploy web (GKE staging)
+        if: needs.terraform-staging.outputs.gke_enabled == 'true'
+        run: |
+          API_CLUSTER_URL="http://api.staging.svc.cluster.local:3000"
+          helm upgrade --install web ./infra/kubernetes/charts/web \
+            --namespace=staging \
+            --values=infra/kubernetes/values/staging-web.yaml \
+            --set image.repository="${{ needs.build-images.outputs.ar_repo }}/web" \
+            --set image.tag="${{ github.event.pull_request.head.sha }}" \
+            --set gcp.projectId="${{ vars.GCP_STAGING_PROJECT_ID }}" \
+            --set env.NODE_ENV=staging \
+            --set env.API_URL="$API_CLUSTER_URL" \
+            --wait --timeout=5m
+
+      - name: Deploy API to Cloud Run (staging)
+        run: |
+          gcloud run deploy lifting-logbook-stg-api \
+            --image="${{ needs.build-images.outputs.ar_repo }}/api:${{ github.event.pull_request.head.sha }}" \
+            --region="${{ env.REGION }}" \
+            --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
+            --platform=managed \
+            --no-allow-unauthenticated \
+            --quiet
+
+      - name: Deploy web to Cloud Run (staging)
+        run: |
+          gcloud run deploy lifting-logbook-stg-web \
+            --image="${{ needs.build-images.outputs.ar_repo }}/web:${{ github.event.pull_request.head.sha }}" \
+            --region="${{ env.REGION }}" \
+            --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
+            --platform=managed \
+            --allow-unauthenticated \
+            --service-account="${{ needs.terraform-staging.outputs.web_workload_sa }}" \
+            --set-env-vars="API_URL=${{ needs.terraform-staging.outputs.cloud_run_api_url }}" \
+            --quiet
+
+  # ── 4. Staging integration tests ─────────────────────────────────────────
+  staging-integration-tests:
+    name: Staging Integration Tests
+    runs-on: ubuntu-latest
+    needs: [terraform-staging, deploy-staging]
+    if: needs.deploy-staging.result == 'success'
+    permissions:
+      contents: read
+      id-token: write
+    # environment: staging grants access to environment-level secrets
+    # (STAGING_CLERK_TEST_EMAIL, STAGING_CLERK_TEST_PASSWORD).
+    environment: staging
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.11.1'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+
+      - name: Wait for staging to be ready
+        run: |
+          WEB_URL="${{ needs.terraform-staging.outputs.cloud_run_web_url }}"
+          for i in $(seq 1 18); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${WEB_URL}/" || true)
+            if [ "$STATUS" = "200" ] || [ "$STATUS" = "307" ]; then
+              echo "Staging web returned $STATUS — ready."
+              exit 0
+            fi
+            echo "Attempt $i: got $STATUS, retrying in 10s..."
+            sleep 10
+          done
+          echo "Staging did not become ready in time" && exit 1
+
+      - name: Authenticate to GCP (staging) for Secret Manager access
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_STAGING_SERVICE_ACCOUNT }}
+
+      - name: Fetch staging Clerk secret key
+        run: |
+          CLERK_SECRET_KEY=$(gcloud secrets versions access latest \
+            --secret="lifting-logbook-stg-clerk-secret-key" \
+            --project="${{ vars.GCP_STAGING_PROJECT_ID }}")
+          echo "::add-mask::$CLERK_SECRET_KEY"
+          echo "CLERK_SECRET_KEY=$CLERK_SECRET_KEY" >> "$GITHUB_ENV"
+
+      - name: Run staging integration tests
+        working-directory: apps/web
+        run: npx playwright test --config=playwright.config.staging.ts
+        env:
+          CI: 'true'
+          STAGING_WEB_URL: ${{ needs.terraform-staging.outputs.cloud_run_web_url }}
+          STAGING_API_URL: ${{ needs.terraform-staging.outputs.cloud_run_api_url }}
+          STAGING_CLERK_TEST_EMAIL: ${{ secrets.STAGING_CLERK_TEST_EMAIL }}
+          STAGING_CLERK_TEST_PASSWORD: ${{ secrets.STAGING_CLERK_TEST_PASSWORD }}
+          # CLERK_SECRET_KEY is set in GITHUB_ENV by the fetch step above
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: staging-playwright-report
+          path: apps/web/playwright-report/
+
+  # ── 5. Report status (PR comment) ────────────────────────────────────────
+  report-status:
+    name: Report Staging Status
+    runs-on: ubuntu-latest
+    needs: [preflight, terraform-staging, staging-integration-tests]
+    if: always()
+    permissions:
+      pull-requests: write
+
+    steps:
+      - name: Post staging result comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const shouldRun = '${{ needs.preflight.outputs.should_run }}' === 'true';
+            const testResult = '${{ needs.staging-integration-tests.result }}';
+            const webUrl = '${{ needs.terraform-staging.outputs.cloud_run_web_url }}';
+
+            let body;
+            if (!shouldRun) {
+              body = '⚪ **Staging skipped** — `GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER` is not configured.';
+            } else if (testResult === 'success') {
+              body = `✅ **Staging integration tests passed**\n\n🔗 [Staging environment](${webUrl})`;
+            } else if (testResult === 'failure') {
+              body = `❌ **Staging integration tests failed** — see the [Playwright report artifact](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.\n\n🔗 [Staging environment](${webUrl})`;
+            } else {
+              body = `⚠️ **Staging integration tests did not run** (status: ${testResult})`;
+            }
+
+            // Find and update an existing bot comment, or create a new one
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('Staging integration tests') ||
+              c.body.includes('Staging skipped')
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
