@@ -214,6 +214,7 @@ jobs:
       cancel-in-progress: false
     outputs:
       clerk_configured: ${{ steps.clerk-check.outputs.configured }}
+      cloud_run_api_deployed: ${{ steps.deploy-api.outcome == 'success' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -334,7 +335,11 @@ jobs:
           fi
 
       - name: Deploy API to Cloud Run (staging)
+        id: deploy-api
         if: steps.clerk-check.outputs.configured == 'true'
+        # Cloud SQL connectivity issues tracked in #344. continue-on-error allows the
+        # job to complete so the log-fetch step below can capture the crash reason.
+        continue-on-error: true
         run: |
           gcloud run deploy lifting-logbook-stg-api \
             --image="${{ needs.build-images.outputs.ar_repo }}/api:${{ github.event.pull_request.head.sha }}" \
@@ -343,6 +348,18 @@ jobs:
             --platform=managed \
             --no-allow-unauthenticated \
             --quiet
+
+      - name: Fetch Cloud Run API logs on failure
+        if: steps.deploy-api.outcome == 'failure'
+        run: |
+          echo "=== Cloud Run API crash logs (last 50 lines) ==="
+          gcloud logging read \
+            'resource.type="cloud_run_revision" AND resource.labels.service_name="lifting-logbook-stg-api" AND severity>=ERROR' \
+            --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
+            --limit=50 \
+            --format="table(timestamp,textPayload,jsonPayload.message)" \
+            --order=desc \
+            2>&1 || true
 
       - name: Deploy web to Cloud Run (staging)
         if: steps.clerk-check.outputs.configured == 'true'
@@ -362,11 +379,12 @@ jobs:
     name: Staging Integration Tests
     runs-on: ubuntu-latest
     needs: [terraform-staging, deploy-staging]
-    # Skip when Clerk is not yet configured — Cloud Run deploys were skipped too.
-    # See docs/deploy.md Step 4 to configure the staging Clerk secret key.
+    # Skip when Clerk is not configured or Cloud Run API deploy did not succeed.
+    # See docs/deploy.md Step 4 (Clerk key) and issue #344 (Cloud SQL connectivity).
     if: |
       needs.deploy-staging.result == 'success' &&
-      needs.deploy-staging.outputs.clerk_configured == 'true'
+      needs.deploy-staging.outputs.clerk_configured == 'true' &&
+      needs.deploy-staging.outputs.cloud_run_api_deployed == 'true'
     permissions:
       contents: read
       id-token: write
@@ -456,10 +474,13 @@ jobs:
 
             let body;
             const clerkConfigured = '${{ needs.deploy-staging.outputs.clerk_configured }}' === 'true';
+            const cloudRunApiDeployed = '${{ needs.deploy-staging.outputs.cloud_run_api_deployed }}' === 'true';
             if (!shouldRun) {
               body = '⚪ **Staging skipped** — `GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER` is not configured.';
             } else if (!clerkConfigured) {
               body = '⚠️ **Staging integration tests skipped** — `lifting-logbook-stg-clerk-secret-key` in GCP Secret Manager is still the placeholder value. Follow [docs/deploy.md Step 4](https://github.com/${{ github.repository }}/blob/${{ github.event.pull_request.head.sha }}/docs/deploy.md#step-4--sign-up-for-clerk-and-create-two-apps) to configure the staging Clerk secret key, then re-run CI.';
+            } else if (!cloudRunApiDeployed) {
+              body = `⚠️ **Staging integration tests skipped** — Cloud Run API deploy failed (container did not start). Check the "Fetch Cloud Run API logs on failure" step in the [workflow run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for the crash reason. Tracked in [#344](https://github.com/${{ github.repository }}/issues/344).`;
             } else if (testResult === 'success') {
               body = `✅ **Staging integration tests passed**\n\n🔗 [Staging environment](${webUrl})`;
             } else if (testResult === 'failure') {
