@@ -329,28 +329,19 @@ resource "google_project_iam_member" "cicd_roles" {
   member  = "serviceAccount:${google_service_account.cicd.email}"
 }
 
-# Grant the production CI/CD service account access to the shared Terraform state
-# bucket. The bucket is created by scripts/bootstrap-gcp-prod.sh (outside
-# Terraform), so we bind by name via var.tfstate_bucket rather than a resource ref.
+# TF state bucket IAM is managed out-of-band, not by Terraform.
+# The bucket (lifting-logbook-tfstate) lives in the lifting-logbook-staging GCP project.
+# The staging SA has roles/owner on that project and can manage the bucket, but neither SA
+# can reliably set cross-project IAM from within their own CI/CD context. Both SAs are
+# granted roles/storage.objectAdmin via a one-time gcloud command (see docs/deploy.md §2).
 #
-# Staging is excluded (count = 0) because the staging SA has roles/owner only
-# on the staging project and cannot set IAM policy on a bucket in the prod project.
-# Grant staging SA access out-of-band (one-time, run locally with prod credentials):
-#   gcloud storage buckets add-iam-policy-binding gs://lifting-logbook-tfstate \
-#     --member="serviceAccount:lifting-logbook-stg-cicd@lifting-logbook-staging.iam.gserviceaccount.com" \
-#     --role="roles/storage.objectAdmin"
-resource "google_storage_bucket_iam_member" "cicd_tfstate" {
-  count  = var.environment == "production" ? 1 : 0
-  bucket = var.tfstate_bucket
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.cicd.email}"
-}
-
-# Renames the pre-count resource address in prod state so Terraform does not
-# destroy and recreate the IAM binding (which would cause a brief access gap).
-moved {
+# The removed block below drops the previously-tracked IAM binding from Terraform state
+# without issuing a delete call, so existing grants are preserved.
+removed {
   from = google_storage_bucket_iam_member.cicd_tfstate
-  to   = google_storage_bucket_iam_member.cicd_tfstate[0]
+  lifecycle {
+    destroy = false
+  }
 }
 
 # ─── IAM — Workload Identity Federation (keyless auth for GitHub Actions) ────
