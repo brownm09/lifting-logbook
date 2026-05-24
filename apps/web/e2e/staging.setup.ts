@@ -1,11 +1,14 @@
 import { chromium, expect } from '@playwright/test';
-import { setupClerkTestingToken } from '@clerk/testing/playwright';
+import { clerkSetup, setupClerkTestingToken } from '@clerk/testing/playwright';
 import path from 'path';
 import fs from 'fs';
 
 const AUTH_FILE = path.join(__dirname, '../playwright/.auth/user.json');
 
 async function globalSetup() {
+  // Fetches a Clerk testing token from the Backend API using CLERK_SECRET_KEY.
+  // Required before setupClerkTestingToken can bypass bot-detection in individual tests.
+  await clerkSetup();
   const stagingUrl = process.env.STAGING_WEB_URL;
   const email = process.env.STAGING_CLERK_TEST_EMAIL;
   const password = process.env.STAGING_CLERK_TEST_PASSWORD;
