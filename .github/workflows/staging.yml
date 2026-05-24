@@ -296,7 +296,7 @@ jobs:
             --set gcp.kmsKeyName="${{ needs.terraform-staging.outputs.kms_key_name }}" \
             --set gcp.serviceAccountEmail="${{ needs.terraform-staging.outputs.api_wi_sa }}" \
             --set env.NODE_ENV=staging \
-            --wait --timeout=10m
+            --wait --timeout=10m --force
 
       - name: Helm deploy web (GKE staging)
         if: needs.terraform-staging.outputs.gke_enabled == 'true'

@@ -9,6 +9,8 @@ spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
+  strategy:
+    type: {{ .Values.deploymentStrategy | default "RollingUpdate" }}
   selector:
     matchLabels:
       app: {{ include "lifting-logbook-api.fullname" . }}
