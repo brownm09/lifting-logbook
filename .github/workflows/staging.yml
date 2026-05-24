@@ -279,6 +279,16 @@ jobs:
               helm rollback "$release" --namespace=staging || true
             fi
           done
+          # Force-delete pods stuck in Terminating — they block helm --wait on the next upgrade.
+          # A pod is terminating when it has a deletionTimestamp but is still running.
+          kubectl get pods -n staging -o json 2>/dev/null \
+            | python3 -c "
+import sys, json
+pods = json.load(sys.stdin)
+for pod in pods.get('items', []):
+    if pod.get('metadata', {}).get('deletionTimestamp'):
+        print(pod['metadata']['name'])
+" | xargs -r kubectl delete pod --force --grace-period=0 -n staging || true
 
       - name: Helm deploy API (GKE staging)
         if: needs.terraform-staging.outputs.gke_enabled == 'true'
