@@ -24,9 +24,11 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
     },
     {
-      // next start does not work with output:standalone in Next.js 16.
-      // Use the standalone server directly in CI; dev server locally.
-      command: process.env.CI ? 'node .next/standalone/server.js' : 'npm run dev',
+      // Turbopack (Next.js 16) does not produce .next/standalone, and
+      // next start with output:standalone breaks router.refresh(). Use
+      // the dev server for E2E in all environments — it supports full
+      // App Router cache invalidation and starts quickly with Turbopack.
+      command: 'npm run dev',
       port: 3000,
       env: {
         API_URL: 'http://localhost:3004',
@@ -41,7 +43,7 @@ export default defineConfig({
         CLERK_SECRET_KEY: 'sk_test_e2e_placeholder',
       },
       reuseExistingServer: !process.env.CI,
-      timeout: process.env.CI ? 30_000 : 120_000,
+      timeout: 120_000,
     },
   ],
 });
