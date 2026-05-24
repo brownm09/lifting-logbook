@@ -212,6 +212,8 @@ jobs:
     concurrency:
       group: staging-deploy-mutex
       cancel-in-progress: false
+    outputs:
+      clerk_configured: ${{ steps.clerk-check.outputs.configured }}
 
     steps:
       - uses: actions/checkout@v4
@@ -316,7 +318,23 @@ jobs:
             --set env.API_URL="$API_CLUSTER_URL" \
             --wait --timeout=10m
 
+      - name: Check Clerk secret key configured
+        id: clerk-check
+        run: |
+          CLERK_KEY=$(gcloud secrets versions access latest \
+            --secret="lifting-logbook-stg-clerk-secret-key" \
+            --project="${{ vars.GCP_STAGING_PROJECT_ID }}")
+          if [[ "$CLERK_KEY" == "REPLACE_ME" || -z "$CLERK_KEY" ]]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "⚠️  lifting-logbook-stg-clerk-secret-key is still the placeholder value."
+            echo "    Cloud Run deploys are skipped until the key is configured."
+            echo "    Follow docs/deploy.md Step 4 to set the staging Clerk secret key."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Deploy API to Cloud Run (staging)
+        if: steps.clerk-check.outputs.configured == 'true'
         run: |
           gcloud run deploy lifting-logbook-stg-api \
             --image="${{ needs.build-images.outputs.ar_repo }}/api:${{ github.event.pull_request.head.sha }}" \
@@ -327,6 +345,7 @@ jobs:
             --quiet
 
       - name: Deploy web to Cloud Run (staging)
+        if: steps.clerk-check.outputs.configured == 'true'
         run: |
           gcloud run deploy lifting-logbook-stg-web \
             --image="${{ needs.build-images.outputs.ar_repo }}/web:${{ github.event.pull_request.head.sha }}" \
@@ -343,7 +362,11 @@ jobs:
     name: Staging Integration Tests
     runs-on: ubuntu-latest
     needs: [terraform-staging, deploy-staging]
-    if: needs.deploy-staging.result == 'success'
+    # Skip when Clerk is not yet configured — Cloud Run deploys were skipped too.
+    # See docs/deploy.md Step 4 to configure the staging Clerk secret key.
+    if: |
+      needs.deploy-staging.result == 'success' &&
+      needs.deploy-staging.outputs.clerk_configured == 'true'
     permissions:
       contents: read
       id-token: write
@@ -417,7 +440,7 @@ jobs:
   report-status:
     name: Report Staging Status
     runs-on: ubuntu-latest
-    needs: [preflight, terraform-staging, staging-integration-tests]
+    needs: [preflight, terraform-staging, deploy-staging, staging-integration-tests]
     if: always()
     permissions:
       pull-requests: write
@@ -432,8 +455,11 @@ jobs:
             const webUrl = '${{ needs.terraform-staging.outputs.cloud_run_web_url }}';
 
             let body;
+            const clerkConfigured = '${{ needs.deploy-staging.outputs.clerk_configured }}' === 'true';
             if (!shouldRun) {
               body = '⚪ **Staging skipped** — `GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER` is not configured.';
+            } else if (!clerkConfigured) {
+              body = '⚠️ **Staging integration tests skipped** — `lifting-logbook-stg-clerk-secret-key` in GCP Secret Manager is still the placeholder value. Follow [docs/deploy.md Step 4](https://github.com/${{ github.repository }}/blob/${{ github.event.pull_request.head.sha }}/docs/deploy.md#step-4--sign-up-for-clerk-and-create-two-apps) to configure the staging Clerk secret key, then re-run CI.';
             } else if (testResult === 'success') {
               body = `✅ **Staging integration tests passed**\n\n🔗 [Staging environment](${webUrl})`;
             } else if (testResult === 'failure') {
