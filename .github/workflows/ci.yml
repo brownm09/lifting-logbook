@@ -109,6 +109,12 @@ jobs:
 
       - name: Build workspace packages
         run: npx turbo run build --filter=@lifting-logbook/web
+        env:
+          # @clerk/testing@2+ upgraded @clerk/clerk-react to a version that calls
+          # throwMissingPublishableKeyError during /_not-found static prerendering.
+          # A placeholder key satisfies the non-empty check; dev auth (DEV_AUTH_TOKEN)
+          # is used at runtime so this value is never actually sent to Clerk's API.
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_placeholder
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium

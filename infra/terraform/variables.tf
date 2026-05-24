@@ -80,3 +80,9 @@ variable "cloud_run_min_instances" {
   type        = number
   default     = null
 }
+
+variable "tfstate_bucket" {
+  description = "GCS bucket holding Terraform remote state. Created outside this module by bootstrap scripts (see docs/deploy.md). Both environments share one bucket; workspace isolation keeps state separate."
+  type        = string
+  default     = "lifting-logbook-tfstate"
+}
