@@ -24,7 +24,9 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
     },
     {
-      command: process.env.CI ? 'npm run start' : 'npm run dev',
+      // next start does not work with output:standalone in Next.js 16.
+      // Use the standalone server directly in CI; dev server locally.
+      command: process.env.CI ? 'node .next/standalone/server.js' : 'npm run dev',
       port: 3000,
       env: {
         API_URL: 'http://localhost:3004',

@@ -117,6 +117,14 @@ jobs:
           # is used at runtime so this value is never actually sent to Clerk's API.
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_ZXhhbXBsZS5jbGVyay5hY2NvdW50cy5kZXYk
 
+      - name: Prepare standalone server for E2E
+        # next start does not work with output:standalone (Next.js 16 warning).
+        # Copy static assets into the standalone bundle so router.refresh() and
+        # full-route cache invalidation work correctly.
+        run: |
+          cp -r apps/web/public apps/web/.next/standalone/
+          cp -r apps/web/.next/static apps/web/.next/standalone/.next/
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
         working-directory: apps/web
