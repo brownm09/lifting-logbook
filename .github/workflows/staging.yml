@@ -380,10 +380,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: [preflight, terraform-staging, deploy-staging]
     # Only skip when staging is not configured at all (no GCP credentials).
-    # When staging IS configured, run always so that deploy failures produce a
-    # FAILED status rather than SKIPPED — GitHub branch protection treats
-    # SKIPPED as passing, so a silent skip bypasses the merge gate. See #345.
-    if: needs.preflight.outputs.should_run == 'true'
+    # When staging IS configured, always() ensures the job runs even when a
+    # needs job hard-fails (e.g. GCP auth failure in deploy-staging) — without
+    # it GitHub Actions auto-skips dependents on failure, which branch protection
+    # treats as passing and silently bypasses the merge gate. See #345.
+    if: always() && needs.preflight.outputs.should_run == 'true'
     permissions:
       contents: read
       id-token: write
