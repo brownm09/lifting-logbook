@@ -288,6 +288,7 @@ jobs:
             | xargs -r kubectl delete pod --force --grace-period=0 -n staging || true
 
       - name: Helm deploy API (GKE staging)
+        id: helm-deploy-api
         if: needs.terraform-staging.outputs.gke_enabled == 'true'
         # GKE Autopilot node provisioning can exceed 10m on cold starts; treat as
         # non-fatal so Cloud Run deploy (the integration-test target) always runs.
@@ -303,6 +304,23 @@ jobs:
             --set gcp.serviceAccountEmail="${{ needs.terraform-staging.outputs.api_wi_sa }}" \
             --set env.NODE_ENV=staging \
             --wait --timeout=10m --force
+
+      - name: Fetch GKE API pod logs on failure
+        if: steps.helm-deploy-api.outcome == 'failure'
+        run: |
+          echo "=== GKE API pod status ==="
+          kubectl get pods -n staging -l app.kubernetes.io/instance=api 2>&1 || true
+          POD=$(kubectl get pods -n staging -l app.kubernetes.io/instance=api \
+            --sort-by=.metadata.creationTimestamp \
+            -o jsonpath='{.items[-1].metadata.name}' 2>/dev/null || true)
+          if [[ -n "$POD" ]]; then
+            echo "=== Logs for pod: $POD ==="
+            kubectl logs -n staging "$POD" --tail=100 2>&1 || true
+            echo "=== Events for pod: $POD ==="
+            kubectl describe pod -n staging "$POD" 2>&1 | tail -40 || true
+          else
+            echo "No API pod found — Helm may have failed before pod creation"
+          fi
 
       - name: Helm deploy web (GKE staging)
         if: needs.terraform-staging.outputs.gke_enabled == 'true'
@@ -352,14 +370,19 @@ jobs:
       - name: Fetch Cloud Run API logs on failure
         if: steps.deploy-api.outcome == 'failure'
         run: |
-          echo "=== Cloud Run API crash logs (last 50 lines, all severities) ==="
+          # Cloud Logging ingestion for Cloud Run stdout/stderr typically takes
+          # 30-90s after the container writes the logs. Without a delay the query
+          # returns before application logs are indexed, showing only infra events.
+          echo "Waiting 90s for Cloud Logging ingestion..."
+          sleep 90
+          echo "=== Cloud Run API crash logs (last 100 lines, all severities) ==="
           gcloud logging read \
             'resource.type="cloud_run_revision" AND resource.labels.service_name="lifting-logbook-stg-api"' \
             --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
-            --limit=50 \
+            --limit=100 \
             --format="table(timestamp,severity,textPayload,jsonPayload.message)" \
             --order=desc \
-            --freshness=5m \
+            --freshness=10m \
             2>&1 || true
 
       - name: Deploy web to Cloud Run (staging)

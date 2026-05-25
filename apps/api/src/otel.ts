@@ -39,5 +39,11 @@ export function startOtel(): NodeSDK | undefined {
 }
 
 if (process.env.OTEL_SDK_AUTOSTART !== 'false') {
-  startOtel();
+  try {
+    startOtel();
+  } catch (err) {
+    // An OTel init failure must not kill the process — the app should start
+    // without instrumentation rather than crash before NestJS can log anything.
+    console.error('[otel] Failed to initialize OpenTelemetry SDK — continuing without instrumentation:', err);
+  }
 }
