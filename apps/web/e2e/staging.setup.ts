@@ -32,7 +32,8 @@ async function globalSetup() {
   // exact: true avoids strict-mode violation — Clerk renders a "Sign in with Google Continue"
   // social button alongside the primary "Continue" button; without exact the locator matches both.
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
-  await page.getByLabel('Password').fill(password);
+  // exact: true avoids matching "Confirm password" label which also contains "password".
+  await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
 
   // Wait until Clerk redirects away from the sign-in page
