@@ -395,7 +395,7 @@ jobs:
             --platform=managed \
             --allow-unauthenticated \
             --service-account="${{ needs.terraform-staging.outputs.web_workload_sa }}" \
-            --set-env-vars="API_URL=${{ needs.terraform-staging.outputs.cloud_run_api_url }}" \
+            --update-env-vars="API_URL=${{ needs.terraform-staging.outputs.cloud_run_api_url }}" \
             --quiet
 
   # ── 4. Staging integration tests ─────────────────────────────────────────
