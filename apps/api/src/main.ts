@@ -16,7 +16,7 @@ async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter(),
-    { bufferLogs: true },
+    { bufferLogs: false },
   );
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await app.register(multipart as any, { limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
