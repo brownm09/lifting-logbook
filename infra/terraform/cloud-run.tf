@@ -160,6 +160,16 @@ resource "google_cloud_run_v2_service" "web" {
           }
         }
       }
+
+      env {
+        name = "CLERK_SECRET_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.clerk_secret_key.secret_id
+            version = "latest"
+          }
+        }
+      }
     }
   }
 
