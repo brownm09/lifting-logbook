@@ -453,9 +453,20 @@ jobs:
         run: npx playwright install --with-deps chromium
         working-directory: apps/web
 
+      - name: Authenticate to GCP (staging) for Secret Manager access
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_STAGING_SERVICE_ACCOUNT }}
+
       - name: Wait for staging to be ready
+        id: wait-ready
         run: |
           WEB_URL="${{ needs.deploy-staging.outputs.web_url }}"
+          # Show the first response body to diagnose unexpected status codes
+          echo "=== Diagnostic curl (attempt 0) ==="
+          curl -s -L --max-redirs 0 -D - "${WEB_URL}/" 2>&1 | head -30 || true
+          echo "==="
           for i in $(seq 1 18); do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${WEB_URL}/" || true)
             if [ "$STATUS" = "200" ] || [ "$STATUS" = "307" ]; then
@@ -467,11 +478,20 @@ jobs:
           done
           echo "Staging did not become ready in time" && exit 1
 
-      - name: Authenticate to GCP (staging) for Secret Manager access
-        uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ secrets.GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_STAGING_SERVICE_ACCOUNT }}
+      - name: Fetch Cloud Run web logs on failure
+        if: failure() && steps.wait-ready.outcome == 'failure'
+        run: |
+          echo "Waiting 30s for Cloud Logging ingestion..."
+          sleep 30
+          echo "=== Cloud Run web service logs (last 50 lines, all severities) ==="
+          gcloud logging read \
+            'resource.type="cloud_run_revision" AND resource.labels.service_name="lifting-logbook-stg-web"' \
+            --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
+            --limit=50 \
+            --format="table(timestamp,severity,textPayload,jsonPayload.message)" \
+            --order=desc \
+            --freshness=10m \
+            2>&1 || true
 
       - name: Fetch staging Clerk secret key
         run: |
