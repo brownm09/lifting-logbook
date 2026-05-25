@@ -29,9 +29,11 @@ async function globalSetup() {
 
   await page.goto(`${stagingUrl}/sign-in`);
   await page.getByLabel('Email address').fill(email);
-  await page.getByRole('button', { name: 'Continue' }).click();
+  // exact: true avoids strict-mode violation — Clerk renders a "Sign in with Google Continue"
+  // social button alongside the primary "Continue" button; without exact the locator matches both.
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
   await page.getByLabel('Password').fill(password);
-  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
 
   // Wait until Clerk redirects away from the sign-in page
   await expect(page).not.toHaveURL(/\/sign-in/, { timeout: 15_000 });
