@@ -496,13 +496,19 @@ jobs:
             --freshness=10m \
             2>&1 || true
 
-      - name: Fetch staging Clerk secret key
+      - name: Fetch staging Clerk secrets
         run: |
           CLERK_SECRET_KEY=$(gcloud secrets versions access latest \
             --secret="lifting-logbook-stg-clerk-secret-key" \
             --project="${{ vars.GCP_STAGING_PROJECT_ID }}")
           echo "::add-mask::$CLERK_SECRET_KEY"
           echo "CLERK_SECRET_KEY=$CLERK_SECRET_KEY" >> "$GITHUB_ENV"
+
+          # @clerk/testing clerkSetup() requires CLERK_PUBLISHABLE_KEY (no NEXT_PUBLIC_ prefix)
+          CLERK_PUBLISHABLE_KEY=$(gcloud secrets versions access latest \
+            --secret="lifting-logbook-stg-clerk-publishable-key" \
+            --project="${{ vars.GCP_STAGING_PROJECT_ID }}")
+          echo "CLERK_PUBLISHABLE_KEY=$CLERK_PUBLISHABLE_KEY" >> "$GITHUB_ENV"
 
       - name: Run staging integration tests
         working-directory: apps/web
