@@ -220,6 +220,12 @@ resource "google_secret_manager_secret_iam_member" "web_workload_publishable_key
   member    = "serviceAccount:${google_service_account.web_workload.email}"
 }
 
+resource "google_secret_manager_secret_iam_member" "web_workload_clerk_secret_key" {
+  secret_id = google_secret_manager_secret.clerk_secret_key.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.web_workload.email}"
+}
+
 # ─── Serverless VPC Connector (private Cloud SQL access from Cloud Run) ───────
 
 resource "google_vpc_access_connector" "main" {
