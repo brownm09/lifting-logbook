@@ -463,17 +463,20 @@ jobs:
         id: wait-ready
         run: |
           WEB_URL="${{ needs.deploy-staging.outputs.web_url }}"
-          # Show the first response body to diagnose unexpected status codes
-          echo "=== Diagnostic curl (attempt 0) ==="
-          curl -s -L --max-redirs 0 -D - "${WEB_URL}/" 2>&1 | head -30 || true
-          echo "==="
+          # Clerk dev-mode (pk_test_ key) rewrites the first unauthenticated request
+          # to an internal /clerk_<hash> path for dev-browser cookie initialization.
+          # That path has no Next.js page → 404. The app IS running; the reliable
+          # readiness signal is the x-powered-by: Next.js response header, which
+          # is present on every response from the Next.js server regardless of
+          # auth state or Clerk mode (dev vs prod).
           for i in $(seq 1 18); do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${WEB_URL}/" || true)
-            if [ "$STATUS" = "200" ] || [ "$STATUS" = "307" ]; then
-              echo "Staging web returned $STATUS — ready."
+            HEADERS=$(curl -s -D - -o /dev/null "${WEB_URL}/" || true)
+            if echo "$HEADERS" | grep -qi "x-powered-by: Next.js"; then
+              echo "Staging web is up — Next.js is responding (attempt $i)."
               exit 0
             fi
-            echo "Attempt $i: got $STATUS, retrying in 10s..."
+            STATUS=$(echo "$HEADERS" | head -1 | grep -o '[0-9]\{3\}' | head -1)
+            echo "Attempt $i: got ${STATUS:-no-response} (no Next.js header), retrying in 10s..."
             sleep 10
           done
           echo "Staging did not become ready in time" && exit 1
