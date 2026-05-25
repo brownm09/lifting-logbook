@@ -215,7 +215,7 @@ jobs:
     outputs:
       clerk_configured: ${{ steps.clerk-check.outputs.configured }}
       cloud_run_api_deployed: ${{ steps.deploy-api.outcome == 'success' }}
-      web_url: ${{ steps.get-web-url.outputs.url }}
+      web_url: ${{ steps.deploy-web.outputs.url }}
 
     steps:
       - uses: actions/checkout@v4
@@ -387,9 +387,14 @@ jobs:
             2>&1 || true
 
       - name: Deploy web to Cloud Run (staging)
+        id: deploy-web
         if: steps.clerk-check.outputs.configured == 'true'
         run: |
-          gcloud run deploy lifting-logbook-stg-web \
+          # Capture gcloud output so we can parse the canonical "Service URL:" line.
+          # gcloud run services describe --format="value(status.url)" returns the legacy
+          # *.a.run.app URL which may no longer be routed to the current service instance;
+          # the "Service URL:" line from gcloud run deploy is always the live canonical URL.
+          DEPLOY_OUT=$(gcloud run deploy lifting-logbook-stg-web \
             --image="${{ needs.build-images.outputs.ar_repo }}/web:${{ github.event.pull_request.head.sha }}" \
             --region="${{ env.REGION }}" \
             --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
@@ -398,19 +403,10 @@ jobs:
             --service-account="${{ needs.terraform-staging.outputs.web_workload_sa }}" \
             --update-env-vars="API_URL=${{ needs.terraform-staging.outputs.cloud_run_api_url }}" \
             --update-secrets="CLERK_SECRET_KEY=lifting-logbook-stg-clerk-secret-key:latest" \
-            --quiet
-
-      - name: Get web Cloud Run URL
-        id: get-web-url
-        if: steps.clerk-check.outputs.configured == 'true'
-        run: |
-          # Terraform's cached uri can diverge from the actual service URL when the
-          # Cloud Run v2 URL format changes. Query gcloud directly for the live URL.
-          URL=$(gcloud run services describe lifting-logbook-stg-web \
-            --region="${{ env.REGION }}" \
-            --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
-            --format="value(status.url)")
-          echo "url=${URL}" >> "$GITHUB_OUTPUT"
+            --quiet 2>&1)
+          echo "$DEPLOY_OUT"
+          WEB_URL=$(echo "$DEPLOY_OUT" | grep "Service URL:" | awk '{print $NF}')
+          echo "url=${WEB_URL}" >> "$GITHUB_OUTPUT"
 
   # ── 4. Staging integration tests ─────────────────────────────────────────
   staging-integration-tests:
