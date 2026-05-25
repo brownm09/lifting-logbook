@@ -352,13 +352,14 @@ jobs:
       - name: Fetch Cloud Run API logs on failure
         if: steps.deploy-api.outcome == 'failure'
         run: |
-          echo "=== Cloud Run API crash logs (last 50 lines) ==="
+          echo "=== Cloud Run API crash logs (last 50 lines, all severities) ==="
           gcloud logging read \
-            'resource.type="cloud_run_revision" AND resource.labels.service_name="lifting-logbook-stg-api" AND severity>=ERROR' \
+            'resource.type="cloud_run_revision" AND resource.labels.service_name="lifting-logbook-stg-api"' \
             --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
             --limit=50 \
-            --format="table(timestamp,textPayload,jsonPayload.message)" \
+            --format="table(timestamp,severity,textPayload,jsonPayload.message)" \
             --order=desc \
+            --freshness=5m \
             2>&1 || true
 
       - name: Deploy web to Cloud Run (staging)
