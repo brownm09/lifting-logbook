@@ -215,6 +215,7 @@ jobs:
     outputs:
       clerk_configured: ${{ steps.clerk-check.outputs.configured }}
       cloud_run_api_deployed: ${{ steps.deploy-api.outcome == 'success' }}
+      web_url: ${{ steps.get-web-url.outputs.url }}
 
     steps:
       - uses: actions/checkout@v4
@@ -399,6 +400,18 @@ jobs:
             --update-secrets="CLERK_SECRET_KEY=lifting-logbook-stg-clerk-secret-key:latest" \
             --quiet
 
+      - name: Get web Cloud Run URL
+        id: get-web-url
+        if: steps.clerk-check.outputs.configured == 'true'
+        run: |
+          # Terraform's cached uri can diverge from the actual service URL when the
+          # Cloud Run v2 URL format changes. Query gcloud directly for the live URL.
+          URL=$(gcloud run services describe lifting-logbook-stg-web \
+            --region="${{ env.REGION }}" \
+            --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
+            --format="value(status.url)")
+          echo "url=${URL}" >> "$GITHUB_OUTPUT"
+
   # ── 4. Staging integration tests ─────────────────────────────────────────
   staging-integration-tests:
     name: Staging Integration Tests
@@ -446,7 +459,7 @@ jobs:
 
       - name: Wait for staging to be ready
         run: |
-          WEB_URL="${{ needs.terraform-staging.outputs.cloud_run_web_url }}"
+          WEB_URL="${{ needs.deploy-staging.outputs.web_url }}"
           for i in $(seq 1 18); do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${WEB_URL}/" || true)
             if [ "$STATUS" = "200" ] || [ "$STATUS" = "307" ]; then
@@ -477,7 +490,7 @@ jobs:
         run: npx playwright test --config=playwright.config.staging.ts
         env:
           CI: 'true'
-          STAGING_WEB_URL: ${{ needs.terraform-staging.outputs.cloud_run_web_url }}
+          STAGING_WEB_URL: ${{ needs.deploy-staging.outputs.web_url }}
           STAGING_API_URL: ${{ needs.terraform-staging.outputs.cloud_run_api_url }}
           STAGING_CLERK_TEST_EMAIL: ${{ secrets.STAGING_CLERK_TEST_EMAIL }}
           STAGING_CLERK_TEST_PASSWORD: ${{ secrets.STAGING_CLERK_TEST_PASSWORD }}
@@ -506,7 +519,7 @@ jobs:
           script: |
             const shouldRun = '${{ needs.preflight.outputs.should_run }}' === 'true';
             const testResult = '${{ needs.staging-integration-tests.result }}';
-            const webUrl = '${{ needs.terraform-staging.outputs.cloud_run_web_url }}';
+            const webUrl = '${{ needs.deploy-staging.outputs.web_url }}';
 
             let body;
             const clerkConfigured = '${{ needs.deploy-staging.outputs.clerk_configured }}' === 'true';
