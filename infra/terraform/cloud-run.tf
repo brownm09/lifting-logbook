@@ -174,13 +174,17 @@ resource "google_cloud_run_v2_service" "web" {
   }
 
   # Image and template updates managed by CI/CD (see lifecycle note on api service above).
+  # client and client_version are also ignored for the same reason as the api service:
+  # gcloud run deploy sets these on each CI deploy and Terraform would otherwise attempt
+  # an in-place modification (creating a new revision) on every subsequent apply.
   lifecycle {
-    ignore_changes = [template]
+    ignore_changes = [template, client, client_version]
   }
 
   depends_on = [
     google_project_service.required_apis,
     google_cloud_run_v2_service.api,
+    google_secret_manager_secret_iam_member.web_workload_clerk_secret_key,
   ]
 }
 
