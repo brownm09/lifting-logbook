@@ -27,6 +27,7 @@ COPY --from=installer /app/out/full/ .
 # without this explicit copy.
 COPY --from=installer /app/tsconfig.base.json ./tsconfig.base.json
 ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 RUN npx turbo run build --filter=@lifting-logbook/web
 
 # ── Stage 3: runner ──────────────────────────────────────────────────────────

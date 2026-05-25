@@ -36,7 +36,7 @@ test('onboarding: enter lifts → confirm → choose program → lands on cycle'
   await expect(page.getByRole('heading', { name: 'Get Started' })).toBeVisible();
 
   // Step 1: Choose Method — click Next to accept default (estimate)
-  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
 
   // Step 2: Enter Lifts
   await page.getByLabel('Bench Press weight').fill('185');
@@ -45,7 +45,7 @@ test('onboarding: enter lifts → confirm → choose program → lands on cycle'
   await page.getByLabel('Back Squat reps').fill('5');
   await page.getByLabel('Deadlift weight').fill('275');
   await page.getByLabel('Deadlift reps').fill('5');
-  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
 
   // Step 3: Confirm maxes
   await expect(page.getByRole('button', { name: 'Continue to Programs' })).toBeVisible();

@@ -102,18 +102,37 @@ gcloud billing projects link lifting-logbook-prod     --billing-account="$BILLIN
 
 ---
 
-### Step 2 — Create the Terraform state bucket
+### Step 2 — Create the Terraform state bucket and grant CI/CD access
 
-Terraform stores remote state in GCS. Create the bucket once in the staging project
-(it will hold state for both workspaces).
+Terraform stores remote state in GCS. Create the bucket once in the production project
+(it will hold state for both workspaces — staging and production).
 
 ```bash
-gsutil mb -p lifting-logbook-staging \
+gsutil mb -p lifting-logbook-prod \
            -l us-central1 \
-           gs://lifting-logbook-tfstate
+           gs://lifting-logbook-prod-tfstate
 
-gsutil versioning set on gs://lifting-logbook-tfstate
+gsutil versioning set on gs://lifting-logbook-prod-tfstate
 ```
+
+After the first `terraform apply` (Step 3) creates the CI/CD service accounts, grant both SAs
+`roles/storage.objectAdmin` on the bucket. The bucket lives in the prod project, so neither
+SA can manage this IAM binding via Terraform from within their own CI context — grant it once
+out-of-band with your personal account (which has access to both projects):
+
+```bash
+# Grant staging CI/CD SA access (run after the staging terraform apply in Step 3)
+gcloud storage buckets add-iam-policy-binding gs://lifting-logbook-prod-tfstate \
+  --member="serviceAccount:lifting-logbook-stg-cicd@lifting-logbook-staging.iam.gserviceaccount.com" \
+  --role="roles/storage.objectAdmin"
+
+# Grant production CI/CD SA access (run after the production terraform apply in Step 3)
+gcloud storage buckets add-iam-policy-binding gs://lifting-logbook-prod-tfstate \
+  --member="serviceAccount:lifting-logbook-prod-cicd@lifting-logbook-prod.iam.gserviceaccount.com" \
+  --role="roles/storage.objectAdmin"
+```
+
+These grants are idempotent — safe to re-run. They persist independently of Terraform state.
 
 ---
 
@@ -136,7 +155,7 @@ gcloud services enable cloudresourcemanager.googleapis.com iam.googleapis.com \
 # infra/terraform/terraform.tfvars.production
 
 # Apply staging
-terraform init -backend-config="bucket=lifting-logbook-tfstate" \
+terraform init -backend-config="bucket=lifting-logbook-prod-tfstate" \
                -backend-config="prefix=terraform/state"
 terraform workspace new staging
 terraform apply -var-file=terraform.tfvars.staging
@@ -155,11 +174,10 @@ terraform output cicd_service_account_email
 
 > **CI/CD IAM recovery.** Each `terraform apply` above grants the CI/CD service account
 > `roles/owner` on its project so subsequent CI-driven applies can manage IAM bindings on
-> Secret Manager, KMS, and the tfstate bucket (Editor + projectIamAdmin fall short on
-> `setIamPolicy` for several resource types). If you bootstrap with an older toolchain
-> that predates this binding — symptom: CI fails with `Error 403 ... setIamPolicy denied`
-> or `does not have storage.objects.list access` — run the recovery script once from your
-> laptop as a project owner, then push to main:
+> Secret Manager and KMS (Editor + projectIamAdmin fall short on `setIamPolicy` for several
+> resource types). If you bootstrap with an older toolchain that predates this binding —
+> symptom: CI fails with `Error 403 ... setIamPolicy denied` — run the recovery script once
+> from your laptop as a project owner, then push to main:
 >
 > ```bash
 > ./scripts/fix-cicd-sa-iam.sh --project-id lifting-logbook-staging
@@ -167,6 +185,10 @@ terraform output cicd_service_account_email
 > ```
 >
 > Bindings are idempotent and get re-asserted by Terraform on the next apply.
+>
+> **TF state bucket access** (`does not have storage.objects.list access`) is a separate issue —
+> see Step 2 for the required out-of-band gcloud commands that grant both SAs `roles/storage.objectAdmin`
+> on the shared bucket.
 
 ---
 
@@ -260,7 +282,7 @@ In the GitHub repository → **Settings → Secrets and variables → Actions**:
 | `GCP_PROD_WORKLOAD_IDENTITY_PROVIDER` | production `terraform output workload_identity_provider` |
 | `GCP_PROD_SERVICE_ACCOUNT` | production `terraform output cicd_service_account_email` |
 | `GCP_BILLING_ACCOUNT` | your billing account ID (used by terraform apply in CI) |
-| `TF_STATE_BUCKET` | `lifting-logbook-tfstate` |
+| `TF_STATE_BUCKET` | `lifting-logbook-prod-tfstate` |
 
 **Repository variables** (Variables tab):
 
@@ -311,11 +333,14 @@ Push or merge to `main`. The pipeline runs automatically.
 
 ### Recovering from CI/CD IAM errors
 
-If a CI run fails with `Error 403 ... setIamPolicy denied` or `does not have
-storage.objects.list access`, the CI/CD service account is missing the `roles/owner`
-binding that subsequent applies depend on. Re-run the recovery script from your laptop
-as a project owner — see the [CI/CD IAM recovery callout under Step 3](#step-3--bootstrap-terraform-first-apply)
+If a CI run fails with `Error 403 ... setIamPolicy denied`, the CI/CD service account is
+missing the `roles/owner` binding that subsequent applies depend on. Re-run the recovery
+script from your laptop as a project owner — see the [CI/CD IAM recovery callout under Step 3](#step-3--bootstrap-terraform-first-apply)
 for the full explanation and commands.
+
+If a CI run fails with `does not have storage.objects.list access` on the Terraform init step,
+the CI/CD SA is missing `roles/storage.objectAdmin` on `lifting-logbook-prod-tfstate` — see
+Step 2 for the out-of-band gcloud commands.
 
 ### Rolling back
 

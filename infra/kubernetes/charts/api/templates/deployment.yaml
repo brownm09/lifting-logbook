@@ -9,6 +9,8 @@ spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
+  strategy:
+    type: {{ .Values.deploymentStrategy | default "RollingUpdate" }}
   selector:
     matchLabels:
       app: {{ include "lifting-logbook-api.fullname" . }}
@@ -24,7 +26,8 @@ spec:
       serviceAccountName: {{ include "lifting-logbook-api.fullname" . }}
       securityContext:
         runAsNonRoot: true
-        runAsUser: 1000
+        runAsUser: 1001
+        runAsGroup: 1001
       containers:
         - name: api
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"

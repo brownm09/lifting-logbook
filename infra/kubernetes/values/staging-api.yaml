@@ -3,6 +3,10 @@
 
 replicaCount: 1
 
+# Recreate strategy: delete old pod before starting new one.
+# Eliminates rolling-update "pending termination" delays in CI where downtime is acceptable.
+deploymentStrategy: Recreate
+
 image:
   repository: ""   # set by CI/CD: us-central1-docker.pkg.dev/<project>/lifting-logbook/api
   tag: ""          # set by CI/CD: git SHA

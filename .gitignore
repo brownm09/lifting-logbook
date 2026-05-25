@@ -20,3 +20,6 @@ next-env.d.ts
 .claude/settings.local.json
 scripts/cloud-sql-proxy
 scripts/cloud-sql-proxy.exe
+
+# Playwright staging auth state — contains real session tokens, never commit
+apps/web/playwright/.auth/
