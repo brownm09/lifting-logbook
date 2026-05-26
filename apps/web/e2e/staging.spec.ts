@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { setupClerkTestingToken } from '@clerk/testing/playwright';
 
 // Staging integration tests — run against the live Cloud Run staging environment.
 // Auth state is provided by staging.setup.ts (signs in once, saves session).
@@ -68,8 +69,17 @@ test('cycle resolves to dashboard or onboarding', async ({ page }) => {
 // ---------------------------------------------------------------------------
 
 test('authenticated API call succeeds (auth propagation)', async ({ page }) => {
-  // Load any authenticated page so the Clerk JS SDK is active in the browser.
+  // The dev-browser JWT (__clerk_db_jwt) stored in storageState was created for
+  // the global-setup browser context, which is closed before individual tests run.
+  // Without re-injection, Clerk's FAPI dev-mode handshake fails and
+  // window.Clerk.session is null even though the server-side session is valid.
+  await setupClerkTestingToken({ page });
+
   await page.goto('/');
+
+  // Wait for Clerk to finish its FAPI initialization before reading session state.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await page.waitForFunction(() => !!(window as any).Clerk?.loaded);
 
   // Retrieve the current Clerk session token.  This is the same JWT that the
   // Next.js server attaches as Authorization: Bearer on every API call.
