@@ -35,7 +35,7 @@ gcloud run services list --project=<staging-project-id> --region=us-central1
 | Variable | Required | Description |
 |---|---|---|
 | `STAGING_WEB_URL` | Yes | Base URL of the staging Next.js web service |
-| `STAGING_API_URL` | Yes | URL of the staging NestJS API service — used by the auth propagation test to call the API directly |
+| `STAGING_API_URL` | No | URL of the staging NestJS API service — set in CI but not used directly by tests (auth propagation test uses `/api/health` route handler instead) |
 | `STAGING_CLERK_TEST_EMAIL` | Yes | Email of the test account in the staging Clerk instance |
 | `CLERK_SECRET_KEY` | Yes | Staging Clerk Backend API secret key — used by global setup to create a sign-in token, bypassing MFA |
 | `CLERK_PUBLISHABLE_KEY` | Yes | Staging Clerk publishable key without the `NEXT_PUBLIC_` prefix — required by `@clerk/testing`'s `clerkSetup()` |
@@ -84,7 +84,7 @@ The tests verify that the deployed stack is correctly wired:
 | Programs catalog loads | Programs tab renders (static catalog + auth-gated custom programs) |
 | History page tabs render | Auth-gated page renders structure (data may be empty) |
 | Cycle resolves to dashboard or onboarding | Server-side redirect logic works |
-| **Auth propagation** | JWT from the Clerk session is accepted by the API (`GET /users/me/settings` returns 200) |
+| **Auth propagation** | `GET /api/health` (Next.js route handler) uses server-side Clerk auth to call the API — returns 200 if the full auth path works |
 
 The auth propagation test is the only one that explicitly verifies the API is reachable and
 that the Clerk token is valid. Tests 1–4 assert page structure; because the server components

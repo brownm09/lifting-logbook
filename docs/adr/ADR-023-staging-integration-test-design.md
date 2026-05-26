@@ -74,25 +74,26 @@ Required environment variables for global setup:
 
 ### Explicit API auth propagation test
 
-Add a fifth test that directly verifies the API accepts the Clerk JWT:
+Add a fifth test that verifies the full auth path via a Next.js route handler:
 
 ```typescript
-// Retrieve session token from the active Clerk session in the browser.
-const token = await page.evaluate(async () => {
-  const cl = (window as any).Clerk;
-  return cl?.session ? cl.session.getToken() : null;
-});
+// Navigate to load the storageState session cookies into the browser context.
+await page.goto('/');
 
-// Call the API with the JWT — confirms auth propagation works end-to-end.
-const response = await page.request.get(`${process.env.STAGING_API_URL}/users/me/settings`, {
-  headers: { Authorization: `Bearer ${token}` },
-});
+// GET /api/health — a Next.js route handler that calls auth().getToken() and
+// calls GET /users/me/settings on the backend with the resulting JWT.
+// page.request sends the session cookies automatically.
+const response = await page.request.get('/api/health');
 expect(response.status()).toBe(200);
 ```
 
-`GET /users/me/settings` returns 200 for any authenticated user regardless of data state, making
-it a data-independent auth round-trip. `STAGING_API_URL` is injected from the `deploy-staging`
-job output in the CI workflow.
+`GET /api/health` is implemented in `app/api/health/route.ts`. It uses the same server-side
+`auth().getToken()` path that every server component uses, making it a faithful test of the
+full auth stack: browser session cookies → Clerk middleware → backend JWT.
+
+This approach was chosen over calling the backend API directly with `window.Clerk.session.getToken()`
+because the client-side token cache in Clerk dev mode (60-second TTL) causes `getToken()` to
+return a stale JWT that the API rejects with 401 by the time test 5 runs.
 
 ### Sign-in page
 
@@ -171,10 +172,14 @@ Run a mock API server alongside Playwright tests instead of calling the real dep
 Rejected per ADR-013's principle of no mocks for repository adapters, and because staging tests
 exist specifically to catch integration failures that unit/mock-based tests miss.
 
-**Server-side health-check route (`/api/health`):**
-A Next.js route handler that proxies to the backend and returns 200/503. Would let the test call
-`/api/health` without needing `STAGING_API_URL`. Rejected because it adds a permanent production
-route that exists only to serve a testing concern; the direct API call approach is cleaner.
+**Direct API call via `window.Clerk.session.getToken()`:**
+Retrieve the Clerk JWT from the browser and call the backend API directly with it. Attempted in
+the initial implementation. Rejected because `getToken()` has a 60-second client-side cache in
+Clerk dev mode. By the time test 5 runs (after tests 1–4 complete), the cached JWT is often
+expired or invalidated, and `getToken()` cannot refresh it because the dev-browser cookie in
+`storageState` is bound to the closed global-setup browser context. Result: consistent 401s on
+the direct API call even when server-side auth works. The `GET /api/health` route handler is
+simpler and uses the authoritative server-side path.
 
 ---
 
