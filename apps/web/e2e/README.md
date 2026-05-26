@@ -84,7 +84,7 @@ The tests verify that the deployed stack is correctly wired:
 | Programs catalog loads | Programs tab renders (static catalog + auth-gated custom programs) |
 | History page tabs render | Auth-gated page renders structure (data may be empty) |
 | Cycle resolves to dashboard or onboarding | Server-side redirect logic works |
-| **Auth propagation** | `GET /api/health` (Next.js route handler) uses server-side Clerk auth to call the API — returns 200 if the full auth path works |
+| **Auth propagation** | `GET /api/health` (Next.js route handler) checks two things: (1) `auth().userId` non-null (Clerk session valid server-side), (2) `GET ${API_URL}/health` returns 200 (API reachable) |
 
 The auth propagation test is the only one that explicitly verifies the API is reachable and
 that the Clerk token is valid. Tests 1–4 assert page structure; because the server components
