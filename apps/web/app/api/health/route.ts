@@ -12,7 +12,8 @@ export async function GET() {
   const token = await getToken();
 
   if (!token) {
-    return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+    // 403 = Clerk session present but getToken() returned null (dev-mode TTL or invalid session)
+    return NextResponse.json({ error: 'unauthenticated' }, { status: 403 });
   }
 
   const res = await fetch(`${API_URL}/users/me/settings`, {
@@ -23,7 +24,7 @@ export async function GET() {
   if (!res.ok) {
     return NextResponse.json(
       { error: `api returned ${res.status}` },
-      { status: res.status === 401 ? 401 : 503 },
+      { status: 503 },
     );
   }
 

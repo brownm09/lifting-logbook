@@ -71,15 +71,30 @@ test('authenticated API call succeeds (auth propagation)', async ({ page }) => {
   // Navigate first so the storageState cookies are active in the browser context.
   await page.goto('/');
 
-  // Call GET /api/health — a Next.js route handler that uses server-side Clerk
-  // auth (auth().getToken()) to call the backend API with a fresh JWT.
-  // This avoids window.Clerk.session.getToken() which can return a stale cached
-  // token in Clerk dev mode (60-second client-side cache TTL) that the API rejects.
-  // page.request includes the browser context's session cookies automatically.
-  const response = await page.request.get('/api/health');
+  // Use page.evaluate() to call /api/health via browser-native fetch, which
+  // guarantees the browser's own cookie jar (including Clerk session cookies) is
+  // used.  page.request.get() goes through a separate network stack and may not
+  // forward all cookies that Clerk's middleware depends on.
+  //
+  // /api/health is a Next.js route handler that calls auth().getToken() server-side
+  // and then hits the backend API — verifying the full auth path without relying
+  // on the client-side Clerk SDK (which has a 60-second JWT cache in dev mode).
+  //
+  // Status codes from the route handler:
+  //   200 — full stack OK
+  //   401 — no Clerk session (middleware blocked the request before reaching the handler)
+  //   403 — Clerk session present but getToken() returned null
+  //   503 — Clerk token obtained but backend API call failed
+  const { status, body } = await page.evaluate(async () => {
+    const r = await fetch('/api/health');
+    const text = await r.text();
+    return { status: r.status, body: text };
+  });
+
   expect(
-    response.status(),
-    `Expected 200 from /api/health — got ${response.status()}. ` +
+    status,
+    `Expected 200 from /api/health — got ${status}. Body: ${body}. ` +
+      '401=no session, 403=getToken() null (dev-mode TTL?), 503=backend API error. ' +
       'Check that the staging API is deployed and Clerk is configured correctly.',
   ).toBe(200);
 });
