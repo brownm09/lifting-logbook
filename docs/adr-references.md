@@ -225,6 +225,16 @@ References from [`docs/security-review-checklist.md`](security-review-checklist.
 
 ---
 
+## Testing and CI
+
+| Source | Cited In | Relevance |
+|---|---|---|
+| [Clerk Backend API — Sign-in Tokens](https://clerk.com/docs/reference/backend-api/tag/Sign-in-Tokens) | [ADR-023](adr/ADR-023-staging-integration-test-design.md) | Official documentation for `createSignInToken`; describes the ticket strategy and the `strategy: 'ticket'` parameter used to bypass all auth factors including MFA. |
+| [Clerk Testing — `@clerk/testing` Playwright overview](https://clerk.com/docs/testing/playwright/overview) | [ADR-023](adr/ADR-023-staging-integration-test-design.md) | Official guide for Playwright integration: `clerkSetup()`, `setupClerkTestingToken()`, and the recommended `storageState` pattern for session reuse. |
+| [Playwright — Storage State (reuse signed-in state)](https://playwright.dev/docs/auth#reuse-signed-in-state) | [ADR-023](adr/ADR-023-staging-integration-test-design.md) | Canonical pattern for sharing auth state across tests; the global setup / `use.storageState` pairing implements this directly. |
+
+---
+
 ## Case Studies
 
 Empirical evidence from practitioners. Full case studies are in [`docs/case-studies.md`](case-studies.md).

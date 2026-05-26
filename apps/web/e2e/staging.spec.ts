@@ -55,3 +55,42 @@ test('cycle resolves to dashboard or onboarding', async ({ page }) => {
     await expect(page.getByRole('heading', { name: 'Get Started' })).toBeVisible();
   }
 });
+
+// ---------------------------------------------------------------------------
+// 5. Auth propagation — verifies the full auth stack works end-to-end
+//
+// Tests 1–4 assert page structure only. Because the server components swallow
+// API errors (redirect or render empty), they pass even if the API is down.
+// This test directly calls the API with the Clerk JWT to confirm:
+//   (a) the session token written by global setup is still valid
+//   (b) the API service is reachable from the test runner
+//   (c) auth headers are accepted (not stripped, not expired)
+// ---------------------------------------------------------------------------
+
+test('authenticated API call succeeds (auth propagation)', async ({ page }) => {
+  // Load any authenticated page so the Clerk JS SDK is active in the browser.
+  await page.goto('/');
+
+  // Retrieve the current Clerk session token.  This is the same JWT that the
+  // Next.js server attaches as Authorization: Bearer on every API call.
+  const token = await page.evaluate(async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const cl = (window as any).Clerk;
+    if (!cl?.session) return null;
+    return cl.session.getToken() as Promise<string | null>;
+  });
+  expect(token, 'Clerk session must be active — check global setup').toBeTruthy();
+
+  const apiUrl = process.env.STAGING_API_URL;
+  expect(apiUrl, 'STAGING_API_URL must be set in CI environment').toBeTruthy();
+
+  // GET /users/me/settings returns 200 for any authenticated user regardless of
+  // whether they have saved settings — it is a data-independent auth round-trip.
+  const response = await page.request.get(`${apiUrl}/users/me/settings`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  expect(
+    response.status(),
+    `Expected 200 from API — got ${response.status()}. Check that the staging API is deployed and the Clerk secret key is configured.`,
+  ).toBe(200);
+});
