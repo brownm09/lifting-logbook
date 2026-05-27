@@ -1,4 +1,4 @@
-# ADR-024: Resolve PrismaInstrumentation OTel SDK Version Conflict via postinstall cleanup
+# ADR-024: PrismaInstrumentation Excluded — OTel v2 SDK Incompatibility
 
 **Status:** Accepted
 **Date:** 2026-05-27
@@ -13,7 +13,9 @@
 Client tracing. The instrumentation was initially wired up as part of the observability epic but
 had to be removed in PR #346 due to a runtime crash that blocked Cloud Run startup.
 
-**Root cause:** `@prisma/instrumentation@5.22.0` bundles its own nested copy of
+### Original crash (issue #348)
+
+`@prisma/instrumentation@5.22.0` bundles its own nested copy of
 `@opentelemetry/sdk-trace-base@1.30.1` under
 `node_modules/@prisma/instrumentation/node_modules/`. The main app resolves
 `@opentelemetry/sdk-trace-base@2.7.1` (transitively via `@opentelemetry/sdk-node@0.217.0`).
@@ -29,45 +31,45 @@ TypeError: parentTracer.getActiveSpanProcessor is not a function
     at ActiveTracingHelper.createEngineSpan
 ```
 
-This crash kills the process before the Cloud Run startup probe can pass.
+### Attempted fix: postinstall cleanup (PR #352, staging failure)
+
+A `postinstall` lifecycle script was added to `apps/api/package.json` to delete
+`@prisma/instrumentation`'s nested `node_modules/@opentelemetry/` directory after every
+`npm install` / `npm ci`. The intent was to force Node.js to resolve `sdk-trace-base` to the
+hoisted v2.7.1, eliminating the v1/v2 API mismatch.
+
+Staging proved this approach also fails. With the nested v1.x copy removed, `@prisma/instrumentation`
+resolves to `sdk-trace-base@2.x` — but `sdk-trace-base@2.x` no longer exports `Span` as a public
+class (it was made package-private in the v2.0 breaking change release). The crash changed, but was
+not eliminated:
+
+```
+TypeError: import_sdk_trace_base.Span is not a constructor
+    at /app/apps/api/node_modules/@prisma/instrumentation/dist/chunk-O7OBHTYQ.js:69:20
+    at ActiveTracingHelper.createEngineSpan
+```
+
+### Root cause (confirmed)
+
+`@prisma/instrumentation@5.22.0` is fundamentally incompatible with
+`@opentelemetry/sdk-trace-base@2.x`. It uses `Span` as a public constructor import. That class
+was made package-private in v2.0. No amount of version routing within the 5.x/2.x combination
+produces a working result:
+
+- Allow nested v1.x → `getActiveSpanProcessor is not a function` (v1 Span gets v2 tracer)
+- Force hoisted v2.x → `Span is not a constructor` (v2 Span is not a public export)
 
 ---
 
 ## Decision
 
-Add a `postinstall` lifecycle script to `apps/api/package.json` that deletes
-`@prisma/instrumentation`'s nested `node_modules/@opentelemetry/` directory after every
-`npm install` or `npm ci`. This forces Node.js module resolution to traverse up and use the
-hoisted `@opentelemetry/sdk-trace-base@2.7.1`, so Prisma's code runs with the v2.x `Span`
-constructor and the v2.x tracer API — no `getActiveSpanProcessor` mismatch.
+Exclude `PrismaInstrumentation` from the `instrumentations` array in `otel.ts` until the
+Prisma v6 upgrade is completed. `@prisma/instrumentation@6.x` ships with native OTel v2 support
+and will make both crashes impossible.
 
-```json
-// apps/api/package.json
-"scripts": {
-  "postinstall": "node -e \"const fs=require('fs');try{fs.rmSync('node_modules/@prisma/instrumentation/node_modules/@opentelemetry',{recursive:true,force:true})}catch(e){}\""
-}
-```
-
-**Why postinstall instead of npm `overrides`:**
-
-`npm overrides` in the root `package.json` is the idiomatic mechanism for this fix. During
-exploration, we found that in npm 11.x with an existing lockfile, scoped overrides targeting
-workspace-level transitive packages do not update the lockfile entries already pinned there —
-the override is recorded as intent but the installed packages do not change. Deleting the
-lockfile and resolving fresh triggered peer dependency conflicts because `@prisma/instrumentation`
-bundles a full OTel v1.x stack (`sdk-trace-base`, `core`, `resources`, `semantic-conventions`)
-that conflicts with the main app's `@opentelemetry/auto-instrumentations-node@0.75.0` peer
-dep on `@opentelemetry/core@^2.0.0`. The comprehensive override approach (forcing all four
-packages to v2.x) resolved that conflict on a fresh install, but changed package hoisting in a
-way that broke Jest module resolution for the NestJS test suite.
-
-The postinstall approach avoids all of this: it preserves the original lockfile and hoisting,
-applies on every `npm install` and `npm ci`, and is fully idempotent.
-
-**Lifecycle:** `postinstall` runs unconditionally during `npm ci` (CI) and runs during
-`npm install` whenever the workspace is installed or its dependencies change. If the nested
-directory is reinstalled on a subsequent `npm install` (because npm detects it missing per the
-lockfile), the script runs again on that pass and re-deletes it. The net state is always clean.
+The import is retained in `otel.ts` to support the regression test in `otel.e2e.spec.ts`, which
+verifies the package is importable and the constructor does not throw — an import-level signal
+that the package is properly resolved on the dependency path.
 
 ---
 
@@ -79,20 +81,28 @@ Pin `@opentelemetry/sdk-node` back to v1.x. Rejected — regresses the entire OT
 shipped with [ADR-018](ADR-018-observability-stack.md) and bets on Prisma never moving to v2
 (which it has, in v6).
 
-### Option 2: Upgrade `@prisma/instrumentation` to v6
+### Option 2: npm `overrides`
 
-`@prisma/instrumentation@6.x` ships with OTel SDK v2 support natively and would make this fix
-a no-op. Rejected for this PR — upgrading `@prisma/client` from v5 → v6 involves schema engine
-options changes, `rejectOnNotFound` removal, and other migration work that belongs in a
-dedicated PR. This fix is tracked separately so Prisma v6 migration remains unblocked.
+Adding `overrides` to root `package.json` is the documented npm mechanism for forcing a single
+transitive dependency version. Explored during this investigation; in npm 11.x with an existing
+lockfile, scoped overrides targeting workspace-level transitive packages did not update the
+already-pinned lockfile entries — the override was recorded as intent but installed packages
+did not change. Deleting the lockfile and resolving fresh triggered peer dependency conflicts
+because `@prisma/instrumentation` bundles a full OTel v1.x stack that conflicts with the main
+app's `@opentelemetry/auto-instrumentations-node@0.75.0` peer dep on `@opentelemetry/core@^2.0.0`.
+This approach is also moot: even if it worked, it would route `@prisma/instrumentation` to v2.x
+and hit the `Span is not a constructor` crash.
 
-### Option 3: npm `overrides` (explored, not used)
+### Option 3: postinstall script (explored, staging failure)
 
-Adding `overrides` to root `package.json` is the documented npm mechanism for this scenario.
-Explored in detail; the limitation described above (existing lockfile not updated, fresh
-resolution breaks hoisting) made the postinstall approach more reliable in practice. Should
-be revisited if Prisma instrumentation is upgraded before the v6 migration, as a fresh
-lockfile generated without an existing v1.x resolution may work correctly.
+Implemented and tested in staging. Documented above. Not used.
+
+### Option 4: Upgrade `@prisma/instrumentation` to v6 (deferred)
+
+`@prisma/instrumentation@6.x` ships with OTel SDK v2 support natively. The correct fix, but
+upgrading `@prisma/client` from v5 → v6 involves `rejectOnNotFound` removal, schema engine
+options changes, and other migration work that belongs in a dedicated PR. Tracked separately
+so that the startup crash fix (excluding the instrumentation) ships now.
 
 ---
 
@@ -100,32 +110,26 @@ lockfile generated without an existing v1.x resolution may work correctly.
 
 ### Positive
 
-- `PrismaInstrumentation` is restored per the original ADR-018 decision; Prisma Client spans
-  (query timing, connection, disconnect) now appear in traces.
-- Cloud Run startup no longer crashes on `$connect()`.
-- The fix survives `npm ci` (CI), `npm install` (development), and lockfile regenerations.
+- Cloud Run startup no longer crashes; `PrismaService.$connect()` completes cleanly.
+- No lockfile changes required; no postinstall script to maintain.
+- The regression test in `otel.e2e.spec.ts` provides an import-level signal that would fail
+  if `@prisma/instrumentation` were accidentally removed from the dependency tree.
 
 ### Negative / Risks
 
-- **Lockfile still records the v1.30.1 nested entry.** The lockfile truthfully represents what
-  `@prisma/instrumentation@5.22.0` declares; the fix is a post-install cleanup, not a lockfile
-  change. A developer who inspects the lockfile will still see `1.30.1` listed. This is
-  intentional — the lockfile is not modified.
-- **Script runs on every install pass that changes the workspace.** Negligible overhead.
-- **Future Prisma v6 upgrade.** Once `@prisma/instrumentation@6.x` is adopted (which ships OTel
-  v2 natively), the nested `@opentelemetry/` directory will no longer exist and the `rmSync`
-  call becomes a silent no-op. The script can be removed in the same PR as the upgrade.
+- **Prisma Client spans are absent from traces** until the Prisma v6 upgrade. Query timing and
+  connection lifecycle events will not appear in Grafana/Tempo.
+- **Silent exclusion.** A developer adding Prisma queries will not see spans without reading the
+  ADR. The comment in `otel.ts` provides the pointer.
 
 ---
 
 ## Verification
 
-1. **Structural:** After `npm install`, confirm
-   `apps/api/node_modules/@prisma/instrumentation/node_modules/@opentelemetry/` does not exist.
-2. **Unit/smoke:** `npm test -w @lifting-logbook/api` — existing OTel smoke test
-   (`otel.e2e.spec.ts`) passes.
-3. **Staging:** The Cloud Run startup probe passes and staging traces show at least one
-   `prisma:engine` or `prisma:client` span confirming `PrismaInstrumentation` is wired in.
+1. **Unit/smoke:** `npm test -w @lifting-logbook/api` — OTel smoke test (`otel.e2e.spec.ts`) and
+   `PrismaInstrumentation` regression test both pass.
+2. **Staging:** The Cloud Run startup probe passes. No `getActiveSpanProcessor` or
+   `Span is not a constructor` crash in the startup logs.
 
 ---
 
@@ -135,5 +139,5 @@ lockfile generated without an existing v1.x resolution may work correctly.
 |---|---|
 | [npm — `scripts` lifecycle (postinstall)](https://docs.npmjs.com/cli/v10/using-npm/scripts#npm-install) | Documents when `postinstall` is executed during `npm install` and `npm ci`. |
 | [Prisma — OpenTelemetry tracing](https://www.prisma.io/docs/orm/prisma-client/observability-and-logging/opentelemetry-tracing) | Documents `@prisma/instrumentation` setup and the `previewFeatures = ["tracing"]` requirement. |
-| [OpenTelemetry JavaScript — Changelog (v2.0)](https://github.com/open-telemetry/opentelemetry-js/blob/main/CHANGELOG.md) | Documents the v1 → v2 breaking changes to `sdk-trace-base`, including the tracer API changes producing the `getActiveSpanProcessor` crash. |
-| [npm — `overrides` configuration](https://docs.npmjs.com/cli/v10/configuring-npm/package-json#overrides) | The idiomatic mechanism for forcing a single transitive dependency version; explored as the primary fix and deferred due to npm 11.x workspace lockfile limitations. |
+| [OpenTelemetry JavaScript — Changelog (v2.0)](https://github.com/open-telemetry/opentelemetry-js/blob/main/CHANGELOG.md) | Documents the v1 → v2 breaking changes to `sdk-trace-base`, including removal of the `getActiveSpanProcessor` tracer method and the `Span` public export. |
+| [npm — `overrides` configuration](https://docs.npmjs.com/cli/v10/configuring-npm/package-json#overrides) | The idiomatic mechanism for forcing a single transitive dependency version; explored as a fix path and found insufficient. |
