@@ -1,5 +1,6 @@
 // @ts-check
 const tsPlugin = require('@typescript-eslint/eslint-plugin');
+const localRules = require('./tools/eslint-rules');
 
 /** @type {import('eslint').Linter.FlatConfig[]} */
 module.exports = [
@@ -30,6 +31,19 @@ module.exports = [
             "fetch() calls must include an explicit cache option. Use { cache: 'no-store' } or { next: { revalidate: N } }. See docs/standards/fetch-cache-semantics.md.",
         },
       ],
+    },
+  },
+  // Enforce test coverage for error-swallowing fallbacks in Server Components and
+  // API route handlers. See docs/standards/error-fallback-test-coverage.md and
+  // tools/eslint-rules/no-uncovered-error-fallback.js.
+  {
+    files: ['apps/web/app/**/*.ts', 'apps/web/app/**/*.tsx', 'apps/api/src/**/*.ts'],
+    ignores: ['**/*.spec.ts', '**/*.test.ts', '**/*.spec.tsx', '**/*.test.tsx'],
+    plugins: {
+      'lifting-logbook': localRules,
+    },
+    rules: {
+      'lifting-logbook/no-uncovered-error-fallback': 'error',
     },
   },
 ];
