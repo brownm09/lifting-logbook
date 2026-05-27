@@ -25,9 +25,14 @@ export class AuthGuard implements CanActivate {
     if (isPublic) return true;
 
     const request = context.switchToHttp().getRequest();
-    const authHeader: string | undefined = request.headers['authorization'];
-    const token = authHeader?.startsWith('Bearer ')
-      ? authHeader.slice(7)
+    // Server-to-server calls (apps/web) put the Clerk JWT in X-Clerk-Authorization to
+    // avoid colliding with the GCP identity token in Authorization (required for Cloud
+    // Run IAM). Browser clients and local dev continue using Authorization.
+    const headerValue: string | undefined =
+      (request.headers['x-clerk-authorization'] as string | undefined) ??
+      (request.headers['authorization'] as string | undefined);
+    const token = headerValue?.startsWith('Bearer ')
+      ? headerValue.slice(7)
       : undefined;
 
     if (!token) throw new UnauthorizedException();
