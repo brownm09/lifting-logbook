@@ -305,6 +305,7 @@ rationale, examples, and enforcement notes. Existing standards:
 | File | Applies to | Rule |
 |---|---|---|
 | [`docs/standards/fetch-cache-semantics.md`](docs/standards/fetch-cache-semantics.md) | `apps/web` Server Components | All `fetch()` calls must specify `{ cache: 'no-store' }` or `{ next: { revalidate: N } }` explicitly |
+| [`docs/standards/error-fallback-test-coverage.md`](docs/standards/error-fallback-test-coverage.md) | all packages and apps | Error-swallowing fallbacks (`.catch(() => default)`, `?? default`, try/catch returning neutral) require a data-level assertion, a paired success-path test, or a documented structure-only comment |
 
 When implementing `apps/web`, read the relevant standards before writing any `fetch()` calls.
 
@@ -342,6 +343,19 @@ npm test -w @lifting-logbook/web
 | Refactor / docs only | None required — existing tests must pass |
 
 **Blocking rule:** A PR that adds an API endpoint or frontend feature without satisfying the above is not mergeable.
+
+### Failure-tracking rule
+
+Every test failure reported in a pre-PR run must be resolved in one of two ways before `gh pr create`:
+
+1. **Fixed in this PR** (default).
+2. **Tracked by an open GitHub issue cited in the PR body** by number — prose explanation alone is not sufficient. If the failure does not yet have an issue, file one before opening the PR.
+
+A label of "pre-existing" without an open-issue link is not acceptable. The motivating incident is [#349 / PR #355](https://github.com/brownm09/lifting-logbook/pull/355), where four API suite-load failures were carried as "pre-existing" until a one-line `postinstall` hook fixed the entire class — the rule should have forced the investigation up front. The global equivalent of this rule is tracked in [dev-env#281](https://github.com/brownm09/dev-env/issues/281).
+
+### Skewed-test rule
+
+When a PR adds or modifies a `.catch(() => default)`, `?? default`, or `try { … } catch { return neutral }` in a server component or API boundary, the test coverage for that code path must satisfy one of: (a) a data-level assertion the fallback would not produce, (b) a separate test that fails specifically when the upstream fails, or (c) an inline comment that names the swallowed-fallback source line and explains why structure-only is intentional. See [`docs/standards/error-fallback-test-coverage.md`](docs/standards/error-fallback-test-coverage.md) for the full rule and examples.
 
 ---
 

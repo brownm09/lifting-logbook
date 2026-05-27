@@ -8,7 +8,8 @@
     "start": "node dist/main.js",
     "lint": "eslint src",
     "test": "jest",
-    "test:db": "jest --testPathPattern=db\\.e2e"
+    "test:db": "jest --testPathPattern=db\\.e2e",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.92.0",
