@@ -77,6 +77,6 @@ When the staging test user genuinely has no records, this is acceptable **only i
 
 ## Audit history
 
-| Date | Scope | Issue | PR |
-|---|---|---|---|
-| 2026-05-27 | `packages/core/**`, `packages/types/**` — 4 untested or under-tested neutral-return branches in `tableToObjects`, `parseCycleDashboard`, `formatDateYYYYMMDD`, `weekTypeForDate`. All four remediated with explicit fallback-branch tests. One production-code inconsistency in `parseCycleDashboard` (silent defaults vs. sibling `parseTrainingMaxes` which throws) deferred to a follow-up issue. | [#354](https://github.com/brownm09/lifting-logbook/issues/354) | [#357](https://github.com/brownm09/lifting-logbook/pull/357) |
+| Date | Scope | Findings | Issue | PR |
+|---|---|---|---|---|
+| 2026-05-27 | `packages/core/**`, `packages/types/**` | 4 untested or under-tested neutral-return branches in `tableToObjects`, `parseCycleDashboard`, `formatDateYYYYMMDD`, `weekTypeForDate`. All four remediated with explicit fallback-branch tests; one production-code inconsistency in `parseCycleDashboard` (silent defaults vs. sibling `parseTrainingMaxes` which throws) deferred to a follow-up issue. | [#354](https://github.com/brownm09/lifting-logbook/issues/354) | [#357](https://github.com/brownm09/lifting-logbook/pull/357) |
