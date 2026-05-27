@@ -11,6 +11,7 @@ import {
   TrainingMaxHistoryEntry,
   updateCycle,
   updateMaxes,
+  weekTypeForDate,
   WEEKDAY_MAP,
   Weekday,
 } from '@lifting-logbook/core';
@@ -159,7 +160,7 @@ export class CycleGenerationService {
     }
     await repos.cycleDashboard.saveCycleDashboard(newCycle);
 
-    const source = dashboard.currentWeekType === 'test' ? 'test' : 'program';
+    const source = weekTypeForDate(dashboard.cycleDate, programSpec) === 'test' ? 'test' : 'program';
     const historyEntries = buildHistoryEntries(trainingMaxes, newMaxes, newCycle.cycleDate, source);
     if (historyEntries.length > 0) {
       await repos.trainingMaxHistory.appendHistoryEntries(program, historyEntries);
@@ -206,7 +207,6 @@ export class CycleGenerationService {
       cycleDate,
       sheetName: `${program}_Cycle_1_${formatDateYYYYMMDD(cycleDate)}`,
       cycleStartWeekday: weekdayName,
-      currentWeekType: 'training',
       programType: defaults.programType,
     };
 

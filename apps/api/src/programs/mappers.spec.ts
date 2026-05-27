@@ -180,11 +180,12 @@ describe('buildCycleDashboardResponse', () => {
     program: 'test-531',
     cycleNum: 1,
     cycleDate: new Date('2026-05-19T00:00:00.000Z'),
-    currentWeekType: 1,
     cycleUnit: 'week',
     sheetName: 'Sheet1',
     cycleStartWeekday: Weekday.Monday,
   };
+
+  const WEEK_TYPE = 'training' as const;
 
   const sw = (workoutNum: number, weekNum: number, date: string): ScheduledWorkout => ({
     workoutNum,
@@ -193,13 +194,13 @@ describe('buildCycleDashboardResponse', () => {
   });
 
   it('returns base response when scheduled array is empty', () => {
-    const result = buildCycleDashboardResponse(baseDashboard, [], new Map(), new Set());
+    const result = buildCycleDashboardResponse(baseDashboard, WEEK_TYPE, [], new Map(), new Set());
     expect(result.weeks).toEqual([]);
   });
 
   it('emits workouts[] with workoutNum and date per entry', () => {
     const scheduled = [sw(1, 1, '2026-05-19'), sw(2, 1, '2026-05-21'), sw(3, 2, '2026-05-26')];
-    const result = buildCycleDashboardResponse(baseDashboard, scheduled, new Map(), new Set());
+    const result = buildCycleDashboardResponse(baseDashboard, WEEK_TYPE, scheduled, new Map(), new Set());
     expect(result.weeks).toHaveLength(2);
     const week1 = result.weeks[0]!;
     expect(week1.week).toBe(1);
@@ -214,28 +215,28 @@ describe('buildCycleDashboardResponse', () => {
   it('applies override date when present', () => {
     const scheduled = [sw(1, 1, '2026-05-19')];
     const overrides = new Map([[1, new Date('2026-05-20T00:00:00.000Z')]]);
-    const result = buildCycleDashboardResponse(baseDashboard, scheduled, overrides, new Set());
+    const result = buildCycleDashboardResponse(baseDashboard, WEEK_TYPE, scheduled, overrides, new Set());
     expect(result.weeks[0]!.workouts[0]).toEqual({ workoutNum: 1, date: '2026-05-20', skipped: false });
   });
 
   it('marks week completed when all workouts have records', () => {
     const scheduled = [sw(1, 1, '2026-05-19'), sw(2, 1, '2026-05-21')];
     const completed = new Set([1, 2]);
-    const result = buildCycleDashboardResponse(baseDashboard, scheduled, new Map(), completed);
+    const result = buildCycleDashboardResponse(baseDashboard, WEEK_TYPE, scheduled, new Map(), completed);
     expect(result.weeks[0]!.completed).toBe(true);
   });
 
   it('week is incomplete when only some workouts have records', () => {
     const scheduled = [sw(1, 1, '2026-05-19'), sw(2, 1, '2026-05-21')];
     const completed = new Set([1]);
-    const result = buildCycleDashboardResponse(baseDashboard, scheduled, new Map(), completed);
+    const result = buildCycleDashboardResponse(baseDashboard, WEEK_TYPE, scheduled, new Map(), completed);
     expect(result.weeks[0]!.completed).toBe(false);
   });
 
   it('marks skipped workout as skipped:true in output', () => {
     const scheduled = [sw(1, 1, '2026-05-19'), sw(2, 1, '2026-05-21')];
     const skipped = new Set([1]);
-    const result = buildCycleDashboardResponse(baseDashboard, scheduled, new Map(), new Set(), skipped);
+    const result = buildCycleDashboardResponse(baseDashboard, WEEK_TYPE, scheduled, new Map(), new Set(), skipped);
     expect(result.weeks[0]!.workouts[0]!.skipped).toBe(true);
     expect(result.weeks[0]!.workouts[1]!.skipped).toBe(false);
   });
@@ -244,14 +245,14 @@ describe('buildCycleDashboardResponse', () => {
     const scheduled = [sw(1, 1, '2026-05-19'), sw(2, 1, '2026-05-21')];
     const completed = new Set([1]);
     const skipped = new Set([2]);
-    const result = buildCycleDashboardResponse(baseDashboard, scheduled, new Map(), completed, skipped);
+    const result = buildCycleDashboardResponse(baseDashboard, WEEK_TYPE, scheduled, new Map(), completed, skipped);
     expect(result.weeks[0]!.completed).toBe(true);
   });
 
   it('week is incomplete when a skipped workout still has an un-logged sibling', () => {
     const scheduled = [sw(1, 1, '2026-05-19'), sw(2, 1, '2026-05-21'), sw(3, 1, '2026-05-23')];
     const skipped = new Set([1]);
-    const result = buildCycleDashboardResponse(baseDashboard, scheduled, new Map(), new Set(), skipped);
+    const result = buildCycleDashboardResponse(baseDashboard, WEEK_TYPE, scheduled, new Map(), new Set(), skipped);
     expect(result.weeks[0]!.completed).toBe(false);
   });
 });

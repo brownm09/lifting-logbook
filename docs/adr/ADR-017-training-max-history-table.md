@@ -43,7 +43,7 @@ A heuristic derivation might cover the 80% case today, but every future schema c
 ### Why a new table is correct
 
 - **Explicit write path**: `CycleGenerationService` already knows which maxes changed (it diffs `prevMaxes` vs. `newMaxes`). Appending a history row is a one-liner at the call site with zero inference needed.
-- **Source is known at write time**: `dashboard.currentWeekType` is available before the write; storing it then is reliable. Reconstructing it later is not.
+- **Source is known at write time**: the current week type is derivable from `weekTypeForDate(dashboard.cycleDate, programSpec)` before the write; computing it then is reliable. Reconstructing it later is not.
 - **User overrides are first-class**: `isPR` and `goalMet` are mutable boolean columns. They cannot live on a derived view.
 - **Query simplicity**: Filtering history by lift, source, or isPR is a straightforward indexed query. A derived approach would require multi-table aggregation on every page load.
 - **Append-only semantics**: History rows are never updated on max changes — each change is a new row. Only `isPR` and `goalMet` are mutable (user corrections). This makes the table easy to reason about and audit.
@@ -78,7 +78,7 @@ model TrainingMaxHistory {
 }
 ```
 
-**Write path**: `CycleGenerationService.startNewCycle` and `recalculateMaxes` diff old vs. new maxes and call `ITrainingMaxHistoryRepository.appendHistoryEntries` for changed lifts. Source is `'test'` when `dashboard.currentWeekType === 'test'`, otherwise `'program'`.
+**Write path**: `CycleGenerationService.startNewCycle` and `recalculateMaxes` diff old vs. new maxes and call `ITrainingMaxHistoryRepository.appendHistoryEntries` for changed lifts. Source is `'test'` when `weekTypeForDate(dashboard.cycleDate, programSpec) === 'test'`, otherwise `'program'`. Historically the week type was read from a `currentWeekType` column on the dashboard, but that column was a placeholder — it was overwritten at request time and never authoritative — and was removed in [#361](https://github.com/brownm09/lifting-logbook/issues/361).
 
 **Read path**: `GET /programs/:program/training-maxes/history` with optional `?lift=`, `?source=`, `?isPR=` query params.
 

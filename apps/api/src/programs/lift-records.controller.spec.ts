@@ -16,7 +16,6 @@ const SEED_DASHBOARD = {
   cycleDate: new Date('2026-04-20T00:00:00.000Z'),
   sheetName: '',
   cycleStartWeekday: Weekday.Monday,
-  currentWeekType: 'training' as const,
 };
 
 const SEED_RECORD = {

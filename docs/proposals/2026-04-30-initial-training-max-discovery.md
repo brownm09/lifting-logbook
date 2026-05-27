@@ -34,8 +34,13 @@ Three coordinated changes:
 
 Add `WeekType` (`'training' | 'test' | 'deload'`) to `packages/types/src/domain.ts`. Add an
 optional `weekType?: WeekType` per-row field to `LiftingProgramSpec` (default: `'training'`).
-`CycleDashboard` gains `currentWeekType: WeekType` reflecting the week-level declared type
-(not a per-exercise aggregate). The Sheets parser reads an optional `Week Type` column
+The week-level declared type is derived at request time via
+`weekTypeForDate(cycleDate, programSpec)` and exposed on the
+`CycleDashboardResponse` as `currentWeekType` (not a per-exercise aggregate).
+Originally proposed as a stored `CycleDashboard.currentWeekType` field; that
+placeholder was removed in [#361](https://github.com/brownm09/lifting-logbook/issues/361)
+because the value is never authoritative — it is always re-derived from the program
+spec and date. The Sheets parser reads an optional `Week Type` column
 per-row; blank rows inherit the first non-blank value in the same week, defaulting to
 `'training'` if the entire week is blank. Simple programs use a uniform week type; advanced
 programs may override per exercise.
@@ -79,8 +84,9 @@ feature is implemented (deferred).
       blank rows inherit the first non-blank value in the same week; all-blank week defaults
       to `'training'`; simple programs use a uniform week type; advanced programs may override
       per exercise
-- [ ] `CycleDashboard.currentWeekType: WeekType` — the week-level declared type (first
-      non-blank `weekType` value in the active week's spec rows); not a per-exercise aggregate
+- [ ] `weekTypeForDate(cycleDate, programSpec)` derives the week-level declared type
+      (first non-blank `weekType` value in the active week's spec rows) at request time;
+      not a per-exercise aggregate, not stored on `CycleDashboard`
 - [ ] `estimateTrainingMax(weight, reps): number` in `packages/core` using Brzycki formula,
       rounded to nearest 5 lbs; valid rep range enforced (1–36); exported from package
       public API
@@ -107,7 +113,7 @@ feature is implemented (deferred).
 
 - [`packages/types/src/domain.ts`](../../packages/types/src/domain.ts) — where `WeekType` enum belongs
 - [`packages/core/src/models/LiftingProgramSpec.ts`](../../packages/core/src/models/LiftingProgramSpec.ts) — model to extend with `weekType`
-- [`packages/core/src/models/CycleDashboard.ts`](../../packages/core/src/models/CycleDashboard.ts) — model to extend with `currentWeekType`
+- [`packages/core/src/utils/jsUtil.ts`](../../packages/core/src/utils/jsUtil.ts) — `weekTypeForDate(cycleDate, programSpec)` derives `currentWeekType` at request time
 - [`packages/core/src/services/maxes/updateMaxes.ts`](../../packages/core/src/services/maxes/updateMaxes.ts) — progression gate to relax for test weeks
 - [`packages/core/src/services/workout/generateLiftPlan.ts`](../../packages/core/src/services/workout/generateLiftPlan.ts) — ramp-up protocol generation basis
 - PRD §Non-Goals — "Deload / missed-session recovery" originally deferred; deload is now in scope as a distinct week type with defined progression behavior

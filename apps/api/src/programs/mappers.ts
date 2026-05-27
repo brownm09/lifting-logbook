@@ -18,6 +18,7 @@ import {
   TrainingMaxHistoryEntryResponse,
   TrainingMaxResponse,
   WeekNumber,
+  WeekType,
   WorkoutLiftResponse,
   WorkoutResponse,
   WorkoutSummary,
@@ -92,15 +93,20 @@ export const toLiftingProgramSpecResponse = (
 /**
  * Maps a CycleDashboard to a CycleDashboardResponse with no schedule data.
  * Used when no scheduled workouts exist (no-schedule mode).
+ *
+ * `currentWeekType` is passed explicitly because it is derived at request time
+ * via `weekTypeForDate(dashboard.cycleDate, programSpec)`, not stored on the
+ * dashboard model.
  */
 export const toCycleDashboardResponse = (
   d: CycleDashboard,
+  currentWeekType: WeekType,
 ): CycleDashboardResponse => ({
   program: d.program,
   cycleNum: d.cycleNum,
   cycleStartDate: isoDate(d.cycleDate),
   weeks: [],
-  currentWeekType: d.currentWeekType,
+  currentWeekType,
 });
 
 /**
@@ -111,13 +117,14 @@ export const toCycleDashboardResponse = (
  */
 export function buildCycleDashboardResponse(
   d: CycleDashboard,
+  currentWeekType: WeekType,
   scheduled: ScheduledWorkout[],
   overrides: Map<number, Date>,
   completedWorkoutNums: Set<number>,
   skippedNums: Set<number> = new Set(),
 ): CycleDashboardResponse {
   if (scheduled.length === 0) {
-    return toCycleDashboardResponse(d);
+    return toCycleDashboardResponse(d, currentWeekType);
   }
 
   const weekAcc = new Map<number, { workouts: WorkoutSummary[]; scheduled: ScheduledWorkout[] }>();
@@ -151,7 +158,7 @@ export function buildCycleDashboardResponse(
     cycleNum: d.cycleNum,
     cycleStartDate: isoDate(d.cycleDate),
     weeks,
-    currentWeekType: d.currentWeekType,
+    currentWeekType,
   };
 }
 

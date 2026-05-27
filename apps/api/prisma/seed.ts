@@ -170,13 +170,11 @@ async function main() {
 
   // CycleDashboard — current cycle state
   const currentCycle = NUM_CYCLES;
-  const currentWeek = WEEK_TYPES[(currentCycle - 1) % 3]!;
   await prisma.cycleDashboard.upsert({
     where: { userId_program: { userId: SEED_USER_ID, program: PROGRAM } },
     update: {
       cycleNum: currentCycle,
       cycleDate: now,
-      currentWeekType: currentWeek.weekType,
     },
     create: {
       userId: SEED_USER_ID,
@@ -186,7 +184,6 @@ async function main() {
       cycleDate: now,
       sheetName: '531',
       cycleStartWeekday: 'Monday',
-      currentWeekType: currentWeek.weekType,
       programType: '531',
     },
   });

@@ -6,9 +6,27 @@ import { CycleGenerationController } from './cycle-generation.controller';
 import { CycleGenerationService } from './cycle-generation.service';
 
 const MOCK_USER = { id: 'test-user', email: 'test@example.com', provider: 'dev' };
-const MOCK_BUNDLE = {} as RepositoryBundle;
 
 const PROGRAM = '5-3-1';
+
+const stubProgramSpec = () => [{
+  week: 1,
+  offset: 0,
+  lift: 'Squat',
+  increment: 5,
+  order: 1,
+  sets: 3,
+  reps: 5,
+  amrap: false,
+  warmUpPct: '40,50,60',
+  wtDecrementPct: 0,
+  activation: 'None',
+  weekType: 'training' as const,
+}];
+
+const MOCK_BUNDLE = {
+  liftingProgramSpec: { getProgramSpec: jest.fn().mockResolvedValue(stubProgramSpec()) },
+} as unknown as RepositoryBundle;
 
 const stubCycleDashboard = () => ({
   program: PROGRAM,
@@ -17,7 +35,6 @@ const stubCycleDashboard = () => ({
   cycleDate: new Date('2026-04-27T00:00:00.000Z'),
   sheetName: '5-3-1_Cycle_2_20260427',
   cycleStartWeekday: Weekday.Monday,
-  currentWeekType: 'training' as const,
 });
 
 describe('CycleGenerationController', () => {
@@ -94,7 +111,6 @@ describe('CycleGenerationController', () => {
       cycleDate: new Date('2026-05-12T00:00:00.000Z'),
       sheetName: '5-3-1_Cycle_1_20260512',
       cycleStartWeekday: Weekday.Monday,
-      currentWeekType: 'training' as const,
       programType: '5-3-1',
     });
 

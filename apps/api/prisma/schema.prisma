@@ -49,7 +49,6 @@ model CycleDashboard {
   cycleDate         DateTime
   sheetName         String
   cycleStartWeekday String
-  currentWeekType   String
   programType       String?
 
   @@unique([userId, program])
