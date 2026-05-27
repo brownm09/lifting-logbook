@@ -23,13 +23,44 @@ export function parseCycleDashboard(data: SpreadsheetCell[][]): CycleDashboard {
   data.forEach(([key, value]) => {
     map[String(key)] = value;
   });
+
+  const program = String(map[PROGRAM_KEY] ?? "");
+  const cycleUnit = String(map[CYCLE_UNIT_KEY] ?? "");
+  const cycleNum = Number(map[CYCLE_NUM_KEY]);
+  const cycleDate = new Date(String(map[CYCLE_DATE_KEY] ?? ""));
+  const sheetName = String(map[SHEET_NAME_KEY] ?? "");
+  const cycleStartWeekday = toTitleCase(
+    String(map[CYCLE_START_WEEKDAY_KEY] ?? ""),
+  ) as Weekday;
+
+  if (program.length === 0) {
+    throw new Error(`Invalid ${PROGRAM_KEY} value: ${String(map[PROGRAM_KEY])}`);
+  }
+  if (cycleUnit.length === 0) {
+    throw new Error(`Invalid ${CYCLE_UNIT_KEY} value: ${String(map[CYCLE_UNIT_KEY])}`);
+  }
+  if (isNaN(cycleNum)) {
+    throw new Error(`Invalid ${CYCLE_NUM_KEY} value: ${String(map[CYCLE_NUM_KEY])}`);
+  }
+  if (isNaN(cycleDate.getTime())) {
+    throw new Error(`Invalid ${CYCLE_DATE_KEY} value: ${String(map[CYCLE_DATE_KEY])}`);
+  }
+  if (sheetName.length === 0) {
+    throw new Error(`Invalid ${SHEET_NAME_KEY} value: ${String(map[SHEET_NAME_KEY])}`);
+  }
+  if (cycleStartWeekday.length === 0) {
+    throw new Error(
+      `Invalid ${CYCLE_START_WEEKDAY_KEY} value: ${String(map[CYCLE_START_WEEKDAY_KEY])}`,
+    );
+  }
+
   return {
-    program: String(map[PROGRAM_KEY] ?? ""),
-    cycleUnit: String(map[CYCLE_UNIT_KEY] ?? ""),
-    cycleNum: Number(map[CYCLE_NUM_KEY]),
-    cycleDate: new Date(String(map[CYCLE_DATE_KEY] ?? "")),
-    sheetName: String(map[SHEET_NAME_KEY] ?? ""),
-    cycleStartWeekday: toTitleCase(String(map[CYCLE_START_WEEKDAY_KEY] ?? "")) as Weekday,
+    program,
+    cycleUnit,
+    cycleNum,
+    cycleDate,
+    sheetName,
+    cycleStartWeekday,
     // currentWeekType is derived from the program spec at request time, not stored in the dashboard sheet
     currentWeekType: 'training' as WeekType,
   };
