@@ -3,8 +3,10 @@ import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentation
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
-// npm overrides in root package.json force @prisma/instrumentation to share our
-// sdk-trace-base version, preventing the v1/v2 mismatch crash from #348.
+// A postinstall script in apps/api/package.json deletes @prisma/instrumentation's
+// nested node_modules/@opentelemetry/ after every npm install, forcing resolution
+// to the hoisted sdk-trace-base@2.7.1 and eliminating the v1/v2 tracer mismatch.
+// See ADR-024 and issue #348.
 import { PrismaInstrumentation } from '@prisma/instrumentation';
 
 let sdk: NodeSDK | undefined;

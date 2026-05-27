@@ -154,6 +154,8 @@ monorepo/
 | [ADR-020](adr/ADR-020-tail-based-sampling-policy.md)         | Tail-Based Sampling Policy — Errors Always, Slow Always, 20% Clean | Accepted |
 | [ADR-021](adr/ADR-021-no-test-tracing.md)                    | No OTel Tracing in Test Environment                                 | Accepted |
 | [ADR-022](adr/ADR-022-monorepo-docker-build-strategy.md)     | Monorepo Docker Build Strategy — Full Copy Over Turbo Prune         | Accepted |
+| [ADR-023](adr/ADR-023-staging-integration-test-design.md)   | Staging Integration Test Design                                     | Accepted |
+| [ADR-024](adr/ADR-024-prisma-otel-sdk-override.md)          | Prisma OTel SDK Version Conflict — postinstall Cleanup              | Accepted |
 
 ---
 
