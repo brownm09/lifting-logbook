@@ -35,27 +35,36 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
     return devToken ? { Authorization: `Bearer ${devToken}` } : {};
   }
 
-  let clerkToken: string | null = null;
-  try {
-    const { getToken } = await auth();
-    clerkToken = await getToken();
-    if (!clerkToken) {
-      console.warn('[getAuthHeaders] No Clerk session token in Cloud Run — request will be unauthenticated');
-    }
-  } catch (e) {
-    console.error('[getAuthHeaders] Clerk token acquisition failed:', e);
-  }
-
   // Cloud Run IAM requires the identity token in Authorization; pass the Clerk JWT
   // in a custom header so the NestJS AuthGuard can read it without collision.
   // See infra/terraform/cloud-run.tf (web_invoker_on_api binding).
-  const identityToken = await getGcpIdentityToken(API_URL);
+  // Both fetches are independent — run them in parallel.
+  const [clerkToken, identityToken] = await Promise.all([
+    (async (): Promise<string | null> => {
+      try {
+        const { getToken } = await auth();
+        const token = await getToken();
+        if (!token) {
+          console.warn('[getAuthHeaders] No Clerk session token in Cloud Run — request will be unauthenticated');
+        }
+        return token;
+      } catch (e) {
+        console.error('[getAuthHeaders] Clerk token acquisition failed:', e);
+        return null;
+      }
+    })(),
+    getGcpIdentityToken(API_URL),
+  ]);
 
   if (identityToken && clerkToken) {
     return {
       Authorization: `Bearer ${identityToken}`,
       'X-Clerk-Authorization': `Bearer ${clerkToken}`,
     };
+  }
+  if (identityToken) {
+    // No Clerk session — passes Cloud Run IAM gate; NestJS returns 401 for protected endpoints
+    return { Authorization: `Bearer ${identityToken}` };
   }
   if (clerkToken) {
     console.warn('[getAuthHeaders] GCP identity token unavailable — falling back to Clerk JWT in Authorization, expect Cloud Run IAM 403');
