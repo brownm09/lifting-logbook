@@ -215,6 +215,7 @@ jobs:
     outputs:
       clerk_configured: ${{ steps.clerk-check.outputs.configured }}
       cloud_run_api_deployed: ${{ steps.deploy-api.outcome == 'success' }}
+      web_url: ${{ steps.deploy-web.outputs.url }}
 
     steps:
       - uses: actions/checkout@v4
@@ -288,6 +289,7 @@ jobs:
             | xargs -r kubectl delete pod --force --grace-period=0 -n staging || true
 
       - name: Helm deploy API (GKE staging)
+        id: helm-deploy-api
         if: needs.terraform-staging.outputs.gke_enabled == 'true'
         # GKE Autopilot node provisioning can exceed 10m on cold starts; treat as
         # non-fatal so Cloud Run deploy (the integration-test target) always runs.
@@ -303,6 +305,23 @@ jobs:
             --set gcp.serviceAccountEmail="${{ needs.terraform-staging.outputs.api_wi_sa }}" \
             --set env.NODE_ENV=staging \
             --wait --timeout=10m --force
+
+      - name: Fetch GKE API pod logs on failure
+        if: steps.helm-deploy-api.outcome == 'failure'
+        run: |
+          echo "=== GKE API pod status ==="
+          kubectl get pods -n staging -l app.kubernetes.io/instance=api 2>&1 || true
+          POD=$(kubectl get pods -n staging -l app.kubernetes.io/instance=api \
+            --sort-by=.metadata.creationTimestamp \
+            -o jsonpath='{.items[-1].metadata.name}' 2>/dev/null || true)
+          if [[ -n "$POD" ]]; then
+            echo "=== Logs for pod: $POD ==="
+            kubectl logs -n staging "$POD" --tail=100 2>&1 || true
+            echo "=== Events for pod: $POD ==="
+            kubectl describe pod -n staging "$POD" 2>&1 | tail -40 || true
+          else
+            echo "No API pod found — Helm may have failed before pod creation"
+          fi
 
       - name: Helm deploy web (GKE staging)
         if: needs.terraform-staging.outputs.gke_enabled == 'true'
@@ -352,39 +371,54 @@ jobs:
       - name: Fetch Cloud Run API logs on failure
         if: steps.deploy-api.outcome == 'failure'
         run: |
-          echo "=== Cloud Run API crash logs (last 50 lines) ==="
+          # Cloud Logging ingestion for Cloud Run stdout/stderr typically takes
+          # 30-90s after the container writes the logs. Without a delay the query
+          # returns before application logs are indexed, showing only infra events.
+          echo "Waiting 90s for Cloud Logging ingestion..."
+          sleep 90
+          echo "=== Cloud Run API crash logs (last 100 lines, all severities) ==="
           gcloud logging read \
-            'resource.type="cloud_run_revision" AND resource.labels.service_name="lifting-logbook-stg-api" AND severity>=ERROR' \
+            'resource.type="cloud_run_revision" AND resource.labels.service_name="lifting-logbook-stg-api"' \
             --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
-            --limit=50 \
-            --format="table(timestamp,textPayload,jsonPayload.message)" \
+            --limit=100 \
+            --format="table(timestamp,severity,textPayload,jsonPayload.message)" \
             --order=desc \
+            --freshness=10m \
             2>&1 || true
 
       - name: Deploy web to Cloud Run (staging)
+        id: deploy-web
         if: steps.clerk-check.outputs.configured == 'true'
         run: |
-          gcloud run deploy lifting-logbook-stg-web \
+          # Capture gcloud output so we can parse the canonical "Service URL:" line.
+          # gcloud run services describe --format="value(status.url)" returns the legacy
+          # *.a.run.app URL which may no longer be routed to the current service instance;
+          # the "Service URL:" line from gcloud run deploy is always the live canonical URL.
+          DEPLOY_OUT=$(gcloud run deploy lifting-logbook-stg-web \
             --image="${{ needs.build-images.outputs.ar_repo }}/web:${{ github.event.pull_request.head.sha }}" \
             --region="${{ env.REGION }}" \
             --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
             --platform=managed \
             --allow-unauthenticated \
             --service-account="${{ needs.terraform-staging.outputs.web_workload_sa }}" \
-            --set-env-vars="API_URL=${{ needs.terraform-staging.outputs.cloud_run_api_url }}" \
-            --quiet
+            --update-env-vars="API_URL=${{ needs.terraform-staging.outputs.cloud_run_api_url }}" \
+            --update-secrets="CLERK_SECRET_KEY=lifting-logbook-stg-clerk-secret-key:latest" \
+            --quiet 2>&1)
+          echo "$DEPLOY_OUT"
+          WEB_URL=$(echo "$DEPLOY_OUT" | grep "Service URL:" | awk '{print $NF}')
+          echo "url=${WEB_URL}" >> "$GITHUB_OUTPUT"
 
   # ── 4. Staging integration tests ─────────────────────────────────────────
   staging-integration-tests:
     name: Staging Integration Tests
     runs-on: ubuntu-latest
-    needs: [terraform-staging, deploy-staging]
-    # Skip when Clerk is not configured or Cloud Run API deploy did not succeed.
-    # See docs/deploy.md Step 4 (Clerk key) and issue #344 (Cloud SQL connectivity).
-    if: |
-      needs.deploy-staging.result == 'success' &&
-      needs.deploy-staging.outputs.clerk_configured == 'true' &&
-      needs.deploy-staging.outputs.cloud_run_api_deployed == 'true'
+    needs: [preflight, terraform-staging, deploy-staging]
+    # Only skip when staging is not configured at all (no GCP credentials).
+    # When staging IS configured, always() ensures the job runs even when a
+    # needs job hard-fails (e.g. GCP auth failure in deploy-staging) — without
+    # it GitHub Actions auto-skips dependents on failure, which branch protection
+    # treats as passing and silently bypasses the merge gate. See #345.
+    if: always() && needs.preflight.outputs.should_run == 'true'
     permissions:
       contents: read
       id-token: write
@@ -393,6 +427,17 @@ jobs:
     environment: staging
 
     steps:
+      - name: Verify deploy prerequisites
+        run: |
+          if [[ "${{ needs.deploy-staging.outputs.clerk_configured }}" != "true" ]]; then
+            echo "::error::Staging Clerk secret key is not configured. Follow docs/deploy.md Step 4 to set lifting-logbook-stg-clerk-secret-key in GCP Secret Manager, then re-run CI."
+            exit 1
+          fi
+          if [[ "${{ needs.deploy-staging.outputs.cloud_run_api_deployed }}" != "true" ]]; then
+            echo "::error::Cloud Run API deploy failed — integration tests cannot run. Check the 'Fetch Cloud Run API logs on failure' step in the Deploy (staging) job. Tracked in #344."
+            exit 1
+          fi
+
       - uses: actions/checkout@v4
 
       - name: Set up Node.js
@@ -408,27 +453,50 @@ jobs:
         run: npx playwright install --with-deps chromium
         working-directory: apps/web
 
-      - name: Wait for staging to be ready
-        run: |
-          WEB_URL="${{ needs.terraform-staging.outputs.cloud_run_web_url }}"
-          for i in $(seq 1 18); do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${WEB_URL}/" || true)
-            if [ "$STATUS" = "200" ] || [ "$STATUS" = "307" ]; then
-              echo "Staging web returned $STATUS — ready."
-              exit 0
-            fi
-            echo "Attempt $i: got $STATUS, retrying in 10s..."
-            sleep 10
-          done
-          echo "Staging did not become ready in time" && exit 1
-
       - name: Authenticate to GCP (staging) for Secret Manager access
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_STAGING_SERVICE_ACCOUNT }}
 
-      - name: Fetch staging Clerk secret key
+      - name: Wait for staging to be ready
+        id: wait-ready
+        run: |
+          WEB_URL="${{ needs.deploy-staging.outputs.web_url }}"
+          # Clerk dev-mode (pk_test_ key) rewrites the first unauthenticated request
+          # to an internal /clerk_<hash> path for dev-browser cookie initialization.
+          # That path has no Next.js page → 404. The app IS running; the reliable
+          # readiness signal is the x-powered-by: Next.js response header, which
+          # is present on every response from the Next.js server regardless of
+          # auth state or Clerk mode (dev vs prod).
+          for i in $(seq 1 18); do
+            HEADERS=$(curl -s -D - -o /dev/null "${WEB_URL}/" || true)
+            if echo "$HEADERS" | grep -qi "x-powered-by: Next.js"; then
+              echo "Staging web is up — Next.js is responding (attempt $i)."
+              exit 0
+            fi
+            STATUS=$(echo "$HEADERS" | head -1 | grep -o '[0-9]\{3\}' | head -1)
+            echo "Attempt $i: got ${STATUS:-no-response} (no Next.js header), retrying in 10s..."
+            sleep 10
+          done
+          echo "Staging did not become ready in time" && exit 1
+
+      - name: Fetch Cloud Run web logs on failure
+        if: failure() && steps.wait-ready.outcome == 'failure'
+        run: |
+          echo "Waiting 30s for Cloud Logging ingestion..."
+          sleep 30
+          echo "=== Cloud Run web service logs (last 50 lines, all severities) ==="
+          gcloud logging read \
+            'resource.type="cloud_run_revision" AND resource.labels.service_name="lifting-logbook-stg-web"' \
+            --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
+            --limit=50 \
+            --format="table(timestamp,severity,textPayload,jsonPayload.message)" \
+            --order=desc \
+            --freshness=10m \
+            2>&1 || true
+
+      - name: Fetch staging Clerk secrets
         run: |
           CLERK_SECRET_KEY=$(gcloud secrets versions access latest \
             --secret="lifting-logbook-stg-clerk-secret-key" \
@@ -436,12 +504,18 @@ jobs:
           echo "::add-mask::$CLERK_SECRET_KEY"
           echo "CLERK_SECRET_KEY=$CLERK_SECRET_KEY" >> "$GITHUB_ENV"
 
+          # @clerk/testing clerkSetup() requires CLERK_PUBLISHABLE_KEY (no NEXT_PUBLIC_ prefix)
+          CLERK_PUBLISHABLE_KEY=$(gcloud secrets versions access latest \
+            --secret="lifting-logbook-stg-clerk-publishable-key" \
+            --project="${{ vars.GCP_STAGING_PROJECT_ID }}")
+          echo "CLERK_PUBLISHABLE_KEY=$CLERK_PUBLISHABLE_KEY" >> "$GITHUB_ENV"
+
       - name: Run staging integration tests
         working-directory: apps/web
         run: npx playwright test --config=playwright.config.staging.ts
         env:
           CI: 'true'
-          STAGING_WEB_URL: ${{ needs.terraform-staging.outputs.cloud_run_web_url }}
+          STAGING_WEB_URL: ${{ needs.deploy-staging.outputs.web_url }}
           STAGING_API_URL: ${{ needs.terraform-staging.outputs.cloud_run_api_url }}
           STAGING_CLERK_TEST_EMAIL: ${{ secrets.STAGING_CLERK_TEST_EMAIL }}
           STAGING_CLERK_TEST_PASSWORD: ${{ secrets.STAGING_CLERK_TEST_PASSWORD }}
@@ -465,12 +539,12 @@ jobs:
 
     steps:
       - name: Post staging result comment
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const shouldRun = '${{ needs.preflight.outputs.should_run }}' === 'true';
             const testResult = '${{ needs.staging-integration-tests.result }}';
-            const webUrl = '${{ needs.terraform-staging.outputs.cloud_run_web_url }}';
+            const webUrl = '${{ needs.deploy-staging.outputs.web_url }}';
 
             let body;
             const clerkConfigured = '${{ needs.deploy-staging.outputs.clerk_configured }}' === 'true';

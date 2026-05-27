@@ -2,6 +2,10 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
+  // staging.spec.ts is only for playwright.config.staging.ts (live Cloud Run environment).
+  // Excluding it here prevents accidental runs against the local dev server, which lacks a
+  // real Clerk session (window.Clerk.session is null) and would produce false failures.
+  testIgnore: ['**/staging.spec.ts'],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,

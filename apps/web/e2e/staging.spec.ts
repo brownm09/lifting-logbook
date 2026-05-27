@@ -55,3 +55,46 @@ test('cycle resolves to dashboard or onboarding', async ({ page }) => {
     await expect(page.getByRole('heading', { name: 'Get Started' })).toBeVisible();
   }
 });
+
+// ---------------------------------------------------------------------------
+// 5. Auth propagation — verifies the full auth stack works end-to-end
+//
+// Tests 1–4 assert page structure only. Because the server components swallow
+// API errors (redirect or render empty), they pass even if the API is down.
+// This test directly calls the API with the Clerk JWT to confirm:
+//   (a) the session token written by global setup is still valid
+//   (b) the API service is reachable from the test runner
+//   (c) auth headers are accepted (not stripped, not expired)
+// ---------------------------------------------------------------------------
+
+test('authenticated API call succeeds (auth propagation)', async ({ page }) => {
+  // Navigate first so the storageState cookies are active in the browser context.
+  await page.goto('/');
+
+  // Use page.evaluate() to call /api/health via browser-native fetch, which
+  // guarantees the browser's own cookie jar (including Clerk session cookies) is
+  // used.  page.request.get() goes through a separate network stack and may not
+  // forward all cookies that Clerk's middleware depends on.
+  //
+  // /api/health is a Next.js route handler that calls auth().getToken() server-side
+  // and then hits the backend API — verifying the full auth path without relying
+  // on the client-side Clerk SDK (which has a 60-second JWT cache in dev mode).
+  //
+  // Status codes from the route handler:
+  //   200 — Clerk session valid; API /health returned 200 (or no GCP metadata, auth-only)
+  //   401 — no Clerk session (auth().userId is null — storageState not recognised)
+  //   503 — Clerk session valid but GET ${API_URL}/health failed (IAM, network, or API down)
+  const { status, body } = await page.evaluate(async () => {
+    const r = await fetch('/api/health');
+    const text = await r.text();
+    return { status: r.status, body: text };
+  });
+
+  expect(
+    status,
+    `Expected 200 from /api/health — got ${status}. Body: ${body}. ` +
+      '401=Clerk session not recognised server-side (storageState may be stale). ' +
+      '503=Clerk valid but API call failed — check API_URL, IAM (web_invoker_on_api), or Cloud Run logs. ' +
+      'Check that the staging API is deployed and Clerk is configured correctly.',
+  ).toBe(200);
+});

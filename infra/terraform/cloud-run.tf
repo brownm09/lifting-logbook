@@ -160,17 +160,31 @@ resource "google_cloud_run_v2_service" "web" {
           }
         }
       }
+
+      env {
+        name = "CLERK_SECRET_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.clerk_secret_key.secret_id
+            version = "latest"
+          }
+        }
+      }
     }
   }
 
   # Image and template updates managed by CI/CD (see lifecycle note on api service above).
+  # client and client_version are also ignored for the same reason as the api service:
+  # gcloud run deploy sets these on each CI deploy and Terraform would otherwise attempt
+  # an in-place modification (creating a new revision) on every subsequent apply.
   lifecycle {
-    ignore_changes = [template]
+    ignore_changes = [template, client, client_version]
   }
 
   depends_on = [
     google_project_service.required_apis,
     google_cloud_run_v2_service.api,
+    google_secret_manager_secret_iam_member.web_workload_clerk_secret_key,
   ]
 }
 
@@ -206,6 +220,12 @@ resource "google_cloud_run_v2_service_iam_member" "web_invoker_on_api" {
 
 resource "google_secret_manager_secret_iam_member" "web_workload_publishable_key" {
   secret_id = google_secret_manager_secret.clerk_publishable_key.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.web_workload.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "web_workload_clerk_secret_key" {
+  secret_id = google_secret_manager_secret.clerk_secret_key.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.web_workload.email}"
 }

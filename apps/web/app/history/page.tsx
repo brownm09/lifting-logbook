@@ -30,9 +30,12 @@ function findTmAtTime(
 export default async function HistoryPage() {
   const program = await getActiveProgram();
 
+  // Wrap API calls so transient failures (expired session token, API unavailable)
+  // render an empty history page rather than crashing the server component.
+  // Pattern mirrors ProgramsPage — tabs always render; data may be empty.
   const [records, { entries: tmEntries }] = await Promise.all([
-    fetchLiftRecords(program),
-    fetchTrainingMaxHistory(program),
+    fetchLiftRecords(program).catch((): LiftRecordResponse[] => []),
+    fetchTrainingMaxHistory(program).catch(() => ({ entries: [] as TrainingMaxHistoryEntryResponse[] })),
   ]);
 
   const sortedRecords = records.slice().sort((a, b) => b.date.localeCompare(a.date));

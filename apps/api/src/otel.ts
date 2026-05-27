@@ -3,7 +3,11 @@ import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentation
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
-import { PrismaInstrumentation } from '@prisma/instrumentation';
+// PrismaInstrumentation intentionally omitted: @prisma/instrumentation@5.22.0 bundles
+// its own @opentelemetry/sdk-trace-base which is incompatible with the main app's
+// OTel SDK version. When Prisma creates a tracing span during $connect(), it calls
+// into its bundled SDK which receives a tracer from the main SDK and crashes with
+// "parentTracer.getActiveSpanProcessor is not a function". Tracked in #348.
 
 let sdk: NodeSDK | undefined;
 
@@ -24,7 +28,7 @@ export function startOtel(): NodeSDK | undefined {
         exporter: new OTLPMetricExporter(),
       }),
     ],
-    instrumentations: [getNodeAutoInstrumentations(), new PrismaInstrumentation()],
+    instrumentations: [getNodeAutoInstrumentations()],
   });
 
   sdk.start();
@@ -39,5 +43,11 @@ export function startOtel(): NodeSDK | undefined {
 }
 
 if (process.env.OTEL_SDK_AUTOSTART !== 'false') {
-  startOtel();
+  try {
+    startOtel();
+  } catch (err) {
+    // An OTel init failure must not kill the process — the app should start
+    // without instrumentation rather than crash before NestJS can log anything.
+    console.error('[otel] Failed to initialize OpenTelemetry SDK — continuing without instrumentation:', err);
+  }
 }
