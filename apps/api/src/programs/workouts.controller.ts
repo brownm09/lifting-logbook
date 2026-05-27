@@ -38,6 +38,7 @@ export class WorkoutsController {
     const { workout, cycleDashboard, cycleScheduledWorkout, liftingProgramSpec, workoutDateOverride, workoutLiftOverride, workoutSkipOverride } =
       await this.factory.forUser(user);
     const [dashboard, spec] = await Promise.all([
+      // fallback-covered-by: apps/api/src/programs/workouts.controller.spec.ts
       cycleDashboard.getCycleDashboard(program).catch((err: unknown) => {
         if (err instanceof ProgramNotFoundError) return { cycleNum: 1 };
         throw err;
@@ -55,6 +56,7 @@ export class WorkoutsController {
     const specLifts = [...new Set(spec.filter((s) => s.week === week).map((s) => s.lift))];
 
     const [records, overrideDate, liftOverrides, scheduledWorkouts, skippedNums] = await Promise.all([
+      // fallback-covered-by: apps/api/src/programs/workouts.controller.spec.ts
       workout
         .getWorkout(program, dashboard.cycleNum, workoutNum)
         .catch((err: unknown) => {
@@ -65,6 +67,7 @@ export class WorkoutsController {
       workoutDateOverride.getOverride(program, dashboard.cycleNum, workoutNum),
       workoutLiftOverride.getOverrides(program, dashboard.cycleNum, workoutNum),
       cycleScheduledWorkout.getScheduledWorkouts(program, dashboard.cycleNum),
+      // fallback-covered-by: apps/api/src/programs/workouts.controller.spec.ts
       workoutSkipOverride.getSkipsForCycle(program, dashboard.cycleNum).catch((err: unknown) => {
         console.error('[WorkoutsController] getSkipsForCycle failed; defaulting to empty set', err);
         return new Set<number>();
