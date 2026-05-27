@@ -24,9 +24,7 @@ const stubProgramSpec = () => [{
   weekType: 'training' as const,
 }];
 
-const MOCK_BUNDLE = {
-  liftingProgramSpec: { getProgramSpec: jest.fn().mockResolvedValue(stubProgramSpec()) },
-} as unknown as RepositoryBundle;
+const MOCK_BUNDLE = {} as RepositoryBundle;
 
 const stubCycleDashboard = () => ({
   program: PROGRAM,
@@ -65,7 +63,7 @@ describe('CycleGenerationController', () => {
 
   describe('startNewCycle', () => {
     it('calls service with repos, program, and dto, returns mapped response', async () => {
-      service.startNewCycle.mockResolvedValue(stubCycleDashboard());
+      service.startNewCycle.mockResolvedValue({ dashboard: stubCycleDashboard(), programSpec: stubProgramSpec() });
 
       const result = await controller.startNewCycle(PROGRAM, {}, MOCK_USER);
 
@@ -81,7 +79,7 @@ describe('CycleGenerationController', () => {
     });
 
     it('passes fromCycleNum and cycleDate through to service', async () => {
-      service.startNewCycle.mockResolvedValue(stubCycleDashboard());
+      service.startNewCycle.mockResolvedValue({ dashboard: stubCycleDashboard(), programSpec: stubProgramSpec() });
 
       await controller.startNewCycle(PROGRAM, {
         fromCycleNum: 1,
@@ -115,7 +113,7 @@ describe('CycleGenerationController', () => {
     });
 
     it('calls service with repos, program, and dto, returns mapped response', async () => {
-      service.initializeFirstCycle.mockResolvedValue(stubInitDashboard());
+      service.initializeFirstCycle.mockResolvedValue({ dashboard: stubInitDashboard(), programSpec: stubProgramSpec() });
 
       const result = await controller.initializeFirstCycle(PROGRAM, {}, MOCK_USER);
 
@@ -131,7 +129,7 @@ describe('CycleGenerationController', () => {
     });
 
     it('passes optional cycleDate through to service', async () => {
-      service.initializeFirstCycle.mockResolvedValue(stubInitDashboard());
+      service.initializeFirstCycle.mockResolvedValue({ dashboard: stubInitDashboard(), programSpec: stubProgramSpec() });
 
       await controller.initializeFirstCycle(PROGRAM, { cycleDate: '2026-05-12' }, MOCK_USER);
 

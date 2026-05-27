@@ -30,8 +30,7 @@ export class CycleGenerationController {
     @CurrentUser() user: AuthUser,
   ): Promise<CycleDashboardResponse> {
     const repos = await this.factory.forUser(user);
-    const dashboard = await this.cycleGenerationService.initializeFirstCycle(repos, program, dto);
-    const programSpec = await repos.liftingProgramSpec.getProgramSpec(program);
+    const { dashboard, programSpec } = await this.cycleGenerationService.initializeFirstCycle(repos, program, dto);
     const currentWeekType = weekTypeForDate(dashboard.cycleDate, programSpec);
     return toCycleDashboardResponse(dashboard, currentWeekType);
   }
@@ -43,8 +42,7 @@ export class CycleGenerationController {
     @CurrentUser() user: AuthUser,
   ): Promise<CycleDashboardResponse> {
     const repos = await this.factory.forUser(user);
-    const newCycle = await this.cycleGenerationService.startNewCycle(repos, program, dto);
-    const programSpec = await repos.liftingProgramSpec.getProgramSpec(program);
+    const { dashboard: newCycle, programSpec } = await this.cycleGenerationService.startNewCycle(repos, program, dto);
     const currentWeekType = weekTypeForDate(newCycle.cycleDate, programSpec);
     return toCycleDashboardResponse(newCycle, currentWeekType);
   }
