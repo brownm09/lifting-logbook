@@ -81,9 +81,9 @@ test('authenticated API call succeeds (auth propagation)', async ({ page }) => {
   // on the client-side Clerk SDK (which has a 60-second JWT cache in dev mode).
   //
   // Status codes from the route handler:
-  //   200 — Clerk session valid + API /health returned 200
-  //   401 — no Clerk session (auth().userId is null)
-  //   503 — Clerk session valid but GET ${API_URL}/health failed
+  //   200 — Clerk session valid; API /health returned 200 (or no GCP metadata, auth-only)
+  //   401 — no Clerk session (auth().userId is null — storageState not recognised)
+  //   503 — Clerk session valid but GET ${API_URL}/health failed (IAM, network, or API down)
   const { status, body } = await page.evaluate(async () => {
     const r = await fetch('/api/health');
     const text = await r.text();
@@ -93,8 +93,8 @@ test('authenticated API call succeeds (auth propagation)', async ({ page }) => {
   expect(
     status,
     `Expected 200 from /api/health — got ${status}. Body: ${body}. ` +
-      '401=Clerk session not recognised server-side (storageState may be stale), ' +
-      '503=API unreachable or API_URL misconfigured. ' +
+      '401=Clerk session not recognised server-side (storageState may be stale). ' +
+      '503=Clerk valid but API call failed — check API_URL, IAM (web_invoker_on_api), or Cloud Run logs. ' +
       'Check that the staging API is deployed and Clerk is configured correctly.',
   ).toBe(200);
 });

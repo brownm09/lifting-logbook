@@ -3,20 +3,37 @@ import { auth } from '@clerk/nextjs/server';
 
 const API_URL = process.env.API_URL ?? 'http://localhost:3004';
 
+// Fetches a GCP identity token from the metadata service for service-to-service auth.
+// The staging API Cloud Run service requires Cloud Run IAM authentication — only the
+// web workload service account has roles/run.invoker on the API service (see
+// infra/terraform/cloud-run.tf: web_invoker_on_api). Unauthenticated requests to the
+// API are rejected with 403 by Cloud Run infrastructure before reaching NestJS.
+//
+// Returns null outside GCP environments (local dev, CI runners without the metadata
+// service). In those cases the API call is skipped and auth().userId is the sole check.
+async function getGcpIdentityToken(audience: string): Promise<string | null> {
+  const url = `http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity?audience=${encodeURIComponent(audience)}`;
+  try {
+    const res = await fetch(url, {
+      headers: { 'Metadata-Flavor': 'Google' },
+      signal: AbortSignal.timeout(2000),
+    });
+    if (!res.ok) return null;
+    return res.text();
+  } catch {
+    return null;
+  }
+}
+
 // Deployment health check — verifies two deployment properties independently:
 //
 // 1. Clerk auth propagation: browser session cookies → Clerk middleware → userId non-null.
 //    Uses auth().userId rather than getToken() + JWT forwarding because in Clerk dev mode
 //    (pk_test_ key) session JWTs have a 60-second TTL and the backend's verifyToken()
-//    call (which fetches JWKS over the network) consistently rejects them before the
-//    staging integration tests finish running.  auth().userId is validated server-side
-//    by Clerk's Next.js middleware on every request — it is the authoritative signal
-//    that the Clerk session from storageState is still recognised.
+//    call consistently rejects them by the time the staging tests run.
 //
-// 2. API reachability: the backend's public GET /health endpoint returns 200.
-//    This verifies API_URL is correctly wired and the API service is running.
-//    A public endpoint is used because JWT forwarding is unreliable in dev mode
-//    (see reason above) — reachability is sufficient to confirm deployment correctness.
+// 2. API reachability: GET /health on the backend returns 200 (with GCP identity token).
+//    Verifies API_URL is correctly wired and the service is running.
 //
 // Used by staging integration tests (test 5) in apps/web/e2e/staging.spec.ts.
 export async function GET() {
@@ -26,7 +43,17 @@ export async function GET() {
     return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
   }
 
+  // Attempt to get a GCP identity token. Only available when running on Cloud Run.
+  const identityToken = await getGcpIdentityToken(API_URL);
+
+  if (!identityToken) {
+    // Not in a GCP environment (local dev or non-GCP CI) — skip the API reachability
+    // check and return success based on Clerk auth alone.
+    return NextResponse.json({ ok: true, userId, apiCheck: 'skipped' });
+  }
+
   const res = await fetch(`${API_URL}/health`, {
+    headers: { Authorization: `Bearer ${identityToken}` },
     cache: 'no-store',
   });
 

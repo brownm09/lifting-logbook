@@ -98,9 +98,16 @@ deployment properties:
    are valid and recognised by Clerk's Next.js middleware (`__session` JWT verified
    server-side). Returns 401 if `userId` is null.
 
-2. **API reachability**: `GET ${API_URL}/health` (public backend endpoint, no auth required)
-   returns 200. This confirms the `API_URL` env var is correctly configured and the backend
-   service is running. Returns 503 if the API call fails.
+2. **API reachability**: `GET ${API_URL}/health` (public backend endpoint, no app-level auth
+   required) returns 200. Confirms `API_URL` is correctly configured and the service is running.
+   Returns 503 if the API call fails.
+
+   The staging API Cloud Run service is not publicly accessible — it requires GCP Cloud Run IAM
+   authentication (only the web workload service account has `roles/run.invoker`). The route
+   handler obtains a GCP identity token from the instance metadata service
+   (`metadata.google.internal`) and includes it as `Authorization: Bearer <identity-token>`.
+   Outside GCP environments (local dev, non-GCP CI), the metadata service is unavailable; the
+   API reachability check is skipped and the route returns 200 based on Clerk auth alone.
 
 This approach was chosen after attempting JWT forwarding (`auth().getToken()` → `Authorization:
 Bearer` header → backend `verifyToken()`), which consistently produced 401s from the backend.
