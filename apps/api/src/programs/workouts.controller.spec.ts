@@ -333,6 +333,11 @@ describe('WorkoutsController', () => {
       dashboardRepo.getCycleDashboard.mockRejectedValue(new Error('db connection lost'));
       specRepo.getProgramSpec.mockResolvedValue(twoLiftSpec);
 
+      // Assert the controller did NOT narrow this into the ProgramNotFoundError
+      // fallback path — if a future refactor broadens the catch, this test fails.
+      await expect(controller.getWorkout('5-3-1', '1', MOCK_USER)).rejects.not.toBeInstanceOf(
+        ProgramNotFoundError,
+      );
       await expect(controller.getWorkout('5-3-1', '1', MOCK_USER)).rejects.toThrow('db connection lost');
     });
   });
@@ -390,16 +395,19 @@ describe('WorkoutsController', () => {
       // response. Verify the fallback branch separately from the success
       // branch — see docs/standards/error-fallback-test-coverage.md.
       const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
-      dashboardRepo.getCycleDashboard.mockResolvedValue(dashboard);
-      specRepo.getProgramSpec.mockResolvedValue(spec);
-      workoutRepo.getWorkout.mockRejectedValue(new WorkoutNotFoundError('5-3-1', 3, 1));
-      skipOverrideRepo.getSkipsForCycle.mockRejectedValue(new Error('skip store unavailable'));
+      try {
+        dashboardRepo.getCycleDashboard.mockResolvedValue(dashboard);
+        specRepo.getProgramSpec.mockResolvedValue(spec);
+        workoutRepo.getWorkout.mockRejectedValue(new WorkoutNotFoundError('5-3-1', 3, 1));
+        skipOverrideRepo.getSkipsForCycle.mockRejectedValue(new Error('skip store unavailable'));
 
-      const result = await controller.getWorkout('5-3-1', '1', MOCK_USER);
+        const result = await controller.getWorkout('5-3-1', '1', MOCK_USER);
 
-      expect(result.skipped).toBe(false);
-      expect(errorSpy).toHaveBeenCalled();
-      errorSpy.mockRestore();
+        expect(result.skipped).toBe(false);
+        expect(errorSpy).toHaveBeenCalled();
+      } finally {
+        errorSpy.mockRestore();
+      }
     });
   });
 });
