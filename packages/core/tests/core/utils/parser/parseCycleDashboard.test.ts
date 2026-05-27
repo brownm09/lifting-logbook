@@ -36,4 +36,25 @@ describe("parseCycleDashboard", () => {
     );
     expect(() => parseCycleDashboard(data)).toThrow(/Invalid Cycle Date value/);
   });
+
+  it("throws when Cycle # is an empty string (Number coerces empty to 0)", () => {
+    const data = loadCsvFixture("dashboard_20260105.csv").map((row) =>
+      String(row[0]) === "Cycle #" ? [row[0], ""] : row,
+    );
+    expect(() => parseCycleDashboard(data)).toThrow(/Invalid Cycle # value/);
+  });
+
+  it("throws when Cycle # is zero or negative", () => {
+    const data = loadCsvFixture("dashboard_20260105.csv").map((row) =>
+      String(row[0]) === "Cycle #" ? [row[0], "0"] : row,
+    );
+    expect(() => parseCycleDashboard(data)).toThrow(/Invalid Cycle # value/);
+  });
+
+  it("throws when Start Weekday is not a valid Weekday enum value", () => {
+    const data = loadCsvFixture("dashboard_20260105.csv").map((row) =>
+      String(row[0]) === "Start Weekday" ? [row[0], "Funday"] : row,
+    );
+    expect(() => parseCycleDashboard(data)).toThrow(/Invalid Start Weekday value/);
+  });
 });

@@ -24,33 +24,48 @@ export function parseCycleDashboard(data: SpreadsheetCell[][]): CycleDashboard {
     map[String(key)] = value;
   });
 
-  const program = String(map[PROGRAM_KEY] ?? "");
-  const cycleUnit = String(map[CYCLE_UNIT_KEY] ?? "");
-  const cycleNum = Number(map[CYCLE_NUM_KEY]);
-  const cycleDate = new Date(String(map[CYCLE_DATE_KEY] ?? ""));
-  const sheetName = String(map[SHEET_NAME_KEY] ?? "");
+  const programRaw = map[PROGRAM_KEY];
+  const cycleUnitRaw = map[CYCLE_UNIT_KEY];
+  const cycleNumRaw = map[CYCLE_NUM_KEY];
+  const cycleDateRaw = map[CYCLE_DATE_KEY];
+  const sheetNameRaw = map[SHEET_NAME_KEY];
+  const cycleStartWeekdayRaw = map[CYCLE_START_WEEKDAY_KEY];
+
+  const program = String(programRaw ?? "");
+  const cycleUnit = String(cycleUnitRaw ?? "");
+  const cycleNum = Number(cycleNumRaw);
+  const cycleDate = new Date(String(cycleDateRaw ?? ""));
+  const sheetName = String(sheetNameRaw ?? "");
   const cycleStartWeekday = toTitleCase(
-    String(map[CYCLE_START_WEEKDAY_KEY] ?? ""),
+    String(cycleStartWeekdayRaw ?? ""),
   ) as Weekday;
 
   if (program.length === 0) {
-    throw new Error(`Invalid ${PROGRAM_KEY} value: ${String(map[PROGRAM_KEY])}`);
+    throw new Error(`Invalid ${PROGRAM_KEY} value: ${String(programRaw)}`);
   }
   if (cycleUnit.length === 0) {
-    throw new Error(`Invalid ${CYCLE_UNIT_KEY} value: ${String(map[CYCLE_UNIT_KEY])}`);
+    throw new Error(`Invalid ${CYCLE_UNIT_KEY} value: ${String(cycleUnitRaw)}`);
   }
-  if (isNaN(cycleNum)) {
-    throw new Error(`Invalid ${CYCLE_NUM_KEY} value: ${String(map[CYCLE_NUM_KEY])}`);
+  // Number("") and Number("  ") both coerce to 0, which would silently pass an isNaN check
+  // and yield cycleNum: 0 — the same class of sentinel-pushed-downstream failure this parser
+  // is meant to prevent. Require a finite positive integer.
+  if (
+    cycleNumRaw === undefined ||
+    String(cycleNumRaw).trim().length === 0 ||
+    !Number.isFinite(cycleNum) ||
+    cycleNum <= 0
+  ) {
+    throw new Error(`Invalid ${CYCLE_NUM_KEY} value: ${String(cycleNumRaw)}`);
   }
   if (isNaN(cycleDate.getTime())) {
-    throw new Error(`Invalid ${CYCLE_DATE_KEY} value: ${String(map[CYCLE_DATE_KEY])}`);
+    throw new Error(`Invalid ${CYCLE_DATE_KEY} value: ${String(cycleDateRaw)}`);
   }
   if (sheetName.length === 0) {
-    throw new Error(`Invalid ${SHEET_NAME_KEY} value: ${String(map[SHEET_NAME_KEY])}`);
+    throw new Error(`Invalid ${SHEET_NAME_KEY} value: ${String(sheetNameRaw)}`);
   }
-  if (cycleStartWeekday.length === 0) {
+  if (!Object.values(Weekday).includes(cycleStartWeekday)) {
     throw new Error(
-      `Invalid ${CYCLE_START_WEEKDAY_KEY} value: ${String(map[CYCLE_START_WEEKDAY_KEY])}`,
+      `Invalid ${CYCLE_START_WEEKDAY_KEY} value: ${String(cycleStartWeekdayRaw)}`,
     );
   }
 
