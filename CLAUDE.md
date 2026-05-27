@@ -343,6 +343,10 @@ npm test -w @lifting-logbook/web
 
 **Blocking rule:** A PR that adds an API endpoint or frontend feature without satisfying the above is not mergeable.
 
+### Skewed-test rule
+
+When a PR adds or modifies a `.catch(() => default)`, `?? default`, or `try { … } catch { return neutral }` in a server component or API boundary, the test coverage for that code path must satisfy one of: (a) a data-level assertion the fallback would not produce, (b) a separate test that fails specifically when the upstream fails, or (c) an inline comment that names the swallowed-fallback source line and explains why structure-only is intentional. See [`docs/standards/error-fallback-test-coverage.md`](docs/standards/error-fallback-test-coverage.md) for the full rule and examples.
+
 ---
 
 ## Documentation and Citations

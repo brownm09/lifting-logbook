@@ -328,6 +328,13 @@ describe('WorkoutsController', () => {
       expect(result.lifts).toHaveLength(2);
       expect(result.lifts[0]).toMatchObject({ lift: 'Squat', planned: true });
     });
+
+    it('rethrows non-ProgramNotFoundError errors from getCycleDashboard', async () => {
+      dashboardRepo.getCycleDashboard.mockRejectedValue(new Error('db connection lost'));
+      specRepo.getProgramSpec.mockResolvedValue(twoLiftSpec);
+
+      await expect(controller.getWorkout('5-3-1', '1', MOCK_USER)).rejects.toThrow('db connection lost');
+    });
   });
 
   describe('skipped field', () => {
@@ -375,6 +382,24 @@ describe('WorkoutsController', () => {
       await controller.getWorkout('5-3-1', '1', MOCK_USER);
 
       expect(skipOverrideRepo.getSkipsForCycle).toHaveBeenCalledWith('5-3-1', 3);
+    });
+
+    it('treats getSkipsForCycle failure as empty skip set (does not propagate the error)', async () => {
+      // The controller swallows getSkipsForCycle errors and falls back to an
+      // empty Set so a transient skip-store failure cannot break the workout
+      // response. Verify the fallback branch separately from the success
+      // branch — see docs/standards/error-fallback-test-coverage.md.
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      dashboardRepo.getCycleDashboard.mockResolvedValue(dashboard);
+      specRepo.getProgramSpec.mockResolvedValue(spec);
+      workoutRepo.getWorkout.mockRejectedValue(new WorkoutNotFoundError('5-3-1', 3, 1));
+      skipOverrideRepo.getSkipsForCycle.mockRejectedValue(new Error('skip store unavailable'));
+
+      const result = await controller.getWorkout('5-3-1', '1', MOCK_USER);
+
+      expect(result.skipped).toBe(false);
+      expect(errorSpy).toHaveBeenCalled();
+      errorSpy.mockRestore();
     });
   });
 });
