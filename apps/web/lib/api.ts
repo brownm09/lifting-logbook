@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { auth } from '@clerk/nextjs/server';
+import { getGcpIdentityToken } from './gcp-identity-token';
 import type {
   BodyWeightResponse,
   CreateCustomProgramRequest,
@@ -33,18 +34,34 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
     const devToken = process.env.DEV_AUTH_TOKEN;
     return devToken ? { Authorization: `Bearer ${devToken}` } : {};
   }
+
+  let clerkToken: string | null = null;
   try {
     const { getToken } = await auth();
-    const token = await getToken();
-    if (!token) {
+    clerkToken = await getToken();
+    if (!clerkToken) {
       console.warn('[getAuthHeaders] No Clerk session token in Cloud Run — request will be unauthenticated');
-      return {};
     }
-    return { Authorization: `Bearer ${token}` };
   } catch (e) {
     console.error('[getAuthHeaders] Clerk token acquisition failed:', e);
-    return {};
   }
+
+  // Cloud Run IAM requires the identity token in Authorization; pass the Clerk JWT
+  // in a custom header so the NestJS AuthGuard can read it without collision.
+  // See infra/terraform/cloud-run.tf (web_invoker_on_api binding).
+  const identityToken = await getGcpIdentityToken(API_URL);
+
+  if (identityToken && clerkToken) {
+    return {
+      Authorization: `Bearer ${identityToken}`,
+      'X-Clerk-Authorization': `Bearer ${clerkToken}`,
+    };
+  }
+  if (clerkToken) {
+    console.warn('[getAuthHeaders] GCP identity token unavailable — falling back to Clerk JWT in Authorization, expect Cloud Run IAM 403');
+    return { Authorization: `Bearer ${clerkToken}` };
+  }
+  return {};
 }
 
 // NestJS ValidationPipe returns { statusCode, message: string | string[], error }.
