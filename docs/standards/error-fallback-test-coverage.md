@@ -72,3 +72,11 @@ When the staging test user genuinely has no records, this is acceptable **only i
 - [Issue #349 — Audit and remediate skewed tests](https://github.com/brownm09/lifting-logbook/issues/349) — the audit that produced this standard
 - [PR #346 — staging deploy with Playwright integration test gate](https://github.com/brownm09/lifting-logbook/pull/346) — the incident that surfaced the pattern, and the first explicit success-path test (test 5)
 - [ADR-023 — Staging Integration Test Design](../adr/ADR-023-staging-integration-test-design.md) — Consequences section names this limitation
+
+---
+
+## Audit history
+
+| Date | Scope | Findings | Issue | PR |
+|---|---|---|---|---|
+| 2026-05-27 | `packages/core/**`, `packages/types/**` | 4 untested or under-tested neutral-return branches in `tableToObjects`, `parseCycleDashboard`, `formatDateYYYYMMDD`, `weekTypeForDate`. All four remediated with explicit fallback-branch tests; one production-code inconsistency in `parseCycleDashboard` (silent defaults vs. sibling `parseTrainingMaxes` which throws) deferred to a follow-up issue. | [#354](https://github.com/brownm09/lifting-logbook/issues/354) | [#357](https://github.com/brownm09/lifting-logbook/pull/357) |
