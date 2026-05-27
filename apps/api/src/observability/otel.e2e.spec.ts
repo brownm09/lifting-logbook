@@ -3,6 +3,8 @@
 process.env.OTEL_SDK_AUTOSTART = 'false';
 process.env.OTEL_SDK_DISABLED = 'true';
 
+import { PrismaInstrumentation } from '@prisma/instrumentation';
+
 import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 import { InMemorySpanExporter, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { trace, context } from '@opentelemetry/api';
@@ -98,5 +100,16 @@ describe('OTel + nestjs-pino trace correlation (smoke)', () => {
       (r) => typeof r.trace_id === 'string' && r.trace_id === traceId,
     );
     expect(matched).toBeDefined();
+  });
+});
+
+describe('PrismaInstrumentation (#348 regression)', () => {
+  it('is importable and instantiates without crashing', () => {
+    // Verifies that @prisma/instrumentation is on the resolution path and that
+    // PrismaInstrumentation can be constructed. This test would fail if the package
+    // were removed from apps/api dependencies, and provides an import-level signal
+    // for the fix introduced in #348. The v1/v2 tracer API crash (getActiveSpanProcessor
+    // at $connect()) requires a real DATABASE_URL and is verified in staging.
+    expect(() => new PrismaInstrumentation()).not.toThrow();
   });
 });

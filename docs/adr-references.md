@@ -222,6 +222,9 @@ References from [`docs/security-review-checklist.md`](security-review-checklist.
 | [OpenSLO — Specification](https://openslo.com/) | [ADR-019](adr/ADR-019-slo-methodology.md) | YAML open standard for SLO definition; informs the `docs/operations/slo.md` format. |
 | [OpenTelemetry Collector contrib — `tail_sampling` processor](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/tailsamplingprocessor) | [ADR-020](adr/ADR-020-tail-based-sampling-policy.md) | Authoritative documentation for the `tail_sampling` processor; covers all policy types, `decision_wait` semantics, and known limitations. |
 | [OpenTelemetry — Sampling](https://opentelemetry.io/docs/concepts/sampling/) | [ADR-020](adr/ADR-020-tail-based-sampling-policy.md) | Conceptual overview of head-based vs. tail-based sampling; basis for the Rationale framing in ADR-020. |
+| [npm — `overrides` configuration](https://docs.npmjs.com/cli/v10/configuring-npm/package-json#overrides) | [ADR-024](adr/ADR-024-prisma-otel-sdk-override.md) | Official npm docs for the `overrides` field; covers the scoped `{ "package": { "dep": "version" } }` syntax used to force a single `@opentelemetry/sdk-trace-base` version for `@prisma/instrumentation`. |
+| [Prisma — OpenTelemetry tracing](https://www.prisma.io/docs/orm/prisma-client/observability-and-logging/opentelemetry-tracing) | [ADR-024](adr/ADR-024-prisma-otel-sdk-override.md) | Documents `@prisma/instrumentation` setup and the `previewFeatures = ["tracing"]` requirement in `schema.prisma`. |
+| [OpenTelemetry JavaScript — Changelog (v2.0)](https://github.com/open-telemetry/opentelemetry-js/blob/main/CHANGELOG.md) | [ADR-024](adr/ADR-024-prisma-otel-sdk-override.md) | Documents the v1 → v2 breaking changes to `sdk-trace-base` that produce the `getActiveSpanProcessor` crash when two SDK versions coexist. |
 
 ---
 

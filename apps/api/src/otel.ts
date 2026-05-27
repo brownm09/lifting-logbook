@@ -3,11 +3,10 @@ import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentation
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
-// PrismaInstrumentation intentionally omitted: @prisma/instrumentation@5.22.0 bundles
-// its own @opentelemetry/sdk-trace-base which is incompatible with the main app's
-// OTel SDK version. When Prisma creates a tracing span during $connect(), it calls
-// into its bundled SDK which receives a tracer from the main SDK and crashes with
-// "parentTracer.getActiveSpanProcessor is not a function". Tracked in #348.
+// @prisma/instrumentation@5.x directly instantiates sdk-trace-base's Span class,
+// which was made package-private in sdk-trace-base@2.x — causing "Span is not a
+// constructor" at $connect(). PrismaInstrumentation is excluded from the
+// instrumentations array until the Prisma v6 upgrade. See ADR-024 and issue #348.
 
 let sdk: NodeSDK | undefined;
 
