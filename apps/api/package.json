@@ -8,7 +8,8 @@
     "start": "node dist/main.js",
     "lint": "eslint src",
     "test": "jest",
-    "test:db": "jest --testPathPattern=db\\.e2e"
+    "test:db": "jest --testPathPattern=db\\.e2e",
+    "postinstall": "node -e \"const fs=require('fs');try{fs.rmSync('node_modules/@prisma/instrumentation/node_modules/@opentelemetry',{recursive:true,force:true})}catch(e){}\""
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.92.0",
