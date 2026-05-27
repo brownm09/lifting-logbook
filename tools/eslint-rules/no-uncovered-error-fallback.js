@@ -3,6 +3,9 @@
 const fs = require('fs');
 const path = require('path');
 
+// TODO(#354): when audit extends to packages/core and packages/types, narrow the
+// 'packages' entry to specific test-bearing subpaths rather than the whole tree —
+// the eager scan reads every matching file on first lint invocation.
 const TEST_GLOB_DIRS = [
   'apps/web/e2e',
   'apps/web/src',
@@ -13,6 +16,21 @@ const TEST_GLOB_DIRS = [
 
 const TEST_FILE_SUFFIXES = ['.spec.ts', '.spec.tsx', '.test.ts', '.test.tsx'];
 
+const WALK_SKIP_DIRS = new Set([
+  'node_modules',
+  'dist',
+  '.turbo',
+  '.next',
+  '.next-test',
+  'coverage',
+]);
+
+// Module-level cache. The reference set is built once per ESLint process when the
+// first source file under a given repo root is linted, and reused for every
+// subsequent file in the same process. Correct for `npm run lint` (one process per
+// invocation); IDE / lint-on-save / `eslint --fix --watch` workflows will not pick
+// up newly-added test comments until the language-server process restarts. See
+// docs/standards/error-fallback-test-coverage.md → Enforcement.
 let cachedReferences = null;
 let cachedRepoRoot = null;
 
@@ -43,7 +61,7 @@ function walkForTestFiles(dir, out) {
     return;
   }
   for (const entry of entries) {
-    if (entry.name === 'node_modules' || entry.name === 'dist' || entry.name === '.turbo' || entry.name === '.next') {
+    if (WALK_SKIP_DIRS.has(entry.name)) {
       continue;
     }
     const full = path.join(dir, entry.name);
@@ -58,6 +76,12 @@ function walkForTestFiles(dir, out) {
 function collectReferencesFromText(text, refSet) {
   // Match path-like tokens followed by :line or :line-line. Path component allows
   // forward-slashed posix style as written in source comments.
+  //
+  // The pattern is intentionally permissive — it will match unrelated strings like
+  // `node:test` or `error.code:42` in test fixtures. Those bloat the set but cannot
+  // false-positive a real source file: the lookup side keys on the full repo-relative
+  // posix path (e.g. `apps/web/app/page.tsx:10`), so bare basename or non-path tokens
+  // in the set are inert.
   const re = /([a-zA-Z0-9._\-/]+\.[a-zA-Z0-9]+):(\d+)(?:-(\d+))?/g;
   let match;
   while ((match = re.exec(text)) !== null) {
@@ -147,12 +171,23 @@ function arrowReturnsNeutralDefault(arrow) {
 
 function tryHandlerCallsRedirect(handler) {
   if (!handler || !handler.body || handler.body.type !== 'BlockStatement') return false;
+  // Match either a bare `redirect(...)` (the canonical Next.js import) or any
+  // `something.redirect(...)` MemberExpression. We intentionally do not match
+  // aliased imports like `import { redirect as nextRedirect }` — those rename
+  // the binding to something we cannot detect statically; document the limitation
+  // in docs/standards/error-fallback-test-coverage.md if such an alias is ever used.
   for (const stmt of handler.body.body) {
+    if (stmt.type !== 'ExpressionStatement') continue;
+    const expr = stmt.expression;
+    if (!expr || expr.type !== 'CallExpression') continue;
+    const callee = expr.callee;
+    if (callee.type === 'Identifier' && callee.name === 'redirect') return true;
     if (
-      stmt.type === 'ExpressionStatement' &&
-      stmt.expression.type === 'CallExpression' &&
-      stmt.expression.callee.type === 'Identifier' &&
-      stmt.expression.callee.name === 'redirect'
+      callee.type === 'MemberExpression' &&
+      !callee.computed &&
+      callee.property &&
+      callee.property.type === 'Identifier' &&
+      callee.property.name === 'redirect'
     ) {
       return true;
     }
@@ -206,7 +241,7 @@ module.exports = {
     schema: [],
     messages: {
       uncovered:
-        'Error-swallowing fallback at {{file}}:{{line}} is not referenced by any test file comment, and carries no allow-skewed or fallback-covered-by annotation. See docs/standards/error-fallback-test-coverage.md.',
+        'Error-swallowing fallback is not referenced by any test file comment, and carries no allow-skewed or fallback-covered-by annotation. See docs/standards/error-fallback-test-coverage.md.',
       missingTarget:
         'fallback-covered-by points at "{{target}}" which does not exist on disk.',
     },

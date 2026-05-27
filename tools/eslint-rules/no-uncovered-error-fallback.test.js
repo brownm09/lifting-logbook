@@ -138,6 +138,19 @@ test('try/catch/redirect bare is flagged', () => {
   });
 });
 
+test('try/catch with member-call redirect (nav.redirect) is flagged', () => {
+  runCases({
+    sandboxFiles: {
+      'apps/web/e2e/smoke.spec.ts': '\n',
+    },
+    sourceRel: 'apps/web/app/y/page.tsx',
+    code:
+      'declare const nav: { redirect(s: string): never };\n' +
+      'export async function P(){ try { await Promise.resolve(1); } catch { nav.redirect("/y"); } }\n',
+    expectErrors: [{ messageId: 'uncovered' }],
+  });
+});
+
 test('try/catch/redirect referenced by a test comment is accepted', () => {
   // Source line range of the TryStatement is lines 2-2.
   runCases({
