@@ -5,9 +5,8 @@ import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
 // @prisma/instrumentation@5.x directly instantiates sdk-trace-base's Span class,
 // which was made package-private in sdk-trace-base@2.x — causing "Span is not a
-// constructor" at $connect(). PrismaInstrumentation is excluded until the Prisma v6
-// upgrade (which ships native OTel v2 support). See ADR-024 and issue #348.
-import { PrismaInstrumentation } from '@prisma/instrumentation';
+// constructor" at $connect(). PrismaInstrumentation is excluded from the
+// instrumentations array until the Prisma v6 upgrade. See ADR-024 and issue #348.
 
 let sdk: NodeSDK | undefined;
 
