@@ -1,4 +1,10 @@
-import { addDaysUTC, formatDateYYYYMMDD, getNextDate } from "@src/core";
+import {
+  addDaysUTC,
+  formatDateYYYYMMDD,
+  getNextDate,
+  LiftingProgramSpec,
+  weekTypeForDate,
+} from "@src/core";
 
 describe("jsUtil", () => {
   describe("formatDateYYYYMMDD", () => {
@@ -14,6 +20,82 @@ describe("jsUtil", () => {
     });
     it("handles already formatted string", () => {
       expect(formatDateYYYYMMDD("2026-12-31")).toBe("20261231");
+    });
+
+    // Audit (#354): pin current behavior of the `return String(date)` fallback
+    // and the silent NaN path when delimiter-split produces 3 non-numeric parts.
+    // Both currently fail silently rather than throwing; locking the behavior
+    // here makes any future change (e.g., throwing on garbage input) deliberate.
+    it("falls back to String(date) for strings whose split yields fewer than 3 parts", () => {
+      expect(formatDateYYYYMMDD("2026/01")).toBe("2026/01");
+      expect(formatDateYYYYMMDD("2026")).toBe("2026");
+    });
+
+    it("returns 'NaNNaNNaN' when a 3-part split contains non-numeric tokens (current behavior; not a contract)", () => {
+      expect(formatDateYYYYMMDD("not-a-date")).toBe("NaNNaNNaN");
+    });
+  });
+
+  describe("weekTypeForDate", () => {
+    // Audit (#354): weekTypeForDate had no tests at all. These cover the
+    // matching-week path AND the `?? 'training'` neutral-return fallback
+    // so a regression in either branch is detectable.
+    const spec: LiftingProgramSpec[] = [
+      {
+        week: 1,
+        offset: 0,
+        lift: "Bench",
+        increment: 0,
+        order: 0,
+        sets: 0,
+        reps: 0,
+        amrap: false,
+        warmUpPct: "",
+        wtDecrementPct: 0,
+        activation: "",
+        weekType: "training",
+      },
+      {
+        week: 2,
+        offset: 0,
+        lift: "Bench",
+        increment: 0,
+        order: 0,
+        sets: 0,
+        reps: 0,
+        amrap: false,
+        warmUpPct: "",
+        wtDecrementPct: 0,
+        activation: "",
+        weekType: "test",
+      },
+    ];
+
+    it("returns the matching week's weekType when today is within the spec", () => {
+      const cycleStart = new Date(2026, 0, 5);
+      const today = new Date(2026, 0, 12); // week 2 (7 days later)
+      expect(weekTypeForDate(cycleStart, spec, today)).toBe("test");
+    });
+
+    it("clamps to the max week in the spec when today is past the spec's range", () => {
+      const cycleStart = new Date(2026, 0, 5);
+      const today = new Date(2026, 1, 28); // far past week 2
+      expect(weekTypeForDate(cycleStart, spec, today)).toBe("test");
+    });
+
+    it("returns 'training' fallback when the matched week has no weekType set", () => {
+      const { weekType: _omit, ...rest } = spec[0]!;
+      void _omit;
+      const partialSpec: LiftingProgramSpec[] = [rest];
+      const cycleStart = new Date(2026, 0, 5);
+      const today = new Date(2026, 0, 5);
+      expect(weekTypeForDate(cycleStart, partialSpec, today)).toBe("training");
+    });
+
+    it("returns 'training' fallback when no spec entry matches the computed week", () => {
+      const cycleStart = new Date(2026, 0, 5);
+      const today = new Date(2026, 0, 5);
+      expect(weekTypeForDate(cycleStart, [], today)).toBe("training");
     });
   });
 

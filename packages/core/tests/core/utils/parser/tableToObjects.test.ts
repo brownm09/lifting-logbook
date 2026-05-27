@@ -18,4 +18,23 @@ describe("tableToObjects", () => {
       { dateUpdated: new Date("2026-01-01"), lift: "Bench", weight: "80" },
     ]);
   });
+
+  // Audit (#354): explicitly exercise the `data.length < 2` neutral-return branch
+  // so the empty-result path is distinguishable from the success path.
+  it("returns [] when data is empty", () => {
+    expect(tableToObjects([])).toEqual([]);
+  });
+
+  it("returns [] when data has only a header row (no body rows)", () => {
+    expect(tableToObjects([["Date Updated", "Lift", "Weight"]])).toEqual([]);
+  });
+
+  it("uses raw header when headerMap is omitted", () => {
+    const data = [
+      ["Lift", "Weight"],
+      ["Squat", "100"],
+    ];
+    const result = tableToObjects(data);
+    expect(result).toEqual([{ Lift: "Squat", Weight: "100" }]);
+  });
 });
