@@ -33,6 +33,7 @@ export function startOtel(): NodeSDK | undefined {
   sdk.start();
 
   const shutdown = () => {
+    // allow-skewed: SIGTERM/SIGINT shutdown handler — no business path to assert against.
     sdk?.shutdown().catch(() => undefined);
   };
   process.on('SIGTERM', shutdown);

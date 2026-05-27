@@ -60,10 +60,17 @@ When the staging test user genuinely has no records, this is acceptable **only i
 
 ## Enforcement
 
-- **Reviewer checklist.** When a PR adds or modifies a `.catch()`, `?? default`, or try/catch that returns a neutral value in a server component or API boundary, the reviewer must verify that one of the three options above is satisfied. The PR-body Testing section should make this explicit.
+- **Static check.** The custom ESLint rule [`lifting-logbook/no-uncovered-error-fallback`](../../tools/eslint-rules/no-uncovered-error-fallback.js) runs in `npm run lint` (and therefore in CI via `turbo run lint`). It is scoped to `apps/web/app/**/*.{ts,tsx}` and `apps/api/src/**/*.ts`. For each `.catch(arrow returning a neutral default)` or `try { … } catch { redirect(…) }` it requires **one** of:
+  1. A test-file comment (in `apps/web/e2e/**/*.spec.ts`, `apps/**/*.spec.ts`) that names the fallback's source location as `<path>:<line>` or `<path>:<start>-<end>` — covering option 1 or 2 above by paired data assertion or paired success-path test.
+  2. An `// allow-skewed: <one-sentence reason>` comment immediately before the fallback (or before an ancestor expression / statement) — covering option 3.
+  3. A `// fallback-covered-by: <path-to-spec-file>` comment pointing at the spec file that exercises both branches directly (used for controller / service specs where `<path>:<line>` references are awkward). The rule verifies the referenced file exists; it does **not** verify that the spec actually exercises both branches — that is the reviewer's responsibility.
+- **Mechanism notes.**
+  - **"Neutral default"** as recognised by the rule means an arrow body that returns any of: literal, array literal, object literal, identifier, or a TS type-assertion (`as T` / `<T>x`) wrapping one of those. `new Expression()` constructors (e.g., `new Set()`, `new Map()`) are intentionally **not** matched today — flag them manually during review.
+  - **Ancestor-comment blast radius.** An `// allow-skewed:` or `// fallback-covered-by:` comment is honored whether it sits immediately before the fallback or before any ancestor expression / statement. A single annotation above `const [a, b] = await Promise.all([…])` therefore opts out **every** `.catch()` inside that statement. Place comments inside the array, immediately before the specific `.catch()`, when granularity matters — this is why each `.catch()` in [`workouts.controller.ts`](../../apps/api/src/programs/workouts.controller.ts) carries its own `// fallback-covered-by:` line.
+  - **Cache behavior.** The reference set is built once per ESLint process; IDE / `eslint --fix --watch` workflows will not pick up newly-added test comments until the language-server restarts.
+- **Reviewer checklist.** The static check guarantees the *form* of coverage. Reviewers still verify that the named test actually distinguishes success from fallback — a reference comment pointing at a test that itself only checks structure does not satisfy the spirit of the rule.
 - **CLAUDE.md `## Testing` rule.** A short subsection of the project CLAUDE.md points at this standard and applies the rule at PR creation time.
-- **Future static check.** A lint or CI gate that detects new skewed-test instances automatically is tracked in [#353](https://github.com/brownm09/lifting-logbook/issues/353).
-- **Audit coverage.** The initial audit (issue #349) covered `apps/web` and `apps/api`. A follow-up audit for `packages/core` and `packages/types` is tracked in [#354](https://github.com/brownm09/lifting-logbook/issues/354).
+- **Audit coverage.** The initial audit (issue #349) covered `apps/web` and `apps/api`. A follow-up audit for `packages/core` and `packages/types` is tracked in [#354](https://github.com/brownm09/lifting-logbook/issues/354). When that closes, extend the rule's `files` glob in `eslint.config.js`.
 
 ---
 
