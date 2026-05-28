@@ -30,7 +30,7 @@ The home screen at `/` is a small landing card with three shortcuts: **Current C
 
 ### Sign in
 
-The app uses Clerk for authentication in production at `/sign-in`. In local development a `DevAuthProvider` signs you in automatically — no account creation needed.
+The app uses Clerk for authentication. Visit `/sign-in` and follow the prompts.
 
 ### Onboarding
 
@@ -58,7 +58,7 @@ The dashboard is a grid: one row per training week, one cell per workout. Each c
 | **Upcoming** | Scheduled for today or later, not yet logged |
 | **Completed** | At least one set has been logged for this workout |
 | **Missed** | The date has passed and nothing was logged |
-| **Skipped** | You explicitly marked the workout skipped (see [Workout detail](#workout-detail)) |
+| **⊘ Skipped** | You explicitly marked the workout skipped (see [Workout detail](#workout-detail)) |
 
 Click any cell to open that workout's detail screen.
 
@@ -79,9 +79,9 @@ This is the page you'll use most. For each lift in the workout it shows:
 - **Working sets** — what you actually perform. Each row is a weight and a rep count.
 - **AMRAP** ("as many reps as possible") — the last set of certain lifts is flagged AMRAP. You enter the rep count you actually hit; AMRAP performance is what the app uses to decide whether to bump your training max later.
 
-If any lift in the workout is a bodyweight component (chin-ups, pull-ups, dips), a **body weight gate** asks you to confirm or enter today's body weight before the form unlocks. The app caches your entry per day so the gate won't fire again on the same date.
+If any lift in the workout is a bodyweight component (chin-ups, pull-ups, dips), a **body weight gate** asks you to confirm or enter your body weight for this workout before the form unlocks. The gate is keyed on the workout's date, not on today — so if you enter a body weight, then later open a different-dated workout (e.g., backfilling last week or logging a rescheduled session), the gate fires again for that date.
 
-Submitting writes a `LiftRecord` per set. Once every working set in the workout has a record, the page becomes read-only and the workout flips to **Completed**.
+Submitting writes a `LiftRecord` per set. As soon as the first set is logged, the dashboard badge flips to **Completed**. Once every working set has a record, the page itself becomes read-only.
 
 ---
 
@@ -94,7 +94,7 @@ A summary view with the workout's status badge, date, week number, total lifts, 
 Actions available from here:
 
 - **Manage Lifts** (`.../detail/manage-lifts`) — edit the lifts in the workout. The list lets you add, remove, or reorder lifts. From there you can:
-  - **Pick** (`.../manage-lifts/pick?action=add|replace&replacing=<lift>`) — search the 100+ exercise catalog filtered by body part and equipment. Confirm to add to the workout or replace an existing slot.
+  - **Pick** (`.../manage-lifts/pick?action=add|replace&replacing=<lift>`) — type-ahead search the built-in catalog of ~20 barbell, dumbbell, and bodyweight movements by name. Confirm to add to the workout or replace an existing slot.
   - **Edit** (`.../manage-lifts/edit/<lift>`) — change sets, reps, or intensity modifiers for a specific lift.
 - **Start Logging** — shortcut to the logging page above. Hidden once the workout is completed or skipped.
 - **Reschedule** — set a different date for this workout. The new date is treated as the effective date everywhere (dashboard cell, status calculation, etc.) and the original is shown in a "(rescheduled)" annotation.
@@ -126,7 +126,7 @@ Optional targets per lift. Two goal types:
 - **Absolute** — a specific weight (e.g., "I want a 405 lb deadlift").
 - **Relative** — a multiple of body weight (e.g., "I want a 2× body-weight squat"). Relative goals require your current body weight, which you can enter at the top of the page.
 
-Progress is shown as a percentage of your training max against the goal. The strength tier classification comes from `evaluateStrengthTier` in `packages/core` and uses the standard novice → intermediate → advanced → elite scale.
+Progress is shown as a percentage of your training max against the goal, with a strength-tier label on the standard novice → intermediate → advanced → elite scale.
 
 ---
 
