@@ -9,7 +9,13 @@ Include in your opening brief only: the issue you are working on, current branch
 ## Platform & Environment
 
 - **OS:** Windows 11, Git Bash terminal
-- **Node:** 20.11.1 (managed by nvm for Windows; `.nvmrc` is set — run `nvm use $(cat .nvmrc)` at session start if not already active). Node 24 also works, with one caveat: `npm install` on Windows + Node 24 occasionally extracts dependency tarballs incompletely — symptoms include missing directories (`node_modules/iconv-lite/lib/`), truncated `.d.ts` files (`node_modules/light-my-request/types/index.d.ts` cut mid-type), and malformed native binaries (`node_modules/@turbo/windows-64/bin/turbo.exe` failing with `EFTYPE`). Downstream failures manifest as `nest build` CJS resolution errors (`iconv-lite/lib/streams`, `minimatch/dist/commonjs/index.js`), `TS1110 Type expected` from `light-my-request`, or `spawnSync ... EFTYPE` from turbo. Fix: `rm -rf node_modules/<package> && npm install --no-save` to re-extract the affected package, or `rm -rf node_modules && npm ci` for a full reset. CI runs Node 20 and is unaffected. Original investigation: [#373](https://github.com/brownm09/lifting-logbook/issues/373).
+- **Node:** 20.11.1 (managed by nvm for Windows; `.nvmrc` is set — run `nvm use $(cat .nvmrc)` at session start if not already active).
+  - **Node 24 caveat (Windows only):** `npm install` on Windows + Node 24 occasionally extracts dependency tarballs incompletely. Observed symptoms:
+    - Missing directories: `node_modules/iconv-lite/lib/`
+    - Truncated `.d.ts` files: `node_modules/light-my-request/types/index.d.ts` cut mid-type
+    - Malformed native binaries: `node_modules/@turbo/windows-64/bin/turbo.exe` failing with `EFTYPE`
+
+    Downstream failures: `nest build` CJS resolution errors (`iconv-lite/lib/streams`, `minimatch/dist/commonjs/index.js`), `TS1110 Type expected` from `light-my-request`, or `spawnSync ... EFTYPE` from turbo. Fix: `rm -rf node_modules/<package> && npm install <package> --no-save` to re-extract a single package, or `rm -rf node_modules && npm ci` for a full reset. CI runs Node 20 and is unaffected. Original investigation: [#373](https://github.com/brownm09/lifting-logbook/issues/373).
 - **Package manager:** npm (workspaces)
 - **`jq` is NOT available.** Use `node -e` with a temp file in the working directory for JSON parsing:
   ```bash
