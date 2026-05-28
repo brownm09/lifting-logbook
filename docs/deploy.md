@@ -8,6 +8,10 @@ GKE Autopilot receives 90% of traffic; Cloud Run receives 10% as an A/B comparis
 > for a slimmer walkthrough that sets `enable_gke = false` and skips the entire
 > Helm/kubectl pipeline. The remainder of this document is the canonical
 > two-deploy-target setup that satisfies ADR-009.
+>
+> **Activating staging on top of an existing production deploy?** See
+> [`staging-runbook.md`](staging-runbook.md) for a linear top-to-bottom checklist that
+> cross-references the staging-only steps of this document.
 
 ---
 
@@ -51,7 +55,7 @@ deployments; `1` = production-grade warm start).
 
 In default mode, this guide applies as written. In single-user mode, follow
 [`deploy-single-user.md`](deploy-single-user.md) instead — the bootstrap is
-scripted (`scripts/bootstrap-gcp-prod.sh`), only one GCP project is needed,
+scripted (`scripts/bootstrap-gcp.sh`), only one GCP project is needed,
 and the GKE-only Helm/kubectl steps in the CI workflow are skipped via an
 `if: <ctx>.gke_enabled == 'true'` guard.
 
