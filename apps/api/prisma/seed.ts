@@ -93,7 +93,8 @@ async function main() {
   const workoutDate = new Date(startDate);
 
   for (let cycle = 0; cycle < NUM_CYCLES; cycle++) {
-    const weekType = WEEK_TYPES[cycle % 3]!;
+    const weekType = WEEK_TYPES[cycle % 3];
+    if (!weekType) throw new Error(`WEEK_TYPES missing index ${cycle % 3}`);
     const cycleNum = cycle + 1;
 
     // TrainingMaxHistory — one entry per lift at cycle start (representing a PR test)
@@ -124,14 +125,17 @@ async function main() {
     }
 
     for (let workoutNum = 1; workoutNum <= 3; workoutNum++) {
-      const liftsThisWorkout = WORKOUT_LIFTS[workoutNum]!;
+      const liftsThisWorkout = WORKOUT_LIFTS[workoutNum];
+      if (!liftsThisWorkout) throw new Error(`WORKOUT_LIFTS missing entry for workout ${workoutNum}`);
 
       for (const liftName of liftsThisWorkout) {
-        const lift = LIFTS.find((l) => l.name === liftName)!;
+        const lift = LIFTS.find((l) => l.name === liftName);
+        if (!lift) throw new Error(`LIFTS missing entry for ${liftName}`);
         const max = trainingMaxAt(lift, cycle);
 
         for (let setNum = 1; setNum <= 3; setNum++) {
-          const pct = weekType.pct[setNum - 1]!;
+          const pct = weekType.pct[setNum - 1];
+          if (pct === undefined) throw new Error(`weekType.pct missing index ${setNum - 1}`);
           const weight = weightForSet(max, pct);
           const isAmrap = setNum === 3;
           const amrapReps = isAmrap ? 5 + ((cycle * workoutNum + setNum) % 4) : 5;
@@ -189,14 +193,14 @@ async function main() {
   });
 
   // StrengthGoals — one per lift (relative, bodyweight ratio targets)
-  const GOAL_RATIOS: Record<string, number> = {
-    squat: 1.5,
-    deadlift: 2.0,
-    'bench-press': 1.25,
-    'overhead-press': 0.75,
-    'barbell-row': 1.0,
-    'romanian-deadlift': 1.25,
-  };
+  const GOAL_RATIOS = new Map<string, number>([
+    ['squat', 1.5],
+    ['deadlift', 2.0],
+    ['bench-press', 1.25],
+    ['overhead-press', 0.75],
+    ['barbell-row', 1.0],
+    ['romanian-deadlift', 1.25],
+  ]);
   for (const lift of LIFTS) {
     await prisma.strengthGoal.upsert({
       where: { userId_program_lift: { userId: SEED_USER_ID, program: PROGRAM, lift: lift.name } },
@@ -207,7 +211,7 @@ async function main() {
         lift: lift.name,
         goalType: 'relative',
         unit: 'lbs',
-        ratio: GOAL_RATIOS[lift.name] ?? null,
+        ratio: GOAL_RATIOS.get(lift.name) ?? null,
       },
     });
   }
