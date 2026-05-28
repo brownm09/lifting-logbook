@@ -48,6 +48,7 @@ jobs:
     outputs:
       should_run: ${{ steps.check.outputs.should_run }}
       ar_repo: ${{ steps.check.outputs.ar_repo }}
+      image_affecting: ${{ steps.filter.outputs.image_affecting }}
     steps:
       - id: check
         env:
@@ -60,6 +61,31 @@ jobs:
             echo "should_run=false" >> "$GITHUB_OUTPUT"
             echo "GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER not set — skipping staging pipeline."
           fi
+
+      # Classify the PR diff: image_affecting=false only when every changed file
+      # matches one of the skip patterns below. Anything else (including
+      # package.json, lockfiles, Dockerfiles, app/package source) forces rebuild.
+      # `.github/**` is intentionally NOT in the skip list — workflow changes
+      # can affect build context and should rebuild to be safe.
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            image_affecting:
+              - '!**/*.md'
+              - '!docs/**'
+              - '!.claude/**'
+              - '!sessions/**'
+              - '!ROADMAP.md'
+              - '!**/__tests__/**'
+              - '!**/*.test.ts'
+              - '!**/*.test.tsx'
+              - '!**/*.spec.ts'
+              - '!**/*.spec.tsx'
+              - '!**/tests/**'
+              - '!e2e/**'
+              - '!infra/terraform/**'
+              - '!infra/kubernetes/**'
 
   # ── 1. Terraform: staging ─────────────────────────────────────────────────
   terraform-staging:
@@ -137,11 +163,42 @@ jobs:
       id-token: write
     outputs:
       ar_repo: ${{ steps.ar.outputs.repo }}
+      image_tag: ${{ steps.image-tag.outputs.image_tag }}
 
     steps:
       - uses: actions/checkout@v4
 
+      # Decide whether to rebuild or reuse a prior image.
+      # Reuse is only chosen when the diff is non-image-affecting AND a prior
+      # successful staging run exists on this PR's head ref. Otherwise we build
+      # fresh and tag the new image with the head SHA, preserving the
+      # SHA-as-image-tag invariant the rest of the pipeline relies on.
+      - name: Resolve image tag
+        id: image-tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [[ "${{ needs.preflight.outputs.image_affecting }}" == "false" ]]; then
+            PREV_SHA=$(gh run list \
+              --branch "${{ github.event.pull_request.head.ref }}" \
+              --workflow staging.yml \
+              --status success \
+              --limit 1 \
+              --json headSha \
+              --jq '.[0].headSha // ""')
+            if [[ -n "$PREV_SHA" ]]; then
+              echo "image_tag=$PREV_SHA" >> "$GITHUB_OUTPUT"
+              echo "skip_build=true" >> "$GITHUB_OUTPUT"
+              echo "Diff is non-image-affecting — reusing prior image tag: $PREV_SHA"
+              exit 0
+            fi
+            echo "Diff is non-image-affecting but no prior successful run found — building fresh."
+          fi
+          echo "image_tag=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+          echo "skip_build=false" >> "$GITHUB_OUTPUT"
+
       - name: Authenticate to GCP (staging)
+        if: steps.image-tag.outputs.skip_build != 'true'
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER }}
@@ -152,13 +209,16 @@ jobs:
         run: echo "repo=${{ needs.terraform-staging.outputs.ar_repo }}" >> "$GITHUB_OUTPUT"
 
       - name: Resolve API URL for web image build
+        if: steps.image-tag.outputs.skip_build != 'true'
         id: api-url
         run: echo "url=${{ needs.terraform-staging.outputs.cloud_run_api_url }}" >> "$GITHUB_OUTPUT"
 
       - name: Configure Docker for Artifact Registry
+        if: steps.image-tag.outputs.skip_build != 'true'
         run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
 
       - name: Fetch staging Clerk publishable key
+        if: steps.image-tag.outputs.skip_build != 'true'
         id: clerk-pub-key
         run: |
           CLERK_PUB=$(gcloud secrets versions access latest \
@@ -167,9 +227,11 @@ jobs:
           echo "key=$CLERK_PUB" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
+        if: steps.image-tag.outputs.skip_build != 'true'
         uses: docker/setup-buildx-action@v3
 
       - name: Build and push API image
+        if: steps.image-tag.outputs.skip_build != 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -182,6 +244,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Build and push web image
+        if: steps.image-tag.outputs.skip_build != 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -196,9 +259,13 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # ── 3. Deploy to staging ──────────────────────────────────────────────────
-  deploy-staging:
-    name: Deploy (staging)
+  # ── 3a. Deploy API (staging) ──────────────────────────────────────────────
+  # Split into per-service jobs so they run in parallel within a single PR.
+  # Cross-PR serialization is preserved per-service via separate mutex groups —
+  # two PRs cannot race the same Cloud Run service or Helm release, but PR #1's
+  # API deploy may overlap with PR #2's web deploy (disjoint targets, safe).
+  deploy-api:
+    name: Deploy API (staging)
     runs-on: ubuntu-latest
     needs: [preflight, terraform-staging, build-images]
     if: |
@@ -208,14 +275,12 @@ jobs:
       contents: read
       id-token: write
     environment: staging
-    # Serialize across all PRs — shared staging env must not be torn mid-deploy.
     concurrency:
-      group: staging-deploy-mutex
+      group: staging-deploy-mutex-api
       cancel-in-progress: false
     outputs:
       clerk_configured: ${{ steps.clerk-check.outputs.configured }}
       cloud_run_api_deployed: ${{ steps.deploy-api.outcome == 'success' }}
-      web_url: ${{ steps.deploy-web.outputs.url }}
 
     steps:
       - uses: actions/checkout@v4
@@ -261,30 +326,17 @@ jobs:
             --from-literal=clerk-secret-key="$CLERK_KEY" \
             --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: Sync web secrets to Kubernetes
+      - name: Rollback stuck Helm API release (GKE staging)
         if: needs.terraform-staging.outputs.gke_enabled == 'true'
         run: |
-          CLERK_PUB=$(gcloud secrets versions access latest \
-            --secret="lifting-logbook-stg-clerk-publishable-key" \
-            --project="${{ vars.GCP_STAGING_PROJECT_ID }}")
-          kubectl create secret generic web-secrets \
-            --namespace=staging \
-            --from-literal=clerk-publishable-key="$CLERK_PUB" \
-            --dry-run=client -o yaml | kubectl apply -f -
-
-      - name: Rollback stuck Helm releases (GKE staging)
-        if: needs.terraform-staging.outputs.gke_enabled == 'true'
-        run: |
-          for release in api web; do
-            STATUS=$(helm status "$release" --namespace=staging --output=json 2>/dev/null \
-              | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['status'])" 2>/dev/null || echo "not-found")
-            if [[ "$STATUS" == "pending-upgrade" || "$STATUS" == "pending-install" || "$STATUS" == "pending-rollback" ]]; then
-              echo "Rolling back stuck release: $release (status=$STATUS)"
-              helm rollback "$release" --namespace=staging || true
-            fi
-          done
-          # Force-delete pods stuck in Terminating — they block helm --wait on the next upgrade.
-          kubectl get pods -n staging -o json 2>/dev/null \
+          STATUS=$(helm status api --namespace=staging --output=json 2>/dev/null \
+            | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['status'])" 2>/dev/null || echo "not-found")
+          if [[ "$STATUS" == "pending-upgrade" || "$STATUS" == "pending-install" || "$STATUS" == "pending-rollback" ]]; then
+            echo "Rolling back stuck release: api (status=$STATUS)"
+            helm rollback api --namespace=staging || true
+          fi
+          # Force-delete API pods stuck in Terminating — they block helm --wait on the next upgrade.
+          kubectl get pods -n staging -l app.kubernetes.io/instance=api -o json 2>/dev/null \
             | python3 -c "import sys,json; [print(p['metadata']['name']) for p in json.load(sys.stdin).get('items',[]) if p.get('metadata',{}).get('deletionTimestamp')]" \
             | xargs -r kubectl delete pod --force --grace-period=0 -n staging || true
 
@@ -299,7 +351,7 @@ jobs:
             --namespace=staging \
             --values=infra/kubernetes/values/staging-api.yaml \
             --set image.repository="${{ needs.build-images.outputs.ar_repo }}/api" \
-            --set image.tag="${{ github.event.pull_request.head.sha }}" \
+            --set image.tag="${{ needs.build-images.outputs.image_tag }}" \
             --set gcp.projectId="${{ vars.GCP_STAGING_PROJECT_ID }}" \
             --set gcp.kmsKeyName="${{ needs.terraform-staging.outputs.kms_key_name }}" \
             --set gcp.serviceAccountEmail="${{ needs.terraform-staging.outputs.api_wi_sa }}" \
@@ -322,21 +374,6 @@ jobs:
           else
             echo "No API pod found — Helm may have failed before pod creation"
           fi
-
-      - name: Helm deploy web (GKE staging)
-        if: needs.terraform-staging.outputs.gke_enabled == 'true'
-        continue-on-error: true
-        run: |
-          API_CLUSTER_URL="http://api.staging.svc.cluster.local:3000"
-          helm upgrade --install web ./infra/kubernetes/charts/web \
-            --namespace=staging \
-            --values=infra/kubernetes/values/staging-web.yaml \
-            --set image.repository="${{ needs.build-images.outputs.ar_repo }}/web" \
-            --set image.tag="${{ github.event.pull_request.head.sha }}" \
-            --set gcp.projectId="${{ vars.GCP_STAGING_PROJECT_ID }}" \
-            --set env.NODE_ENV=staging \
-            --set env.API_URL="$API_CLUSTER_URL" \
-            --wait --timeout=10m
 
       - name: Check Clerk secret key configured
         id: clerk-check
@@ -361,7 +398,7 @@ jobs:
         continue-on-error: true
         run: |
           gcloud run deploy lifting-logbook-stg-api \
-            --image="${{ needs.build-images.outputs.ar_repo }}/api:${{ github.event.pull_request.head.sha }}" \
+            --image="${{ needs.build-images.outputs.ar_repo }}/api:${{ needs.build-images.outputs.image_tag }}" \
             --region="${{ env.REGION }}" \
             --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
             --platform=managed \
@@ -386,6 +423,100 @@ jobs:
             --freshness=10m \
             2>&1 || true
 
+  # ── 3b. Deploy web (staging) ──────────────────────────────────────────────
+  deploy-web:
+    name: Deploy web (staging)
+    runs-on: ubuntu-latest
+    needs: [preflight, terraform-staging, build-images]
+    if: |
+      needs.preflight.outputs.should_run == 'true' &&
+      needs.build-images.result == 'success'
+    permissions:
+      contents: read
+      id-token: write
+    environment: staging
+    concurrency:
+      group: staging-deploy-mutex-web
+      cancel-in-progress: false
+    outputs:
+      web_url: ${{ steps.deploy-web.outputs.url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP (staging)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_STAGING_SERVICE_ACCOUNT }}
+
+      - name: Set up GKE credentials
+        if: needs.terraform-staging.outputs.gke_enabled == 'true'
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ needs.terraform-staging.outputs.gke_cluster_name }}
+          location: ${{ env.REGION }}
+          project_id: ${{ vars.GCP_STAGING_PROJECT_ID }}
+
+      - name: Set up Helm
+        if: needs.terraform-staging.outputs.gke_enabled == 'true'
+        uses: azure/setup-helm@v4
+
+      - name: Ensure staging namespace
+        if: needs.terraform-staging.outputs.gke_enabled == 'true'
+        run: kubectl create namespace staging --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Sync web secrets to Kubernetes
+        if: needs.terraform-staging.outputs.gke_enabled == 'true'
+        run: |
+          CLERK_PUB=$(gcloud secrets versions access latest \
+            --secret="lifting-logbook-stg-clerk-publishable-key" \
+            --project="${{ vars.GCP_STAGING_PROJECT_ID }}")
+          kubectl create secret generic web-secrets \
+            --namespace=staging \
+            --from-literal=clerk-publishable-key="$CLERK_PUB" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Rollback stuck Helm web release (GKE staging)
+        if: needs.terraform-staging.outputs.gke_enabled == 'true'
+        run: |
+          STATUS=$(helm status web --namespace=staging --output=json 2>/dev/null \
+            | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['status'])" 2>/dev/null || echo "not-found")
+          if [[ "$STATUS" == "pending-upgrade" || "$STATUS" == "pending-install" || "$STATUS" == "pending-rollback" ]]; then
+            echo "Rolling back stuck release: web (status=$STATUS)"
+            helm rollback web --namespace=staging || true
+          fi
+          kubectl get pods -n staging -l app.kubernetes.io/instance=web -o json 2>/dev/null \
+            | python3 -c "import sys,json; [print(p['metadata']['name']) for p in json.load(sys.stdin).get('items',[]) if p.get('metadata',{}).get('deletionTimestamp')]" \
+            | xargs -r kubectl delete pod --force --grace-period=0 -n staging || true
+
+      - name: Helm deploy web (GKE staging)
+        if: needs.terraform-staging.outputs.gke_enabled == 'true'
+        continue-on-error: true
+        run: |
+          API_CLUSTER_URL="http://api.staging.svc.cluster.local:3000"
+          helm upgrade --install web ./infra/kubernetes/charts/web \
+            --namespace=staging \
+            --values=infra/kubernetes/values/staging-web.yaml \
+            --set image.repository="${{ needs.build-images.outputs.ar_repo }}/web" \
+            --set image.tag="${{ needs.build-images.outputs.image_tag }}" \
+            --set gcp.projectId="${{ vars.GCP_STAGING_PROJECT_ID }}" \
+            --set env.NODE_ENV=staging \
+            --set env.API_URL="$API_CLUSTER_URL" \
+            --wait --timeout=10m
+
+      - name: Check Clerk secret key configured
+        id: clerk-check
+        run: |
+          CLERK_KEY=$(gcloud secrets versions access latest \
+            --secret="lifting-logbook-stg-clerk-secret-key" \
+            --project="${{ vars.GCP_STAGING_PROJECT_ID }}")
+          if [[ "$CLERK_KEY" == "REPLACE_ME" || -z "$CLERK_KEY" ]]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Deploy web to Cloud Run (staging)
         id: deploy-web
         if: steps.clerk-check.outputs.configured == 'true'
@@ -395,7 +526,7 @@ jobs:
           # *.a.run.app URL which may no longer be routed to the current service instance;
           # the "Service URL:" line from gcloud run deploy is always the live canonical URL.
           DEPLOY_OUT=$(gcloud run deploy lifting-logbook-stg-web \
-            --image="${{ needs.build-images.outputs.ar_repo }}/web:${{ github.event.pull_request.head.sha }}" \
+            --image="${{ needs.build-images.outputs.ar_repo }}/web:${{ needs.build-images.outputs.image_tag }}" \
             --region="${{ env.REGION }}" \
             --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
             --platform=managed \
@@ -412,12 +543,12 @@ jobs:
   staging-integration-tests:
     name: Staging Integration Tests
     runs-on: ubuntu-latest
-    needs: [preflight, terraform-staging, deploy-staging]
+    needs: [preflight, terraform-staging, deploy-api, deploy-web]
     # Only skip when staging is not configured at all (no GCP credentials).
     # When staging IS configured, always() ensures the job runs even when a
-    # needs job hard-fails (e.g. GCP auth failure in deploy-staging) — without
-    # it GitHub Actions auto-skips dependents on failure, which branch protection
-    # treats as passing and silently bypasses the merge gate. See #345.
+    # needs job hard-fails (e.g. GCP auth failure in deploy-api/deploy-web) —
+    # without it GitHub Actions auto-skips dependents on failure, which branch
+    # protection treats as passing and silently bypasses the merge gate. See #345.
     if: always() && needs.preflight.outputs.should_run == 'true'
     permissions:
       contents: read
@@ -429,12 +560,12 @@ jobs:
     steps:
       - name: Verify deploy prerequisites
         run: |
-          if [[ "${{ needs.deploy-staging.outputs.clerk_configured }}" != "true" ]]; then
+          if [[ "${{ needs.deploy-api.outputs.clerk_configured }}" != "true" ]]; then
             echo "::error::Staging Clerk secret key is not configured. Follow docs/deploy.md Step 4 to set lifting-logbook-stg-clerk-secret-key in GCP Secret Manager, then re-run CI."
             exit 1
           fi
-          if [[ "${{ needs.deploy-staging.outputs.cloud_run_api_deployed }}" != "true" ]]; then
-            echo "::error::Cloud Run API deploy failed — integration tests cannot run. Check the 'Fetch Cloud Run API logs on failure' step in the Deploy (staging) job. Tracked in #344."
+          if [[ "${{ needs.deploy-api.outputs.cloud_run_api_deployed }}" != "true" ]]; then
+            echo "::error::Cloud Run API deploy failed — integration tests cannot run. Check the 'Fetch Cloud Run API logs on failure' step in the Deploy API (staging) job. Tracked in #344."
             exit 1
           fi
 
@@ -462,7 +593,7 @@ jobs:
       - name: Wait for staging to be ready
         id: wait-ready
         run: |
-          WEB_URL="${{ needs.deploy-staging.outputs.web_url }}"
+          WEB_URL="${{ needs.deploy-web.outputs.web_url }}"
           # Clerk dev-mode (pk_test_ key) rewrites the first unauthenticated request
           # to an internal /clerk_<hash> path for dev-browser cookie initialization.
           # That path has no Next.js page → 404. The app IS running; the reliable
@@ -515,7 +646,7 @@ jobs:
         run: npx playwright test --config=playwright.config.staging.ts
         env:
           CI: 'true'
-          STAGING_WEB_URL: ${{ needs.deploy-staging.outputs.web_url }}
+          STAGING_WEB_URL: ${{ needs.deploy-web.outputs.web_url }}
           STAGING_API_URL: ${{ needs.terraform-staging.outputs.cloud_run_api_url }}
           STAGING_CLERK_TEST_EMAIL: ${{ secrets.STAGING_CLERK_TEST_EMAIL }}
           STAGING_CLERK_TEST_PASSWORD: ${{ secrets.STAGING_CLERK_TEST_PASSWORD }}
@@ -532,7 +663,7 @@ jobs:
   report-status:
     name: Report Staging Status
     runs-on: ubuntu-latest
-    needs: [preflight, terraform-staging, deploy-staging, staging-integration-tests]
+    needs: [preflight, terraform-staging, deploy-api, deploy-web, staging-integration-tests]
     if: always()
     permissions:
       pull-requests: write
@@ -544,11 +675,11 @@ jobs:
           script: |
             const shouldRun = '${{ needs.preflight.outputs.should_run }}' === 'true';
             const testResult = '${{ needs.staging-integration-tests.result }}';
-            const webUrl = '${{ needs.deploy-staging.outputs.web_url }}';
+            const webUrl = '${{ needs.deploy-web.outputs.web_url }}';
 
             let body;
-            const clerkConfigured = '${{ needs.deploy-staging.outputs.clerk_configured }}' === 'true';
-            const cloudRunApiDeployed = '${{ needs.deploy-staging.outputs.cloud_run_api_deployed }}' === 'true';
+            const clerkConfigured = '${{ needs.deploy-api.outputs.clerk_configured }}' === 'true';
+            const cloudRunApiDeployed = '${{ needs.deploy-api.outputs.cloud_run_api_deployed }}' === 'true';
             if (!shouldRun) {
               body = '⚪ **Staging skipped** — `GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER` is not configured.';
             } else if (!clerkConfigured) {
