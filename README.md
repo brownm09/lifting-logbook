@@ -9,6 +9,7 @@
 A cloud-native strength training tracker built as a Turborepo monorepo.
 
 For full architecture context, decision records, and project goals see **[docs/README.md](docs/README.md)**.
+For an end-user walkthrough of every screen in the web app, see **[docs/user-guide.md](docs/user-guide.md)**.
 
 ---
 

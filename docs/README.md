@@ -205,6 +205,14 @@ jobs-to-be-done, non-goals, and v1.0 success metrics.
 
 ---
 
+## User Guide
+
+See [user-guide.md](user-guide.md) for an end-user walkthrough of every screen in the
+web app: onboarding, cycle dashboard, workout logging, training maxes, strength goals,
+schedule, history, programs, and a glossary of lifting terminology.
+
+---
+
 ## Compliance Awareness
 
 This application currently handles personal fitness data for a single user or small group of
