@@ -33,4 +33,5 @@ export const DEFAULT_SLOT_MAP: Readonly<Record<string, string>> = {
   'OH Press-HV': 'overhead-press',
   'CBL Curls':   'cable-curl',
   'C. Lat Raise': 'lateral-raise',
+  'Lat Raise':    'lateral-raise',
 };

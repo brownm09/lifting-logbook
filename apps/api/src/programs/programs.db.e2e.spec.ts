@@ -128,9 +128,12 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
     await cleanTestUsers(prisma);
 
     const dashboard = seedCycleDashboard();
-    await prisma.cycleDashboard.create({
-      data: {
-        userId: TEST_USER,
+    // Seed CycleDashboard for TEST_USER plus the isolation-test users (Alice, Bob)
+    // so the user-isolation specs can call /cycles/current and reschedule endpoints
+    // without tripping the dashboard-precondition 404 in their handlers.
+    await prisma.cycleDashboard.createMany({
+      data: [TEST_USER, USER_ALICE, USER_BOB].map((userId) => ({
+        userId,
         program: SEED_PROGRAM,
         cycleUnit: dashboard.cycleUnit,
         cycleNum: dashboard.cycleNum,
@@ -138,7 +141,7 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
         sheetName: dashboard.sheetName,
         cycleStartWeekday: dashboard.cycleStartWeekday,
         programType: dashboard.programType ?? null,
-      },
+      })),
     });
 
     await prisma.trainingMax.createMany({
@@ -164,6 +167,24 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
         reps: r.reps,
         notes: r.notes,
       })),
+    });
+
+    // Seed one TrainingMaxHistory row so the order-sensitive write block has
+    // pre-existing history to PATCH (mark-as-PR) and GET (?isPR=true) against.
+    // The recalculate/cycle-advance tests do not produce history rows on their
+    // own — the cycle-1 records yield reductions for current maxes, which are
+    // flagged rather than applied (and so generate no history entries).
+    await prisma.trainingMaxHistory.create({
+      data: {
+        userId: TEST_USER,
+        program: SEED_PROGRAM,
+        lift: 'Squat',
+        weight: 315,
+        date: new Date('2026-04-13'),
+        isPR: false,
+        source: 'program',
+        goalMet: false,
+      },
     });
 
     // DATABASE_URL is set in the environment, so RepositoryFactoryModule selects PrismaRepositoryFactory.
@@ -266,8 +287,11 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
       });
     });
 
-    it('POST /programs/:program/training-maxes/recalculate updates maxes from lift records', async () => {
-      // Pre-condition: PATCH above set Squat to 300; recalculate will derive a new value from records.
+    it('POST /programs/:program/training-maxes/recalculate flags reductions without applying them', async () => {
+      // Pre-condition: PATCH above set Squat to 300. The seeded cycle-1 records would
+      // propose a Squat max of 210 (a *reduction*); updateMaxes flags reductions
+      // and does not apply them, so the returned Squat weight stays at 300 and the
+      // proposal appears in `flagged`. Response shape is { maxes, flagged }.
       const beforeRes = await get(`/programs/${SEED_PROGRAM}/training-maxes`);
       const squatBefore = beforeRes
         .json()
@@ -275,10 +299,13 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
 
       const res = await post(`/programs/${SEED_PROGRAM}/training-maxes/recalculate`);
       expect(res.statusCode).toBe(200);
-      const body = res.json();
-      expect(Array.isArray(body)).toBe(true);
-      expect(body.length).toBeGreaterThan(0);
-      for (const m of body) {
+      const body = res.json() as {
+        maxes: Array<{ lift: string; weight: number; unit: string; dateUpdated: string }>;
+        flagged: Array<{ lift: string; proposedWeight: number }>;
+      };
+      expect(Array.isArray(body.maxes)).toBe(true);
+      expect(body.maxes.length).toBeGreaterThan(0);
+      for (const m of body.maxes) {
         expect(m).toMatchObject({
           lift: expect.any(String),
           weight: expect.any(Number),
@@ -286,8 +313,10 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
           dateUpdated: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
         });
       }
-      const squatAfter = body.find((m: { lift: string }) => m.lift === 'Squat').weight;
-      expect(squatAfter).not.toBe(squatBefore);
+      const squatAfter = body.maxes.find((m) => m.lift === 'Squat')!.weight;
+      expect(squatAfter).toBe(squatBefore);
+      const squatFlag = body.flagged.find((f) => f.lift === 'Squat');
+      expect(squatFlag).toBeDefined();
     });
 
     it('POST /programs/:program/cycles advances cycleNum and persists new maxes', async () => {
