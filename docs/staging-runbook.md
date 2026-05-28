@@ -116,18 +116,48 @@ Run the database migrations:
 ./scripts/migrate-staging-db.sh
 ```
 
-Then seed the synthetic lift data. The seed script (`apps/api/prisma/seed.ts`) uses
-`upsert` everywhere — re-running it is safe. It writes 12 cycles × 6 lifts of 5/3/1
-data under the synthetic user `seed_user_clerkid_staging_001`, which is not reachable
-via any real Clerk token.
+The migrate script temporarily enables a public IP on the staging Cloud SQL instance
+for the duration of the migrate run, then removes it. The Cloud SQL Auth Proxy still
+requires that IP for local connectivity, so to seed afterwards you must briefly
+re-enable the public IP for the seed window.
+
+Find the instance name and database password:
 
 ```bash
+# Instance name (look for the lifting-logbook-stg-db-<suffix> row)
+gcloud sql instances list --project=lifting-logbook-staging
+
+# Database password (read once, never log it)
+gcloud secrets versions access latest \
+  --secret=lifting-logbook-stg-db-password \
+  --project=lifting-logbook-staging
+```
+
+Re-enable the public IP, seed, then remove it again:
+
+```bash
+INSTANCE=lifting-logbook-stg-db-<suffix>
+
+gcloud sql instances patch "$INSTANCE" \
+  --assign-ip --project=lifting-logbook-staging --quiet
+
 # Use port 5434 (avoids conflict with the prod proxy on 5433)
 # sslmode=disable is required: the proxy handles TLS; Prisma must not negotiate SSL
-cloud-sql-proxy "lifting-logbook-staging:us-central1:lifting-logbook-stg-db-<suffix>?port=5434" &
+cloud-sql-proxy --port 5434 \
+  "lifting-logbook-staging:us-central1:$INSTANCE" &
+PROXY_PID=$!
+
 DATABASE_URL="postgresql://lifting-logbook-app:<password>@127.0.0.1:5434/lifting_logbook?sslmode=disable" \
   npx --prefix apps/api prisma db seed
+
+kill "$PROXY_PID"
+gcloud sql instances patch "$INSTANCE" \
+  --no-assign-ip --project=lifting-logbook-staging --quiet
 ```
+
+The seed script (`apps/api/prisma/seed.ts`) uses `upsert` everywhere — re-running it is
+safe. It writes 12 cycles × 6 lifts of 5/3/1 data under the synthetic user
+`seed_user_clerkid_staging_001`, which is not reachable via any real Clerk token.
 
 The full table-by-table row count is documented in
 [`deploy.md` § Step 3.5 — Seed staging data](deploy.md#step-35--seed-staging-data).
@@ -149,8 +179,13 @@ manually with:
 
 ```bash
 curl -I https://<staging-web-url>          # expect 200 or 307
-curl -I https://<staging-api-url>/health   # expect 403 (unauthenticated rejection)
+curl -I https://<staging-api-url>/health   # expect 200 or 403
 ```
+
+The Nest `HealthController` is `@Public()` and returns `200`. Cloud Run's IAM layer
+may return `403` first if the service is configured `--no-allow-unauthenticated`;
+the workflow's smoke-test job accepts both statuses for the same reason
+(`.github/workflows/deploy.yml`, "API smoke test").
 
 If the smoke-test job fails, the production job will not run — production stays on
 the previous revision. The smoke-test logic lives in `.github/workflows/deploy.yml`

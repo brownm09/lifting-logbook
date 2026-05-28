@@ -16,8 +16,8 @@
 #     [--project-id <id>] [--project-name <name>] [--region <region>]
 #
 # Defaults: --project-id lifting-logbook-prod, --region us-central1.
-# --project-name defaults to "Lifting Logbook <suffix>" where <suffix> is the segment
-# after the last hyphen of --project-id (e.g., lifting-logbook-staging → "Lifting Logbook staging").
+# --project-name defaults to "Lifting Logbook <Suffix>" where <Suffix> is the title-cased
+# segment after the last hyphen of --project-id (e.g., lifting-logbook-staging → "Lifting Logbook Staging").
 #
 # Examples:
 #   # Production (default)
@@ -81,9 +81,11 @@ while (( $# > 0 )); do
 done
 
 if [[ -z "$PROJECT_NAME" ]]; then
-  # Derive a human-readable name from the trailing segment of the project ID
-  # (e.g., lifting-logbook-prod → "Lifting Logbook prod").
-  PROJECT_NAME="Lifting Logbook ${PROJECT_ID##*-}"
+  # Derive a human-readable name from the trailing segment of the project ID,
+  # title-cased (e.g., lifting-logbook-prod → "Lifting Logbook Prod",
+  # lifting-logbook-staging → "Lifting Logbook Staging").
+  SUFFIX="${PROJECT_ID##*-}"
+  PROJECT_NAME="Lifting Logbook ${SUFFIX^}"
 fi
 
 STATE_BUCKET="${PROJECT_ID}-tfstate"
