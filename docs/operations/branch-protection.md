@@ -4,24 +4,25 @@
 
 | Required context | Source workflow | Job |
 |---|---|---|
-| `Lint & Test` | `.github/workflows/ci.yml` | `lint-test` |
+| `Lint & Test` | `.github/workflows/ci.yml` | `lint-and-test` |
 | `DB Integration Tests` | `.github/workflows/ci.yml` | `db-integration` |
 | `Observability Stack Smoke Test` | `.github/workflows/ci.yml` | `observability-smoke` |
-| `Playwright E2E` | `.github/workflows/ci.yml` | `playwright-e2e` |
+| `Playwright E2E` | `.github/workflows/ci.yml` | `e2e` |
 | `Staging Integration Tests` | `.github/workflows/staging.yml` | `staging-integration-tests` |
 
 The job `name:` values match the required-check contexts character-for-character. Renaming any job is a breaking change to branch protection.
 
 ## Staging-credential dependency
 
-Three of the five checks (`Staging Integration Tests` and the deploy chain it depends on, plus `Playwright E2E` if it inherits staging context) are gated by the staging workflow's preflight:
+One of the five required checks — `Staging Integration Tests` — is gated by the staging workflow's preflight. The `staging-integration-tests` job's `if:` condition is:
 
 ```yaml
-# .github/workflows/staging.yml:586
 if: always() && needs.preflight.outputs.should_run == 'true'
 ```
 
 `should_run` is `false` when the `GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER` secret is unset. In that case the job is skipped and the required check never reports — every PR will be stuck at `mergeStateStatus: BLOCKED` until the secret is restored. If staging is intentionally decommissioned, remove `Staging Integration Tests` from the required-check list at the same time.
+
+The other four required checks (`Lint & Test`, `DB Integration Tests`, `Observability Stack Smoke Test`, `Playwright E2E`) live in `ci.yml` and have no staging-credential dependency.
 
 ## Inspecting and updating
 
