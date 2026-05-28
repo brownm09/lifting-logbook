@@ -9,6 +9,7 @@
     "lint": "eslint src",
     "test": "jest",
     "test:db": "jest --testPathPattern=db\\.e2e",
+    "db:generate": "prisma generate",
     "postinstall": "prisma generate"
   },
   "dependencies": {
