@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# bootstrap-gcp-prod.sh — one-time GCP bootstrap for lifting-logbook production deploy.
+# bootstrap-gcp.sh — one-time GCP bootstrap for a lifting-logbook deploy (prod or staging).
 #
 # Creates the GCP project, links a billing account, enables the bootstrap APIs that
 # Terraform itself needs in order to enable the rest of the APIs, and provisions the
@@ -12,17 +12,26 @@
 #   * Authenticated: `gcloud auth login` AND `gcloud auth application-default login`
 #
 # Usage:
-#   ./scripts/bootstrap-gcp-prod.sh <billing-account-id> [--project-id <id>] [--region <region>]
+#   ./scripts/bootstrap-gcp.sh <billing-account-id> \
+#     [--project-id <id>] [--project-name <name>] [--region <region>]
 #
-# Example:
-#   ./scripts/bootstrap-gcp-prod.sh 0X0X0X-0X0X0X-0X0X0X
+# Defaults: --project-id lifting-logbook-prod, --region us-central1.
+# --project-name defaults to "Lifting Logbook <Suffix>" where <Suffix> is the title-cased
+# segment after the last hyphen of --project-id (e.g., lifting-logbook-staging → "Lifting Logbook Staging").
+#
+# Examples:
+#   # Production (default)
+#   ./scripts/bootstrap-gcp.sh 0X0X0X-0X0X0X-0X0X0X
+#
+#   # Staging
+#   ./scripts/bootstrap-gcp.sh 0X0X0X-0X0X0X-0X0X0X --project-id lifting-logbook-staging
 #
 # Find your billing account ID with: gcloud billing accounts list
 
 set -euo pipefail
 
 PROJECT_ID="lifting-logbook-prod"
-PROJECT_NAME="Lifting Logbook Prod"
+PROJECT_NAME=""
 REGION="us-central1"
 BILLING=""
 
@@ -41,6 +50,10 @@ while (( $# > 0 )); do
   case "$1" in
     --project-id)
       PROJECT_ID="$2"
+      shift 2
+      ;;
+    --project-name)
+      PROJECT_NAME="$2"
       shift 2
       ;;
     --region)
@@ -67,10 +80,18 @@ while (( $# > 0 )); do
   esac
 done
 
+if [[ -z "$PROJECT_NAME" ]]; then
+  # Derive a human-readable name from the trailing segment of the project ID,
+  # title-cased (e.g., lifting-logbook-prod → "Lifting Logbook Prod",
+  # lifting-logbook-staging → "Lifting Logbook Staging").
+  SUFFIX="${PROJECT_ID##*-}"
+  PROJECT_NAME="Lifting Logbook ${SUFFIX^}"
+fi
+
 STATE_BUCKET="${PROJECT_ID}-tfstate"
 
 if [[ -z "$BILLING" ]]; then
-  echo "Usage: $0 <billing-account-id> [--project-id <id>] [--region <region>]" >&2
+  echo "Usage: $0 <billing-account-id> [--project-id <id>] [--project-name <name>] [--region <region>]" >&2
   echo "Find your billing account ID with: gcloud billing accounts list" >&2
   exit 2
 fi

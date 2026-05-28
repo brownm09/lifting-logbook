@@ -2,7 +2,7 @@
 #
 # deploy-prod-infra.sh — Terraform init/apply for the lifting-logbook production environment.
 #
-# Run this after bootstrap-gcp-prod.sh has completed. Each step is idempotent — safe
+# Run this after bootstrap-gcp.sh has completed. Each step is idempotent — safe
 # to re-run. Use --plan-only to preview changes without applying them.
 #
 # Prereqs:

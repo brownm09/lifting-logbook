@@ -77,19 +77,19 @@ Set a budget alert before running the bootstrap:
 
 ## Step 1 — Run the bootstrap script (~5 min)
 
-[`scripts/bootstrap-gcp-prod.sh`](../scripts/bootstrap-gcp-prod.sh) creates the
+[`scripts/bootstrap-gcp.sh`](../scripts/bootstrap-gcp.sh) creates the
 project, links your billing account, enables the two APIs Terraform itself
 needs, and creates the Terraform state bucket. Every step is idempotent — re-run
 it if anything fails partway.
 
 ```bash
-./scripts/bootstrap-gcp-prod.sh XXXXXX-XXXXXX-XXXXXX
+./scripts/bootstrap-gcp.sh XXXXXX-XXXXXX-XXXXXX
 ```
 
 To use a different project ID or region:
 
 ```bash
-./scripts/bootstrap-gcp-prod.sh XXXXXX-XXXXXX-XXXXXX \
+./scripts/bootstrap-gcp.sh XXXXXX-XXXXXX-XXXXXX \
   --project-id my-lifting-prod \
   --region us-east1
 ```
