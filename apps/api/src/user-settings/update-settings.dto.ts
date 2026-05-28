@@ -8,7 +8,9 @@ import {
   IsInt,
   IsObject,
   IsOptional,
+  IsString,
   Max,
+  MaxLength,
   Min,
   Validate,
   ValidateIf,
@@ -73,6 +75,11 @@ export class WorkoutScheduleDto implements UserWorkoutSchedule {
 }
 
 export class UpdateSettingsDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  activeProgram?: string;
+
   // null clears the schedule; undefined leaves it unchanged.
   @IsOptional()
   // Reject primitives like { workoutSchedule: "x" } that would otherwise bypass
