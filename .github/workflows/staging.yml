@@ -169,27 +169,46 @@ jobs:
       - uses: actions/checkout@v4
 
       # Decide whether to rebuild or reuse a prior image.
+      #
       # Reuse is only chosen when the diff is non-image-affecting AND a prior
-      # successful staging run exists on this PR's head ref. Otherwise we build
-      # fresh and tag the new image with the head SHA, preserving the
-      # SHA-as-image-tag invariant the rest of the pipeline relies on.
+      # successful staging run exists on this PR. When reusing, image_tag is set
+      # to the floating tag `pr-<N>` (which the build step below stamps onto
+      # every built image alongside `:<sha>`). The floating tag is the only
+      # reuse target that is guaranteed to point at an actually-pushed image:
+      #
+      # Using the prior run's headSha breaks after the second consecutive skip
+      # run, because that run's headSha is a commit at which *no image was
+      # built* — its own deploy reused an earlier SHA's image. Walking back the
+      # run list to find a non-skip run is brittle (job outputs aren't queryable
+      # via gh api), and re-tagging in Artifact Registry adds operational
+      # surface. The floating tag avoids all three failure modes at the cost of
+      # the SHA-as-image-tag invariant on skip runs only.
+      #
+      # On cold start (skip-eligible diff, no prior successful run on this PR),
+      # we fall through to a fresh build — see issue #358 cold-start discussion.
       - name: Resolve image tag
         id: image-tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [[ "${{ needs.preflight.outputs.image_affecting }}" == "false" ]]; then
-            PREV_SHA=$(gh run list \
+            # --branch is a ref filter, not a PR filter. Branch reuse across
+            # closed PRs could surface stale runs; the per-session unique
+            # `claude/<slug>` naming convention makes this effectively impossible
+            # in practice, and the floating-tag fallback below would still point
+            # at a real image even if it happened.
+            PREV_RUN=$(gh run list \
               --branch "${{ github.event.pull_request.head.ref }}" \
               --workflow staging.yml \
               --status success \
               --limit 1 \
-              --json headSha \
-              --jq '.[0].headSha // ""')
-            if [[ -n "$PREV_SHA" ]]; then
-              echo "image_tag=$PREV_SHA" >> "$GITHUB_OUTPUT"
+              --json databaseId \
+              --jq '.[0].databaseId // ""')
+            if [[ -n "$PREV_RUN" ]]; then
+              FLOATING_TAG="pr-${{ github.event.pull_request.number }}"
+              echo "image_tag=$FLOATING_TAG" >> "$GITHUB_OUTPUT"
               echo "skip_build=true" >> "$GITHUB_OUTPUT"
-              echo "Diff is non-image-affecting — reusing prior image tag: $PREV_SHA"
+              echo "Diff is non-image-affecting — reusing floating tag: $FLOATING_TAG (prior run id: $PREV_RUN)"
               exit 0
             fi
             echo "Diff is non-image-affecting but no prior successful run found — building fresh."
@@ -197,6 +216,13 @@ jobs:
           echo "image_tag=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
           echo "skip_build=false" >> "$GITHUB_OUTPUT"
 
+      # GUARD-DISCIPLINE: every step below `Resolve image tag` except `Resolve
+      # Artifact Registry repo` (which only echoes a pre-resolved value into a
+      # step output and is needed by downstream consumers) must carry
+      #   if: steps.image-tag.outputs.skip_build != 'true'
+      # Adding a step without that guard breaks the skip-build optimization
+      # silently for that step. If you add a step here, copy the guard from a
+      # neighboring step.
       - name: Authenticate to GCP (staging)
         if: steps.image-tag.outputs.skip_build != 'true'
         uses: google-github-actions/auth@v2
@@ -375,6 +401,12 @@ jobs:
             echo "No API pod found — Helm may have failed before pod creation"
           fi
 
+      # NOTE: this step is duplicated verbatim in `deploy-web` below. Both jobs
+      # need the gate independently because they run in parallel and either may
+      # fire its Cloud Run deploy first. If you change the secret name, the
+      # placeholder check, or the output shape here, update the copy in
+      # `deploy-web` in the same commit. The duplication is intentional (one
+      # extra ~5s Secret Manager call per deploy buys full intra-PR parallelism).
       - name: Check Clerk secret key configured
         id: clerk-check
         run: |
@@ -505,6 +537,8 @@ jobs:
             --set env.API_URL="$API_CLUSTER_URL" \
             --wait --timeout=10m
 
+      # NOTE: this step is duplicated verbatim from `deploy-api` above. See the
+      # comment there for the rationale; keep the two copies in sync.
       - name: Check Clerk secret key configured
         id: clerk-check
         run: |
