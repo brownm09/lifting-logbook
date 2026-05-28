@@ -21,7 +21,6 @@ const stubDashboard = () => ({
   cycleDate: new Date('2026-04-20T00:00:00.000Z'),
   sheetName: '',
   cycleStartWeekday: Weekday.Monday,
-  currentWeekType: 'training' as const,
 });
 
 const stubProgramSpec = () => [
@@ -128,7 +127,7 @@ describe('CycleGenerationService', () => {
       trainingMaxRepo.getTrainingMaxes.mockResolvedValue(stubTrainingMaxes());
       liftRecordRepo.getLiftRecords.mockResolvedValue(stubLiftRecords());
 
-      const result = await service.startNewCycle(repos, PROGRAM);
+      const { dashboard: result } = await service.startNewCycle(repos, PROGRAM);
 
       expect(result.cycleNum).toBe(2);
       expect(result.program).toBe(PROGRAM);
@@ -172,7 +171,7 @@ describe('CycleGenerationService', () => {
       trainingMaxRepo.getTrainingMaxes.mockResolvedValue(stubTrainingMaxes());
       liftRecordRepo.getLiftRecords.mockResolvedValue(stubLiftRecords());
 
-      const result = await service.startNewCycle(repos, PROGRAM, { fromCycleNum: 3 });
+      const { dashboard: result } = await service.startNewCycle(repos, PROGRAM, { fromCycleNum: 3 });
 
       expect(liftRecordRepo.getLiftRecords).toHaveBeenCalledWith(PROGRAM, 3);
       expect(result.cycleNum).toBe(4);
@@ -195,7 +194,7 @@ describe('CycleGenerationService', () => {
       trainingMaxRepo.getTrainingMaxes.mockResolvedValue(stubTrainingMaxes());
       liftRecordRepo.getLiftRecords.mockResolvedValue(stubLiftRecords());
 
-      const result = await service.startNewCycle(repos, PROGRAM, { cycleDate: '2026-06-01' });
+      const { dashboard: result } = await service.startNewCycle(repos, PROGRAM, { cycleDate: '2026-06-01' });
 
       expect(result.cycleDate).toEqual(new Date('2026-06-01T00:00:00.000Z'));
     });
@@ -239,7 +238,7 @@ describe('CycleGenerationService', () => {
         new ProgramNotFoundError(PROGRAM),
       );
 
-      const result = await service.initializeFirstCycle(
+      const { dashboard: result } = await service.initializeFirstCycle(
         repos,
         PROGRAM,
         { cycleDate: '2026-05-12' },
@@ -261,7 +260,7 @@ describe('CycleGenerationService', () => {
       );
 
       const before = new Date();
-      const result = await service.initializeFirstCycle(repos, PROGRAM);
+      const { dashboard: result } = await service.initializeFirstCycle(repos, PROGRAM);
       const after = new Date();
 
       expect(result.cycleDate.getTime()).toBeGreaterThanOrEqual(before.getTime() - 1000);

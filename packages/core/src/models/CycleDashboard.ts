@@ -18,6 +18,7 @@ export interface CycleDashboard {
   cycleDate: Date;
   sheetName: string;
   cycleStartWeekday: Weekday;
-  currentWeekType: WeekType;
+  // Derived at request time via weekTypeForDate(); not stored on the dashboard sheet.
+  currentWeekType?: WeekType;
   programType?: string;
 }

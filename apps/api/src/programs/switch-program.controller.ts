@@ -53,7 +53,7 @@ export class SwitchProgramController {
       cycleNum = existing.cycleNum;
     } catch (e) {
       if (e instanceof ProgramNotFoundError) {
-        const dashboard = await this.cycleGenerationService.initializeFirstCycle(repos, program);
+        const { dashboard } = await this.cycleGenerationService.initializeFirstCycle(repos, program);
         cycleNum = dashboard.cycleNum;
       } else {
         throw e;

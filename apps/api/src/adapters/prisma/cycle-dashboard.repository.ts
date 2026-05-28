@@ -21,7 +21,6 @@ export class PrismaCycleDashboardRepository implements ICycleDashboardRepository
       cycleDate: row.cycleDate,
       sheetName: row.sheetName,
       cycleStartWeekday: row.cycleStartWeekday as Weekday,
-      currentWeekType: row.currentWeekType as CycleDashboard['currentWeekType'],
       ...(row.programType !== null && { programType: row.programType }),
     };
   }
@@ -37,7 +36,6 @@ export class PrismaCycleDashboardRepository implements ICycleDashboardRepository
         cycleDate: dashboard.cycleDate,
         sheetName: dashboard.sheetName,
         cycleStartWeekday: dashboard.cycleStartWeekday,
-        currentWeekType: dashboard.currentWeekType,
         programType: dashboard.programType ?? null,
       },
       update: {
@@ -46,7 +44,6 @@ export class PrismaCycleDashboardRepository implements ICycleDashboardRepository
         cycleDate: dashboard.cycleDate,
         sheetName: dashboard.sheetName,
         cycleStartWeekday: dashboard.cycleStartWeekday,
-        currentWeekType: dashboard.currentWeekType,
         programType: dashboard.programType ?? null,
       },
     });

@@ -6,9 +6,25 @@ import { CycleGenerationController } from './cycle-generation.controller';
 import { CycleGenerationService } from './cycle-generation.service';
 
 const MOCK_USER = { id: 'test-user', email: 'test@example.com', provider: 'dev' };
-const MOCK_BUNDLE = {} as RepositoryBundle;
 
 const PROGRAM = '5-3-1';
+
+const stubProgramSpec = () => [{
+  week: 1,
+  offset: 0,
+  lift: 'Squat',
+  increment: 5,
+  order: 1,
+  sets: 3,
+  reps: 5,
+  amrap: false,
+  warmUpPct: '40,50,60',
+  wtDecrementPct: 0,
+  activation: 'None',
+  weekType: 'training' as const,
+}];
+
+const MOCK_BUNDLE = {} as RepositoryBundle;
 
 const stubCycleDashboard = () => ({
   program: PROGRAM,
@@ -17,7 +33,6 @@ const stubCycleDashboard = () => ({
   cycleDate: new Date('2026-04-27T00:00:00.000Z'),
   sheetName: '5-3-1_Cycle_2_20260427',
   cycleStartWeekday: Weekday.Monday,
-  currentWeekType: 'training' as const,
 });
 
 describe('CycleGenerationController', () => {
@@ -48,7 +63,7 @@ describe('CycleGenerationController', () => {
 
   describe('startNewCycle', () => {
     it('calls service with repos, program, and dto, returns mapped response', async () => {
-      service.startNewCycle.mockResolvedValue(stubCycleDashboard());
+      service.startNewCycle.mockResolvedValue({ dashboard: stubCycleDashboard(), programSpec: stubProgramSpec() });
 
       const result = await controller.startNewCycle(PROGRAM, {}, MOCK_USER);
 
@@ -64,7 +79,7 @@ describe('CycleGenerationController', () => {
     });
 
     it('passes fromCycleNum and cycleDate through to service', async () => {
-      service.startNewCycle.mockResolvedValue(stubCycleDashboard());
+      service.startNewCycle.mockResolvedValue({ dashboard: stubCycleDashboard(), programSpec: stubProgramSpec() });
 
       await controller.startNewCycle(PROGRAM, {
         fromCycleNum: 1,
@@ -94,12 +109,11 @@ describe('CycleGenerationController', () => {
       cycleDate: new Date('2026-05-12T00:00:00.000Z'),
       sheetName: '5-3-1_Cycle_1_20260512',
       cycleStartWeekday: Weekday.Monday,
-      currentWeekType: 'training' as const,
       programType: '5-3-1',
     });
 
     it('calls service with repos, program, and dto, returns mapped response', async () => {
-      service.initializeFirstCycle.mockResolvedValue(stubInitDashboard());
+      service.initializeFirstCycle.mockResolvedValue({ dashboard: stubInitDashboard(), programSpec: stubProgramSpec() });
 
       const result = await controller.initializeFirstCycle(PROGRAM, {}, MOCK_USER);
 
@@ -115,7 +129,7 @@ describe('CycleGenerationController', () => {
     });
 
     it('passes optional cycleDate through to service', async () => {
-      service.initializeFirstCycle.mockResolvedValue(stubInitDashboard());
+      service.initializeFirstCycle.mockResolvedValue({ dashboard: stubInitDashboard(), programSpec: stubProgramSpec() });
 
       await controller.initializeFirstCycle(PROGRAM, { cycleDate: '2026-05-12' }, MOCK_USER);
 

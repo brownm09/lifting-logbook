@@ -11,6 +11,7 @@ import {
   TrainingMaxHistoryEntry,
   updateCycle,
   updateMaxes,
+  weekTypeForDate,
   WEEKDAY_MAP,
   Weekday,
 } from '@lifting-logbook/core';
@@ -110,13 +111,18 @@ function buildHistoryEntries(
     }));
 }
 
+export interface CycleGenerationResult {
+  dashboard: CycleDashboard;
+  programSpec: LiftingProgramSpec[];
+}
+
 @Injectable()
 export class CycleGenerationService {
   async startNewCycle(
     repos: CycleRepos,
     program: string,
     dto: StartNewCycleDto = {},
-  ): Promise<CycleDashboard> {
+  ): Promise<CycleGenerationResult> {
     const dashboard = await repos.cycleDashboard.getCycleDashboard(program);
     const sourceCycleNum = dto.fromCycleNum ?? dashboard.cycleNum;
 
@@ -159,20 +165,23 @@ export class CycleGenerationService {
     }
     await repos.cycleDashboard.saveCycleDashboard(newCycle);
 
-    const source = dashboard.currentWeekType === 'test' ? 'test' : 'program';
+    // Source reflects the week type of the cycle being closed (the previous
+    // dashboard), not the new cycle being opened — hence `dashboard.cycleDate`,
+    // not `newCycle.cycleDate`.
+    const source = weekTypeForDate(dashboard.cycleDate, programSpec) === 'test' ? 'test' : 'program';
     const historyEntries = buildHistoryEntries(trainingMaxes, newMaxes, newCycle.cycleDate, source);
     if (historyEntries.length > 0) {
       await repos.trainingMaxHistory.appendHistoryEntries(program, historyEntries);
     }
 
-    return newCycle;
+    return { dashboard: newCycle, programSpec };
   }
 
   async initializeFirstCycle(
     repos: Pick<CycleRepos, 'cycleDashboard' | 'cycleScheduledWorkout' | 'liftingProgramSpec' | 'userSettings'>,
     program: string,
     dto: { cycleDate?: string } = {},
-  ): Promise<CycleDashboard> {
+  ): Promise<CycleGenerationResult> {
     // Guard: fail fast if a cycle already exists for this user+program
     try {
       await repos.cycleDashboard.getCycleDashboard(program);
@@ -206,17 +215,18 @@ export class CycleGenerationService {
       cycleDate,
       sheetName: `${program}_Cycle_1_${formatDateYYYYMMDD(cycleDate)}`,
       cycleStartWeekday: weekdayName,
-      currentWeekType: 'training',
       programType: defaults.programType,
     };
 
-    const settings = await repos.userSettings.getSettings();
+    const [settings, programSpec] = await Promise.all([
+      repos.userSettings.getSettings(),
+      repos.liftingProgramSpec.getProgramSpec(program),
+    ]);
     if (settings.workoutSchedule) {
-      const spec = await repos.liftingProgramSpec.getProgramSpec(program);
-      await saveScheduledDates(repos, program, dashboard.cycleNum, dashboard.cycleDate, spec, settings.workoutSchedule);
+      await saveScheduledDates(repos, program, dashboard.cycleNum, dashboard.cycleDate, programSpec, settings.workoutSchedule);
     }
     await repos.cycleDashboard.saveCycleDashboard(dashboard);
-    return dashboard;
+    return { dashboard, programSpec };
   }
 
   async recalculateMaxes(

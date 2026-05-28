@@ -21,7 +21,6 @@ export const seedCycleDashboard = (): CycleDashboard => ({
   cycleDate: new Date('2026-04-20T00:00:00.000Z'),
   sheetName: '',
   cycleStartWeekday: Weekday.Monday,
-  currentWeekType: 'training',
   programType: '5-3-1',
 });
 

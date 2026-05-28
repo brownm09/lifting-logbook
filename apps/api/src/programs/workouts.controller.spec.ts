@@ -77,7 +77,6 @@ describe('WorkoutsController', () => {
       cycleDate: new Date('2026-04-20T00:00:00.000Z'),
       sheetName: '',
       cycleStartWeekday: Weekday.Monday,
-      currentWeekType: 'training' as const,
     });
     specRepo.getProgramSpec.mockResolvedValue([
       {
@@ -155,7 +154,6 @@ describe('WorkoutsController', () => {
       cycleDate: new Date('2026-04-20T00:00:00.000Z'),
       sheetName: '',
       cycleStartWeekday: Weekday.Monday,
-      currentWeekType: 'training' as const,
     });
     workoutRepo.getWorkout.mockResolvedValue([]);
 
@@ -178,7 +176,6 @@ describe('WorkoutsController', () => {
       cycleDate: new Date('2026-04-20T00:00:00.000Z'),
       sheetName: '',
       cycleStartWeekday: Weekday.Monday,
-      currentWeekType: 'training' as const,
     });
     specRepo.getProgramSpec.mockResolvedValue([
       {
@@ -209,7 +206,6 @@ describe('WorkoutsController', () => {
       cycleDate: new Date('2026-04-20T00:00:00.000Z'),
       sheetName: '',
       cycleStartWeekday: Weekday.Monday,
-      currentWeekType: 'training' as const,
     };
     const baseSpec = [
       {
@@ -269,7 +265,6 @@ describe('WorkoutsController', () => {
       cycleDate: new Date('2026-04-20T00:00:00.000Z'),
       sheetName: '',
       cycleStartWeekday: Weekday.Monday,
-      currentWeekType: 'training' as const,
     };
     const twoLiftSpec = [
       { week: 1, offset: 0, lift: 'Squat', increment: 5, order: 1, sets: 3, reps: 5, amrap: false, warmUpPct: '', wtDecrementPct: 0, activation: 'compound' },
@@ -350,7 +345,6 @@ describe('WorkoutsController', () => {
       cycleDate: new Date('2026-04-20T00:00:00.000Z'),
       sheetName: '',
       cycleStartWeekday: Weekday.Monday,
-      currentWeekType: 'training' as const,
     };
     const spec = [
       { week: 1, offset: 0, lift: 'Squat', increment: 5, order: 1, sets: 3, reps: 5, amrap: false, warmUpPct: '', wtDecrementPct: 0, activation: 'compound' },

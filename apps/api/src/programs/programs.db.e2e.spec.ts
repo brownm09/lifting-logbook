@@ -126,7 +126,6 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
         cycleDate: dashboard.cycleDate,
         sheetName: dashboard.sheetName,
         cycleStartWeekday: dashboard.cycleStartWeekday,
-        currentWeekType: dashboard.currentWeekType,
         programType: dashboard.programType ?? null,
       },
     });
@@ -907,7 +906,6 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
           cycleDate: dash.cycleDate,
           sheetName: dash.sheetName,
           cycleStartWeekday: dash.cycleStartWeekday,
-          currentWeekType: dash.currentWeekType,
           programType: dash.programType ?? null,
         },
       });

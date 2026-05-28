@@ -12,15 +12,13 @@ import { CycleDashboardController } from './cycle-dashboard.controller';
 
 const MOCK_USER = { id: 'test-user', email: 'test@example.com', provider: 'dev' };
 
-const stubDashboard = (overrides: Partial<{ currentWeekType: 'training' | 'test' | 'deload' }> = {}) => ({
+const stubDashboard = () => ({
   program: '5-3-1',
   cycleUnit: 'week' as const,
   cycleNum: 2,
   cycleDate: new Date('2026-04-20T00:00:00.000Z'),
   sheetName: '',
   cycleStartWeekday: Weekday.Monday,
-  currentWeekType: 'training' as const,
-  ...overrides,
 });
 
 const stubSpec = (weekType: 'training' | 'test' | 'deload' = 'training') => [{
