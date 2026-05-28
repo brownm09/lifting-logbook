@@ -135,6 +135,8 @@ async function main() {
 
         for (let setNum = 1; setNum <= 3; setNum++) {
           const pct = weekType.pct[setNum - 1];
+          // Explicit undefined check — 0 would be a valid (if degenerate) percentage,
+          // so !pct would be incorrect here even though the other guards in this file use it.
           if (pct === undefined) throw new Error(`weekType.pct missing index ${setNum - 1}`);
           const weight = weightForSet(max, pct);
           const isAmrap = setNum === 3;
