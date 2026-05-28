@@ -30,7 +30,7 @@ This document maps every critical user flow to its test coverage across the API 
 | File | What it covers |
 |---|---|
 | `apps/api/src/programs/programs.e2e.spec.ts` | Full API surface via in-memory adapters. Runs on every `npm test`. |
-| `apps/api/src/programs/programs.db.e2e.spec.ts` | Full API surface via Prisma adapters. Requires `DATABASE_URL`. Run with `npm run test:db -w @lifting-logbook/api`. |
+| `apps/api/src/programs/programs.db.e2e.spec.ts` | Full API surface via Prisma adapters. Postgres is auto-provisioned by Jest globalSetup (Testcontainers locally; service container in CI). Runs on every `npm test -w @lifting-logbook/api` when Docker is available. |
 | `apps/api/src/observability/otel.e2e.spec.ts` | OTel + nestjs-pino trace correlation smoke test. |
 | `apps/api-legacy/tests/server.test.ts` | Legacy Express health check. |
 
@@ -78,14 +78,19 @@ Tracking issue: [#259](https://github.com/brownm09/lifting-logbook/issues/259)
 ## Running the Tests
 
 ```bash
-# In-memory suite (no DB required):
+# Full suite (in-memory + DB). With Docker running, Jest globalSetup spins up
+# a Postgres testcontainer automatically and runs migrations before tests:
 npm test -w @lifting-logbook/api
 
-# DB suite (requires DATABASE_URL):
-DATABASE_URL=postgresql://lifting:lifting@localhost:5433/lifting_test \
-  npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma
+# DB suite only:
 npm run test:db -w @lifting-logbook/api
 
-# Local DB via Docker:
-docker-compose -f docker-compose.test.yml up -d
+# CI passthrough: when DATABASE_URL is already set (e.g. the GitHub Actions
+# postgres service container), globalSetup uses it directly and skips
+# container startup. Run migrations yourself in this case before invoking jest.
 ```
+
+> **Docker prerequisite.** Without Docker, globalSetup fails fast with a
+> clear Testcontainers error. The DB E2E describe block then skips
+> (`LIFTING_TC_DATABASE_URL` is unset), letting the rest of the suite still
+> run if you need to iterate on non-DB code.

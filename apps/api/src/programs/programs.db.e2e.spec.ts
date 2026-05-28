@@ -1,9 +1,12 @@
-// Runs only when DATABASE_URL is set; skipped in the normal npm test / CI lint-and-test job.
-// CI: the db-integration job injects DATABASE_URL via a postgres service container.
-// Local: docker-compose.test.yml spins up Postgres on port 5433, then:
-//   DATABASE_URL=postgresql://lifting:lifting@localhost:5433/lifting_test \
-//   npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma && \
-//   npm test -w @lifting-logbook/api -- --testPathPattern=db.e2e
+// Real-Postgres E2E suite. Postgres is provisioned by jest.global-setup.js:
+//   - Local: an ephemeral container via @testcontainers/postgresql (Docker required).
+//   - CI:    passthrough of the DATABASE_URL already exported by the
+//            db-integration job's postgres service container.
+// globalSetup exposes the connection string via LIFTING_TC_DATABASE_URL; this
+// spec restores DATABASE_URL from that sentinel below, before AppModule is
+// instantiated. (jest.env.setup.js force-blanks DATABASE_URL in every worker so
+// the in-memory e2e suite keeps wiring InMemoryRepositoryFactory; its Proxy
+// allows this one specific restoration.)
 import 'reflect-metadata';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -51,11 +54,19 @@ async function cleanTestUsers(prisma: PrismaClient): Promise<void> {
   await prisma.customProgram.deleteMany({ where: { userId: { in: users } } });
 }
 
-const describeOrSkip = process.env.DATABASE_URL ? describe : describe.skip;
+const TC_DATABASE_URL = process.env.LIFTING_TC_DATABASE_URL;
+// Skip only when globalSetup did not provision a DB (e.g. Docker unavailable
+// and not running in CI). Normal local / CI runs always have it set.
+const describeOrSkip = TC_DATABASE_URL ? describe : describe.skip;
 
 describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
   let app: NestFastifyApplication;
   let prisma: PrismaClient;
+
+  beforeAll(() => {
+    // Allowed by jest.env.setup.js Proxy because value === LIFTING_TC_DATABASE_URL.
+    process.env.DATABASE_URL = TC_DATABASE_URL;
+  });
 
   const AUTH = { authorization: `Bearer ${TEST_USER}` };
 

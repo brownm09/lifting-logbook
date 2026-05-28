@@ -39,6 +39,17 @@ for (const key of BLOCK) {
 const originalEnv = process.env;
 process.env = new Proxy(originalEnv, {
   set(target, key, value) {
+    // Allow the DB E2E spec to restore DATABASE_URL from the Testcontainers
+    // sentinel set by jest.global-setup.js. This is the single legitimate
+    // write path for DATABASE_URL during a test run.
+    if (
+      String(key) === 'DATABASE_URL' &&
+      value &&
+      value === target.LIFTING_TC_DATABASE_URL
+    ) {
+      target[key] = value;
+      return true;
+    }
     if (BLOCK.includes(String(key))) {
       return true; // discard — blocked keys are frozen at ''
     }

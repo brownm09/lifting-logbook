@@ -321,7 +321,7 @@ npm test
 
 **Prerequisites:**
 - Run `npm run build` first if you have touched compiled output (e.g., API controllers, shared types in `packages/types`).
-- Integration tests that hit the database require `DATABASE_URL` to be set.
+- The API DB E2E suite (`apps/api/src/programs/programs.db.e2e.spec.ts`) auto-provisions Postgres via Testcontainers in `apps/api/jest.global-setup.js`. Docker Desktop must be running; no `DATABASE_URL` configuration is required locally. In CI, the existing service container provides `DATABASE_URL` and globalSetup uses it directly. See [`docs/testing/e2e-coverage.md`](docs/testing/e2e-coverage.md) for details.
 
 Individual workspaces can be verified independently:
 

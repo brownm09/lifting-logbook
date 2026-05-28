@@ -51,6 +51,7 @@
     "@nestjs/schematics": "^10.0.0",
     "@nestjs/testing": "^10.0.0",
     "@opentelemetry/sdk-trace-base": "^2.7.1",
+    "@testcontainers/postgresql": "^12.0.1",
     "@types/pg": "^8.11.0",
     "prisma": "^5.22.0",
     "ts-node": "^10.9.0",

@@ -84,7 +84,10 @@ infrastructure.
 
 - **Postgres adapter:** Use [Testcontainers for Node.js](https://node.testcontainers.org/) to
   spin up a real Postgres instance in Docker during the test run. Migrations run against it
-  before the test suite. Torn down after.
+  before the test suite. Torn down after. (Implemented in
+  [#264](https://github.com/brownm09/lifting-logbook/issues/264) via
+  `apps/api/jest.global-setup.js`. CI continues to use the existing service container; globalSetup
+  detects a pre-set `DATABASE_URL` and skips container startup.)
 - **Google Sheets adapter:** Use a dedicated test Google Sheets spreadsheet (ID stored in
   `TEST_SHEETS_SPREADSHEET_ID` environment variable). Tests are skipped in environments where
   that variable is not set (e.g., local developer machines without service account credentials).

@@ -116,7 +116,7 @@ npm run dev
 | Command | Description |
 |---|---|
 | `npm run build` | Build all packages and apps |
-| `npm run test` | Run all tests |
+| `npm run test` | Run all tests (Docker required — the API DB E2E suite auto-provisions Postgres via Testcontainers) |
 | `npm run lint` | Lint all packages and apps |
 | `npm run dev` | Start all apps in development mode |
 
