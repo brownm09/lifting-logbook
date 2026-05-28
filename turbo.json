@@ -2,8 +2,8 @@
   "$schema": "https://turbo.build/schema.json",
   "tasks": {
     "db:generate": {
-      "inputs": ["prisma/schema.prisma"],
-      "outputs": ["node_modules/.prisma/**", "../../node_modules/.prisma/**"]
+      "inputs": ["prisma/schema.prisma", "package.json", "../../package-lock.json"],
+      "outputs": ["node_modules/.prisma/**"]
     },
     "build": {
       "dependsOn": ["^build", "db:generate"],
@@ -11,7 +11,7 @@
       "inputs": ["src/**", "app/**", "!src/**/*.test.ts", "!src/**/*.spec.ts", "!src/**/__tests__/**", "tsconfig.json", "package.json", "next.config.*"]
     },
     "test": {
-      "dependsOn": ["build", "db:generate"],
+      "dependsOn": ["build"],
       "cache": false
     },
     "lint": {
