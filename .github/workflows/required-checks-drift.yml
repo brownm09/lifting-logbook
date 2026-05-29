@@ -1,0 +1,153 @@
+name: Required Checks Drift
+
+on:
+  schedule:
+    # Mondays at 13:17 UTC (~09:17 ET). Off-peak; avoids top-of-hour scheduler congestion.
+    - cron: '17 13 * * 1'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/expected-required-checks.json'
+      - '.github/workflows/required-checks-drift.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+# Serialize runs so a schedule tick and a workflow_dispatch (or push) cannot
+# both read an empty `gh issue list` and each create a duplicate drift issue.
+# cancel-in-progress: false — the second run still needs to complete and post
+# a comment / fail red; we don't want it cancelled.
+concurrency:
+  group: required-checks-drift
+  cancel-in-progress: false
+
+jobs:
+  drift-check:
+    name: Detect required-checks drift
+    runs-on: ubuntu-latest
+    # The whole pipeline runs in <30s; 5 minutes is a generous bound on
+    # transient GitHub API hangs without burning the default 6h timeout.
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch live required-status-checks
+        env:
+          # Branch-protection endpoints require Administration:read, which
+          # GITHUB_TOKEN does not grant. BRANCH_PROTECTION_READ_TOKEN is a
+          # fine-grained PAT with that single scope. The fallback to
+          # GITHUB_TOKEN keeps the workflow loud-red if the secret is ever
+          # missing or expired (it 403s), rather than silently green.
+          GH_TOKEN: ${{ secrets.BRANCH_PROTECTION_READ_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${{ github.repository }}/branches/main/protection/required_status_checks" \
+            > actual.json
+          cat actual.json
+
+      - name: Compute drift
+        id: diff
+        run: |
+          set -euo pipefail
+          node <<'EOF'
+          const fs = require('fs');
+          const expected = JSON.parse(fs.readFileSync('.github/expected-required-checks.json', 'utf8')).contexts;
+          const actual = JSON.parse(fs.readFileSync('actual.json', 'utf8')).contexts;
+          const sortedExpected = [...expected].sort();
+          const sortedActual = [...actual].sort();
+          const expectedSet = new Set(sortedExpected);
+          const actualSet = new Set(sortedActual);
+          const missing = sortedExpected.filter(c => !actualSet.has(c));
+          const extra = sortedActual.filter(c => !expectedSet.has(c));
+          const drift = missing.length > 0 || extra.length > 0;
+
+          const lines = [];
+          lines.push('# Required-checks drift detected');
+          lines.push('');
+          lines.push(`Run: ${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`);
+          lines.push('');
+          lines.push('## Expected (`.github/expected-required-checks.json`)');
+          lines.push('');
+          for (const c of sortedExpected) lines.push(`- \`${c}\``);
+          lines.push('');
+          lines.push('## Actual (live `main` branch protection)');
+          lines.push('');
+          for (const c of sortedActual) lines.push(`- \`${c}\``);
+          lines.push('');
+          lines.push('## Missing from live protection (expected − actual)');
+          lines.push('');
+          if (missing.length === 0) lines.push('_(none)_');
+          else for (const c of missing) lines.push(`- \`${c}\``);
+          lines.push('');
+          lines.push('## Extra in live protection (actual − expected)');
+          lines.push('');
+          if (extra.length === 0) lines.push('_(none)_');
+          else for (const c of extra) lines.push(`- \`${c}\``);
+          lines.push('');
+          lines.push('## To fix');
+          lines.push('');
+          lines.push('Either update `.github/expected-required-checks.json` to match live protection, or update live protection to match the file (see `docs/operations/branch-protection.md` for the `gh api -X PATCH` command).');
+
+          fs.writeFileSync('body.md', lines.join('\n') + '\n');
+          fs.writeFileSync('drift.txt', drift ? '1' : '0');
+
+          if (drift) {
+            console.log('Drift detected.');
+            console.log('Missing:', missing);
+            console.log('Extra:', extra);
+          } else {
+            console.log('No drift. Expected and actual required-check sets match.');
+          }
+          EOF
+          echo "drift=$(cat drift.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Upload diagnostic artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: drift-diagnostics
+          path: |
+            actual.json
+            body.md
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Open or update drift issue(s)
+        if: steps.diff.outputs.drift == '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh label create required-checks-drift \
+            --description "Branch-protection required-check set diverges from .github/expected-required-checks.json" \
+            --color B60205 \
+            --force
+          # Comment on every open drift issue (typically 0 or 1). Looping
+          # handles the rare case of multiple open issues (manual creation,
+          # reopened old issue) without silently ignoring extras.
+          mapfile -t EXISTING < <(gh issue list \
+            --label required-checks-drift \
+            --state open \
+            --json number \
+            --jq '.[].number')
+          if [ "${#EXISTING[@]}" -gt 0 ]; then
+            for N in "${EXISTING[@]}"; do
+              echo "Updating existing issue #$N"
+              gh issue comment "$N" --body-file body.md
+            done
+          else
+            echo "Creating new drift issue"
+            gh issue create \
+              --label required-checks-drift \
+              --title "Required-checks drift detected" \
+              --body-file body.md
+          fi
+
+      - name: Fail run when drift detected
+        if: steps.diff.outputs.drift == '1'
+        run: |
+          echo "Required-checks drift detected — see the 'Compute drift' step output and the linked issue(s)."
+          exit 1
