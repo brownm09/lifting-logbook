@@ -38,6 +38,11 @@ spec:
                 secretKeyRef:
                   name: {{ include "lifting-logbook-web.fullname" . }}-secrets
                   key: clerk-publishable-key
+            - name: CLERK_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "lifting-logbook-web.fullname" . }}-secrets
+                  key: clerk-secret-key
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           livenessProbe:
