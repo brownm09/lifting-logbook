@@ -177,6 +177,34 @@ jobs:
             echo "url=${URL}" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Resolve Clerk publishable key for web image build
+        id: clerk-pub
+        run: |
+          # NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is build-time embedded in the
+          # Next.js bundle (see apps/web/Dockerfile ARG). Without it, `next
+          # build` aborts on /_not-found prerender because <ClerkProvider>
+          # in the root layout throws "Missing publishableKey". The image
+          # is shared between staging and production deploys (cache reuse
+          # by tag=github.sha), so we follow the same staging-vs-prod
+          # convention as `Resolve API URL` above.
+          if [[ "${{ needs.preflight.outputs.staging_enabled }}" == "true" ]]; then
+            KEY=$(gcloud secrets versions access latest \
+              --secret="lifting-logbook-stg-clerk-publishable-key" \
+              --project="${{ vars.GCP_STAGING_PROJECT_ID }}")
+          else
+            KEY=$(gcloud secrets versions access latest \
+              --secret="lifting-logbook-prod-clerk-publishable-key" \
+              --project="${{ vars.GCP_PROD_PROJECT_ID }}")
+          fi
+          [ -n "$KEY" ] || { echo "ERROR: clerk-publishable-key fetch returned empty"; exit 1; }
+          # Use ::add-mask:: so the key never appears in logs even though
+          # it is a publishable (non-secret) Clerk key. Defense in depth.
+          echo "::add-mask::$KEY"
+          # GITHUB_OUTPUT does not accept multi-line values without delimiters
+          # but the Clerk publishable key is a single line so a direct echo
+          # is safe.
+          echo "key=${KEY}" >> "$GITHUB_OUTPUT"
+
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
 
@@ -206,6 +234,7 @@ jobs:
             ${{ steps.ar.outputs.repo }}/web:latest
           build-args: |
             NEXT_PUBLIC_API_URL=${{ steps.api-url.outputs.url }}
+            NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ steps.clerk-pub.outputs.key }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
