@@ -273,9 +273,13 @@ jobs:
           CLERK_PUB=$(gcloud secrets versions access latest \
             --secret="lifting-logbook-stg-clerk-publishable-key" \
             --project="${{ vars.GCP_STAGING_PROJECT_ID }}")
+          CLERK_KEY=$(gcloud secrets versions access latest \
+            --secret="lifting-logbook-stg-clerk-secret-key" \
+            --project="${{ vars.GCP_STAGING_PROJECT_ID }}")
           kubectl create secret generic web-secrets \
             --namespace=staging \
             --from-literal=clerk-publishable-key="$CLERK_PUB" \
+            --from-literal=clerk-secret-key="$CLERK_KEY" \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Helm deploy API (GKE staging)
@@ -467,9 +471,13 @@ jobs:
           CLERK_PUB=$(gcloud secrets versions access latest \
             --secret="lifting-logbook-prod-clerk-publishable-key" \
             --project="${{ vars.GCP_PROD_PROJECT_ID }}")
+          CLERK_KEY=$(gcloud secrets versions access latest \
+            --secret="lifting-logbook-prod-clerk-secret-key" \
+            --project="${{ vars.GCP_PROD_PROJECT_ID }}")
           kubectl create secret generic web-secrets \
             --namespace=production \
             --from-literal=clerk-publishable-key="$CLERK_PUB" \
+            --from-literal=clerk-secret-key="$CLERK_KEY" \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Helm deploy API (GKE production)

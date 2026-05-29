@@ -43,3 +43,8 @@ spec:
                 secretKeyRef:
                   name: lifting-logbook-prod-clerk-publishable-key
                   key: latest
+            - name: CLERK_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: lifting-logbook-prod-clerk-secret-key
+                  key: latest
