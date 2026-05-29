@@ -273,9 +273,11 @@ jobs:
           CLERK_PUB=$(gcloud secrets versions access latest \
             --secret="lifting-logbook-stg-clerk-publishable-key" \
             --project="${{ vars.GCP_STAGING_PROJECT_ID }}")
+          [ -n "$CLERK_PUB" ] || { echo "ERROR: clerk-publishable-key fetch returned empty (staging)"; exit 1; }
           CLERK_KEY=$(gcloud secrets versions access latest \
             --secret="lifting-logbook-stg-clerk-secret-key" \
             --project="${{ vars.GCP_STAGING_PROJECT_ID }}")
+          [ -n "$CLERK_KEY" ] || { echo "ERROR: clerk-secret-key fetch returned empty (staging)"; exit 1; }
           kubectl create secret generic web-secrets \
             --namespace=staging \
             --from-literal=clerk-publishable-key="$CLERK_PUB" \
@@ -471,9 +473,11 @@ jobs:
           CLERK_PUB=$(gcloud secrets versions access latest \
             --secret="lifting-logbook-prod-clerk-publishable-key" \
             --project="${{ vars.GCP_PROD_PROJECT_ID }}")
+          [ -n "$CLERK_PUB" ] || { echo "ERROR: clerk-publishable-key fetch returned empty (production)"; exit 1; }
           CLERK_KEY=$(gcloud secrets versions access latest \
             --secret="lifting-logbook-prod-clerk-secret-key" \
             --project="${{ vars.GCP_PROD_PROJECT_ID }}")
+          [ -n "$CLERK_KEY" ] || { echo "ERROR: clerk-secret-key fetch returned empty (production)"; exit 1; }
           kubectl create secret generic web-secrets \
             --namespace=production \
             --from-literal=clerk-publishable-key="$CLERK_PUB" \
