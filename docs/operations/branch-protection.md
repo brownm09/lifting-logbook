@@ -21,6 +21,8 @@ The job `name:` values match the required-check contexts character-for-character
 
 When changing the required-check set, edit the JSON in the same PR that updates live branch protection. The table above must also be kept in sync — the workflow only enforces JSON-vs-live, not table-vs-JSON.
 
+**Auth note.** The branch-protection read endpoint requires `Administration: read`, which the default `GITHUB_TOKEN` does not grant. The workflow uses a repo secret `BRANCH_PROTECTION_READ_TOKEN` — a fine-grained PAT scoped to this repo with `Administration: read` only. If the secret is missing or expired, the workflow falls back to `GITHUB_TOKEN`, which 403s on the protection endpoint and surfaces a loud-red failure rather than a silent pass. Rotate the PAT before its GitHub-emailed expiration notice and overwrite the secret via Settings → Secrets and variables → Actions (or `gh secret set BRANCH_PROTECTION_READ_TOKEN`).
+
 ## Staging-credential dependency
 
 One of the five required checks — `Staging Integration Tests` — is gated by the staging workflow's preflight. The `staging-integration-tests` job's `if:` condition is:

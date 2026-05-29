@@ -16,16 +16,32 @@ permissions:
   contents: read
   issues: write
 
+# Serialize runs so a schedule tick and a workflow_dispatch (or push) cannot
+# both read an empty `gh issue list` and each create a duplicate drift issue.
+# cancel-in-progress: false — the second run still needs to complete and post
+# a comment / fail red; we don't want it cancelled.
+concurrency:
+  group: required-checks-drift
+  cancel-in-progress: false
+
 jobs:
   drift-check:
     name: Detect required-checks drift
     runs-on: ubuntu-latest
+    # The whole pipeline runs in <30s; 5 minutes is a generous bound on
+    # transient GitHub API hangs without burning the default 6h timeout.
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
 
       - name: Fetch live required-status-checks
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Branch-protection endpoints require Administration:read, which
+          # GITHUB_TOKEN does not grant. BRANCH_PROTECTION_READ_TOKEN is a
+          # fine-grained PAT with that single scope. The fallback to
+          # GITHUB_TOKEN keeps the workflow loud-red if the secret is ever
+          # missing or expired (it 403s), rather than silently green.
+          GH_TOKEN: ${{ secrets.BRANCH_PROTECTION_READ_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           gh api "repos/${{ github.repository }}/branches/main/protection/required_status_checks" \
@@ -88,7 +104,18 @@ jobs:
           EOF
           echo "drift=$(cat drift.txt)" >> "$GITHUB_OUTPUT"
 
-      - name: Open or update drift issue
+      - name: Upload diagnostic artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: drift-diagnostics
+          path: |
+            actual.json
+            body.md
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Open or update drift issue(s)
         if: steps.diff.outputs.drift == '1'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -98,14 +125,19 @@ jobs:
             --description "Branch-protection required-check set diverges from .github/expected-required-checks.json" \
             --color B60205 \
             --force
-          EXISTING=$(gh issue list \
+          # Comment on every open drift issue (typically 0 or 1). Looping
+          # handles the rare case of multiple open issues (manual creation,
+          # reopened old issue) without silently ignoring extras.
+          mapfile -t EXISTING < <(gh issue list \
             --label required-checks-drift \
             --state open \
             --json number \
-            --jq '.[0].number // empty')
-          if [ -n "$EXISTING" ]; then
-            echo "Updating existing issue #$EXISTING"
-            gh issue comment "$EXISTING" --body-file body.md
+            --jq '.[].number')
+          if [ "${#EXISTING[@]}" -gt 0 ]; then
+            for N in "${EXISTING[@]}"; do
+              echo "Updating existing issue #$N"
+              gh issue comment "$N" --body-file body.md
+            done
           else
             echo "Creating new drift issue"
             gh issue create \
@@ -117,5 +149,5 @@ jobs:
       - name: Fail run when drift detected
         if: steps.diff.outputs.drift == '1'
         run: |
-          echo "Required-checks drift detected — see the 'Compute drift' step output and the linked issue."
+          echo "Required-checks drift detected — see the 'Compute drift' step output and the linked issue(s)."
           exit 1
