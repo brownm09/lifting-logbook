@@ -1,3 +1,5 @@
+import { UserButton } from '@clerk/nextjs';
+
 export default function CycleLayout({
   children,
 }: {
@@ -12,6 +14,7 @@ export default function CycleLayout({
           <a href="/programs">Programs</a>
           <a href="/settings/training-maxes">Settings</a>
         </nav>
+        <UserButton afterSignOutUrl="/sign-in" />
       </header>
       {children}
     </main>

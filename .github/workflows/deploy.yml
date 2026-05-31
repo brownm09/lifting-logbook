@@ -362,6 +362,7 @@ jobs:
             --allow-unauthenticated \
             --service-account="${{ needs.terraform-staging.outputs.web_workload_sa }}" \
             --set-env-vars="API_URL=${{ needs.terraform-staging.outputs.cloud_run_api_url }}" \
+            --update-secrets="CLERK_SECRET_KEY=lifting-logbook-stg-clerk-secret-key:latest,NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=lifting-logbook-stg-clerk-publishable-key:latest" \
             --quiet
 
   # ── 4. Smoke test staging ────────────────────────────────────────────────
@@ -561,6 +562,7 @@ jobs:
             --allow-unauthenticated \
             --service-account="${{ steps.tf-prod.outputs.web_workload_sa }}" \
             --set-env-vars="API_URL=${{ steps.tf-prod.outputs.cloud_run_api_url }}" \
+            --update-secrets="CLERK_SECRET_KEY=lifting-logbook-prod-clerk-secret-key:latest,NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=lifting-logbook-prod-clerk-publishable-key:latest" \
             --quiet
 
       - name: Print deployment URLs
