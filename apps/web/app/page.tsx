@@ -1,7 +1,13 @@
+import { auth } from "@clerk/nextjs/server";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import styles from "./home.module.css";
 
-export default function Home() {
+export default async function Home() {
+  if (!process.env.DEV_AUTH_TOKEN) {
+    const { userId } = await auth();
+    if (userId) redirect("/cycle");
+  }
   return (
     <main className={styles.page}>
       <div className={styles.card}>
