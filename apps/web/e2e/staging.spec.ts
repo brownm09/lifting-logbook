@@ -9,14 +9,20 @@ import { test, expect } from '@playwright/test';
 // - Write-path tests must be idempotent or self-cleaning
 
 // ---------------------------------------------------------------------------
-// 1. Home page renders
+// 1. Home page redirects signed-in users to the authenticated landing page
+//
+// Per #384, `/` is now an async server component that calls `auth()` and
+// redirects signed-in users to `/cycle`. The marketing card is reserved for
+// signed-out visitors and is exercised by Jest in apps/web/app/page.test.tsx
+// (renderToStaticMarkup assertions). The staging suite runs with a saved
+// Clerk session, so the only observable behavior here is the redirect itself.
+// `/cycle` further redirects to `/onboarding` when the test user has no
+// active cycle, so accept either landing URL.
 // ---------------------------------------------------------------------------
 
-test('home page renders with primary navigation', async ({ page }) => {
+test('home page redirects signed-in users to /cycle (or /onboarding)', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Lifting Logbook' })).toBeVisible();
-  await expect(page.getByRole('link', { name: /Current Cycle/i })).toBeVisible();
-  await expect(page.getByRole('link', { name: /Get Started/i })).toBeVisible();
+  await expect(page).toHaveURL(/\/(cycle(\/\d+)?|onboarding)$/, { timeout: 15_000 });
 });
 
 // ---------------------------------------------------------------------------
@@ -25,7 +31,7 @@ test('home page renders with primary navigation', async ({ page }) => {
 // Structure-only assertion is intentional: the program catalog is rendered
 // from static data in apps/web/lib/programs.ts, so the page renders even
 // when the `.catch(() => DEFAULT_SETTINGS)` and `.catch(() => [])` fallbacks
-// in apps/web/app/programs/page.tsx:10-11 are exercised. The staging test
+// in apps/web/app/(authed)/programs/page.tsx:10-11 are exercised. The staging test
 // user has no custom programs, so no real-data assertion would distinguish
 // the success and fallback paths here. API-success detection is delegated
 // to test 5 (auth/API propagation against /api/health).
@@ -42,7 +48,7 @@ test('programs page catalog loads', async ({ page }) => {
 //
 // Structure-only assertion is intentional: the staging test user has no
 // records, so neither real data nor the fallback `[]` from
-// apps/web/app/history/page.tsx:37-38 produces visible content. The API
+// apps/web/app/(authed)/history/page.tsx:37-38 produces visible content. The API
 // success path for history fetches is covered indirectly by test 5
 // (auth/API propagation against /api/health).
 // ---------------------------------------------------------------------------
@@ -62,7 +68,7 @@ test('history page renders both tabs', async ({ page }) => {
 // 4. Cycle dashboard renders (or onboarding if no cycle exists)
 //
 // The URL-or-onboarding tolerance is intentional: the staging test user
-// has no active cycle, so the try/catch in apps/web/app/cycle/page.tsx:10-16
+// has no active cycle, so the try/catch in apps/web/app/(authed)/cycle/page.tsx:10-16
 // redirects to /onboarding on both "no cycle" and "API failed". This test
 // cannot distinguish the two; API-failure detection is delegated to test 5
 // which calls /api/health and asserts a specific HTTP 200.

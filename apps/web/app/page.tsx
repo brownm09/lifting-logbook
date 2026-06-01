@@ -1,7 +1,20 @@
+import { auth } from "@clerk/nextjs/server";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import styles from "./home.module.css";
 
-export default function Home() {
+// `DEV_AUTH_TOKEN` mirrors the middleware/layout escape hatch for mock-API
+// dev mode, hard-gated to non-production so it cannot bypass auth in deployed
+// environments. See `app/(authed)/layout.tsx` for the rationale.
+export default async function Home() {
+  // Bracket access on NODE_ENV defeats Next.js's SWC transform that would
+  // otherwise inline the build-time value and make the runtime check unreachable.
+  const devBypass =
+    process.env["NODE_ENV"] !== "production" && process.env.DEV_AUTH_TOKEN;
+  if (!devBypass) {
+    const { userId } = await auth();
+    if (userId) redirect("/cycle");
+  }
   return (
     <main className={styles.page}>
       <div className={styles.card}>
