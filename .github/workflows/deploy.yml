@@ -448,20 +448,43 @@ jobs:
     if: needs.preflight.outputs.staging_enabled == 'true' && needs.deploy-staging.result == 'success'
 
     steps:
-      - name: Smoke test Cloud Run staging (web)
+      # Two-probe staging smoke (#402). One probe owned by app code (/healthz),
+      # one by the user-facing auth flow (/sign-in). They distinguish three
+      # failure modes that a single `/` probe collapsed into "404":
+      #   /healthz 200, /sign-in 200 → safe to promote
+      #   /healthz 200, /sign-in non-200 → Clerk middleware misconfigured
+      #   /healthz non-200 → Next.js runtime not booting
+      # /healthz is excluded from clerkMiddleware's matcher; /sign-in is
+      # auth-public via createRouteMatcher.
+      - name: Smoke test Cloud Run staging — /healthz (web runtime)
         run: |
+          BASE_URL="${{ needs.terraform-staging.outputs.cloud_run_web_url }}"
           # Allow up to 3 minutes for Cloud Run to become healthy
           for i in $(seq 1 18); do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-              "${{ needs.terraform-staging.outputs.cloud_run_web_url }}/" || true)
-            if [ "$STATUS" = "200" ] || [ "$STATUS" = "307" ]; then
-              echo "Staging web returned $STATUS — OK"
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/healthz" || true)
+            if [ "$STATUS" = "200" ]; then
+              echo "Staging /healthz returned 200 — OK"
               exit 0
             fi
-            echo "Attempt $i: got $STATUS, retrying in 10s..."
+            echo "/healthz attempt $i: got $STATUS, retrying in 10s..."
             sleep 10
           done
-          echo "Staging smoke test timed out" && exit 1
+          echo "Staging /healthz smoke FAILED — Next.js runtime not serving 200 (probe owned by app code, distinct from Clerk auth flow)" && exit 1
+
+      - name: Smoke test Cloud Run staging — /sign-in (Clerk auth flow)
+        run: |
+          BASE_URL="${{ needs.terraform-staging.outputs.cloud_run_web_url }}"
+          # Allow up to 3 minutes for Clerk middleware + sign-in route to settle
+          for i in $(seq 1 18); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/sign-in" || true)
+            if [ "$STATUS" = "200" ]; then
+              echo "Staging /sign-in returned 200 — OK"
+              exit 0
+            fi
+            echo "/sign-in attempt $i: got $STATUS, retrying in 10s..."
+            sleep 10
+          done
+          echo "Staging /sign-in smoke FAILED — runtime healthy but Clerk auth flow not serving 200 (check middleware matcher and Clerk env vars)" && exit 1
 
       - name: Smoke test Cloud Run staging (API auth check)
         run: |
