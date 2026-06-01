@@ -50,8 +50,12 @@ livenessProbe:
   periodSeconds: 20
 
 readinessProbe:
+  # Hits a route that exercises clerkMiddleware so a Clerk-init failure
+  # (e.g. missing CLERK_SECRET_KEY, as in #382) fails readiness during
+  # rollout instead of being masked by a statically-prerendered `/`.
+  # Liveness stays on `/` so transient middleware blips don't crash-loop.
   httpGet:
-    path: /
+    path: /api/healthz
     port: 3001
   initialDelaySeconds: 5
   periodSeconds: 10
