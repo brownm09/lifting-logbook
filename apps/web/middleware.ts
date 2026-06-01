@@ -31,8 +31,13 @@ export default function middleware(request: NextRequest, event: NextFetchEvent) 
 export const config = {
   // Standard Clerk matcher — excludes static assets (_next, images, fonts, etc.)
   // so the middleware only runs on page and API routes.
+  //
+  // `healthz` is also negated: the /healthz route (#402) is a pure runtime
+  // liveness probe that must NOT enter clerkMiddleware. It is distinct from
+  // /api/healthz (#395), which deliberately runs through Clerk to detect
+  // init failures — the (api|trpc) line below still captures that one.
   matcher: [
-    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    '/((?!_next|healthz|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
     '/(api|trpc)(.*)',
   ],
 };
