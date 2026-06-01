@@ -19,6 +19,12 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // When DEV_AUTH_TOKEN is set (Playwright CI, local dev-auth mode), the
+  // middleware bypasses clerkMiddleware() entirely. Rendering <SignedIn> in
+  // that mode would call auth() server-side without middleware having run,
+  // which throws and crashes the page tree. Skip the Clerk UI in that mode.
+  const devAuthMode = Boolean(process.env.DEV_AUTH_TOKEN);
+
   return (
     <ClerkProvider>
       <html lang="en" suppressHydrationWarning>
@@ -27,18 +33,20 @@ export default function RootLayout({
         </head>
         <body>
           <ClerkApiInitializer />
-          <SignedIn>
-            <div
-              style={{
-                position: 'fixed',
-                top: '1rem',
-                right: '1rem',
-                zIndex: 50,
-              }}
-            >
-              <UserButton afterSignOutUrl="/sign-in" />
-            </div>
-          </SignedIn>
+          {!devAuthMode && (
+            <SignedIn>
+              <div
+                style={{
+                  position: 'fixed',
+                  top: '1rem',
+                  right: '1rem',
+                  zIndex: 50,
+                }}
+              >
+                <UserButton afterSignOutUrl="/sign-in" />
+              </div>
+            </SignedIn>
+          )}
           {children}
         </body>
       </html>
