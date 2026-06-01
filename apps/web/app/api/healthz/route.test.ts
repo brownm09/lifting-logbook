@@ -34,19 +34,27 @@ describe('GET /api/healthz', () => {
     expect(mockedAuth).toHaveBeenCalledTimes(1);
   });
 
-  // Regression test for #382 / #385: a Clerk-init failure must fail readiness,
-  // not be hidden behind a 200 from a statically-rendered page.
-  it('returns 503 with the error message when Clerk auth() throws', async () => {
+  // Regression test for #385: when auth() throws (e.g., the route fell outside
+  // clerkMiddleware's matcher and the auth-status header is absent), the probe
+  // must return 503 so readiness fails. The error message is logged server-side
+  // but deliberately not included in the response body — see route.ts.
+  it('returns 503 with no error body when auth() throws', async () => {
     delete process.env.DEV_AUTH_TOKEN;
+    const consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
     mockedAuth.mockRejectedValueOnce(new Error('Missing CLERK_SECRET_KEY'));
 
     const res = await GET();
 
     expect(res.status).toBe(503);
-    expect(await res.json()).toEqual({
-      ok: false,
-      error: 'Missing CLERK_SECRET_KEY',
-    });
+    expect(await res.json()).toEqual({ ok: false });
+    // The original error is logged server-side for operators.
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('[healthz]'),
+      expect.objectContaining({ message: 'Missing CLERK_SECRET_KEY' }),
+    );
+    consoleErrorSpy.mockRestore();
   });
 
   it('skips Clerk and returns ok:true in DEV_AUTH_TOKEN mode', async () => {

@@ -6,8 +6,10 @@ const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)',
   '/sign-up(.*)',
   // Kubernetes readiness probe — must run through clerkMiddleware (to exercise
-  // Clerk init) but must not be redirected to /sign-in. See #385.
-  '/api/healthz',
+  // Clerk init) but must not be redirected to /sign-in. See #385. The `(.*)`
+  // suffix matches the sibling sign-in/sign-up patterns and tolerates trailing
+  // slashes or future sub-paths without re-opening the original issue.
+  '/api/healthz(.*)',
 ]);
 
 const clerkHandler = clerkMiddleware(async (auth, request) => {
