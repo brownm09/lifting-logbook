@@ -29,6 +29,14 @@ on:
     branches:
       - main
 
+# Serialize Deploy runs on main so back-to-back pushes do not race the staging
+# Terraform state lock (HTTP 412 conditionNotMet on the GCS-backed backend).
+# cancel-in-progress: false queues subsequent runs rather than cancelling — a
+# production deploy in flight must never be aborted by a later push. See #401.
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
 env:
   REGISTRY: us-central1-docker.pkg.dev
   ARTIFACT_REPO: lifting-logbook
