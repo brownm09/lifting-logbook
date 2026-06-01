@@ -43,15 +43,34 @@ ingress:
   host: ""   # generated URL — empty means use the LB IP
 
 livenessProbe:
+  # Liveness intentionally targets `/`, which since #384 calls `auth()`
+  # server-side and is no longer statically prerendered. That means liveness
+  # now exercises clerkMiddleware too — a transient Clerk outage could fail
+  # the probe. Behavior for an anonymous probe request: clerkMiddleware's
+  # auth.protect() returns a 307 redirect to /sign-in before the page handler
+  # renders; the kubelet treats 307 as success, so only a middleware *throw*
+  # (e.g., #382 missing CLERK_SECRET_KEY) produces a 500 and fails the probe.
+  # failureThreshold is set higher than the K8s default of 3 so the pod is
+  # only killed after a sustained ~3-minute window of failure, giving Clerk
+  # room to recover without crash-looping the deployment.
   httpGet:
     path: /
     port: 3001
   initialDelaySeconds: 15
   periodSeconds: 20
+  timeoutSeconds: 3
+  failureThreshold: 9
 
 readinessProbe:
+  # Hits a route that exercises clerkMiddleware so a Clerk-init failure
+  # (e.g. missing CLERK_SECRET_KEY, as in #382) fails readiness during
+  # rollout instead of being masked. Readiness is more aggressive than
+  # liveness — we want a bad rollout to fail fast and stay un-Ready, while
+  # an already-Ready pod gets the longer liveness grace window above.
   httpGet:
-    path: /
+    path: /api/healthz
     port: 3001
   initialDelaySeconds: 5
   periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
