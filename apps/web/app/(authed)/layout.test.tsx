@@ -1,3 +1,4 @@
+import React from 'react';
 import AuthedLayout from './layout';
 
 jest.mock('@clerk/nextjs/server', () => ({
@@ -16,12 +17,17 @@ import { redirect } from 'next/navigation';
 const mockedAuth = auth as unknown as jest.Mock;
 const mockedRedirect = redirect as unknown as jest.Mock;
 
+const SENTINEL = 'protected-children-sentinel' as unknown as React.ReactNode;
+
 describe('(authed) layout — defense-in-depth auth guard', () => {
   const originalDevToken = process.env.DEV_AUTH_TOKEN;
+  const originalNodeEnv = process.env.NODE_ENV;
 
   beforeEach(() => {
     jest.clearAllMocks();
     delete process.env.DEV_AUTH_TOKEN;
+    // Jest default NODE_ENV is 'test'; ensure each test starts from a known non-production value.
+    (process.env as Record<string, string>).NODE_ENV = 'test';
   });
 
   afterAll(() => {
@@ -30,38 +36,50 @@ describe('(authed) layout — defense-in-depth auth guard', () => {
     } else {
       process.env.DEV_AUTH_TOKEN = originalDevToken;
     }
+    (process.env as Record<string, string | undefined>).NODE_ENV = originalNodeEnv;
   });
 
   it('redirects unauthenticated requests to /sign-in', async () => {
     mockedAuth.mockResolvedValue({ userId: null });
 
     await expect(
-      AuthedLayout({ children: 'protected' as unknown as React.ReactNode }),
+      AuthedLayout({ children: SENTINEL }),
     ).rejects.toThrow('REDIRECT:/sign-in');
 
     expect(mockedRedirect).toHaveBeenCalledWith('/sign-in');
   });
 
-  it('renders children for authenticated requests', async () => {
+  it('renders children verbatim for authenticated requests', async () => {
     mockedAuth.mockResolvedValue({ userId: 'user_123' });
 
-    const element = await AuthedLayout({
-      children: 'protected' as unknown as React.ReactNode,
-    });
+    const element = (await AuthedLayout({ children: SENTINEL })) as React.ReactElement;
 
     expect(mockedRedirect).not.toHaveBeenCalled();
-    expect(element).toBeTruthy();
+    expect(element.type).toBe(React.Fragment);
+    expect((element.props as { children: unknown }).children).toBe(SENTINEL);
   });
 
-  it('skips Clerk entirely when DEV_AUTH_TOKEN is set', async () => {
+  it('bypasses Clerk in non-production when DEV_AUTH_TOKEN is set', async () => {
     process.env.DEV_AUTH_TOKEN = 'dev-token';
 
-    const element = await AuthedLayout({
-      children: 'protected' as unknown as React.ReactNode,
-    });
+    const element = (await AuthedLayout({ children: SENTINEL })) as React.ReactElement;
 
     expect(mockedAuth).not.toHaveBeenCalled();
     expect(mockedRedirect).not.toHaveBeenCalled();
-    expect(element).toBeTruthy();
+    expect(element.type).toBe(React.Fragment);
+    expect((element.props as { children: unknown }).children).toBe(SENTINEL);
+  });
+
+  it('ignores DEV_AUTH_TOKEN in production and still calls auth()', async () => {
+    process.env.DEV_AUTH_TOKEN = 'leaked-into-prod';
+    (process.env as Record<string, string>).NODE_ENV = 'production';
+    mockedAuth.mockResolvedValue({ userId: null });
+
+    await expect(
+      AuthedLayout({ children: SENTINEL }),
+    ).rejects.toThrow('REDIRECT:/sign-in');
+
+    expect(mockedAuth).toHaveBeenCalled();
+    expect(mockedRedirect).toHaveBeenCalledWith('/sign-in');
   });
 });

@@ -1,3 +1,5 @@
+import { renderToStaticMarkup } from 'react-dom/server';
+import type { ReactElement } from 'react';
 import Home from './page';
 
 jest.mock('@clerk/nextjs/server', () => ({
@@ -18,10 +20,12 @@ const mockedRedirect = redirect as unknown as jest.Mock;
 
 describe('root page — signed-in redirect', () => {
   const originalDevToken = process.env.DEV_AUTH_TOKEN;
+  const originalNodeEnv = process.env.NODE_ENV;
 
   beforeEach(() => {
     jest.clearAllMocks();
     delete process.env.DEV_AUTH_TOKEN;
+    (process.env as Record<string, string>).NODE_ENV = 'test';
   });
 
   afterAll(() => {
@@ -30,6 +34,7 @@ describe('root page — signed-in redirect', () => {
     } else {
       process.env.DEV_AUTH_TOKEN = originalDevToken;
     }
+    (process.env as Record<string, string | undefined>).NODE_ENV = originalNodeEnv;
   });
 
   it('redirects signed-in users to /cycle', async () => {
@@ -42,19 +47,32 @@ describe('root page — signed-in redirect', () => {
   it('renders the marketing card for unauthenticated visitors', async () => {
     mockedAuth.mockResolvedValue({ userId: null });
 
-    const element = await Home();
+    const element = (await Home()) as ReactElement;
+    const html = renderToStaticMarkup(element);
 
     expect(mockedRedirect).not.toHaveBeenCalled();
-    expect(element).toBeTruthy();
+    expect(html).toContain('Lifting Logbook');
+    expect(html).toContain('Get Started');
   });
 
-  it('skips Clerk entirely when DEV_AUTH_TOKEN is set', async () => {
+  it('bypasses Clerk in non-production when DEV_AUTH_TOKEN is set', async () => {
     process.env.DEV_AUTH_TOKEN = 'dev-token';
 
-    const element = await Home();
+    const element = (await Home()) as ReactElement;
+    const html = renderToStaticMarkup(element);
 
     expect(mockedAuth).not.toHaveBeenCalled();
     expect(mockedRedirect).not.toHaveBeenCalled();
-    expect(element).toBeTruthy();
+    expect(html).toContain('Lifting Logbook');
+  });
+
+  it('ignores DEV_AUTH_TOKEN in production and still calls auth()', async () => {
+    process.env.DEV_AUTH_TOKEN = 'leaked-into-prod';
+    (process.env as Record<string, string>).NODE_ENV = 'production';
+    mockedAuth.mockResolvedValue({ userId: 'user_123' });
+
+    await expect(Home()).rejects.toThrow('REDIRECT:/cycle');
+    expect(mockedAuth).toHaveBeenCalled();
+    expect(mockedRedirect).toHaveBeenCalledWith('/cycle');
   });
 });
