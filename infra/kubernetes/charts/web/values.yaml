@@ -46,9 +46,13 @@ livenessProbe:
   # Liveness intentionally targets `/`, which since #384 calls `auth()`
   # server-side and is no longer statically prerendered. That means liveness
   # now exercises clerkMiddleware too — a transient Clerk outage could fail
-  # the probe. failureThreshold is set higher than the K8s default of 3 so
-  # the pod is only killed after a sustained ~3-minute window of failure,
-  # giving Clerk room to recover without crash-looping the deployment.
+  # the probe. Behavior for an anonymous probe request: clerkMiddleware's
+  # auth.protect() returns a 307 redirect to /sign-in before the page handler
+  # renders; the kubelet treats 307 as success, so only a middleware *throw*
+  # (e.g., #382 missing CLERK_SECRET_KEY) produces a 500 and fails the probe.
+  # failureThreshold is set higher than the K8s default of 3 so the pod is
+  # only killed after a sustained ~3-minute window of failure, giving Clerk
+  # room to recover without crash-looping the deployment.
   httpGet:
     path: /
     port: 3001
