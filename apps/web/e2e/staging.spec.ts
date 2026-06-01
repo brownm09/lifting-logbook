@@ -9,14 +9,20 @@ import { test, expect } from '@playwright/test';
 // - Write-path tests must be idempotent or self-cleaning
 
 // ---------------------------------------------------------------------------
-// 1. Home page renders
+// 1. Home page redirects signed-in users to the authenticated landing page
+//
+// Per #384, `/` is now an async server component that calls `auth()` and
+// redirects signed-in users to `/cycle`. The marketing card is reserved for
+// signed-out visitors and is exercised by Jest in apps/web/app/page.test.tsx
+// (renderToStaticMarkup assertions). The staging suite runs with a saved
+// Clerk session, so the only observable behavior here is the redirect itself.
+// `/cycle` further redirects to `/onboarding` when the test user has no
+// active cycle, so accept either landing URL.
 // ---------------------------------------------------------------------------
 
-test('home page renders with primary navigation', async ({ page }) => {
+test('home page redirects signed-in users to /cycle (or /onboarding)', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Lifting Logbook' })).toBeVisible();
-  await expect(page.getByRole('link', { name: /Current Cycle/i })).toBeVisible();
-  await expect(page.getByRole('link', { name: /Get Started/i })).toBeVisible();
+  await expect(page).toHaveURL(/\/(cycle(\/\d+)?|onboarding)$/, { timeout: 15_000 });
 });
 
 // ---------------------------------------------------------------------------
