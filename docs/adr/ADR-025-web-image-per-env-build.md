@@ -128,11 +128,73 @@ mutating production-Clerk user state.
   JS bundle in each environment for the **other** environment's Clerk publishable key
   prefix and API URL hostname. Both must be absent.
 
+## Cross-project Artifact Registry note
+
+In staging-enabled mode, both web image variants (`web:<sha>-staging` and
+`web:<sha>-prod`) are pushed to the **staging** project's Artifact Registry
+(`steps.ar.outputs.repo` resolves from `terraform-staging.outputs.ar_repo`),
+while `deploy-production` pulls images from the **production** project's AR
+(`steps.tf-prod.outputs.ar_repo`). This asymmetry is **not new** to this ADR
+— the API image has the same shape today (built at `steps.ar.outputs.repo`,
+deployed from `steps.tf-prod.outputs.ar_repo`) — but it deserves explicit
+mention because per-env image tags make the cross-project pull path more
+load-bearing.
+
+This works in practice via one of two mechanisms (both currently in use):
+
+1. **Production-only mode** (`staging_enabled == false`): the preflight job
+   hardcodes `ar_repo` to the prod project (`deploy.yml` line ~58), and
+   `terraform-production.outputs.ar_repo` resolves to the same value. The
+   "asymmetry" collapses to a no-op.
+2. **Staging-enabled mode**: the production service accounts hold an
+   `artifactregistry.reader` IAM grant on the staging project's AR, so prod
+   GKE/Cloud Run can pull the prod-tagged image from the staging AR. This
+   grant must be in place before any production deploy succeeds.
+
+Per-env AR routing (each environment publishing to its own AR) is the
+cleaner long-term shape and is tracked as a follow-up to this ADR. Until
+then, do not remove the cross-project IAM grant without also moving the
+production push target.
+
 ## Follow-up
 
-Open a separate `[design]` issue titled "Refactor apps/web public config to runtime
-injection (supersedes ADR-025)" immediately after [#388](https://github.com/brownm09/lifting-logbook/issues/388)
-closes. That work will supersede this ADR.
+Two follow-ups are tracked:
+
+1. **Runtime public config (Phase 2):** open a separate `[design]` issue
+   titled "Refactor apps/web public config to runtime injection (supersedes
+   ADR-025)" immediately after [#388](https://github.com/brownm09/lifting-logbook/issues/388)
+   closes. That work will supersede this ADR by removing the build-time
+   embedding entirely.
+2. **Per-env AR routing:** track separately. Push each environment's image
+   variant to that environment's AR, eliminating the cross-project pull
+   dependency.
+
+## First-time prod bootstrap
+
+The `Resolve production API URL` step calls
+`gcloud run services describe lifting-logbook-prod-api` from `build-images`,
+which runs **before** `deploy-production` (where `terraform-production`
+creates the service). On the very first deploy to a new prod project (where
+the prod Cloud Run API service does not yet exist), this step fails and
+aborts the entire `build-images` job — including any in-flight staging
+deploy.
+
+This is a one-time bootstrap concern. Recovery procedure:
+
+1. Run the pipeline once in **production-only mode** (do not set
+   `GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER`). The prod-only path does not
+   depend on the prod Cloud Run service existing because the URL resolution
+   is the same `describe` call — so this still fails on bootstrap. Instead:
+2. Run `terraform apply` against the production workspace manually from a
+   workstation with prod credentials. This creates the prod Cloud Run API
+   service.
+3. Re-run the CI pipeline. `Resolve production API URL` now succeeds.
+
+A cleaner long-term shape (depending on `terraform-production` outputs from
+`build-images`) is blocked by the current job DAG: `terraform-production`
+runs as a *step* inside `deploy-production`, which depends on `build-images`.
+Restructuring requires hoisting `terraform-production` to its own job — out
+of scope for this ADR.
 
 ## References
 

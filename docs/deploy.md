@@ -395,6 +395,36 @@ Run the symmetric check against staging for the production values. Both must pro
 `OK:` to satisfy the verification gate from
 [#388](https://github.com/brownm09/lifting-logbook/issues/388).
 
+#### First-time prod bootstrap
+
+The `build-images` job's `Resolve production API URL` step calls
+`gcloud run services describe lifting-logbook-prod-api` before
+`terraform-production` has had a chance to create that service. On the very
+first deploy to a new prod project this aborts `build-images` and (in
+staging-enabled mode) also blocks the staging deploy. Recovery:
+
+1. From a workstation with prod credentials, run `terraform apply` against
+   the production workspace manually:
+   ```bash
+   cd infra/terraform
+   terraform init -backend-config="bucket=<TF_STATE_BUCKET>" \
+                  -backend-config="prefix=terraform/state"
+   terraform workspace select production || terraform workspace new production
+   terraform apply -var-file=terraform.tfvars.production \
+                   -var="billing_account=<billing-account-id>"
+   ```
+2. Confirm the prod Cloud Run API service now exists:
+   ```bash
+   gcloud run services describe lifting-logbook-prod-api \
+     --region=us-central1 --project=<prod-project>
+   ```
+3. Re-run the failed CI pipeline. `Resolve production API URL` now succeeds
+   and the rest of `build-images` and the downstream deploys proceed.
+
+This is a one-time bootstrap concern per prod project. The long-term fix
+(hoisting `terraform-production` to its own job so `build-images` can
+depend on its outputs) is documented in ADR-025 as a deferred follow-up.
+
 ### Recovering from CI/CD IAM errors
 
 If a CI run fails with `Error 403 ... setIamPolicy denied`, the CI/CD service account is

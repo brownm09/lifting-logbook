@@ -238,6 +238,12 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_STAGING_SERVICE_ACCOUNT }}
 
+      # Auth context invariant: at this point, credentials must be capable of
+      # pushing to steps.ar.outputs.repo. In staging-enabled mode that means
+      # staging-AR-capable (restored by the Re-authenticate step above); in
+      # production-only mode the prod auth step above is sufficient. Any step
+      # inserted between the auth-restore and here must preserve this invariant
+      # (do not call `auth@v2` with a different identity between them).
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
 
@@ -276,6 +282,14 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # `:latest` is intentionally moved here from the (previously single) web
+      # build. In staging-enabled mode this means the `:latest` tag in the
+      # staging AR resolves to the *prod*-configured bundle, not the
+      # staging-configured one. Any downstream consumer that pulls `:latest`
+      # from the staging AR (manual ops, cache-warming jobs) must be aware of
+      # this asymmetry. The staging deploy never references `:latest` — it
+      # uses the explicit `-staging` SHA tag — so the asymmetry is invisible
+      # to the deploy pipeline itself.
       - name: Build and push web image (production)
         uses: docker/build-push-action@v6
         with:
