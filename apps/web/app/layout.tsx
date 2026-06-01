@@ -1,4 +1,4 @@
-import { ClerkProvider } from '@clerk/nextjs';
+import { ClerkProvider, SignedIn, UserButton } from '@clerk/nextjs';
 import type { Metadata } from "next";
 import { ClerkApiInitializer } from '@/components/ClerkApiInitializer';
 import "./globals.css";
@@ -27,6 +27,18 @@ export default function RootLayout({
         </head>
         <body>
           <ClerkApiInitializer />
+          <SignedIn>
+            <div
+              style={{
+                position: 'fixed',
+                top: '1rem',
+                right: '1rem',
+                zIndex: 50,
+              }}
+            >
+              <UserButton afterSignOutUrl="/sign-in" />
+            </div>
+          </SignedIn>
           {children}
         </body>
       </html>
