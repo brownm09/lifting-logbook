@@ -228,6 +228,17 @@ References from [`docs/security-review-checklist.md`](security-review-checklist.
 
 ---
 
+## Deployment Pipeline
+
+| Source | Cited In | Relevance |
+|---|---|---|
+| [Next.js — Configuring Environment Variables](https://nextjs.org/docs/app/building-your-application/configuring/environment-variables) | [ADR-025](adr/ADR-025-web-image-per-env-build.md) | Authoritative on `NEXT_PUBLIC_*` build-time inlining; values are inlined into JavaScript sent to the browser and fixed at build time, the root cause that forces per-env image builds. |
+| [Docker — `ARG` and build-time variables](https://docs.docker.com/engine/reference/builder/#arg) | [ADR-025](adr/ADR-025-web-image-per-env-build.md) | Build-arg semantics; a build-arg change invalidates downstream layer cache, which is why the staging and prod web builds re-execute `RUN npx turbo run build` despite sharing the install layers. |
+| [Clerk — Publishable Key](https://clerk.com/docs/deployments/clerk-environment-variables#clerk-publishable-key) | [ADR-025](adr/ADR-025-web-image-per-env-build.md) | Documents that the publishable key is environment-bound (one key per Clerk instance) and is required by `<ClerkProvider>` at client mount. |
+| [`docker/build-push-action`](https://github.com/docker/build-push-action) | [ADR-025](adr/ADR-025-web-image-per-env-build.md) | GitHub Action used to invoke `docker build`; `cache-from`/`cache-to: type=gha` semantics for GitHub Actions layer cache reuse between the staging and prod builds. |
+
+---
+
 ## Testing and CI
 
 | Source | Cited In | Relevance |

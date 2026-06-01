@@ -335,6 +335,66 @@ the production URL will appear in the `deploy-production` job summary after appr
 
 Push or merge to `main`. The pipeline runs automatically.
 
+### Web image: per-env build (ADR-025)
+
+The `apps/web` image is built **twice per pipeline run** when staging is enabled:
+
+- `web:<sha>-staging` — built with staging `NEXT_PUBLIC_API_URL` and
+  `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`. Deployed exclusively by `deploy-staging`.
+- `web:<sha>-prod` — built with production values. Deployed exclusively by `deploy-production`.
+  Also tagged `:latest`.
+
+In production-only mode (no staging configured), only the `-prod` image is built.
+
+See [ADR-025](adr/ADR-025-web-image-per-env-build.md) for the rationale and the explicit
+trade — the staging gate validates image structure and boot behavior, **not** the embedded
+production `NEXT_PUBLIC_*` values.
+
+#### Adding a new `NEXT_PUBLIC_*` variable
+
+Every new `NEXT_PUBLIC_*` value must be wired into **both** web-image build invocations in
+`.github/workflows/deploy.yml` → `build-images`. Checklist:
+
+1. Add `ARG <NAME>` to `apps/web/Dockerfile` builder stage.
+2. Add staging value resolution as a new step alongside `clerk-pub-staging` (gated on
+   `staging_enabled == true`). Use `gcloud secrets versions access` for secret-store values
+   or a Terraform output for infra-derived values.
+3. Add production value resolution as a new step alongside `clerk-pub-prod`.
+4. Wire both into the `build-args:` block of `Build and push web image (staging)` and
+   `Build and push web image (production)`.
+5. Mask secret-store values with `::add-mask::` before writing to `GITHUB_OUTPUT`.
+6. Update this section if the variable affects deploy behavior at runtime as well.
+
+Forgetting any of the above resurrects the bug ADR-025 was written to fix.
+
+#### Verifying per-env web image build (deliberate dry-run)
+
+After a deploy completes, confirm each environment's bundle contains only its own
+`NEXT_PUBLIC_*` values. From a workstation with both env's Clerk publishable-key prefixes
+known (e.g., `pk_test_...` for staging, `pk_live_...` for production):
+
+```bash
+# Production must NOT contain staging Clerk key prefix or staging API hostname.
+PROD_WEB="$(gcloud run services describe lifting-logbook-prod-web \
+  --region=us-central1 --project=lifting-logbook-prod --format='value(status.url)')"
+STG_API_HOST="$(gcloud run services describe lifting-logbook-stg-api \
+  --region=us-central1 --project=lifting-logbook-stg --format='value(status.url)' \
+  | sed -e 's#^https\?://##' -e 's#/.*##')"
+STG_PK_PREFIX="pk_test_"  # adjust to actual staging key's distinguishing prefix
+
+curl -sL "$PROD_WEB" -o /tmp/prod-index.html
+# Pull each referenced /_next/static/chunks/*.js and grep
+for chunk in $(grep -oE '/_next/static/chunks/[a-zA-Z0-9_./-]+\.js' /tmp/prod-index.html | sort -u); do
+  curl -sL "${PROD_WEB}${chunk}" | grep -E "($STG_API_HOST|$STG_PK_PREFIX)" \
+    && { echo "FAIL: staging value found in $chunk"; exit 1; }
+done
+echo "OK: production bundle is free of staging values"
+```
+
+Run the symmetric check against staging for the production values. Both must produce
+`OK:` to satisfy the verification gate from
+[#388](https://github.com/brownm09/lifting-logbook/issues/388).
+
 ### Recovering from CI/CD IAM errors
 
 If a CI run fails with `Error 403 ... setIamPolicy denied`, the CI/CD service account is

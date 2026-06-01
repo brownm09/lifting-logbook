@@ -163,40 +163,31 @@ jobs:
           PREFLIGHT_REPO="${{ needs.preflight.outputs.ar_repo }}"
           echo "repo=${STAGING_REPO:-$PREFLIGHT_REPO}" >> "$GITHUB_OUTPUT"
 
-      - name: Resolve API URL for web image build
-        id: api-url
-        run: |
-          if [[ "${{ needs.preflight.outputs.staging_enabled }}" == "true" ]]; then
-            echo "url=${{ needs.terraform-staging.outputs.cloud_run_api_url }}" >> "$GITHUB_OUTPUT"
-          else
-            # Production-only mode: gcloud auth is already done above.
-            URL=$(gcloud run services describe lifting-logbook-prod-api \
-              --region="${{ env.REGION }}" \
-              --project="${{ vars.GCP_PROD_PROJECT_ID }}" \
-              --format="value(status.url)")
-            echo "url=${URL}" >> "$GITHUB_OUTPUT"
-          fi
+      # ── Per-env value resolution for web image build (ADR-025) ────────────
+      # NEXT_PUBLIC_* values are inlined into the Next.js JS bundle at build
+      # time, so the web image is built once per target env with that env's
+      # values. Both image variants are pushed to the same AR repo (steps.ar)
+      # — the same pattern the API image uses today; per-env AR routing is
+      # out of scope for this change.
 
-      - name: Resolve Clerk publishable key for web image build
-        id: clerk-pub
+      - name: Resolve staging API URL (web image build)
+        id: api-url-staging
+        if: needs.preflight.outputs.staging_enabled == 'true'
+        run: |
+          echo "url=${{ needs.terraform-staging.outputs.cloud_run_api_url }}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve staging Clerk publishable key (web image build)
+        id: clerk-pub-staging
+        if: needs.preflight.outputs.staging_enabled == 'true'
         run: |
           # NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is build-time embedded in the
           # Next.js bundle (see apps/web/Dockerfile ARG). Without it, `next
           # build` aborts on /_not-found prerender because <ClerkProvider>
-          # in the root layout throws "Missing publishableKey". The image
-          # is shared between staging and production deploys (cache reuse
-          # by tag=github.sha), so we follow the same staging-vs-prod
-          # convention as `Resolve API URL` above.
-          if [[ "${{ needs.preflight.outputs.staging_enabled }}" == "true" ]]; then
-            KEY=$(gcloud secrets versions access latest \
-              --secret="lifting-logbook-stg-clerk-publishable-key" \
-              --project="${{ vars.GCP_STAGING_PROJECT_ID }}")
-          else
-            KEY=$(gcloud secrets versions access latest \
-              --secret="lifting-logbook-prod-clerk-publishable-key" \
-              --project="${{ vars.GCP_PROD_PROJECT_ID }}")
-          fi
-          [ -n "$KEY" ] || { echo "ERROR: clerk-publishable-key fetch returned empty"; exit 1; }
+          # in the root layout throws "Missing publishableKey".
+          KEY=$(gcloud secrets versions access latest \
+            --secret="lifting-logbook-stg-clerk-publishable-key" \
+            --project="${{ vars.GCP_STAGING_PROJECT_ID }}")
+          [ -n "$KEY" ] || { echo "ERROR: staging clerk-publishable-key fetch returned empty"; exit 1; }
           # Use ::add-mask:: so the key never appears in logs even though
           # it is a publishable (non-secret) Clerk key. Defense in depth.
           echo "::add-mask::$KEY"
@@ -204,6 +195,48 @@ jobs:
           # but the Clerk publishable key is a single line so a direct echo
           # is safe.
           echo "key=${KEY}" >> "$GITHUB_OUTPUT"
+
+      # Production-value resolution requires auth to the prod project. The
+      # staging auth above is replaced for the duration of these steps; the
+      # API image build and any subsequent staging push re-authenticate to
+      # staging below. In production-only mode this is a no-op re-auth.
+      - name: Authenticate to GCP (production, for prod web build-args)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_PROD_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_PROD_SERVICE_ACCOUNT }}
+
+      - name: Resolve production API URL (web image build)
+        id: api-url-prod
+        run: |
+          # The prod Cloud Run API service is created by terraform-production,
+          # which runs *after* this job. On first-time prod bootstrap the
+          # `describe` call fails; rerun this workflow after the prod Cloud
+          # Run service exists. Tracked as a known limitation in ADR-025.
+          URL=$(gcloud run services describe lifting-logbook-prod-api \
+            --region="${{ env.REGION }}" \
+            --project="${{ vars.GCP_PROD_PROJECT_ID }}" \
+            --format="value(status.url)")
+          [ -n "$URL" ] || { echo "ERROR: prod API URL fetch returned empty (is lifting-logbook-prod-api deployed?)"; exit 1; }
+          echo "url=${URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve production Clerk publishable key (web image build)
+        id: clerk-pub-prod
+        run: |
+          KEY=$(gcloud secrets versions access latest \
+            --secret="lifting-logbook-prod-clerk-publishable-key" \
+            --project="${{ vars.GCP_PROD_PROJECT_ID }}")
+          [ -n "$KEY" ] || { echo "ERROR: prod clerk-publishable-key fetch returned empty"; exit 1; }
+          echo "::add-mask::$KEY"
+          echo "key=${KEY}" >> "$GITHUB_OUTPUT"
+
+      # Restore staging auth for the image pushes that target the staging AR.
+      - name: Re-authenticate to GCP (staging, restore for pushes)
+        if: needs.preflight.outputs.staging_enabled == 'true'
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_STAGING_SERVICE_ACCOUNT }}
 
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
@@ -223,18 +256,38 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Build and push web image
+      # ── Web image: per-env builds (ADR-025) ────────────────────────────────
+      # Two builds with per-env NEXT_PUBLIC_* values. The staging tag is built
+      # and pushed only when staging is enabled; the prod tag is always built.
+      # Both push to the same AR repo as the API image (steps.ar.outputs.repo).
+
+      - name: Build and push web image (staging)
+        if: needs.preflight.outputs.staging_enabled == 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
           file: apps/web/Dockerfile
           push: true
           tags: |
-            ${{ steps.ar.outputs.repo }}/web:${{ github.sha }}
+            ${{ steps.ar.outputs.repo }}/web:${{ github.sha }}-staging
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ steps.api-url-staging.outputs.url }}
+            NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ steps.clerk-pub-staging.outputs.key }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push web image (production)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.ar.outputs.repo }}/web:${{ github.sha }}-prod
             ${{ steps.ar.outputs.repo }}/web:latest
           build-args: |
-            NEXT_PUBLIC_API_URL=${{ steps.api-url.outputs.url }}
-            NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ steps.clerk-pub.outputs.key }}
+            NEXT_PUBLIC_API_URL=${{ steps.api-url-prod.outputs.url }}
+            NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ steps.clerk-pub-prod.outputs.key }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -335,7 +388,7 @@ jobs:
             --namespace=staging \
             --values=infra/kubernetes/values/staging-web.yaml \
             --set image.repository="${{ needs.build-images.outputs.ar_repo }}/web" \
-            --set image.tag="${{ github.sha }}" \
+            --set image.tag="${{ github.sha }}-staging" \
             --set gcp.projectId="${{ vars.GCP_STAGING_PROJECT_ID }}" \
             --set env.NODE_ENV=staging \
             --set env.API_URL="$API_CLUSTER_URL" \
@@ -355,7 +408,7 @@ jobs:
       - name: Deploy web to Cloud Run (staging)
         run: |
           gcloud run deploy lifting-logbook-stg-web \
-            --image="${{ needs.build-images.outputs.ar_repo }}/web:${{ github.sha }}" \
+            --image="${{ needs.build-images.outputs.ar_repo }}/web:${{ github.sha }}-staging" \
             --region="${{ env.REGION }}" \
             --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
             --platform=managed \
@@ -536,7 +589,7 @@ jobs:
             --namespace=production \
             --values=infra/kubernetes/values/production-web.yaml \
             --set image.repository="${{ steps.tf-prod.outputs.ar_repo }}/web" \
-            --set image.tag="${{ github.sha }}" \
+            --set image.tag="${{ github.sha }}-prod" \
             --set gcp.projectId="${{ vars.GCP_PROD_PROJECT_ID }}" \
             --set env.NODE_ENV=production \
             --set env.API_URL="$API_CLUSTER_URL" \
@@ -555,7 +608,7 @@ jobs:
       - name: Deploy web to Cloud Run (production)
         run: |
           gcloud run deploy lifting-logbook-prod-web \
-            --image="${{ steps.tf-prod.outputs.ar_repo }}/web:${{ github.sha }}" \
+            --image="${{ steps.tf-prod.outputs.ar_repo }}/web:${{ github.sha }}-prod" \
             --region="${{ env.REGION }}" \
             --project="${{ vars.GCP_PROD_PROJECT_ID }}" \
             --platform=managed \

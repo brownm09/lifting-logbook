@@ -1,0 +1,151 @@
+# ADR-025: Per-Environment Web Image Build
+
+**Status:** Accepted
+**Date:** 2026-05-31
+**Closes:** [#388](https://github.com/brownm09/lifting-logbook/issues/388)
+**Related:** [ADR-022](ADR-022-monorepo-docker-build-strategy.md) (web Dockerfile structure), [ADR-009](ADR-009-infrastructure-kubernetes-cloud-run.md) (deploy targets), [#383](https://github.com/brownm09/lifting-logbook/pull/383), [#387](https://github.com/brownm09/lifting-logbook/pull/387), [#382](https://github.com/brownm09/lifting-logbook/issues/382)
+
+---
+
+## Context
+
+`apps/web/Dockerfile` is a Next.js App Router build. Next.js inlines any `NEXT_PUBLIC_*`
+environment variable into the client JS bundle **at build time** — the value is literally
+substituted into the compiled JavaScript shipped to browsers and embedded in Cloud Run /
+GKE container images. Two such variables are currently consumed as Docker build-args:
+
+- `NEXT_PUBLIC_API_URL` — the Cloud Run API URL the web frontend calls.
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` — the Clerk frontend key required by `<ClerkProvider>`
+  in the root layout. Without it, `next build` aborts during `/_not-found` prerender.
+
+Prior to this ADR, `.github/workflows/deploy.yml`'s `build-images` job resolved both values
+from the **staging** project whenever `staging_enabled == true`, built a single
+`web:${{ github.sha }}` image, and let both `deploy-staging` and `deploy-production` pull
+that same tag. The production web pod therefore served a JS bundle with staging values
+inlined — invisible while staging and production share infrastructure, but a guaranteed
+silent production break the moment they don't (separate Clerk instances per env, separate
+API hosts, separate publishable keys).
+
+This is the same failure shape as [#382](https://github.com/brownm09/lifting-logbook/issues/382)
+at a different layer. Two recent fixes — [#383](https://github.com/brownm09/lifting-logbook/pull/383)
+(runtime `CLERK_SECRET_KEY`) and [#387](https://github.com/brownm09/lifting-logbook/pull/387)
+(build-time `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`) — addressed individual symptoms of the
+broader pattern "Clerk credential not wired through deploy pipeline" but preserved the
+inherited "use staging value, deploy to both" shortcut. This ADR fixes the root pattern.
+
+## Decision
+
+Build the web image **twice per pipeline run** when staging is enabled, with
+environment-specific build-args:
+
+- `web:${{ github.sha }}-staging` — built with staging `NEXT_PUBLIC_*` values; deployed
+  exclusively to staging.
+- `web:${{ github.sha }}-prod` — built with production `NEXT_PUBLIC_*` values; deployed
+  exclusively to production. Also tagged `:latest`.
+
+In production-only mode (no staging configured), only the `-prod` image is built.
+
+The `api` image is unchanged — it has no `NEXT_PUBLIC_*` build-args and continues to follow
+build-once / promote-everywhere.
+
+### Explicit trade
+
+This decision **breaks the byte-identical promotion contract for the web image**. The image
+exercised by the `smoke-test` job in staging is no longer the same artifact deployed to
+production; the two differ in the values of `NEXT_PUBLIC_API_URL` and
+`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (and any future `NEXT_PUBLIC_*` value) embedded in the
+JS bundle. The staging gate validates the image's **structure and runtime behavior** — that
+`next build` succeeded, that the standalone server boots, that `/` returns 200 — not its
+embedded public config. Production-specific embedded values are not exercised by any
+automated check prior to production deploy; the "deliberate dry-run" in the
+[Verification](#verification) section is the only check that production-specific values are
+correctly baked.
+
+This trade is acceptable because the alternative (option discussed below) preserves the
+contract but ships wrong values to production. Phase 2 (see [Follow-up](#follow-up))
+restores the contract by eliminating the build-time embedding entirely.
+
+## Consequences
+
+**Positive:**
+- Production web pod serves a bundle with production `NEXT_PUBLIC_*` values. Staging serves
+  staging values. The two environments are decoupled at the artifact level.
+- Each image is a sealed, auditable artifact — "does this image have the right key baked
+  in?" is answered by the tag.
+- No application code changes; isolated to the deploy pipeline.
+
+**Negative:**
+- Web image build time roughly doubles on the staging-enabled path (two
+  `RUN npx turbo run build` invocations; the install layers cache across both). Empirically
+  ~2–3 minutes added per deploy on current build sizes.
+- Artifact Registry storage for the web image roughly doubles (two SHA-tagged images per
+  commit instead of one). Negligible at current scale.
+- Every new `NEXT_PUBLIC_*` value going forward must be wired into **both** build invocations
+  in `build-images` and resolved twice (staging + prod secret lookups). The cost of forgetting
+  is the original bug. Mitigation: a checklist in [`docs/deploy.md`](../deploy.md) under
+  "Adding a new `NEXT_PUBLIC_*` variable".
+- The smoke-test gate no longer guarantees that the production-tagged artifact will boot
+  successfully — only that the staging-tagged sibling does. A `next build` failure caused by
+  a malformed production-only value (e.g., a Clerk publishable key with a typo in the prod
+  secret) is caught at `build-images` time (the prod build step fails the pipeline), but a
+  runtime issue specific to the prod image's embedded values would only surface in production.
+
+## Alternatives Considered
+
+### Runtime public config (deferred to follow-up)
+
+Refactor `apps/web` to inject `NEXT_PUBLIC_*` values at runtime — either via a
+server-rendered `<script>` in the root layout that sets a `window.__PUBLIC_CONFIG__` global
+before the client React tree mounts, or via a Server Component that fetches the values and
+passes them through React context. Remove `ARG NEXT_PUBLIC_*` from the Dockerfile. Restore
+single-image build-once / promote-everywhere.
+
+**Why deferred:** the refactor touches the `<ClerkProvider>` bootstrap path — the same
+codepath that [#383](https://github.com/brownm09/lifting-logbook/pull/383) and
+[#387](https://github.com/brownm09/lifting-logbook/pull/387) just stabilized. It also has
+its own regression surface (any client component reading `process.env.NEXT_PUBLIC_*`
+directly), warrants its own ADR documenting the bootstrap pattern chosen, and should not
+block closing [#388](https://github.com/brownm09/lifting-logbook/issues/388). Tracked as a
+follow-up issue that, once shipped, will supersede this ADR.
+
+### Promote prod build to staging
+
+Build one image with **production** values and deploy it to both staging and production.
+Trivial pipeline change. Rejected: staging then exercises Clerk's production tenant and
+calls the production API URL, defeating the purpose of having a separate staging
+environment for those components and creating a real risk of staging-originated traffic
+mutating production-Clerk user state.
+
+## Verification
+
+- **CI:** `deploy.yml` runs on every push to `main`. A push of this branch validates that
+  the two-build path succeeds end-to-end (both `web:<sha>-staging` and `web:<sha>-prod`
+  built, pushed, and pulled by the corresponding deploy jobs).
+- **Smoke test:** existing `smoke-test` job continues to validate the staging-tagged image.
+- **Deliberate dry-run (AC #3 of [#388](https://github.com/brownm09/lifting-logbook/issues/388)):**
+  after the first deploy on this branch, follow the procedure in
+  [`docs/deploy.md`](../deploy.md) → "Verifying per-env web image build" to grep the served
+  JS bundle in each environment for the **other** environment's Clerk publishable key
+  prefix and API URL hostname. Both must be absent.
+
+## Follow-up
+
+Open a separate `[design]` issue titled "Refactor apps/web public config to runtime
+injection (supersedes ADR-025)" immediately after [#388](https://github.com/brownm09/lifting-logbook/issues/388)
+closes. That work will supersede this ADR.
+
+## References
+
+- [Next.js — Configuring Environment Variables](https://nextjs.org/docs/app/building-your-application/configuring/environment-variables) —
+  Authoritative on `NEXT_PUBLIC_*` build-time inlining: "the value will be inlined into
+  JavaScript sent to the browser" and is fixed at build time, not runtime.
+- [Docker — `ARG` and build-time variables](https://docs.docker.com/engine/reference/builder/#arg) —
+  Build-arg semantics; a build-arg change invalidates downstream layer cache, which is why
+  the two build invocations re-execute `RUN npx turbo run build` despite sharing the
+  install layers.
+- [Clerk — Publishable Key](https://clerk.com/docs/deployments/clerk-environment-variables#clerk-publishable-key) —
+  Documents that the publishable key is environment-bound (one key per Clerk instance) and
+  is required by `<ClerkProvider>` at client mount.
+- [`docker/build-push-action`](https://github.com/docker/build-push-action) — The GitHub
+  Action used to invoke `docker build`; `cache-from`/`cache-to: type=gha` semantics for
+  GitHub Actions layer cache reuse between the staging and prod builds.
