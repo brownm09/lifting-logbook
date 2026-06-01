@@ -445,7 +445,7 @@ jobs:
           # Allow up to 3 minutes for Cloud Run to become healthy
           for i in $(seq 1 18); do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-              "https://${{ needs.terraform-staging.outputs.cloud_run_web_url }}/" || true)
+              "${{ needs.terraform-staging.outputs.cloud_run_web_url }}/" || true)
             if [ "$STATUS" = "200" ] || [ "$STATUS" = "307" ]; then
               echo "Staging web returned $STATUS — OK"
               exit 0
