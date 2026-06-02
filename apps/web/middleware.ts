@@ -32,20 +32,25 @@ export const config = {
   // Standard Clerk matcher — excludes static assets (_next, images, fonts, etc.)
   // so the middleware only runs on page and API routes.
   //
-  // `healthz` is also negated: the /healthz route (#402) is a pure runtime
-  // liveness probe that must NOT enter clerkMiddleware. It is distinct from
-  // /api/healthz (#395), which deliberately runs through Clerk to detect
-  // init failures — the (api|trpc) line below still captures that one.
+  // `livez` is also negated: the /livez route (#402, renamed in #409) is a
+  // pure runtime liveness probe that must NOT enter clerkMiddleware. It is
+  // distinct from /api/healthz (#395), which deliberately runs through
+  // Clerk to detect init failures — the (api|trpc) line below still
+  // captures that one.
   //
-  // The healthz(?:\?|$) anchor pins the exclusion to the bare path or a
-  // querystring variant only (#405). /healthz-admin, /healthzfoo, AND
-  // /healthz/* subpaths all enter clerkMiddleware — any future nested route
-  // under /healthz (e.g., /healthz/admin) is auth-protected by default rather
-  // than silently public. The matcher behavior is locked down by
-  // middleware.matcher.test.ts so a future "simplify" of the regex back to
-  // bare `healthz` will fail the suite.
+  // The livez(?:\?|$) anchor pins the exclusion to /livez and /livez?...
+  // only — /livezfoo, /livez-admin, AND /livez/* subpaths all enter
+  // clerkMiddleware and are auth-protected (#405 lockdown). The matcher
+  // behavior is locked down by middleware.matcher.test.ts so a future
+  // "simplify" of the regex back to bare `livez` or to the looser `[/?]`
+  // anchor will fail the suite.
+  //
+  // Historical note: the probe used to live at /healthz, but Google
+  // Frontend on Cloud Run intercepts /healthz before it reaches the
+  // container — all sibling paths (/livez, /readyz, /health) pass through
+  // to Next.js normally. See #409 for the full diagnostic chain.
   matcher: [
-    '/((?!_next|healthz(?:\\?|$)|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    '/((?!_next|livez(?:\\?|$)|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
     '/(api|trpc)(.*)',
   ],
 };
