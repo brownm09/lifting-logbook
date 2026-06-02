@@ -22,12 +22,20 @@ const matcher = new RegExp(`^${matcherSource}$`);
 
 describe('clerkMiddleware matcher — /healthz bypass scope', () => {
   describe('paths that should BYPASS Clerk (matcher must not match)', () => {
-    test.each([['/healthz'], ['/healthz?ping=1'], ['/healthz?foo=bar&baz=1']])(
-      '%s is excluded',
-      (path) => {
-        expect(matcher.test(path)).toBe(false);
-      },
-    );
+    test.each([
+      ['/healthz'],
+      ['/healthz?ping=1'],
+      ['/healthz?foo=bar&baz=1'],
+      // /healthz/* subpaths bypass too under the #404 anchor, restored as
+      // part of the #409 hypothesis-A bisection. The narrower #405 anchor
+      // (which auth-protected /healthz/*) coincided with the runtime
+      // route-dispatch 404; the tightening will return once #409 is
+      // resolved with a path-segment-aware pattern.
+      ['/healthz/admin'],
+      ['/healthz/sub'],
+    ])('%s is excluded', (path) => {
+      expect(matcher.test(path)).toBe(false);
+    });
   });
 
   describe('paths that should ENTER Clerk (matcher must match)', () => {
@@ -41,10 +49,6 @@ describe('clerkMiddleware matcher — /healthz bypass scope', () => {
       ['/healthzfoo'],
       ['/healthz-admin'],
       ['/healthzz'],
-      // Nested /healthz/* subpaths must enter Clerk so any future
-      // /healthz/admin route is auth-gated by default (#405).
-      ['/healthz/admin'],
-      ['/healthz/sub'],
     ])('%s is included', (path) => {
       expect(matcher.test(path)).toBe(true);
     });
