@@ -335,6 +335,54 @@ jobs:
           cache-from: type=gha,scope=web-prod-v2
           cache-to: type=gha,scope=web-prod-v2,mode=max
 
+      # ── Copy images to production AR (#411) ────────────────────────────────
+      # `steps.ar.outputs.repo` resolves to the *staging* AR in staging-enabled
+      # mode, so the api:<sha> and web:<sha>-prod tags pushed above only live
+      # in the staging registry. `deploy-production` pulls from the prod AR
+      # (steps.tf-prod.outputs.ar_repo) and would 404. Copy both images to the
+      # prod AR with `docker buildx imagetools create` — a registry-to-registry
+      # copy that does not require a rebuild or local Docker image state.
+      #
+      # Guarded by staging_enabled because production-only mode already pushed
+      # directly to the prod AR (steps.ar.outputs.repo resolves to prod there).
+
+      - name: Resolve production AR repo
+        id: ar-prod
+        if: needs.preflight.outputs.staging_enabled == 'true'
+        run: |
+          echo "repo=${{ env.REGISTRY }}/${{ vars.GCP_PROD_PROJECT_ID }}/${{ env.ARTIFACT_REPO }}" >> "$GITHUB_OUTPUT"
+
+      - name: Authenticate to GCP (production, for prod-AR push)
+        if: needs.preflight.outputs.staging_enabled == 'true'
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_PROD_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_PROD_SERVICE_ACCOUNT }}
+
+      - name: Configure Docker for prod AR
+        if: needs.preflight.outputs.staging_enabled == 'true'
+        run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
+
+      # `imagetools create` reads the source manifest from the staging AR and
+      # writes new tags in the prod AR. The prod CI/CD SA must have
+      # `roles/artifactregistry.reader` on the staging AR for the read; if
+      # this errors with permission denied, grant that role and rerun.
+      - name: Copy API image to prod AR
+        if: needs.preflight.outputs.staging_enabled == 'true'
+        run: |
+          docker buildx imagetools create \
+            --tag ${{ steps.ar-prod.outputs.repo }}/api:${{ github.sha }} \
+            --tag ${{ steps.ar-prod.outputs.repo }}/api:latest \
+            ${{ steps.ar.outputs.repo }}/api:${{ github.sha }}
+
+      - name: Copy web image to prod AR
+        if: needs.preflight.outputs.staging_enabled == 'true'
+        run: |
+          docker buildx imagetools create \
+            --tag ${{ steps.ar-prod.outputs.repo }}/web:${{ github.sha }}-prod \
+            --tag ${{ steps.ar-prod.outputs.repo }}/web:latest \
+            ${{ steps.ar.outputs.repo }}/web:${{ github.sha }}-prod
+
   # ── 3. Deploy to staging ─────────────────────────────────────────────────
   deploy-staging:
     name: Deploy (staging)
