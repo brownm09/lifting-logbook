@@ -18,6 +18,8 @@ next-env.d.ts
 
 # Claude Code local overrides (machine-specific permissions, not for team sharing)
 .claude/settings.local.json
+# Claude Code harness scratch — local-session ScheduleWakeup lock, must not be committed
+.claude/scheduled_tasks.lock
 scripts/cloud-sql-proxy
 scripts/cloud-sql-proxy.exe
 
