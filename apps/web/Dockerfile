@@ -46,27 +46,39 @@ RUN test -d /app/apps/web/.next/standalone/apps/web/.next/server/app/healthz \
  || (echo "ERROR (#407): required healthz routes missing from .next/standalone build" && \
      ls -la /app/apps/web/.next/standalone/apps/web/.next/server/app && exit 1)
 
-# TEMPORARY DIAGNOSTIC for #409: the #408 assertion above passed but staging
-# /healthz still 404s at runtime. Dump the Next.js manifests so we can see
-# whether `/healthz` is registered. The bug class is "route file present in
-# tree, route not registered in manifest" (hypothesis #2 from #407). Compare
-# the pre-standalone server tree to the standalone tree to confirm whether
-# the standalone trace prunes it from the manifest. REMOVE BEFORE MERGE.
-RUN echo "=== #409 DIAGNOSTIC: pre-standalone app-paths-manifest.json ===" && \
-    cat /app/apps/web/.next/server/app-paths-manifest.json 2>/dev/null || echo "MISSING" && \
-    echo "=== #409 DIAGNOSTIC: standalone app-paths-manifest.json ===" && \
-    cat /app/apps/web/.next/standalone/apps/web/.next/server/app-paths-manifest.json 2>/dev/null || echo "MISSING" && \
-    echo "=== #409 DIAGNOSTIC: pre-standalone middleware-manifest.json ===" && \
-    cat /app/apps/web/.next/server/middleware-manifest.json 2>/dev/null || echo "MISSING" && \
-    echo "=== #409 DIAGNOSTIC: pre-standalone routes-manifest.json ===" && \
-    cat /app/apps/web/.next/routes-manifest.json 2>/dev/null || echo "MISSING" && \
-    echo "=== #409 DIAGNOSTIC: prerender-manifest.json ===" && \
-    cat /app/apps/web/.next/prerender-manifest.json 2>/dev/null || echo "MISSING" && \
-    echo "=== #409 DIAGNOSTIC: standalone app/healthz/ contents ===" && \
-    ls -la /app/apps/web/.next/standalone/apps/web/.next/server/app/healthz/ && \
-    echo "=== #409 DIAGNOSTIC: standalone app/api/healthz/ contents ===" && \
-    ls -la /app/apps/web/.next/standalone/apps/web/.next/server/app/api/healthz/ && \
-    echo "=== #409 DIAGNOSTIC: end ==="
+# Tightened guard for #409: the build-time directory check above (#408) was
+# insufficient — it passed for the entire #408 incident even though /healthz
+# was 404'ing at runtime. Root cause turned out to be `export const HEAD = GET`
+# in route.ts breaking Next.js 16.2.4's runtime route dispatch despite the
+# manifest listing the route (full diagnostic preserved in #410's first commit
+# 58b984d). Manifest presence is necessary but not sufficient — the route also
+# has to actually serve. We can't probe the running server during the image
+# build, but we CAN assert both manifests still list both routes, which catches
+# any future trace-pruning regression as a build-time failure.
+RUN node -e "
+  const fs = require('fs');
+  const paths = [
+    '/app/apps/web/.next/server/app-paths-manifest.json',
+    '/app/apps/web/.next/standalone/apps/web/.next/server/app-paths-manifest.json',
+  ];
+  const required = ['/healthz/route', '/api/healthz/route'];
+  let failed = false;
+  for (const p of paths) {
+    if (!fs.existsSync(p)) {
+      console.error('ERROR (#409): missing manifest ' + p);
+      failed = true; continue;
+    }
+    const m = JSON.parse(fs.readFileSync(p, 'utf8'));
+    for (const r of required) {
+      if (!(r in m)) {
+        console.error('ERROR (#409): ' + p + ' missing route ' + r);
+        failed = true;
+      }
+    }
+  }
+  if (failed) process.exit(1);
+  console.log('OK (#409): both manifests list both healthz routes');
+"
 
 # ── Stage 3: runner ──────────────────────────────────────────────────────────
 # Minimal production image using Next.js standalone output.

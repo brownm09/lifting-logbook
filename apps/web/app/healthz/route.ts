@@ -19,7 +19,18 @@ export async function GET() {
   });
 }
 
-// GCP uptime checks and many third-party probes default to HEAD. Reusing GET
-// keeps the implementation trivial — Next.js returns the headers and a 0-byte
-// body which is the correct HEAD semantics (#405).
-export const HEAD = GET;
+// HEAD intentionally omitted (#409). Until 2026-06-01 this file exported
+// `export const HEAD = GET;` for GCP uptime checks (#405). When the
+// staging.yml smoke probe started hitting `/healthz` on main builds after
+// #406 merged, the route returned 404 — even though `app-paths-manifest.json`
+// listed `/healthz/route` and the standalone tree carried `route.js` (#408's
+// build-time assertion confirmed this; #409 diagnostic dump confirmed
+// identical manifests pre- vs post-standalone). The const-alias `HEAD = GET`
+// passes Next.js 16.2.4 static analysis (the route appears in the manifest)
+// but breaks runtime route dispatch for GET as well — both HEAD and GET to
+// /healthz return 404. Removing the HEAD export restores GET. The smoke
+// probe uses GET (`curl -s -o /dev/null -w '%{http_code}' /healthz`), so
+// HEAD is unnecessary for the contract this route exists to satisfy. If a
+// future GCP uptime check requires HEAD, add it as a function declaration:
+//   export async function HEAD() { ... }
+// not a const alias.
