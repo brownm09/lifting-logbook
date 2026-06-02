@@ -33,4 +33,7 @@ export async function GET() {
 // HEAD is unnecessary for the contract this route exists to satisfy. If a
 // future GCP uptime check requires HEAD, add it as a function declaration:
 //   export async function HEAD() { ... }
-// not a const alias.
+// not a const alias. If re-added, also update
+// apps/web/app/healthz/route.test.ts — the regression guard there asserts
+// HEAD is undefined and will need to be loosened to "is a function, not a
+// const alias of GET" or similar.
