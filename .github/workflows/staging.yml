@@ -599,11 +599,27 @@ jobs:
     steps:
       - name: Verify deploy prerequisites
         run: |
-          if [[ "${{ needs.deploy-api.outputs.clerk_configured }}" != "true" ]]; then
+          # deploy-api.result is the source of truth for "did the job deliver its outputs".
+          # The integration-tests job runs under `if: always()` (see #345), so deploy-api
+          # can reach this step in any of three non-success states:
+          #   - skipped/cancelled: upstream build-images failed (per deploy-api's `if:` guard).
+          #   - failure: deploy-api ran but a step errored (e.g., GCP auth, Cloud Run deploy).
+          # In all three, `clerk_configured` and `cloud_run_api_deployed` may be empty rather
+          # than 'false', so a plain `clerk_configured != 'true'` check mis-reports any of
+          # them as a Clerk misconfiguration. See #398 / PR #395 for the motivating incident.
+          DEPLOY_RESULT='${{ needs.deploy-api.result }}'
+          CLERK_OUT='${{ needs.deploy-api.outputs.clerk_configured }}'
+          API_DEPLOYED='${{ needs.deploy-api.outputs.cloud_run_api_deployed }}'
+
+          if [[ "$DEPLOY_RESULT" != "success" ]]; then
+            echo "::error::deploy-api did not succeed (result: $DEPLOY_RESULT). If 'skipped' or 'cancelled', build-images likely failed — check the 'Build & Push Images' job (e.g., Artifact Registry 504 on layer-blob push) and re-run failed jobs if transient. If 'failure', open the Deploy API (staging) job log for the step that errored (commonly GCP auth or the Cloud Run deploy itself)."
+            exit 1
+          fi
+          if [[ "$CLERK_OUT" != "true" ]]; then
             echo "::error::Staging Clerk secret key is not configured. Follow docs/deploy.md Step 4 to set lifting-logbook-stg-clerk-secret-key in GCP Secret Manager, then re-run CI."
             exit 1
           fi
-          if [[ "${{ needs.deploy-api.outputs.cloud_run_api_deployed }}" != "true" ]]; then
+          if [[ "$API_DEPLOYED" != "true" ]]; then
             echo "::error::Cloud Run API deploy failed — integration tests cannot run. Check the 'Fetch Cloud Run API logs on failure' step in the Deploy API (staging) job. Tracked in #344."
             exit 1
           fi
@@ -714,13 +730,26 @@ jobs:
           script: |
             const shouldRun = '${{ needs.preflight.outputs.should_run }}' === 'true';
             const testResult = '${{ needs.staging-integration-tests.result }}';
+            const deployApiResult = '${{ needs.deploy-api.result }}';
             const webUrl = '${{ needs.deploy-web.outputs.web_url }}';
 
             let body;
             const clerkConfigured = '${{ needs.deploy-api.outputs.clerk_configured }}' === 'true';
             const cloudRunApiDeployed = '${{ needs.deploy-api.outputs.cloud_run_api_deployed }}' === 'true';
+            // Any non-success deployApiResult means the deploy-api job didn't deliver
+            // its outputs cleanly — skipped/cancelled (upstream build-images failed) or
+            // failure (an internal step errored, e.g., GCP auth). In all of these,
+            // clerkConfigured and cloudRunApiDeployed default to false because the
+            // outputs are empty strings, so we surface the upstream state explicitly
+            // rather than mis-reporting it as a Clerk-secret misconfiguration —
+            // see #398 / PR #395.
             if (!shouldRun) {
               body = '⚪ **Staging skipped** — `GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER` is not configured.';
+            } else if (deployApiResult !== 'success') {
+              const upstreamHint = (deployApiResult === 'skipped' || deployApiResult === 'cancelled')
+                ? 'likely because `build-images` failed'
+                : 'a step in deploy-api errored (commonly GCP auth or the Cloud Run deploy itself)';
+              body = `⚠️ **Staging integration tests did not run** — \`deploy-api\` result was \`${deployApiResult}\`; ${upstreamHint}. Open the [workflow run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) and re-run failed jobs if the failure was transient (e.g., Artifact Registry 504 on layer-blob push).`;
             } else if (!clerkConfigured) {
               body = '⚠️ **Staging integration tests skipped** — `lifting-logbook-stg-clerk-secret-key` in GCP Secret Manager is still the placeholder value. Follow [docs/deploy.md Step 4](https://github.com/${{ github.repository }}/blob/${{ github.event.pull_request.head.sha }}/docs/deploy.md#step-4--sign-up-for-clerk-and-create-two-apps) to configure the staging Clerk secret key, then re-run CI.';
             } else if (!cloudRunApiDeployed) {
