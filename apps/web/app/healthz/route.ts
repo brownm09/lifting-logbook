@@ -12,9 +12,14 @@ import { NextResponse } from 'next/server';
 // artifact.
 export const dynamic = 'force-dynamic';
 
-export function GET() {
+export async function GET() {
   return new NextResponse('ok', {
     status: 200,
     headers: { 'content-type': 'text/plain' },
   });
 }
+
+// GCP uptime checks and many third-party probes default to HEAD. Reusing GET
+// keeps the implementation trivial — Next.js returns the headers and a 0-byte
+// body which is the correct HEAD semantics (#405).
+export const HEAD = GET;

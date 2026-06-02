@@ -37,11 +37,15 @@ export const config = {
   // /api/healthz (#395), which deliberately runs through Clerk to detect
   // init failures — the (api|trpc) line below still captures that one.
   //
-  // The healthz(?:[/?]|$) anchor pins the exclusion to an exact path segment,
-  // so a future route like /healthz-admin or /healthzfoo would still enter
-  // clerkMiddleware and not silently bypass auth.
+  // The healthz(?:\?|$) anchor pins the exclusion to the bare path or a
+  // querystring variant only (#405). /healthz-admin, /healthzfoo, AND
+  // /healthz/* subpaths all enter clerkMiddleware — any future nested route
+  // under /healthz (e.g., /healthz/admin) is auth-protected by default rather
+  // than silently public. The matcher behavior is locked down by
+  // middleware.matcher.test.ts so a future "simplify" of the regex back to
+  // bare `healthz` will fail the suite.
   matcher: [
-    '/((?!_next|healthz(?:[/?]|$)|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    '/((?!_next|healthz(?:\\?|$)|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
     '/(api|trpc)(.*)',
   ],
 };

@@ -31,8 +31,18 @@ on:
 
 # Serialize Deploy runs on main so back-to-back pushes do not race the staging
 # Terraform state lock (HTTP 412 conditionNotMet on the GCS-backed backend).
-# cancel-in-progress: false queues subsequent runs rather than cancelling — a
-# production deploy in flight must never be aborted by a later push. See #401.
+# cancel-in-progress: false ensures a production deploy in flight is never
+# aborted by a later push. NOTE: GitHub Actions retains at most one pending
+# run per concurrency group — when a third push arrives while a second is
+# queued, the second is silently cancelled and the third takes the pending
+# slot. For deploy-on-main this is the desired behavior (deploy the latest
+# state, skip intermediate commits) but means "queued" ≠ FIFO. See #401.
+# https://docs.github.com/en/actions/using-jobs/using-concurrency
+#
+# Group key is static (`deploy-main`) because the only trigger today is
+# `push: main`. If a future change adds `workflow_dispatch`, `release`, or
+# a second branch, parameterize the key (e.g., `deploy-${{ github.ref }}`)
+# so unrelated runs are not serialized together.
 concurrency:
   group: deploy-main
   cancel-in-progress: false
@@ -458,7 +468,10 @@ jobs:
       # auth-public via createRouteMatcher.
       - name: Smoke test Cloud Run staging — /healthz (web runtime)
         run: |
+          # %/ strips a trailing slash so $BASE_URL/healthz never becomes
+          # https://.../healthz double-slashed (#405 review finding).
           BASE_URL="${{ needs.terraform-staging.outputs.cloud_run_web_url }}"
+          BASE_URL="${BASE_URL%/}"
           # Allow up to 3 minutes for Cloud Run to become healthy
           for i in $(seq 1 18); do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/healthz" || true)
@@ -474,8 +487,12 @@ jobs:
       - name: Smoke test Cloud Run staging — /sign-in (Clerk auth flow)
         run: |
           BASE_URL="${{ needs.terraform-staging.outputs.cloud_run_web_url }}"
-          # Allow up to 3 minutes for Clerk middleware + sign-in route to settle
-          for i in $(seq 1 18); do
+          BASE_URL="${BASE_URL%/}"
+          # The runtime is already up (/healthz succeeded immediately before this
+          # step). /sign-in should respond within seconds, not minutes — if Clerk
+          # middleware can't serve 200 in 60s the failure mode this PR is designed
+          # to surface has occurred, and fast failure improves operator turnaround.
+          for i in $(seq 1 6); do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/sign-in" || true)
             if [ "$STATUS" = "200" ]; then
               echo "Staging /sign-in returned 200 — OK"
