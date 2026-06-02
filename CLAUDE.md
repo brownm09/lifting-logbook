@@ -16,6 +16,7 @@ Include in your opening brief only: the issue you are working on, current branch
     - Malformed native binaries: `node_modules/@turbo/windows-64/bin/turbo.exe` failing with `EFTYPE`
 
     Downstream failures: `nest build` CJS resolution errors (`iconv-lite/lib/streams`, `minimatch/dist/commonjs/index.js`), `TS1110 Type expected` from `light-my-request`, or `spawnSync ... EFTYPE` from turbo. Fix: `rm -rf node_modules/<package> && npm install <package> --no-save` to re-extract a single package, or `rm -rf node_modules && npm ci` for a full reset. CI runs Node 20 and is unaffected. Original investigation: [#373](https://github.com/brownm09/lifting-logbook/issues/373).
+  - **Node 24 Jest worker OOM (Windows only):** Several `packages/core` CSV-fixture-heavy suites exhaust per-worker heap when run in parallel on Node 24. Codified workaround: `jest.config.base.js` applies `workerIdleMemoryLimit: '512MB'` + `maxWorkers: '50%'` when `process.platform === 'win32'`. Linux Node 20 CI is unaffected by both the failure and the setting. Investigation: [#419](https://github.com/brownm09/lifting-logbook/issues/419).
 - **Package manager:** npm (workspaces)
 - **`jq` is NOT available.** Use `node -e` with a temp file in the working directory for JSON parsing:
   ```bash

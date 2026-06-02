@@ -30,7 +30,7 @@ describe('GET /api/healthz', () => {
     const res = await GET();
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true });
+    expect(await (res as Response).json()).toEqual({ ok: true });
     expect(mockedAuth).toHaveBeenCalledTimes(1);
   });
 
@@ -48,7 +48,7 @@ describe('GET /api/healthz', () => {
     const res = await GET();
 
     expect(res.status).toBe(503);
-    expect(await res.json()).toEqual({ ok: false });
+    expect(await (res as Response).json()).toEqual({ ok: false });
     // The original error is logged server-side for operators.
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining('[healthz]'),
@@ -63,7 +63,7 @@ describe('GET /api/healthz', () => {
     const res = await GET();
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true, mode: 'dev-auth' });
+    expect(await (res as Response).json()).toEqual({ ok: true, mode: 'dev-auth' });
     expect(mockedAuth).not.toHaveBeenCalled();
   });
 });
