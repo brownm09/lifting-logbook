@@ -21,3 +21,10 @@ enable_gke = true
 # Cold-start latency is acceptable here — the A/B harness measures steady-state
 # performance, not first-request response time. Prod sets this to 1 for warm starts.
 cloud_run_min_instances = 0
+
+# Cross-project AR reader: the production CI/CD SA reads the staging AR when
+# build-images copies images staging-AR → prod-AR via `docker buildx imagetools
+# create` (see .github/workflows/deploy.yml and #411).
+external_ar_reader_service_accounts = [
+  "lifting-logbook-prod-cicd@lifting-logbook-prod.iam.gserviceaccount.com",
+]

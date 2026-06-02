@@ -288,6 +288,19 @@ resource "google_artifact_registry_repository" "images" {
   depends_on    = [google_project_service.required_apis]
 }
 
+# Cross-project reader grants on this environment's Artifact Registry.
+# In staging, the production CI/CD SA is included so build-images can copy
+# images staging-AR → prod-AR via `docker buildx imagetools create` (see
+# .github/workflows/deploy.yml and #411). In production, the list is empty.
+resource "google_artifact_registry_repository_iam_member" "external_readers" {
+  for_each   = toset(var.external_ar_reader_service_accounts)
+  project    = var.project_id
+  location   = google_artifact_registry_repository.images.location
+  repository = google_artifact_registry_repository.images.name
+  role       = "roles/artifactregistry.reader"
+  member     = "serviceAccount:${each.value}"
+}
+
 # ─── IAM — CI/CD service account ─────────────────────────────────────────────
 
 resource "google_service_account" "cicd" {
