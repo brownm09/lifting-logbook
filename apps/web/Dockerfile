@@ -55,30 +55,32 @@ RUN test -d /app/apps/web/.next/standalone/apps/web/.next/server/app/healthz \
 # has to actually serve. We can't probe the running server during the image
 # build, but we CAN assert both manifests still list both routes, which catches
 # any future trace-pruning regression as a build-time failure.
-RUN node -e "
-  const fs = require('fs');
+RUN <<'BASH'
+node -e '
+  const fs = require("fs");
   const paths = [
-    '/app/apps/web/.next/server/app-paths-manifest.json',
-    '/app/apps/web/.next/standalone/apps/web/.next/server/app-paths-manifest.json',
+    "/app/apps/web/.next/server/app-paths-manifest.json",
+    "/app/apps/web/.next/standalone/apps/web/.next/server/app-paths-manifest.json",
   ];
-  const required = ['/healthz/route', '/api/healthz/route'];
+  const required = ["/healthz/route", "/api/healthz/route"];
   let failed = false;
   for (const p of paths) {
     if (!fs.existsSync(p)) {
-      console.error('ERROR (#409): missing manifest ' + p);
+      console.error("ERROR (#409): missing manifest " + p);
       failed = true; continue;
     }
-    const m = JSON.parse(fs.readFileSync(p, 'utf8'));
+    const m = JSON.parse(fs.readFileSync(p, "utf8"));
     for (const r of required) {
       if (!(r in m)) {
-        console.error('ERROR (#409): ' + p + ' missing route ' + r);
+        console.error("ERROR (#409): " + p + " missing route " + r);
         failed = true;
       }
     }
   }
   if (failed) process.exit(1);
-  console.log('OK (#409): both manifests list both healthz routes');
-"
+  console.log("OK (#409): both manifests list both healthz routes");
+'
+BASH
 
 # ── Stage 3: runner ──────────────────────────────────────────────────────────
 # Minimal production image using Next.js standalone output.
