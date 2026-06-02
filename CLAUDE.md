@@ -327,7 +327,8 @@ npm test
 
 **Prerequisites:**
 - Run `npm run build` first if you have touched compiled output (e.g., API controllers, shared types in `packages/types`).
-- The API DB E2E suite (`apps/api/src/programs/programs.db.e2e.spec.ts`) auto-provisions Postgres via Testcontainers in `apps/api/jest.global-setup.js`. Docker Desktop must be running; no `DATABASE_URL` configuration is required locally. In CI, the existing service container provides `DATABASE_URL` and globalSetup uses it directly. See [`docs/testing/e2e-coverage.md`](docs/testing/e2e-coverage.md) for details.
+- The API DB E2E suite (`apps/api/src/programs/programs.db.e2e.spec.ts`) auto-provisions Postgres via Testcontainers in `apps/api/jest.global-setup.js`. Docker Desktop must be running; no `DATABASE_URL` configuration is required locally. In CI, the existing service container provides `DATABASE_URL` and globalSetup uses it directly.
+- **When Docker is down:** globalSetup hard-fails with a multi-line actionable message naming three recovery options (fix Docker, use `docker-compose.test.yml`, or set `LIFTING_SKIP_DB_E2E=1`). The escape hatch is only valid when the diff under test touches no DB code (no changes under `apps/api/prisma/`, no repository changes); cite [issue #394](https://github.com/brownm09/lifting-logbook/issues/394) in the PR body when it is used. See [`docs/testing/e2e-coverage.md`](docs/testing/e2e-coverage.md) for the full recovery procedure.
 
 Individual workspaces can be verified independently:
 

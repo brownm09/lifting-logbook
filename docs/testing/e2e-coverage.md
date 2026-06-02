@@ -90,7 +90,34 @@ npm run test:db -w @lifting-logbook/api
 # container startup. Run migrations yourself in this case before invoking jest.
 ```
 
-> **Docker prerequisite.** Without Docker, globalSetup fails fast with a
-> clear Testcontainers error. The DB E2E describe block then skips
-> (`LIFTING_TC_DATABASE_URL` is unset), letting the rest of the suite still
-> run if you need to iterate on non-DB code.
+## Running locally when Docker is unavailable
+
+The default behavior is **hard-fail with an actionable message** when Docker is
+unreachable. globalSetup catches the underlying Testcontainers/daemon error and
+re-throws a multi-line message that names the root cause and lists three recovery
+options. This is intentional: a silent skip would let DB-touching changes ship
+without local verification, with CI as the only gate.
+
+The three recovery options the error names:
+
+1. **Fix Docker Desktop.** On Windows, the most common cause is an unregistered
+   `docker-desktop` WSL distro — see [issue #394](https://github.com/brownm09/lifting-logbook/issues/394)
+   for the factory-reset procedure.
+2. **Use `docker-compose.test.yml`.** Spin up the compose Postgres on 5433 and
+   set `DATABASE_URL` so globalSetup takes the CI passthrough branch:
+   ```bash
+   docker-compose -f docker-compose.test.yml up -d
+   DATABASE_URL=postgresql://lifting:lifting@localhost:5433/lifting_test \
+     npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma
+   DATABASE_URL=postgresql://lifting:lifting@localhost:5433/lifting_test \
+     npm test -w @lifting-logbook/api
+   ```
+3. **Explicit skip via `LIFTING_SKIP_DB_E2E=1`.** Only valid when the diff
+   under test touches no DB code (no changes under `apps/api/prisma/`, no
+   repository changes, no schema changes). When set, globalSetup logs a warning
+   and returns; the DB E2E spec's `describeOrSkip` then leaves its blocks
+   pending so non-DB tests still run:
+   ```bash
+   LIFTING_SKIP_DB_E2E=1 npm test -w @lifting-logbook/api
+   ```
+   Cite issue #394 in the PR body when this escape hatch is used.
