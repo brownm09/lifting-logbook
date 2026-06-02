@@ -32,7 +32,7 @@ jobs:
     # transient GitHub API hangs without burning the default 6h timeout.
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Fetch live required-status-checks
         env:
