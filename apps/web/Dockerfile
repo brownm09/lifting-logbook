@@ -30,6 +30,22 @@ ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 RUN npx turbo run build --filter=@lifting-logbook/web
 
+# Build-time guard for #407: the staging deploy smoke probes /healthz and
+# /api/healthz; both routes must reach the standalone output the runner stage
+# copies in. If they're missing here, the image will 404 in production and the
+# Deploy workflow stalls at the staging gate. Failing the build instead surfaces
+# the regression at image-build time on every workflow (staging.yml PR builds
+# and deploy.yml main builds), not after a 3-minute smoke timeout.
+#
+# Path layout is Next.js App Router with `output: standalone` (currently
+# Next 16.2.4). If a future Next.js upgrade flattens route handlers from
+# `app/<route>/route.js` directories to flat files, update this guard rather
+# than trusting a false-positive trip.
+RUN test -d /app/apps/web/.next/standalone/apps/web/.next/server/app/healthz \
+ && test -d /app/apps/web/.next/standalone/apps/web/.next/server/app/api/healthz \
+ || (echo "ERROR (#407): required healthz routes missing from .next/standalone build" && \
+     ls -la /app/apps/web/.next/standalone/apps/web/.next/server/app && exit 1)
+
 # ── Stage 3: runner ──────────────────────────────────────────────────────────
 # Minimal production image using Next.js standalone output.
 FROM node:20.11.1-alpine AS runner

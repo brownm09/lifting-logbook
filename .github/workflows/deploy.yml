@@ -277,8 +277,12 @@ jobs:
           tags: |
             ${{ steps.ar.outputs.repo }}/api:${{ github.sha }}
             ${{ steps.ar.outputs.repo }}/api:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Per-image cache scope (#407). Same rationale as the web builds
+          # below — isolates the API build cache from any other image flavor
+          # so a stale layer in one cannot poison another. `-v2` suffix forces
+          # a one-time miss on merge.
+          cache-from: type=gha,scope=api-deploy-v2
+          cache-to: type=gha,scope=api-deploy-v2,mode=max
 
       # ── Web image: per-env builds (ADR-025) ────────────────────────────────
       # Two builds with per-env NEXT_PUBLIC_* values. The staging tag is built
@@ -297,8 +301,15 @@ jobs:
           build-args: |
             NEXT_PUBLIC_API_URL=${{ steps.api-url-staging.outputs.url }}
             NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ steps.clerk-pub-staging.outputs.key }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Per-env cache scope (#407). Previously both staging and prod web
+          # builds shared an unscoped `type=gha`, which was suspected of
+          # poisoning the cache across builds — three consecutive main runs
+          # produced images missing /healthz from the standalone tree despite
+          # the route being on main. Scoping isolates per-image-flavor caches
+          # and the new name (`-v2`) forces a one-time miss on this PR's merge,
+          # rebuilding the next-build layer from scratch.
+          cache-from: type=gha,scope=web-staging-v2
+          cache-to: type=gha,scope=web-staging-v2,mode=max
 
       # `:latest` is intentionally moved here from the (previously single) web
       # build. In staging-enabled mode this means the `:latest` tag in the
@@ -320,8 +331,9 @@ jobs:
           build-args: |
             NEXT_PUBLIC_API_URL=${{ steps.api-url-prod.outputs.url }}
             NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ steps.clerk-pub-prod.outputs.key }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Per-env cache scope (#407) — see staging build above for context.
+          cache-from: type=gha,scope=web-prod-v2
+          cache-to: type=gha,scope=web-prod-v2,mode=max
 
   # ── 3. Deploy to staging ─────────────────────────────────────────────────
   deploy-staging:

@@ -266,8 +266,10 @@ jobs:
           tags: |
             ${{ steps.ar.outputs.repo }}/api:${{ github.event.pull_request.head.sha }}
             ${{ steps.ar.outputs.repo }}/api:pr-${{ github.event.pull_request.number }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Per-image cache scope (#407). Isolates the PR-branch API build
+          # from the deploy.yml main-branch API cache, mirroring the web scoping.
+          cache-from: type=gha,scope=api-pr-v2
+          cache-to: type=gha,scope=api-pr-v2,mode=max
 
       - name: Build and push web image
         if: steps.image-tag.outputs.skip_build != 'true'
@@ -282,8 +284,11 @@ jobs:
           build-args: |
             NEXT_PUBLIC_API_URL=${{ steps.api-url.outputs.url }}
             NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ steps.clerk-pub-key.outputs.key }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Scoped cache (#407). Isolates PR-branch builds from the deploy.yml
+          # main-branch web caches so a stale layer in one workflow cannot
+          # silently poison the other.
+          cache-from: type=gha,scope=web-pr-v2
+          cache-to: type=gha,scope=web-pr-v2,mode=max
 
   # ── 3a. Deploy API (staging) ──────────────────────────────────────────────
   # Split into per-service jobs so they run in parallel within a single PR.
