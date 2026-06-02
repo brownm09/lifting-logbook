@@ -46,6 +46,28 @@ RUN test -d /app/apps/web/.next/standalone/apps/web/.next/server/app/healthz \
  || (echo "ERROR (#407): required healthz routes missing from .next/standalone build" && \
      ls -la /app/apps/web/.next/standalone/apps/web/.next/server/app && exit 1)
 
+# TEMPORARY DIAGNOSTIC for #409: the #408 assertion above passed but staging
+# /healthz still 404s at runtime. Dump the Next.js manifests so we can see
+# whether `/healthz` is registered. The bug class is "route file present in
+# tree, route not registered in manifest" (hypothesis #2 from #407). Compare
+# the pre-standalone server tree to the standalone tree to confirm whether
+# the standalone trace prunes it from the manifest. REMOVE BEFORE MERGE.
+RUN echo "=== #409 DIAGNOSTIC: pre-standalone app-paths-manifest.json ===" && \
+    cat /app/apps/web/.next/server/app-paths-manifest.json 2>/dev/null || echo "MISSING" && \
+    echo "=== #409 DIAGNOSTIC: standalone app-paths-manifest.json ===" && \
+    cat /app/apps/web/.next/standalone/apps/web/.next/server/app-paths-manifest.json 2>/dev/null || echo "MISSING" && \
+    echo "=== #409 DIAGNOSTIC: pre-standalone middleware-manifest.json ===" && \
+    cat /app/apps/web/.next/server/middleware-manifest.json 2>/dev/null || echo "MISSING" && \
+    echo "=== #409 DIAGNOSTIC: pre-standalone routes-manifest.json ===" && \
+    cat /app/apps/web/.next/routes-manifest.json 2>/dev/null || echo "MISSING" && \
+    echo "=== #409 DIAGNOSTIC: prerender-manifest.json ===" && \
+    cat /app/apps/web/.next/prerender-manifest.json 2>/dev/null || echo "MISSING" && \
+    echo "=== #409 DIAGNOSTIC: standalone app/healthz/ contents ===" && \
+    ls -la /app/apps/web/.next/standalone/apps/web/.next/server/app/healthz/ && \
+    echo "=== #409 DIAGNOSTIC: standalone app/api/healthz/ contents ===" && \
+    ls -la /app/apps/web/.next/standalone/apps/web/.next/server/app/api/healthz/ && \
+    echo "=== #409 DIAGNOSTIC: end ==="
+
 # ── Stage 3: runner ──────────────────────────────────────────────────────────
 # Minimal production image using Next.js standalone output.
 FROM node:20.11.1-alpine AS runner
