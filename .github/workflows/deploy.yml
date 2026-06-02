@@ -383,6 +383,16 @@ jobs:
             --tag ${{ steps.ar-prod.outputs.repo }}/web:latest \
             ${{ steps.ar.outputs.repo }}/web:${{ github.sha }}-prod
 
+      # Auth context invariant: build-images now ends with the prod CI/CD SA
+      # active (the auth swap above for the imagetools copy is not restored).
+      # Any step appended after this point that needs staging-AR or staging-
+      # project credentials must re-auth to staging first (see the existing
+      # restore pattern at the start of the API/web push block above). The
+      # `staging_enabled == 'true'` guard does not save you — production-only
+      # mode skips the entire copy block and leaves the staging auth from the
+      # job header active, so a forgotten re-auth will silently flip behavior
+      # between the two modes.
+
   # ── 3. Deploy to staging ─────────────────────────────────────────────────
   deploy-staging:
     name: Deploy (staging)
