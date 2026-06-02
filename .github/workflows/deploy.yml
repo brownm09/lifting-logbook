@@ -304,7 +304,7 @@ jobs:
           # Per-env cache scope (#407). Previously both staging and prod web
           # builds shared an unscoped `type=gha`, which was suspected of
           # poisoning the cache across builds — three consecutive main runs
-          # produced images missing /healthz from the standalone tree despite
+          # produced images missing /livez (then /healthz) from the standalone tree despite
           # the route being on main. Scoping isolates per-image-flavor caches
           # and the new name (`-v2`) forces a one-time miss on this PR's merge,
           # rebuilding the next-build layer from scratch.
@@ -470,37 +470,45 @@ jobs:
     if: needs.preflight.outputs.staging_enabled == 'true' && needs.deploy-staging.result == 'success'
 
     steps:
-      # Two-probe staging smoke (#402). One probe owned by app code (/healthz),
-      # one by the user-facing auth flow (/sign-in). They distinguish three
-      # failure modes that a single `/` probe collapsed into "404":
-      #   /healthz 200, /sign-in 200 → safe to promote
-      #   /healthz 200, /sign-in non-200 → Clerk middleware misconfigured
-      #   /healthz non-200 → Next.js runtime not booting
-      # /healthz is excluded from clerkMiddleware's matcher; /sign-in is
+      # Two-probe staging smoke (#402, renamed /healthz → /livez in #409).
+      # One probe owned by app code (/livez), one by the user-facing auth
+      # flow (/sign-in). They distinguish three failure modes that a single
+      # `/` probe collapsed into "404":
+      #   /livez 200, /sign-in 200 → safe to promote
+      #   /livez 200, /sign-in non-200 → Clerk middleware misconfigured
+      #   /livez non-200 → Next.js runtime not booting
+      # /livez is excluded from clerkMiddleware's matcher; /sign-in is
       # auth-public via createRouteMatcher.
-      - name: Smoke test Cloud Run staging — /healthz (web runtime)
+      #
+      # Probe path is /livez (Kubernetes liveness convention), NOT /healthz —
+      # Google Frontend on Cloud Run intercepts /healthz before requests reach
+      # the container, returning Google's branded 404 page even when the
+      # in-image route is correct. /livez, /readyz, /health, and other
+      # sibling paths pass through to Next.js normally. See #409 for the
+      # full diagnostic chain.
+      - name: Smoke test Cloud Run staging — /livez (web runtime)
         run: |
-          # %/ strips a trailing slash so $BASE_URL/healthz never becomes
-          # https://.../healthz double-slashed (#405 review finding).
+          # %/ strips a trailing slash so $BASE_URL/livez never becomes
+          # https://.../livez double-slashed (#405 review finding).
           BASE_URL="${{ needs.terraform-staging.outputs.cloud_run_web_url }}"
           BASE_URL="${BASE_URL%/}"
           # Allow up to 3 minutes for Cloud Run to become healthy
           for i in $(seq 1 18); do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/healthz" || true)
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/livez" || true)
             if [ "$STATUS" = "200" ]; then
-              echo "Staging /healthz returned 200 — OK"
+              echo "Staging /livez returned 200 — OK"
               exit 0
             fi
-            echo "/healthz attempt $i: got $STATUS, retrying in 10s..."
+            echo "/livez attempt $i: got $STATUS, retrying in 10s..."
             sleep 10
           done
-          echo "Staging /healthz smoke FAILED — Next.js runtime not serving 200 (probe owned by app code, distinct from Clerk auth flow)" && exit 1
+          echo "Staging /livez smoke FAILED — Next.js runtime not serving 200 (probe owned by app code, distinct from Clerk auth flow)" && exit 1
 
       - name: Smoke test Cloud Run staging — /sign-in (Clerk auth flow)
         run: |
           BASE_URL="${{ needs.terraform-staging.outputs.cloud_run_web_url }}"
           BASE_URL="${BASE_URL%/}"
-          # The runtime is already up (/healthz succeeded immediately before this
+          # The runtime is already up (/livez succeeded immediately before this
           # step). /sign-in should respond within seconds, not minutes — if Clerk
           # middleware can't serve 200 in 60s the failure mode this PR is designed
           # to surface has occurred, and fast failure improves operator turnaround.

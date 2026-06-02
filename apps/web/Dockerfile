@@ -30,31 +30,34 @@ ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 RUN npx turbo run build --filter=@lifting-logbook/web
 
-# Build-time guard for #407: the staging deploy smoke probes /healthz and
-# /api/healthz; both routes must reach the standalone output the runner stage
-# copies in. If they're missing here, the image will 404 in production and the
-# Deploy workflow stalls at the staging gate. Failing the build instead surfaces
-# the regression at image-build time on every workflow (staging.yml PR builds
-# and deploy.yml main builds), not after a 3-minute smoke timeout.
+# Build-time guard for #407 / #409: the staging deploy smoke probes /livez
+# and /api/healthz; both routes must reach the standalone output the runner
+# stage copies in. If they're missing here, the image will 404 in production
+# and the Deploy workflow stalls at the staging gate. Failing the build
+# instead surfaces the regression at image-build time on every workflow
+# (staging.yml PR builds and deploy.yml main builds), not after a 3-minute
+# smoke timeout.
+#
+# Probe path is /livez (Kubernetes liveness convention), NOT /healthz —
+# Google Frontend on Cloud Run intercepts /healthz before requests reach
+# the container regardless of what the image contains. See #409 for the
+# diagnostic chain that proved this.
 #
 # Path layout is Next.js App Router with `output: standalone` (currently
 # Next 16.2.4). If a future Next.js upgrade flattens route handlers from
 # `app/<route>/route.js` directories to flat files, update this guard rather
 # than trusting a false-positive trip.
-RUN test -d /app/apps/web/.next/standalone/apps/web/.next/server/app/healthz \
+RUN test -d /app/apps/web/.next/standalone/apps/web/.next/server/app/livez \
  && test -d /app/apps/web/.next/standalone/apps/web/.next/server/app/api/healthz \
- || (echo "ERROR (#407): required healthz routes missing from .next/standalone build" && \
+ || (echo "ERROR (#407/#409): required liveness/readiness routes missing from .next/standalone build" && \
      ls -la /app/apps/web/.next/standalone/apps/web/.next/server/app && exit 1)
 
-# Tightened guard for #409: the build-time directory check above (#408) was
-# insufficient — it passed for the entire #408 incident even though /healthz
-# was 404'ing at runtime. Root cause turned out to be `export const HEAD = GET`
-# in route.ts breaking Next.js 16.2.4's runtime route dispatch despite the
-# manifest listing the route (full diagnostic preserved in #410's first commit
-# 58b984d). Manifest presence is necessary but not sufficient — the route also
-# has to actually serve. We can't probe the running server during the image
-# build, but we CAN assert both manifests still list both routes, which catches
-# any future trace-pruning regression as a build-time failure.
+# Manifest-level guard (#409). Asserts that both pre-standalone and
+# standalone app-paths-manifest.json list both probe routes. Manifest
+# presence is necessary but not sufficient — the GFE-intercepts-/healthz
+# case in #409 had the route in the manifest yet still 404'd at runtime,
+# which is why the route was renamed. This guard catches any future
+# trace-pruning regression at build time.
 RUN <<'BASH'
 node -e '
   const fs = require("fs");
@@ -62,7 +65,7 @@ node -e '
     "/app/apps/web/.next/server/app-paths-manifest.json",
     "/app/apps/web/.next/standalone/apps/web/.next/server/app-paths-manifest.json",
   ];
-  const required = ["/healthz/route", "/api/healthz/route"];
+  const required = ["/livez/route", "/api/healthz/route"];
   let failed = false;
   for (const p of paths) {
     if (!fs.existsSync(p)) {
@@ -78,7 +81,7 @@ node -e '
     }
   }
   if (failed) process.exit(1);
-  console.log("OK (#409): both manifests list both healthz routes");
+  console.log("OK (#409): both manifests list /livez/route and /api/healthz/route");
 '
 BASH
 
