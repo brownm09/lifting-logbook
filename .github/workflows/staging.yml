@@ -266,8 +266,10 @@ jobs:
           tags: |
             ${{ steps.ar.outputs.repo }}/api:${{ github.event.pull_request.head.sha }}
             ${{ steps.ar.outputs.repo }}/api:pr-${{ github.event.pull_request.number }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Per-image cache scope (#407). Isolates the PR-branch API build
+          # from the deploy.yml main-branch API cache, mirroring the web scoping.
+          cache-from: type=gha,scope=api-pr-v2
+          cache-to: type=gha,scope=api-pr-v2,mode=max
 
       - name: Build and push web image
         if: steps.image-tag.outputs.skip_build != 'true'

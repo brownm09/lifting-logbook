@@ -277,8 +277,12 @@ jobs:
           tags: |
             ${{ steps.ar.outputs.repo }}/api:${{ github.sha }}
             ${{ steps.ar.outputs.repo }}/api:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Per-image cache scope (#407). Same rationale as the web builds
+          # below — isolates the API build cache from any other image flavor
+          # so a stale layer in one cannot poison another. `-v2` suffix forces
+          # a one-time miss on merge.
+          cache-from: type=gha,scope=api-deploy-v2
+          cache-to: type=gha,scope=api-deploy-v2,mode=max
 
       # ── Web image: per-env builds (ADR-025) ────────────────────────────────
       # Two builds with per-env NEXT_PUBLIC_* values. The staging tag is built
