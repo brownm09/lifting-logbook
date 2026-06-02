@@ -10,10 +10,12 @@
 //      code (prisma schema, migrations, repositories). See issue #394.
 //   3. Local: start an ephemeral postgres:16-alpine container via Testcontainers
 //      (matches CI image), run `prisma migrate deploy` against it, and stash the
-//      container handle on globalThis for teardown. On any failure (Docker
-//      unreachable, image pull error, migration error) we throw an actionable
-//      multi-line error so the api workspace test run aborts with a clear cause
-//      — never a raw Testcontainers stack trace.
+//      container handle on globalThis for teardown. Two distinct failure
+//      messages so the headline matches reality (see Error Message Diligence
+//      in global CLAUDE.md): `container.start()` failures throw
+//      buildDockerUnavailableMessage (daemon unreachable, image pull, etc.);
+//      `prisma migrate deploy` failures throw buildMigrationFailedMessage
+//      (schema drift, SQL error, timeout — Docker is fine).
 //
 // In paths 1 and 3 the spec reads LIFTING_TC_DATABASE_URL (not DATABASE_URL)
 // because jest.env.setup.js force-blanks DATABASE_URL in every worker to keep
@@ -30,6 +32,9 @@ const { execSync } = require('child_process');
 const POSTGRES_IMAGE = 'postgres:16-alpine@sha256:16bc17c64a573ef34162af9298258d1aec548232985b33ed7b1eac33ba35c229';
 const MIGRATION_TIMEOUT_MS = 120_000;
 
+// Keep recovery copy in sync with docs/testing/e2e-coverage.md ("Running locally
+// when Docker is unavailable") and the CLAUDE.md Testing prerequisites bullet.
+// If you edit option text here, update both docs in the same PR.
 function buildDockerUnavailableMessage(underlying) {
   return [
     '[jest.global-setup] Cannot start Postgres via Testcontainers — Docker appears unreachable.',
@@ -45,6 +50,33 @@ function buildDockerUnavailableMessage(underlying) {
   ].join('\n');
 }
 
+// Distinct from buildDockerUnavailableMessage: by the time we hit this path,
+// the container has already started successfully, so the failure is in
+// `prisma migrate deploy` itself — schema drift, SQL error, Prisma version
+// mismatch, or migration timeout — NOT Docker reachability. Reporting "Docker
+// appears unreachable" here would misdirect the contributor (see global
+// CLAUDE.md → Error Message Diligence; lifting-logbook PR #423 review).
+function buildMigrationFailedMessage(underlying) {
+  return [
+    '[jest.global-setup] `prisma migrate deploy` failed against the started Testcontainers Postgres.',
+    '',
+    'Docker IS reachable — the container started cleanly. The failure is in the migration step itself.',
+    '',
+    'Likely causes:',
+    '  1. Schema drift between apps/api/prisma/schema.prisma and the migrations/ history.',
+    '  2. A SQL error in a new migration (run with DEBUG=prisma:* for the full trace).',
+    '  3. Prisma CLI / engine version mismatch (rare; rerun `npm install` and retry).',
+    '  4. Migration timeout (current limit: ' + (MIGRATION_TIMEOUT_MS / 1000) + 's — increase MIGRATION_TIMEOUT_MS if migrations have grown).',
+    '',
+    `Underlying error: ${underlying && underlying.message ? underlying.message : String(underlying)}`,
+  ].join('\n');
+}
+
+// Truthy variants the opt-out accepts. Anything else that is set-but-not-listed
+// triggers a near-miss warning so a typoed value doesn't silently fall through
+// to the hard-fail path.
+const SKIP_DB_E2E_TRUTHY = new Set(['1', 'true', 'yes']);
+
 module.exports = async function globalSetup() {
   if (process.env.DATABASE_URL) {
     process.env.LIFTING_TC_DATABASE_URL = process.env.DATABASE_URL;
@@ -55,14 +87,25 @@ module.exports = async function globalSetup() {
     return;
   }
 
-  if (process.env.LIFTING_SKIP_DB_E2E === '1') {
+  const skipRaw = process.env.LIFTING_SKIP_DB_E2E;
+  if (skipRaw !== undefined && skipRaw !== '') {
+    if (SKIP_DB_E2E_TRUTHY.has(skipRaw.toLowerCase())) {
+      console.warn(
+        `[jest.global-setup] LIFTING_SKIP_DB_E2E=${skipRaw} — skipping DB E2E provisioning. ` +
+          'DB-touching changes will not be locally verified. See issue #394.',
+      );
+      // Intentionally do not set LIFTING_TC_DATABASE_URL — the spec's
+      // describeOrSkip will leave its blocks pending.
+      return;
+    }
+    // Set but unrecognized — almost always a typo (e.g. "on", "skip", "Y").
+    // Warn loudly so the contributor sees their value was ignored before we
+    // proceed into the hard-fail path.
     console.warn(
-      '[jest.global-setup] LIFTING_SKIP_DB_E2E=1 — skipping DB E2E provisioning. ' +
-        'DB-touching changes will not be locally verified. See issue #394.',
+      `[jest.global-setup] LIFTING_SKIP_DB_E2E="${skipRaw}" is not a recognized truthy value ` +
+        `(accepted: ${[...SKIP_DB_E2E_TRUTHY].join(', ')}). Treating as unset — falling through ` +
+        'to Testcontainers provisioning.',
     );
-    // Intentionally do not set LIFTING_TC_DATABASE_URL — the spec's
-    // describeOrSkip will leave its blocks pending.
-    return;
   }
 
   const { PostgreSqlContainer } = require('@testcontainers/postgresql');
@@ -100,7 +143,7 @@ module.exports = async function globalSetup() {
   } catch (err) {
     await container.stop().catch(() => {});
     globalThis.__LL_PG_CONTAINER__ = undefined;
-    throw new Error(buildDockerUnavailableMessage(err));
+    throw new Error(buildMigrationFailedMessage(err));
   }
 
   process.env.LIFTING_TC_DATABASE_URL = url;
