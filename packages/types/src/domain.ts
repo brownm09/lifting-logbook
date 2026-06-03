@@ -15,6 +15,19 @@ export interface Lift {
   movementTags: MovementTag[];
   /** True when body weight contributes to the total load (e.g. chin-ups, dips). */
   isBodyweightComponent?: boolean;
+  /** True for user-created lifts; absent/false for built-in catalog entries. */
+  isCustom?: boolean;
+}
+
+/**
+ * A user-created lift. Persisted per user and resolved alongside the built-in
+ * catalog (custom entries take precedence). `id` is a stable uuid (the REST key),
+ * independent of `name` so a lift can be renamed without breaking references.
+ */
+export interface CustomLift extends Lift {
+  userId: string;
+  isCustom: true;
+  createdAt: Date;
 }
 
 /**

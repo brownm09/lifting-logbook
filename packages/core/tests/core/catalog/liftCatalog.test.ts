@@ -1,4 +1,5 @@
 import { DEFAULT_SLOT_MAP, LIFT_CATALOG, resolveLift } from "@src/core";
+import type { Lift } from "@lifting-logbook/types";
 
 describe("LIFT_CATALOG", () => {
   it("contains at least 20 lifts", () => {
@@ -173,6 +174,49 @@ describe("resolveLift", () => {
   it("throws when resolved lift id is not in the catalog", () => {
     const badMap: Record<string, string> = { 'Squat': 'nonexistent-id' };
     expect(() => resolveLift('Squat', badMap, LIFT_CATALOG)).toThrow(
+      /not found in catalog/,
+    );
+  });
+});
+
+describe("resolveLift with custom lifts", () => {
+  const customSafetyBar: Lift = {
+    id: 'custom-safety-bar-squat',
+    name: 'Safety Bar Squat',
+    classification: 'compound',
+    movementTags: ['squat'],
+    isCustom: true,
+  };
+
+  it("resolves a slot-mapped id to a custom lift not present in the catalog", () => {
+    const slotMap: Record<string, string> = { 'SSB': 'custom-safety-bar-squat' };
+    const lift = resolveLift('SSB', slotMap, LIFT_CATALOG, [customSafetyBar]);
+    expect(lift).toBe(customSafetyBar);
+    expect(lift.isCustom).toBe(true);
+  });
+
+  it("prefers a custom lift over a catalog entry with the same id (user intent wins)", () => {
+    const shadow: Lift = {
+      id: 'deadlift',
+      name: 'My Deadlift',
+      classification: 'compound',
+      movementTags: ['hinge'],
+      isCustom: true,
+    };
+    const lift = resolveLift('Deadlift', DEFAULT_SLOT_MAP, LIFT_CATALOG, [shadow]);
+    expect(lift).toBe(shadow);
+    expect(lift.name).toBe('My Deadlift');
+  });
+
+  it("falls back to the catalog when no custom lift matches the resolved id", () => {
+    const lift = resolveLift('Deadlift', DEFAULT_SLOT_MAP, LIFT_CATALOG, [customSafetyBar]);
+    expect(lift.id).toBe('deadlift');
+    expect(lift.isCustom).toBeUndefined();
+  });
+
+  it("still throws when the resolved id is in neither the custom list nor the catalog", () => {
+    const badMap: Record<string, string> = { 'Squat': 'nonexistent-id' };
+    expect(() => resolveLift('Squat', badMap, LIFT_CATALOG, [customSafetyBar])).toThrow(
       /not found in catalog/,
     );
   });

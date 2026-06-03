@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
+import { CustomLiftController } from './custom-lift.controller';
 import { LiftMetadataController } from './lift-metadata.controller';
 
 @Module({
-  controllers: [LiftMetadataController],
+  controllers: [LiftMetadataController, CustomLiftController],
 })
 export class LiftsModule {}

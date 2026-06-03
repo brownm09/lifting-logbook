@@ -26,8 +26,15 @@ export class ManageLiftsController {
   ) {}
 
   @Get('lifts')
-  getLifts(): string[] {
-    return [...LIFT_NAMES];
+  async getLifts(@CurrentUser() user: AuthUser): Promise<string[]> {
+    // Merge the user's custom lift names with the built-in catalog so they are
+    // selectable everywhere lifts are picked. Downstream consumers (training
+    // maxes, lift records, workout generation) already accept arbitrary lift
+    // strings, so no further wiring is needed. Deduped so a custom lift named
+    // after a built-in does not appear twice.
+    const { customLift } = await this.factory.forUser(user);
+    const customNames = (await customLift.list()).map((c) => c.name);
+    return Array.from(new Set([...LIFT_NAMES, ...customNames]));
   }
 
   @Post('cycles/:cycleNum/workouts/:workoutNum/lift-overrides')

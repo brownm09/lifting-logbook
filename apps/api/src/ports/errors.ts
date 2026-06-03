@@ -38,3 +38,17 @@ export class StrengthGoalNotFoundError extends Error {
     this.name = 'StrengthGoalNotFoundError';
   }
 }
+
+export class CustomLiftNotFoundError extends Error {
+  constructor(public readonly id: string) {
+    super(`Custom lift '${id}' not found`);
+    this.name = 'CustomLiftNotFoundError';
+  }
+}
+
+export class CustomLiftConflictError extends Error {
+  constructor(public readonly liftName: string) {
+    super(`A custom lift named '${liftName}' already exists`);
+    this.name = 'CustomLiftConflictError';
+  }
+}
