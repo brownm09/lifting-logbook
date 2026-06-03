@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { AuthUser } from '../../ports/auth';
 import { IRepositoryFactory, RepositoryBundle } from '../../ports/factory';
 import { PrismaService } from './prisma.service';
+import { PrismaCustomLiftRepository } from './custom-lift.repository';
 import { PrismaCycleDashboardRepository } from './cycle-dashboard.repository';
 import { PrismaCycleScheduledWorkoutRepository } from './cycle-scheduled-workout.repository';
 import { PrismaLiftMetadataRepository } from './lift-metadata.repository';
@@ -29,6 +30,7 @@ export class PrismaRepositoryFactory implements IRepositoryFactory {
 
   async forUser(user: AuthUser): Promise<RepositoryBundle> {
     return {
+      customLift: new PrismaCustomLiftRepository(this.prisma, user.id),
       cycleDashboard: new PrismaCycleDashboardRepository(this.prisma, user.id),
       cycleScheduledWorkout: new PrismaCycleScheduledWorkoutRepository(this.prisma, user.id),
       liftMetadata: new PrismaLiftMetadataRepository(this.prisma, user.id),

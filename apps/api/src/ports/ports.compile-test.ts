@@ -10,6 +10,7 @@ import { BodyWeightEntry } from '@lifting-logbook/types';
 import { AuthUser, IAuthProvider } from './auth';
 import { IBodyWeightRepository } from './IBodyWeightRepository';
 import { IRepositoryFactory, RepositoryBundle } from './factory';
+import { ICustomLiftRepository } from './ICustomLiftRepository';
 import { ICycleDashboardRepository } from './ICycleDashboardRepository';
 import { ICycleScheduledWorkoutRepository } from './ICycleScheduledWorkoutRepository';
 import { ILiftingProgramSpecRepository } from './ILiftingProgramSpecRepository';
@@ -160,7 +161,35 @@ const _userSettingsRepo: IUserSettingsRepository = {
   getSettings: () => Promise.resolve({ activeProgram: null, workoutSchedule: null }),
 };
 
+const _customLiftRepo: ICustomLiftRepository = {
+  list: () => Promise.resolve([]),
+  create: (input) =>
+    Promise.resolve({
+      id: '',
+      userId: '',
+      name: input.name,
+      classification: input.classification,
+      movementTags: input.movementTags ?? [],
+      isBodyweightComponent: input.isBodyweightComponent ?? false,
+      isCustom: true,
+      createdAt: new Date(),
+    }),
+  update: (id, _patch) =>
+    Promise.resolve({
+      id,
+      userId: '',
+      name: '',
+      classification: 'compound',
+      movementTags: [],
+      isBodyweightComponent: false,
+      isCustom: true,
+      createdAt: new Date(),
+    }),
+  delete: () => Promise.resolve(),
+};
+
 const _repositoryBundle: RepositoryBundle = {
+  customLift: _customLiftRepo,
   cycleDashboard: _cycleDashboardRepo,
   cycleScheduledWorkout: _cycleScheduledWorkoutRepo,
   liftMetadata: _liftMetadataRepo,

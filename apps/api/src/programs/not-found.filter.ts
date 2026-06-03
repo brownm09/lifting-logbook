@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { FastifyReply } from 'fastify';
 import {
+  CustomLiftNotFoundError,
   HistoryEntryNotFoundError,
   ProgramNotFoundError,
   StrengthGoalNotFoundError,
@@ -16,14 +17,21 @@ type DomainNotFound =
   | ProgramNotFoundError
   | WorkoutNotFoundError
   | HistoryEntryNotFoundError
-  | StrengthGoalNotFoundError;
+  | StrengthGoalNotFoundError
+  | CustomLiftNotFoundError;
 
 /**
  * Translates framework-agnostic domain "not found" errors raised by port
  * adapters into HTTP 404 responses. Keeps adapters free of `@nestjs/common`
  * HTTP dependencies so they can be reused by non-HTTP callers.
  */
-@Catch(ProgramNotFoundError, WorkoutNotFoundError, HistoryEntryNotFoundError, StrengthGoalNotFoundError)
+@Catch(
+  ProgramNotFoundError,
+  WorkoutNotFoundError,
+  HistoryEntryNotFoundError,
+  StrengthGoalNotFoundError,
+  CustomLiftNotFoundError,
+)
 export class DomainNotFoundFilter implements ExceptionFilter {
   catch(err: DomainNotFound, host: ArgumentsHost): void {
     const res = host.switchToHttp().getResponse<FastifyReply>();

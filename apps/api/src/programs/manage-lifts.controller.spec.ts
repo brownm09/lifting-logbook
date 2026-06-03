@@ -40,11 +40,12 @@ describe('ManageLiftsController', () => {
     specRepoB = { getProgramSpec: jest.fn().mockResolvedValue(STUB_SPEC) } as jest.Mocked<ILiftingProgramSpecRepository>;
     dashboardRepoA = { getCycleDashboard: jest.fn().mockResolvedValue({}), saveCycleDashboard: jest.fn() } as unknown as jest.Mocked<ICycleDashboardRepository>;
     dashboardRepoB = { getCycleDashboard: jest.fn().mockResolvedValue({}), saveCycleDashboard: jest.fn() } as unknown as jest.Mocked<ICycleDashboardRepository>;
+    const customLiftRepo = { list: jest.fn().mockResolvedValue([]) };
     factory = {
       forUser: jest.fn().mockImplementation(async (user) =>
         user.id === MOCK_USER_A.id
-          ? { cycleDashboard: dashboardRepoA, workoutLiftOverride: liftOverrideRepoA, liftingProgramSpec: specRepoA }
-          : { cycleDashboard: dashboardRepoB, workoutLiftOverride: liftOverrideRepoB, liftingProgramSpec: specRepoB },
+          ? { cycleDashboard: dashboardRepoA, workoutLiftOverride: liftOverrideRepoA, liftingProgramSpec: specRepoA, customLift: customLiftRepo }
+          : { cycleDashboard: dashboardRepoB, workoutLiftOverride: liftOverrideRepoB, liftingProgramSpec: specRepoB, customLift: customLiftRepo },
       ),
     };
     const module: TestingModule = await Test.createTestingModule({
@@ -55,8 +56,8 @@ describe('ManageLiftsController', () => {
   });
 
   describe('getLifts', () => {
-    it('returns the full LIFT_NAMES catalog', () => {
-      const result = controller.getLifts();
+    it('returns the full LIFT_NAMES catalog when the user has no custom lifts', async () => {
+      const result = await controller.getLifts(MOCK_USER_A);
       expect(result).toEqual([...LIFT_NAMES]);
       expect(result.length).toBeGreaterThan(0);
     });

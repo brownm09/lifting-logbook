@@ -1,4 +1,4 @@
-import { BodyWeightEntry, LiftName, WeightUnit, WeekNumber, CycleNumber, WeekType } from './domain';
+import { BodyWeightEntry, LiftClassification, LiftName, MovementTag, WeightUnit, WeekNumber, CycleNumber, WeekType } from './domain';
 
 // ---------------------------------------------------------------------------
 // Training Maxes
@@ -473,4 +473,35 @@ export interface ImportLiftRecordsResponse {
    * become custom programs when edited; custom programs have no lift restrictions.
    */
   skipped: SkippedRecord[];
+}
+
+// ---------------------------------------------------------------------------
+// Custom Lifts
+// ---------------------------------------------------------------------------
+
+/** Serialized custom lift as returned by the API. `userId` is intentionally omitted. */
+export interface CustomLiftResponse {
+  id: string; // uuid — the REST key
+  name: string;
+  classification: LiftClassification;
+  movementTags: MovementTag[];
+  isBodyweightComponent: boolean;
+  isCustom: true;
+  createdAt: string; // ISO 8601 date string
+}
+
+/** Request body for POST /lifts/custom. */
+export interface CreateCustomLiftRequest {
+  name: string;
+  classification: LiftClassification;
+  movementTags?: MovementTag[];
+  isBodyweightComponent?: boolean;
+}
+
+/** Request body for PATCH /lifts/custom/:id. All fields optional. */
+export interface UpdateCustomLiftRequest {
+  name?: string;
+  classification?: LiftClassification;
+  movementTags?: MovementTag[];
+  isBodyweightComponent?: boolean;
 }

@@ -147,6 +147,20 @@ model LiftMetadata {
   @@map("lift_metadata")
 }
 
+model CustomLift {
+  id                    String   @id @default(uuid())
+  userId                String
+  name                  String
+  classification        String
+  movementTags          String[]
+  isBodyweightComponent Boolean  @default(false)
+  createdAt             DateTime @default(now())
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@map("custom_lift")
+}
+
 model UserSettings {
   userId          String  @id
   activeProgram   String?
