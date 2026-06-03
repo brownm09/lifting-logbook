@@ -14,5 +14,5 @@ CREATE TABLE "custom_lift" (
 -- CreateIndex
 CREATE INDEX "custom_lift_userId_idx" ON "custom_lift"("userId");
 
--- CreateUniqueIndex
+-- CreateIndex
 CREATE UNIQUE INDEX "custom_lift_userId_name_key" ON "custom_lift"("userId", "name");

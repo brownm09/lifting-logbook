@@ -26,6 +26,7 @@ import {
   seedTrainingMaxes,
 } from '../adapters/in-memory/fixtures';
 import { DomainNotFoundFilter } from './not-found.filter';
+import { DomainConflictFilter } from './conflict.filter';
 
 const TEST_USER = 'db-e2e-primary';
 const USER_ALICE = 'db-e2e-alice';
@@ -37,11 +38,13 @@ const USER_SETT = 'db-e2e-settings';
 const USER_SETT_OTHER = 'db-e2e-settings-other';
 const USER_CUST = 'db-e2e-custom';
 const USER_CUST_OTHER = 'db-e2e-custom-other';
+const USER_CLIFT = 'db-e2e-custom-lift';
+const USER_CLIFT_OTHER = 'db-e2e-custom-lift-other';
 const USER_BW   = 'db-e2e-body-weight';
 const USER_SW   = 'db-e2e-switch';
 
 async function cleanTestUsers(prisma: PrismaClient): Promise<void> {
-  const users = [TEST_USER, USER_ALICE, USER_BOB, USER_INIT, USER_HIST, USER_SETT, USER_SETT_OTHER, USER_CUST, USER_CUST_OTHER, USER_BW, USER_SW];
+  const users = [TEST_USER, USER_ALICE, USER_BOB, USER_INIT, USER_HIST, USER_SETT, USER_SETT_OTHER, USER_CUST, USER_CUST_OTHER, USER_CLIFT, USER_CLIFT_OTHER, USER_BW, USER_SW];
   await prisma.liftRecord.deleteMany({ where: { userId: { in: users } } });
   await prisma.trainingMax.deleteMany({ where: { userId: { in: users } } });
   await prisma.trainingMaxHistory.deleteMany({ where: { userId: { in: users } } });
@@ -52,6 +55,7 @@ async function cleanTestUsers(prisma: PrismaClient): Promise<void> {
   await prisma.liftMetadata.deleteMany({ where: { userId: { in: users } } });
   await prisma.userSettings.deleteMany({ where: { userId: { in: users } } });
   await prisma.customProgram.deleteMany({ where: { userId: { in: users } } });
+  await prisma.customLift.deleteMany({ where: { userId: { in: users } } });
 }
 
 const TC_DATABASE_URL = process.env.LIFTING_TC_DATABASE_URL;
@@ -195,7 +199,7 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
     );
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await app.register(multipart as any, { limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
-    app.useGlobalFilters(new DomainNotFoundFilter());
+    app.useGlobalFilters(new DomainNotFoundFilter(), new DomainConflictFilter());
     app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
@@ -1109,6 +1113,130 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
       const res = await injectRaw({ method: 'GET', url: '/programs/custom', headers: AS_OTHER });
       expect(res.statusCode).toBe(200);
       expect(res.json()).toEqual([]);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Custom lifts — Prisma-backed (PrismaCustomLiftRepository). The in-memory
+  // e2e (custom-lift.e2e.spec.ts) covers the HTTP contract against the in-memory
+  // adapter; this block exercises the Prisma adapter against real Postgres,
+  // including the P2002 -> 409 conflict path and — critically — the userId guard
+  // on update/delete (the PK is `id` alone, so a bare where:{id} would let one
+  // user mutate another's lift). Order-sensitive within the block.
+  // ---------------------------------------------------------------------------
+
+  describe('custom lifts (DB)', () => {
+    const AS_OWNER = { authorization: `Bearer ${USER_CLIFT}` };
+    const AS_OTHER = { authorization: `Bearer ${USER_CLIFT_OTHER}` };
+    const injectRaw = () =>
+      app.getHttpAdapter().getInstance().inject.bind(app.getHttpAdapter().getInstance());
+
+    let liftId = '';
+
+    it('POST /lifts/custom creates a row (uuid id, isCustom) and persists to DB', async () => {
+      const res = await injectRaw()({
+        method: 'POST',
+        url: '/lifts/custom',
+        headers: { 'content-type': 'application/json', ...AS_OWNER },
+        payload: JSON.stringify({ name: 'Zercher Squat', classification: 'compound', movementTags: ['squat'] }),
+      });
+      expect(res.statusCode).toBe(201);
+      const body = res.json() as {
+        id: string; name: string; isCustom: boolean; createdAt: string; userId?: string;
+      };
+      expect(body.id).toMatch(/^[0-9a-f-]{36}$/);
+      expect(body.name).toBe('Zercher Squat');
+      expect(body.isCustom).toBe(true);
+      expect(body.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      expect(body).not.toHaveProperty('userId');
+      liftId = body.id;
+
+      const row = await prisma.customLift.findFirst({ where: { id: liftId } });
+      expect(row).not.toBeNull();
+      expect(row?.userId).toBe(USER_CLIFT);
+      expect(row?.classification).toBe('compound');
+      expect(row?.movementTags).toEqual(['squat']);
+    });
+
+    it('GET /lifts/custom lists the created lift for the owner', async () => {
+      const res = await injectRaw()({ method: 'GET', url: '/lifts/custom', headers: AS_OWNER });
+      expect(res.statusCode).toBe(200);
+      const list = res.json() as { id: string; name: string }[];
+      expect(list.some((l) => l.id === liftId && l.name === 'Zercher Squat')).toBe(true);
+    });
+
+    it('POST duplicate name for same user returns 409 (Prisma P2002 -> conflict)', async () => {
+      const res = await injectRaw()({
+        method: 'POST',
+        url: '/lifts/custom',
+        headers: { 'content-type': 'application/json', ...AS_OWNER },
+        payload: JSON.stringify({ name: 'Zercher Squat', classification: 'accessory' }),
+      });
+      expect(res.statusCode).toBe(409);
+    });
+
+    it('PATCH /lifts/custom/:id updates the owner\'s lift and persists', async () => {
+      const res = await injectRaw()({
+        method: 'PATCH',
+        url: `/lifts/custom/${liftId}`,
+        headers: { 'content-type': 'application/json', ...AS_OWNER },
+        payload: JSON.stringify({ name: 'Zercher Squat (SSB)', classification: 'accessory' }),
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toMatchObject({ id: liftId, name: 'Zercher Squat (SSB)', classification: 'accessory' });
+
+      const row = await prisma.customLift.findFirst({ where: { id: liftId } });
+      expect(row?.name).toBe('Zercher Squat (SSB)');
+      expect(row?.classification).toBe('accessory');
+    });
+
+    it('user isolation — another user cannot see, modify, or delete the lift', async () => {
+      // OTHER's list must not include OWNER's lift.
+      const listRes = await injectRaw()({ method: 'GET', url: '/lifts/custom', headers: AS_OTHER });
+      expect(listRes.statusCode).toBe(200);
+      expect((listRes.json() as { id: string }[]).some((l) => l.id === liftId)).toBe(false);
+
+      // OTHER's PATCH on OWNER's id -> 404 (userId guard, not a bare where:{id}).
+      const patchRes = await injectRaw()({
+        method: 'PATCH',
+        url: `/lifts/custom/${liftId}`,
+        headers: { 'content-type': 'application/json', ...AS_OTHER },
+        payload: JSON.stringify({ name: 'HACKED' }),
+      });
+      expect(patchRes.statusCode).toBe(404);
+
+      // OTHER's DELETE on OWNER's id -> 404.
+      const delRes = await injectRaw()({ method: 'DELETE', url: `/lifts/custom/${liftId}`, headers: AS_OTHER });
+      expect(delRes.statusCode).toBe(404);
+
+      // DB layer — the row is untouched: still owned by OWNER with the pre-attack name.
+      const row = await prisma.customLift.findFirst({ where: { id: liftId } });
+      expect(row).not.toBeNull();
+      expect(row?.userId).toBe(USER_CLIFT);
+      expect(row?.name).toBe('Zercher Squat (SSB)');
+    });
+
+    it('PATCH unknown id returns 404', async () => {
+      const res = await injectRaw()({
+        method: 'PATCH',
+        url: '/lifts/custom/00000000-0000-0000-0000-000000000000',
+        headers: { 'content-type': 'application/json', ...AS_OWNER },
+        payload: JSON.stringify({ name: 'nope' }),
+      });
+      expect(res.statusCode).toBe(404);
+    });
+
+    it('DELETE /lifts/custom/:id removes the owner\'s row', async () => {
+      const res = await injectRaw()({ method: 'DELETE', url: `/lifts/custom/${liftId}`, headers: AS_OWNER });
+      expect(res.statusCode).toBe(204);
+
+      const row = await prisma.customLift.findFirst({ where: { id: liftId } });
+      expect(row).toBeNull();
+    });
+
+    it('DELETE unknown id returns 404', async () => {
+      const res = await injectRaw()({ method: 'DELETE', url: `/lifts/custom/${liftId}`, headers: AS_OWNER });
+      expect(res.statusCode).toBe(404);
     });
   });
 
