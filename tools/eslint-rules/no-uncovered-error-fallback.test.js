@@ -18,6 +18,13 @@ const tsParser = require('@typescript-eslint/parser');
 // poison the module-level cache for subsequent cases).
 function makeSandbox(testFiles) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'eslint-rule-test-'));
+  // Write a `.git` marker at the sandbox root. `findRepoRoot` checks for `.git`
+  // first and walks all the way up, so without this marker it escapes the sandbox
+  // and resolves to the nearest ancestor `.git` instead — which happens whenever
+  // os.tmpdir() lives inside a git repo (e.g. a Windows home dir under version
+  // control: C:\Users\<name>\AppData\Local\Temp). The package.json + turbo.json
+  // fallback only applies when no `.git` is found anywhere above. See #439.
+  fs.writeFileSync(path.join(root, '.git'), 'gitdir: sandbox\n');
   fs.writeFileSync(path.join(root, 'package.json'), '{"name":"sandbox","private":true}');
   fs.writeFileSync(path.join(root, 'turbo.json'), '{}');
   for (const [rel, content] of Object.entries(testFiles)) {
