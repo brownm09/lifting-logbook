@@ -157,6 +157,7 @@ monorepo/
 | [ADR-023](adr/ADR-023-staging-integration-test-design.md)   | Staging Integration Test Design                                     | Accepted |
 | [ADR-024](adr/ADR-024-prisma-otel-sdk-override.md)          | Prisma OTel SDK Version Conflict — postinstall Cleanup              | Accepted |
 | [ADR-025](adr/ADR-025-web-image-per-env-build.md)           | Per-Environment Web Image Build                                     | Accepted |
+| [ADR-026](adr/ADR-026-ci-action-version-pinning.md)         | CI Action Version Pinning                                           | Accepted |
 
 ---
 
