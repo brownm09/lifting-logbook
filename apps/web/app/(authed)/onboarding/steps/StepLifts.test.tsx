@@ -53,20 +53,31 @@ describe('StepLifts — default rows', () => {
 });
 
 describe('StepLifts — add a lift', () => {
+  it('exposes combobox role and aria-expanded on the search input', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+
+    const input = screen.getByRole('combobox', { name: 'Add a lift' });
+    expect(input).toHaveAttribute('aria-expanded', 'false');
+
+    await user.click(input);
+    expect(input).toHaveAttribute('aria-expanded', 'true');
+  });
+
   it('shows available catalog lifts when the input is focused with no query', async () => {
     const user = userEvent.setup();
     render(<Harness />);
 
     // Before focus: no picker items visible
-    expect(screen.queryByRole('button', { name: 'Overhead Press' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Overhead Press' })).not.toBeInTheDocument();
 
     await user.click(screen.getByLabelText('Add a lift'));
 
     // After focus with empty query: unselected catalog lifts appear immediately
-    expect(screen.getByRole('button', { name: 'Overhead Press' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Barbell Row' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Overhead Press' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Barbell Row' })).toBeInTheDocument();
     // Already-selected lifts are not offered
-    expect(screen.queryByRole('button', { name: 'Squat' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Squat' })).not.toBeInTheDocument();
   });
 
   it('appends a catalog lift selected from the picker', async () => {
@@ -77,7 +88,7 @@ describe('StepLifts — add a lift', () => {
     expect(screen.queryByText('Overhead Press')).not.toBeInTheDocument();
 
     await user.type(screen.getByLabelText('Add a lift'), 'overhead');
-    await user.click(screen.getByRole('button', { name: 'Overhead Press' }));
+    await user.click(screen.getByRole('option', { name: 'Overhead Press' }));
 
     expect(screen.getByText('Overhead Press')).toBeInTheDocument();
     expect(screen.getByLabelText('Overhead Press weight')).toBeInTheDocument();
@@ -88,8 +99,8 @@ describe('StepLifts — add a lift', () => {
     render(<Harness />);
 
     await user.type(screen.getByLabelText('Add a lift'), 'squat');
-    // 'Squat' is already a default row, so no picker option button for it
-    expect(screen.queryByRole('button', { name: 'Squat' })).not.toBeInTheDocument();
+    // 'Squat' is already a default row, so no picker option for it
+    expect(screen.queryByRole('option', { name: 'Squat' })).not.toBeInTheDocument();
   });
 
   it('adds a free-text custom lift that is not in the catalog', async () => {
@@ -99,7 +110,7 @@ describe('StepLifts — add a lift', () => {
     // 'Zercher Carry' is not in CATALOG — the picker should offer it as custom
     await user.type(screen.getByLabelText('Add a lift'), 'Zercher Carry');
     await user.click(
-      screen.getByRole('button', { name: /Add .*Zercher Carry.* as a custom lift/i }),
+      screen.getByRole('option', { name: /Add .*Zercher Carry.* as a custom lift/i }),
     );
 
     expect(screen.getByText('Zercher Carry')).toBeInTheDocument();
@@ -113,9 +124,9 @@ describe('StepLifts — add a lift', () => {
     // 'Overhead Press' is a catalog lift not yet added — it is offered as a
     // normal catalog option, never as a "custom lift".
     await user.type(screen.getByLabelText('Add a lift'), 'Overhead Press');
-    expect(screen.getByRole('button', { name: 'Overhead Press' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Overhead Press' })).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: /as a custom lift/i }),
+      screen.queryByRole('option', { name: /as a custom lift/i }),
     ).not.toBeInTheDocument();
   });
 });
