@@ -355,7 +355,7 @@ npm test -w @lifting-logbook/web
 npm run test:e2e -w @lifting-logbook/web
 ```
 
-Playwright must be installed (`npx playwright install --with-deps chromium` once). The config handles all env vars (dummy Clerk keys, `DEV_AUTH_TOKEN`, `API_URL`) so no manual setup is needed. The motivating incident is [#444](https://github.com/brownm09/lifting-logbook/issues/444) / PR #438, where an aria-label rename (`Back Squat` → `Squat`) passed Jest but broke the smoke spec and was only caught by CI.
+Playwright browsers must be installed once (`npx playwright install chromium`; CI uses the `--with-deps` form for its Linux runner — that flag is a no-op on Windows). The config handles all env vars (dummy Clerk keys, `DEV_AUTH_TOKEN`, `API_URL`) so no manual setup is needed. The motivating incident is [#444](https://github.com/brownm09/lifting-logbook/issues/444) / PR #438, where an aria-label rename (`Back Squat` → `Squat`) passed Jest but broke the smoke spec and was only caught by CI.
 
 ### Coverage Requirements
 
