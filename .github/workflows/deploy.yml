@@ -632,14 +632,13 @@ jobs:
     needs: [preflight, build-images, deploy-staging, smoke-test, approve-production]
     # Gate is fully expressed by approve-production: if the reviewer rejects
     # (or approve-production is skipped because its own if-clause was false),
-    # this job skips cleanly rather than triggering a second required-reviewer
-    # prompt from its own `environment: production` reference. The build/smoke
-    # conditions are already enforced by approve-production.if upstream.
+    # this job skips cleanly. No `environment: production` here — that would
+    # trigger a second required-reviewer prompt. The build/smoke conditions are
+    # already enforced by approve-production.if upstream.
     if: always() && needs.approve-production.result == 'success'
     permissions:
       contents: read
       id-token: write
-    environment: production   # triggers GitHub required-reviewer gate
 
     steps:
       - uses: actions/checkout@v5
