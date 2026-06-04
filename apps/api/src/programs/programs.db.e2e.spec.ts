@@ -1073,7 +1073,10 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
       reps: 5,
       amrap: false,
       warmUpPct: '40/50/60/70/75/80',
-      wtDecrementPct: 0.9,
+      // 0.1 per-set drop over 3 sets → work %s [1, 0.9, 0.8], all positive. (A prior
+      // value of 0.9 produced a negative final set; it survived only because this
+      // block never generates a plan. The cross-field DTO guard now rejects it.)
+      wtDecrementPct: 0.1,
       activation: 'standard',
     };
 
@@ -1113,6 +1116,43 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
       const res = await injectRaw({ method: 'GET', url: '/programs/custom', headers: AS_OTHER });
       expect(res.statusCode).toBe(200);
       expect(res.json()).toEqual([]);
+    });
+
+    it('user isolation — another user cannot read the owner\'s custom program SPEC', async () => {
+      // Regression guard for the cross-user spec leak (#434): GET /programs/:uuid/spec
+      // resolves through HybridLiftingProgramSpecRepository.getCustomSpec, which must
+      // scope by the owning program's userId. A bare where:{ programId } would return
+      // the owner's rows to any caller who knows the UUID. This asserts the fix at the
+      // real Postgres layer (the unit spec only checks the query shape).
+      const injectRaw = app.getHttpAdapter().getInstance().inject.bind(app.getHttpAdapter().getInstance());
+
+      // Owner creates a program with a spec row.
+      const createRes = await injectRaw({
+        method: 'POST',
+        url: '/programs/custom',
+        headers: { 'content-type': 'application/json', ...AS_CUST },
+        payload: JSON.stringify({ name: 'Spec Isolation Program', specs: [MINIMAL_SPEC] }),
+      });
+      expect(createRes.statusCode).toBe(201);
+      const programId = (createRes.json() as { id: string }).id;
+
+      // Owner sees the spec.
+      const ownerSpec = await injectRaw({
+        method: 'GET',
+        url: `/programs/${programId}/spec`,
+        headers: AS_CUST,
+      });
+      expect(ownerSpec.statusCode).toBe(200);
+      expect((ownerSpec.json() as unknown[]).length).toBeGreaterThan(0);
+
+      // A different user requesting the same UUID gets an empty spec, not the owner's rows.
+      const otherSpec = await injectRaw({
+        method: 'GET',
+        url: `/programs/${programId}/spec`,
+        headers: { authorization: `Bearer ${USER_CUST_OTHER}` },
+      });
+      expect(otherSpec.statusCode).toBe(200);
+      expect(otherSpec.json()).toEqual([]);
     });
   });
 
