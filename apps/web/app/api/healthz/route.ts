@@ -29,7 +29,7 @@ export async function GET() {
     await auth();
     return NextResponse.json({ ok: true });
   } catch (err) {
-    // eslint-disable-next-line no-console -- server-side log only; not exposed
+    // Server-side log only (not exposed in the response body, per the note above).
     console.error('[healthz] auth() threw — middleware likely did not run:', err);
     return NextResponse.json({ ok: false }, { status: 503 });
   }
