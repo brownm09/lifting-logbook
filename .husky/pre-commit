@@ -13,17 +13,13 @@ unset _COMMON
 
 _TURBO_INLINE="process.env.TURBO_BINARY_PATH=process.argv[1]; require('./node_modules/turbo/bin/turbo')"
 
-# Excluded until scaffolded/clean:
-#   @lifting-logbook/web  — no src/ yet (issue #9)
-#   @lifting-logbook/core — 51 pre-existing GAS-migration lint errors (issue #51)
+# Lints all workspaces, matching the CI "Lint & Test" job.
+#   @lifting-logbook/web was un-excluded once apps/web scaffolding completed (issue #9, closed).
+#   @lifting-logbook/core was un-excluded once its GAS-migration lint errors were resolved (issue #51, closed).
 if [ -n "$_MAIN_ROOT" ] && [ -f "$_WIN_TURBO" ]; then
-  node -e "$_TURBO_INLINE" "$_WIN_TURBO" run lint \
-    --filter=!@lifting-logbook/web \
-    --filter=!@lifting-logbook/core
+  node -e "$_TURBO_INLINE" "$_WIN_TURBO" run lint
 else
-  npx turbo run lint \
-    --filter=!@lifting-logbook/web \
-    --filter=!@lifting-logbook/core
+  npx turbo run lint
 fi
 RESULT=$?
 unset _MAIN_ROOT _WIN_TURBO _TURBO_INLINE
