@@ -594,25 +594,28 @@ jobs:
             echo "API smoke test failed: expected 200 or 403, got $STATUS" && exit 1
           fi
 
-  # ── 5. Manual approval gate ──────────────────────────────────────────────
-  # Surfaces the production approval gate in the workflow itself, in addition
-  # to (not instead of) the `environment: production` reference on
-  # deploy-production below. Required reviewers are configured on the
-  # production environment in repo Settings (see #417); this job has no
-  # `run:` of substance — it exists to:
-  #   1. Make the gate visible in code review of this file rather than only
-  #      in repo Settings → Environments → production.
-  #   2. Act as a tripwire — if a future refactor strips `environment:
-  #      production` from deploy-production, this job still pauses the
-  #      pipeline at the same point.
-  # The reviewer clicks Approve once; both this job and deploy-production
-  # share the same environment, so a single approval releases both.
-  approve-production:
-    name: Approve production deploy
+  # ── 5. Deploy to production (requires manual approval) ───────────────────
+  # The `environment: production` reference below is the manual approval gate.
+  # GitHub raises one required-reviewer prompt per job that targets a protected
+  # environment, so the gate lives on this job alone — the job that actually
+  # deploys — giving a single approval, the GitHub-enforced backstop on the
+  # real deploy, and an accurate deployment record against the production
+  # environment.
+  #
+  # History: a separate `approve-production` job previously carried this
+  # environment "in addition to" deploy-production (#417), on the assumption
+  # that two jobs sharing one environment would prompt only once. They don't —
+  # GitHub prompts per-job — which produced a double approval (#451). The gate
+  # is now consolidated onto the deploy job, where the environment protection
+  # belongs.
+  deploy-production:
+    name: Deploy (production)
     runs-on: ubuntu-latest
     needs: [preflight, build-images, deploy-staging, smoke-test]
-    # Same gating logic as deploy-production below — only request approval
-    # when the pipeline would actually be ready to deploy.
+    # Only deploy when the pipeline is actually ready: build succeeded and,
+    # when staging is enabled, the staging smoke test passed. `always()` lets
+    # this run even though deploy-staging/smoke-test are skipped in
+    # production-only mode (their `skipped` result is not `success`).
     if: |
       always() &&
       needs.build-images.result == 'success' &&
@@ -620,25 +623,10 @@ jobs:
         needs.preflight.outputs.staging_enabled != 'true' ||
         needs.smoke-test.result == 'success'
       )
-    environment: production
-    steps:
-      - name: Approved
-        run: echo "Production deploy approved."
-
-  # ── 6. Deploy to production (requires manual approval) ───────────────────
-  deploy-production:
-    name: Deploy (production)
-    runs-on: ubuntu-latest
-    needs: [preflight, build-images, deploy-staging, smoke-test, approve-production]
-    # Gate is fully expressed by approve-production: if the reviewer rejects
-    # (or approve-production is skipped because its own if-clause was false),
-    # this job skips cleanly. No `environment: production` here — that would
-    # trigger a second required-reviewer prompt. The build/smoke conditions are
-    # already enforced by approve-production.if upstream.
-    if: always() && needs.approve-production.result == 'success'
     permissions:
       contents: read
       id-token: write
+    environment: production   # manual approval gate (required reviewer, #417)
 
     steps:
       - uses: actions/checkout@v5
