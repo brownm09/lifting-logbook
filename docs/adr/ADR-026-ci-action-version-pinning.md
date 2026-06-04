@@ -25,21 +25,34 @@ filed as [#418](https://github.com/brownm09/lifting-logbook/issues/418):
 
 Every action not already addressed by [#416](https://github.com/brownm09/lifting-logbook/pull/416)
 is on a current major whose `runs:` uses a Node runtime GitHub still ships on its runners
-(`node20` at time of writing). No action is on a soon-to-be-deprecated runtime; **no bumps are
-needed this wave.**
+(`node20` or `node24` at time of writing — see the Runtime column). No action is on a
+soon-to-be-deprecated runtime; **no bumps are needed this wave.** The table inventories every
+action referenced across `.github/workflows/` except `actions/checkout@v5` and
+`hashicorp/setup-terraform@v4` (bumped in #416); `google-github-actions/auth` — the third #416
+bump — is re-listed here because it carries the OIDC credentials this ADR's supply-chain posture
+is most concerned with.
 
 | Action | Pin | Workflows | Runtime |
 |---|---|---|---|
 | `actions/setup-node` | `@v4` | `ci.yml`, `staging.yml` | node20 |
 | `actions/cache` | `@v4` | `ci.yml` | node20 |
 | `actions/upload-artifact` | `@v4` | `ci.yml`, `staging.yml`, `required-checks-drift.yml` | node20 |
+| `actions/github-script` | `@v9` | `staging.yml` | node24 |
 | `google-github-actions/auth` | `@v3` | `deploy.yml`, `staging.yml` | node20 |
 | `google-github-actions/get-gke-credentials` | `@v2` | `deploy.yml`, `staging.yml` | node20 |
 | `docker/setup-buildx-action` | `@v3` | `deploy.yml`, `staging.yml` | node20 |
 | `docker/build-push-action` | `@v6` | `deploy.yml`, `staging.yml` | node20 |
+| `azure/setup-helm` | `@v4` | `deploy.yml`, `staging.yml` | node20 |
+| `dorny/paths-filter` | `@v3` | `staging.yml` | node20 |
 
 `google-github-actions/setup-gcloud` is **not** used — `gcloud` is pre-installed on
 `ubuntu-latest` runners and invoked directly from `run:` steps.
+
+Note `actions/github-script@v9` already runs on `node24`, ahead of the `node20` deprecation
+curve. The two third-party actions in the inventory (`azure/setup-helm`, `dorny/paths-filter`)
+are covered by the same floating-tag decision below; neither holds OIDC credentials (the
+supply-chain concern is concentrated in `google-github-actions/auth`, addressed by #416's bump
+and re-audited here).
 
 ## Decision
 
