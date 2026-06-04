@@ -106,32 +106,34 @@ export function StepLifts({ method, lifts, catalog, onChange, onAdd, onRemove }:
           aria-label="Add a lift"
         />
         {focused && (available.length > 0 || canAddCustom || query.length > 0) && (
-          <ul id={listboxId} role="listbox" aria-label="Available lifts" className={styles.liftPickerList}>
-            {available.map((lift) => (
-              <li
-                key={lift}
-                role="option"
-                aria-selected={false}
-                className={styles.liftPickerItem}
-                onMouseDown={(e) => { e.preventDefault(); handleAdd(lift); }}
-              >
-                {lift}
-              </li>
-            ))}
-            {canAddCustom && (
-              <li
-                role="option"
-                aria-selected={false}
-                className={styles.liftPickerItem}
-                onMouseDown={(e) => { e.preventDefault(); handleAdd(trimmed); }}
-              >
-                Add &ldquo;{trimmed}&rdquo; as a custom lift
-              </li>
-            )}
+          <>
+            <ul id={listboxId} role="listbox" aria-label="Available lifts" className={styles.liftPickerList}>
+              {available.map((lift) => (
+                <li
+                  key={lift}
+                  role="option"
+                  aria-selected={false}
+                  className={styles.liftPickerItem}
+                  onMouseDown={(e) => { e.preventDefault(); handleAdd(lift); }}
+                >
+                  {lift}
+                </li>
+              ))}
+              {canAddCustom && (
+                <li
+                  role="option"
+                  aria-selected={false}
+                  className={styles.liftPickerItem}
+                  onMouseDown={(e) => { e.preventDefault(); handleAdd(trimmed); }}
+                >
+                  Add &ldquo;{trimmed}&rdquo; as a custom lift
+                </li>
+              )}
+            </ul>
             {available.length === 0 && !canAddCustom && (
-              <li className={styles.liftPickerEmpty}>No lifts match &ldquo;{query}&rdquo;</li>
+              <p className={styles.liftPickerEmpty}>No lifts match &ldquo;{query}&rdquo;</p>
             )}
-          </ul>
+          </>
         )}
       </div>
 
