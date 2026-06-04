@@ -1,6 +1,6 @@
 # Proposal: Onboarding — Estimate Maxes for Any Catalog or Custom Lift
 
-**Status:** `draft`
+**Status:** `shipped`
 **Date:** 2026-06-03
 **Issue:** [#426](https://github.com/brownm09/lifting-logbook/issues/426)
 
