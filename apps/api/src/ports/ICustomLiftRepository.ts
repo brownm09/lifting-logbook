@@ -1,16 +1,16 @@
-import { CustomLift, LiftClassification, MovementTag } from '@lifting-logbook/types';
+import { CustomLift, LiftClassification, MovementProfile } from '@lifting-logbook/types';
 
 export interface CreateCustomLiftInput {
   name: string;
   classification: LiftClassification;
-  movementTags?: MovementTag[];
+  movementProfile?: MovementProfile;
   isBodyweightComponent?: boolean;
 }
 
 export interface UpdateCustomLiftPatch {
   name?: string;
   classification?: LiftClassification;
-  movementTags?: MovementTag[];
+  movementProfile?: MovementProfile;
   isBodyweightComponent?: boolean;
 }
 

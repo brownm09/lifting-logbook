@@ -1,4 +1,4 @@
-import { BodyWeightEntry, LiftClassification, LiftName, MovementTag, WeightUnit, WeekNumber, CycleNumber, WeekType } from './domain';
+import { BodyWeightEntry, LiftClassification, LiftName, MovementProfile, WeightUnit, WeekNumber, CycleNumber, WeekType } from './domain';
 
 // ---------------------------------------------------------------------------
 // Training Maxes
@@ -484,7 +484,7 @@ export interface CustomLiftResponse {
   id: string; // uuid — the REST key
   name: string;
   classification: LiftClassification;
-  movementTags: MovementTag[];
+  movementProfile: MovementProfile;
   isBodyweightComponent: boolean;
   isCustom: true;
   createdAt: string; // ISO 8601 date string
@@ -494,7 +494,7 @@ export interface CustomLiftResponse {
 export interface CreateCustomLiftRequest {
   name: string;
   classification: LiftClassification;
-  movementTags?: MovementTag[];
+  movementProfile?: MovementProfile;
   isBodyweightComponent?: boolean;
 }
 
@@ -502,6 +502,6 @@ export interface CreateCustomLiftRequest {
 export interface UpdateCustomLiftRequest {
   name?: string;
   classification?: LiftClassification;
-  movementTags?: MovementTag[];
+  movementProfile?: MovementProfile;
   isBodyweightComponent?: boolean;
 }

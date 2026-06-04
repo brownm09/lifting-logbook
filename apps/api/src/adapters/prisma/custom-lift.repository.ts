@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-import { CustomLift, LiftClassification, MovementTag } from '@lifting-logbook/types';
+import { CustomLift, JointAction, LiftClassification, MovementComplexity, MovementTag } from '@lifting-logbook/types';
 import {
   CreateCustomLiftInput,
   ICustomLiftRepository,
@@ -13,7 +13,9 @@ interface CustomLiftRow {
   userId: string;
   name: string;
   classification: string;
-  movementTags: string[];
+  patterns: string[];
+  jointActions: string[];
+  complexity: string;
   isBodyweightComponent: boolean;
   createdAt: Date;
 }
@@ -39,7 +41,9 @@ export class PrismaCustomLiftRepository implements ICustomLiftRepository {
           userId: this.userId,
           name: input.name,
           classification: input.classification,
-          movementTags: input.movementTags ?? [],
+          patterns: input.movementProfile?.patterns ?? [],
+          jointActions: input.movementProfile?.jointActions ?? [],
+          complexity: input.movementProfile?.complexity ?? 'simple',
           isBodyweightComponent: input.isBodyweightComponent ?? false,
         },
       });
@@ -62,7 +66,13 @@ export class PrismaCustomLiftRepository implements ICustomLiftRepository {
     const data = {
       ...(patch.name !== undefined ? { name: patch.name } : {}),
       ...(patch.classification !== undefined ? { classification: patch.classification } : {}),
-      ...(patch.movementTags !== undefined ? { movementTags: patch.movementTags } : {}),
+      ...(patch.movementProfile !== undefined
+        ? {
+            patterns: patch.movementProfile.patterns,
+            jointActions: patch.movementProfile.jointActions,
+            complexity: patch.movementProfile.complexity,
+          }
+        : {}),
       ...(patch.isBodyweightComponent !== undefined
         ? { isBodyweightComponent: patch.isBodyweightComponent }
         : {}),
@@ -93,7 +103,11 @@ export class PrismaCustomLiftRepository implements ICustomLiftRepository {
       userId: row.userId,
       name: row.name,
       classification: row.classification as LiftClassification,
-      movementTags: row.movementTags as MovementTag[],
+      movementProfile: {
+        patterns: row.patterns as MovementTag[],
+        jointActions: row.jointActions as JointAction[],
+        complexity: row.complexity as MovementComplexity,
+      },
       isBodyweightComponent: row.isBodyweightComponent,
       isCustom: true,
       createdAt: row.createdAt,

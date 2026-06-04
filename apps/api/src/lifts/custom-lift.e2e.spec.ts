@@ -56,17 +56,28 @@ describe('Custom Lifts HTTP (e2e, in-memory adapters)', () => {
     const res = await create({
       name: 'Safety Bar Squat',
       classification: 'compound',
-      movementTags: ['squat'],
+      movementProfile: { patterns: ['squat'], jointActions: ['flexion', 'extension'], complexity: 'compound' },
     });
     expect(res.statusCode).toBe(201);
     const lift = res.json() as CustomLiftResponse;
     expect(lift.id).toMatch(/[0-9a-f-]{36}/);
     expect(lift.name).toBe('Safety Bar Squat');
     expect(lift.classification).toBe('compound');
-    expect(lift.movementTags).toEqual(['squat']);
+    expect(lift.movementProfile).toEqual({
+      patterns: ['squat'],
+      jointActions: ['flexion', 'extension'],
+      complexity: 'compound',
+    });
     expect(lift.isBodyweightComponent).toBe(false);
     expect(lift.isCustom).toBe(true);
     expect(typeof lift.createdAt).toBe('string');
+  });
+
+  it('defaults movementProfile to an empty simple profile when omitted', async () => {
+    const res = await create({ name: 'Profileless Lift', classification: 'accessory' });
+    expect(res.statusCode).toBe(201);
+    const lift = res.json() as CustomLiftResponse;
+    expect(lift.movementProfile).toEqual({ patterns: [], jointActions: [], complexity: 'simple' });
   });
 
   it('lists the created custom lift', async () => {
@@ -83,17 +94,25 @@ describe('Custom Lifts HTTP (e2e, in-memory adapters)', () => {
     expect(dup.statusCode).toBe(409);
   });
 
-  it('updates classification, tags and name via PATCH', async () => {
+  it('updates classification, movementProfile and name via PATCH', async () => {
     const created = await create({ name: 'Belt Squat', classification: 'accessory' });
     const id = (created.json() as CustomLiftResponse).id;
     const res = await inject('PATCH', `/lifts/custom/${id}`, {
-      body: { classification: 'compound', movementTags: ['squat'], name: 'Belt Squat v2' },
+      body: {
+        classification: 'compound',
+        movementProfile: { patterns: ['squat'], jointActions: ['flexion', 'extension'], complexity: 'compound' },
+        name: 'Belt Squat v2',
+      },
     });
     expect(res.statusCode).toBe(200);
     const lift = res.json() as CustomLiftResponse;
     expect(lift.id).toBe(id);
     expect(lift.classification).toBe('compound');
-    expect(lift.movementTags).toEqual(['squat']);
+    expect(lift.movementProfile).toEqual({
+      patterns: ['squat'],
+      jointActions: ['flexion', 'extension'],
+      complexity: 'compound',
+    });
     expect(lift.name).toBe('Belt Squat v2');
   });
 
@@ -127,8 +146,32 @@ describe('Custom Lifts HTTP (e2e, in-memory adapters)', () => {
       const res = await create({ name: 'Bad Class', classification: 'isolation' });
       expect(res.statusCode).toBe(400);
     });
-    it('rejects an invalid movement tag with 400', async () => {
-      const res = await create({ name: 'Bad Tag', classification: 'compound', movementTags: ['twist'] });
+    it('rejects an invalid movement pattern with 400', async () => {
+      const res = await create({
+        name: 'Bad Pattern',
+        classification: 'compound',
+        movementProfile: { patterns: ['twist'], jointActions: [], complexity: 'simple' },
+      });
+      expect(res.statusCode).toBe(400);
+    });
+    it('rejects an invalid joint action with 400', async () => {
+      const res = await create({
+        name: 'Bad Joint',
+        classification: 'compound',
+        movementProfile: { patterns: ['squat'], jointActions: ['rotation'], complexity: 'compound' },
+      });
+      expect(res.statusCode).toBe(400);
+    });
+    it('rejects an invalid complexity with 400', async () => {
+      const res = await create({
+        name: 'Bad Complexity',
+        classification: 'compound',
+        movementProfile: { patterns: ['squat'], jointActions: [], complexity: 'multi' },
+      });
+      expect(res.statusCode).toBe(400);
+    });
+    it('rejects a primitive movementProfile with 400 (no nested no-op bypass)', async () => {
+      const res = await create({ name: 'Primitive Profile', classification: 'compound', movementProfile: 'squat' });
       expect(res.statusCode).toBe(400);
     });
     it('rejects an unknown extra field with 400', async () => {
