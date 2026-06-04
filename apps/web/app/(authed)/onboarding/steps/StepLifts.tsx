@@ -15,6 +15,7 @@ type Props = {
 
 export function StepLifts({ method, lifts, catalog, onChange, onAdd, onRemove }: Props) {
   const [query, setQuery] = useState('');
+  const [focused, setFocused] = useState(false);
 
   const selected = new Set(lifts.map((row) => row.lift));
   const available = catalog.filter(
@@ -93,17 +94,19 @@ export function StepLifts({ method, lifts, catalog, onChange, onAdd, onRemove }:
           placeholder="Add a lift…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           className={styles.liftSearchInput}
           aria-label="Add a lift"
         />
-        {query.length > 0 && (
+        {focused && (available.length > 0 || canAddCustom || query.length > 0) && (
           <ul className={styles.liftPickerList}>
             {available.map((lift) => (
               <li key={lift}>
                 <button
                   type="button"
                   className={styles.liftPickerItem}
-                  onClick={() => handleAdd(lift)}
+                  onMouseDown={(e) => { e.preventDefault(); handleAdd(lift); }}
                 >
                   {lift}
                 </button>
@@ -114,7 +117,7 @@ export function StepLifts({ method, lifts, catalog, onChange, onAdd, onRemove }:
                 <button
                   type="button"
                   className={styles.liftPickerItem}
-                  onClick={() => handleAdd(trimmed)}
+                  onMouseDown={(e) => { e.preventDefault(); handleAdd(trimmed); }}
                 >
                   Add &ldquo;{trimmed}&rdquo; as a custom lift
                 </button>
