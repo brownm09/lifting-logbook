@@ -21,6 +21,15 @@ export function StepLifts({ method, lifts, catalog, onChange, onAdd, onRemove }:
     (lift) => !selected.has(lift) && lift.toLowerCase().includes(query.toLowerCase()),
   );
 
+  // Free-text custom lift: when the typed name matches no catalog entry and is
+  // not already added, offer it as a custom lift. The training-maxes PATCH
+  // appends unknown lift names, so a custom name persists like any catalog lift.
+  const trimmed = query.trim();
+  const normalized = trimmed.toLowerCase();
+  const alreadySelected = lifts.some((row) => row.lift.toLowerCase() === normalized);
+  const matchesCatalog = catalog.some((lift) => lift.toLowerCase() === normalized);
+  const canAddCustom = trimmed.length > 0 && !alreadySelected && !matchesCatalog;
+
   function handleAdd(lift: string) {
     onAdd(lift);
     setQuery('');
@@ -89,20 +98,30 @@ export function StepLifts({ method, lifts, catalog, onChange, onAdd, onRemove }:
         />
         {query.length > 0 && (
           <ul className={styles.liftPickerList}>
-            {available.length === 0 ? (
+            {available.map((lift) => (
+              <li key={lift}>
+                <button
+                  type="button"
+                  className={styles.liftPickerItem}
+                  onClick={() => handleAdd(lift)}
+                >
+                  {lift}
+                </button>
+              </li>
+            ))}
+            {canAddCustom && (
+              <li>
+                <button
+                  type="button"
+                  className={styles.liftPickerItem}
+                  onClick={() => handleAdd(trimmed)}
+                >
+                  Add &ldquo;{trimmed}&rdquo; as a custom lift
+                </button>
+              </li>
+            )}
+            {available.length === 0 && !canAddCustom && (
               <li className={styles.liftPickerEmpty}>No lifts match &ldquo;{query}&rdquo;</li>
-            ) : (
-              available.map((lift) => (
-                <li key={lift}>
-                  <button
-                    type="button"
-                    className={styles.liftPickerItem}
-                    onClick={() => handleAdd(lift)}
-                  >
-                    {lift}
-                  </button>
-                </li>
-              ))
             )}
           </ul>
         )}

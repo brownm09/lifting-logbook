@@ -74,6 +74,33 @@ describe('StepLifts — add a lift', () => {
     // 'Squat' is already a default row, so no picker option button for it
     expect(screen.queryByRole('button', { name: 'Squat' })).not.toBeInTheDocument();
   });
+
+  it('adds a free-text custom lift that is not in the catalog', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+
+    // 'Zercher Carry' is not in CATALOG — the picker should offer it as custom
+    await user.type(screen.getByLabelText('Add a lift'), 'Zercher Carry');
+    await user.click(
+      screen.getByRole('button', { name: /Add .*Zercher Carry.* as a custom lift/i }),
+    );
+
+    expect(screen.getByText('Zercher Carry')).toBeInTheDocument();
+    expect(screen.getByLabelText('Zercher Carry weight')).toBeInTheDocument();
+  });
+
+  it('does not offer a custom-add when the query exactly matches a catalog lift', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+
+    // 'Overhead Press' is a catalog lift not yet added — it is offered as a
+    // normal catalog option, never as a "custom lift".
+    await user.type(screen.getByLabelText('Add a lift'), 'Overhead Press');
+    expect(screen.getByRole('button', { name: 'Overhead Press' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /as a custom lift/i }),
+    ).not.toBeInTheDocument();
+  });
 });
 
 describe('StepLifts — remove a lift', () => {
