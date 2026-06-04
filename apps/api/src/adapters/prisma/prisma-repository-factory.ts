@@ -20,13 +20,12 @@ import { UserSettingsRepository } from '../../user-settings/user-settings.reposi
 
 @Injectable()
 export class PrismaRepositoryFactory implements IRepositoryFactory {
-  // Spec repo handles both in-memory built-in programs and DB-backed custom programs.
-  private readonly programSpecRepo: HybridLiftingProgramSpecRepository;
+  // Built-in program philosophy is user-independent, so it can be a singleton. The
+  // spec repo is NOT — its custom-program branch must be scoped to the requesting
+  // user, so it is constructed per-request inside forUser() like every other repo.
   private readonly philosophyRepo = new InMemoryProgramPhilosophyRepository();
 
-  constructor(private readonly prisma: PrismaService) {
-    this.programSpecRepo = new HybridLiftingProgramSpecRepository(prisma);
-  }
+  constructor(private readonly prisma: PrismaService) {}
 
   async forUser(user: AuthUser): Promise<RepositoryBundle> {
     return {
@@ -44,7 +43,7 @@ export class PrismaRepositoryFactory implements IRepositoryFactory {
       workoutDateOverride: new PrismaWorkoutDateOverrideRepository(this.prisma, user.id),
       workoutLiftOverride: new PrismaWorkoutLiftOverrideRepository(this.prisma, user.id),
       workoutSkipOverride: new PrismaWorkoutSkipOverrideRepository(this.prisma, user.id),
-      liftingProgramSpec: this.programSpecRepo,
+      liftingProgramSpec: new HybridLiftingProgramSpecRepository(this.prisma, user.id),
     };
   }
 }

@@ -8,7 +8,10 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 export class HybridLiftingProgramSpecRepository implements ILiftingProgramSpecRepository {
   private readonly inMemory = new InMemoryLiftingProgramSpecRepository();
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly userId: string,
+  ) {}
 
   async getProgramSpec(program: string): Promise<LiftingProgramSpec[]> {
     if (UUID_PATTERN.test(program)) {
@@ -18,8 +21,10 @@ export class HybridLiftingProgramSpecRepository implements ILiftingProgramSpecRe
   }
 
   private async getCustomSpec(id: string): Promise<LiftingProgramSpec[]> {
+    // Guard on the owning program's userId — a bare where:{ programId } would let
+    // any authenticated user read another user's custom program spec by UUID.
     const rows = await this.prisma.customProgramSpec.findMany({
-      where: { programId: id },
+      where: { programId: id, program: { userId: this.userId } },
       orderBy: [{ week: 'asc' }, { order: 'asc' }],
     });
     return rows.map((s) => ({

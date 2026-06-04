@@ -47,6 +47,9 @@ export const PROG_SPEC_WARMUP_PCTS = (
     .map((pct) => parseFloat(pct));
 
 export const MROUND = (number: number, multiple: number) => {
+  // A zero multiple (e.g. a custom program saved with increment 0) would divide
+  // by zero and yield NaN. Degrade safely to the unrounded value instead.
+  if (multiple === 0) return number;
   return Math.round(number / multiple) * multiple;
 };
 
@@ -54,6 +57,16 @@ export const PROG_SPEC_WORK_PCTS = (
   numSets: number,
   wtDecrementPct: number,
 ) => {
+  // Each set i gets work percentage (1 - i * wtDecrementPct). When wtDecrementPct
+  // is large relative to numSets the final set goes negative, which would produce
+  // a negative prescribed weight. Reject rather than silently emit bad sets.
+  const minPct = 1 - (numSets - 1) * wtDecrementPct;
+  if (minPct < 0) {
+    throw new RangeError(
+      `wtDecrementPct ${wtDecrementPct} produces a negative work percentage ` +
+        `(${minPct}) over ${numSets} sets; it must be at most ${1 / (numSets - 1)}.`,
+    );
+  }
   return Array(numSets)
     .fill(1)
     .reduce((acc, num) => {
