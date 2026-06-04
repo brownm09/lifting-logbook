@@ -1138,7 +1138,11 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
         method: 'POST',
         url: '/lifts/custom',
         headers: { 'content-type': 'application/json', ...AS_OWNER },
-        payload: JSON.stringify({ name: 'Zercher Squat', classification: 'compound', movementTags: ['squat'] }),
+        payload: JSON.stringify({
+          name: 'Zercher Squat',
+          classification: 'compound',
+          movementProfile: { patterns: ['squat'], jointActions: ['flexion', 'extension'], complexity: 'compound' },
+        }),
       });
       expect(res.statusCode).toBe(201);
       const body = res.json() as {
@@ -1155,7 +1159,9 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
       expect(row).not.toBeNull();
       expect(row?.userId).toBe(USER_CLIFT);
       expect(row?.classification).toBe('compound');
-      expect(row?.movementTags).toEqual(['squat']);
+      expect(row?.patterns).toEqual(['squat']);
+      expect(row?.jointActions).toEqual(['flexion', 'extension']);
+      expect(row?.complexity).toBe('compound');
     });
 
     it('GET /lifts/custom lists the created lift for the owner', async () => {

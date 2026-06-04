@@ -26,7 +26,7 @@ export class InMemoryCustomLiftRepository implements ICustomLiftRepository {
       userId: this.userId,
       name: input.name,
       classification: input.classification,
-      movementTags: input.movementTags ?? [],
+      movementProfile: input.movementProfile ?? { patterns: [], jointActions: [], complexity: 'simple' },
       isBodyweightComponent: input.isBodyweightComponent ?? false,
       isCustom: true,
       createdAt: new Date(),
@@ -47,7 +47,7 @@ export class InMemoryCustomLiftRepository implements ICustomLiftRepository {
       ...existing,
       ...(patch.name !== undefined ? { name: patch.name } : {}),
       ...(patch.classification !== undefined ? { classification: patch.classification } : {}),
-      ...(patch.movementTags !== undefined ? { movementTags: patch.movementTags } : {}),
+      ...(patch.movementProfile !== undefined ? { movementProfile: patch.movementProfile } : {}),
       ...(patch.isBodyweightComponent !== undefined
         ? { isBodyweightComponent: patch.isBodyweightComponent }
         : {}),

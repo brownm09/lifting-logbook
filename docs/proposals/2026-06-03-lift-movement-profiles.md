@@ -1,8 +1,9 @@
 # Proposal: Lift Movement Profiles — Joint Action and Complexity Metadata
 
-**Status:** `draft`
+**Status:** `shipped`
 **Date:** 2026-06-03
 **Issue:** [#427](https://github.com/brownm09/lifting-logbook/issues/427)
+**Shipped in:** [#437](https://github.com/brownm09/lifting-logbook/pull/437) — full clean-break migration (no deprecated alias); catalog has 23 entries (not 25).
 
 ---
 
@@ -48,14 +49,14 @@ export interface MovementProfile {
 ```
 
 Extend `Lift` with `movementProfile: MovementProfile`. The existing `movementTags` data migrates into
-`movementProfile.patterns`. To avoid a churny break, `movementTags` may be retained as a deprecated alias of
-`movementProfile.patterns` for one release, or every call site migrated in the same PR — implementer's call.
-`classification` (`compound | accessory`) is retained unchanged as the training-role axis; the proposal text
-states the role-vs-complexity distinction explicitly.
+`movementProfile.patterns`. **Decision (shipped):** every call site was migrated in the same PR — `movementTags`
+was removed entirely with no deprecated alias (custom lifts shipped the same day in #429, so there was no
+production data at risk). `classification` (`compound | accessory`) is retained unchanged as the training-role
+axis; the proposal text states the role-vs-complexity distinction explicitly.
 
 **2. Preconfigure the catalog** (`packages/core/src/catalog/lifts.ts`)
 
-Give all 25 catalog entries a sensible `movementProfile`. Examples:
+Give all 23 catalog entries a sensible `movementProfile`. Examples:
 
 - **Back Squat** → patterns `['squat']`, jointActions `['flexion', 'extension']`, complexity `compound`
 - **Face Pull** → patterns `['pull', 'horizontal']`, jointActions `['external-rotation']`, complexity `simple`
@@ -69,10 +70,10 @@ profile is a read-only default the user can view.
 
 ## Acceptance Criteria
 
-- [ ] `JointAction`, `MovementComplexity`, and `MovementProfile` exported from `packages/types`
-- [ ] `Lift.movementProfile` added; existing `movementTags` data preserved under `.patterns`
-- [ ] All 25 catalog entries carry a preconfigured `movementProfile`; `packages/core` unit tests assert each
-- [ ] Custom-lift create/edit accepts and persists a `movementProfile` (depends on the custom-lifts work)
+- [x] `JointAction`, `MovementComplexity`, and `MovementProfile` exported from `packages/types`
+- [x] `Lift.movementProfile` added; existing `movementTags` data preserved under `.patterns`
+- [x] All 23 catalog entries carry a preconfigured `movementProfile`; `packages/core` unit tests assert each
+- [x] Custom-lift create/edit accepts and persists a `movementProfile` (depends on the custom-lifts work)
 - [ ] The role-vs-complexity distinction (`classification` vs `complexity`) is documented in the type's doc comment
 - [ ] Strict TypeScript compilation passes across `packages/types`, `packages/core`, and updated call sites
 

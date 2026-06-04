@@ -1,8 +1,9 @@
-import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
-import { LiftClassification, MovementTag } from '@lifting-logbook/types';
+import { IsBoolean, IsIn, IsObject, IsOptional, IsString, MaxLength, MinLength, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+import { LiftClassification } from '@lifting-logbook/types';
+import { MovementProfileDto } from './movement-profile.dto';
 
 const CLASSIFICATIONS: LiftClassification[] = ['compound', 'accessory'];
-const MOVEMENT_TAGS: MovementTag[] = ['push', 'pull', 'vertical', 'horizontal', 'hinge', 'carry', 'squat'];
 
 export class UpdateCustomLiftDto {
   @IsString()
@@ -16,11 +17,13 @@ export class UpdateCustomLiftDto {
   @IsOptional()
   classification?: LiftClassification;
 
-  @IsArray()
-  @ArrayMaxSize(7)
-  @IsIn(MOVEMENT_TAGS, { each: true })
+  // Reject primitives that would otherwise bypass @ValidateNested (a silent no-op
+  // on non-objects), matching the nested-DTO pattern used elsewhere in the API.
   @IsOptional()
-  movementTags?: MovementTag[];
+  @IsObject()
+  @ValidateNested()
+  @Type(() => MovementProfileDto)
+  movementProfile?: MovementProfileDto;
 
   @IsBoolean()
   @IsOptional()

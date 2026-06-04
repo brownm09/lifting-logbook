@@ -7,12 +7,51 @@ export type LiftClassification = 'compound' | 'accessory';
  */
 export type MovementTag = 'push' | 'pull' | 'vertical' | 'horizontal' | 'hinge' | 'carry' | 'squat';
 
+/**
+ * Anatomical joint actions a lift drives. An axis orthogonal to {@link MovementTag}
+ * (a kinesiological pattern) and {@link LiftClassification} (a training role).
+ */
+export type JointAction =
+  | 'flexion'
+  | 'extension'
+  | 'internal-rotation'
+  | 'external-rotation'
+  | 'abduction'
+  | 'adduction';
+
+/**
+ * Movement complexity: single-joint (`simple`) vs multi-joint (`compound`).
+ *
+ * NOTE: deliberately distinct from {@link LiftClassification}. Complexity describes the
+ * *mechanics* (how many joints move); classification describes the *training role*
+ * (`compound` primary vs `accessory`). A Goblet Squat is movement-`compound` (knees + hips)
+ * yet role-`accessory`. Both axes are kept independently.
+ */
+export type MovementComplexity = 'simple' | 'compound';
+
+/**
+ * Combined movement description for a lift: pattern + joint actions + complexity.
+ * Preconfigured for catalog entries and editable for custom lifts.
+ *
+ * See {@link MovementComplexity} for why `complexity` is not the same as
+ * {@link LiftClassification}.
+ */
+export interface MovementProfile {
+  /** Movement pattern tags (e.g. push + vertical). Formerly `Lift.movementTags`. */
+  patterns: MovementTag[];
+  /** Anatomical joint actions driven by the lift. */
+  jointActions: JointAction[];
+  /** Single- vs multi-joint mechanics. */
+  complexity: MovementComplexity;
+}
+
 /** A first-class exercise domain object. */
 export interface Lift {
   id: string;
   name: string;
   classification: LiftClassification;
-  movementTags: MovementTag[];
+  /** Combined pattern + joint-action + complexity profile. */
+  movementProfile: MovementProfile;
   /** True when body weight contributes to the total load (e.g. chin-ups, dips). */
   isBodyweightComponent?: boolean;
   /** True for user-created lifts; absent/false for built-in catalog entries. */

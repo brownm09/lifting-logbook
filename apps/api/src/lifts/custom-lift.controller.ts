@@ -24,7 +24,7 @@ function toCustomLiftResponse(lift: CustomLift): CustomLiftResponse {
     id: lift.id,
     name: lift.name,
     classification: lift.classification,
-    movementTags: lift.movementTags,
+    movementProfile: lift.movementProfile,
     isBodyweightComponent: lift.isBodyweightComponent ?? false,
     isCustom: true,
     createdAt: lift.createdAt.toISOString(),
@@ -54,7 +54,7 @@ export class CustomLiftController {
     const created = await customLift.create({
       name: dto.name,
       classification: dto.classification,
-      ...(dto.movementTags !== undefined ? { movementTags: dto.movementTags } : {}),
+      ...(dto.movementProfile !== undefined ? { movementProfile: dto.movementProfile } : {}),
       ...(dto.isBodyweightComponent !== undefined
         ? { isBodyweightComponent: dto.isBodyweightComponent }
         : {}),
@@ -73,7 +73,7 @@ export class CustomLiftController {
     const patch: UpdateCustomLiftPatch = {};
     if (dto.name !== undefined) patch.name = dto.name;
     if (dto.classification !== undefined) patch.classification = dto.classification;
-    if (dto.movementTags !== undefined) patch.movementTags = dto.movementTags;
+    if (dto.movementProfile !== undefined) patch.movementProfile = dto.movementProfile;
     if (dto.isBodyweightComponent !== undefined) {
       patch.isBodyweightComponent = dto.isBodyweightComponent;
     }

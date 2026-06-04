@@ -14,12 +14,24 @@ describe("LIFT_CATALOG", () => {
     }
   });
 
-  it("all movementTags are valid values", () => {
+  it("every lift has a valid movementProfile (patterns, jointActions, complexity)", () => {
     const validTags = new Set(['push', 'pull', 'vertical', 'horizontal', 'hinge', 'carry', 'squat']);
+    const validJointActions = new Set([
+      'flexion', 'extension', 'internal-rotation', 'external-rotation', 'abduction', 'adduction',
+    ]);
+    const validComplexity = new Set(['simple', 'compound']);
     for (const lift of LIFT_CATALOG) {
-      for (const tag of lift.movementTags) {
+      const profile = lift.movementProfile;
+      expect(profile).toBeDefined();
+      expect(Array.isArray(profile.patterns)).toBe(true);
+      expect(Array.isArray(profile.jointActions)).toBe(true);
+      for (const tag of profile.patterns) {
         expect(validTags.has(tag)).toBe(true);
       }
+      for (const action of profile.jointActions) {
+        expect(validJointActions.has(action)).toBe(true);
+      }
+      expect(validComplexity.has(profile.complexity)).toBe(true);
     }
   });
 
@@ -28,71 +40,97 @@ describe("LIFT_CATALOG", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  describe("classification and tags — spot checks", () => {
-    it("deadlift is compound with hinge tag", () => {
+  describe("classification and patterns — spot checks", () => {
+    it("deadlift is compound with hinge pattern", () => {
       const lift = LIFT_CATALOG.find((l) => l.id === 'deadlift')!;
       expect(lift.classification).toBe('compound');
-      expect(lift.movementTags).toContain('hinge');
+      expect(lift.movementProfile.patterns).toContain('hinge');
     });
 
-    it("bench-press is compound with push and horizontal tags", () => {
+    it("bench-press is compound with push and horizontal patterns", () => {
       const lift = LIFT_CATALOG.find((l) => l.id === 'bench-press')!;
       expect(lift.classification).toBe('compound');
-      expect(lift.movementTags).toContain('push');
-      expect(lift.movementTags).toContain('horizontal');
+      expect(lift.movementProfile.patterns).toContain('push');
+      expect(lift.movementProfile.patterns).toContain('horizontal');
     });
 
-    it("overhead-press is compound with push and vertical tags", () => {
+    it("overhead-press is compound with push and vertical patterns", () => {
       const lift = LIFT_CATALOG.find((l) => l.id === 'overhead-press')!;
       expect(lift.classification).toBe('compound');
-      expect(lift.movementTags).toContain('push');
-      expect(lift.movementTags).toContain('vertical');
+      expect(lift.movementProfile.patterns).toContain('push');
+      expect(lift.movementProfile.patterns).toContain('vertical');
     });
 
-    it("chin-up is compound with pull and vertical tags", () => {
+    it("chin-up is compound with pull and vertical patterns", () => {
       const lift = LIFT_CATALOG.find((l) => l.id === 'chin-up')!;
       expect(lift.classification).toBe('compound');
-      expect(lift.movementTags).toContain('pull');
-      expect(lift.movementTags).toContain('vertical');
+      expect(lift.movementProfile.patterns).toContain('pull');
+      expect(lift.movementProfile.patterns).toContain('vertical');
     });
 
-    it("barbell-row is compound with pull and horizontal tags", () => {
+    it("barbell-row is compound with pull and horizontal patterns", () => {
       const lift = LIFT_CATALOG.find((l) => l.id === 'barbell-row')!;
       expect(lift.classification).toBe('compound');
-      expect(lift.movementTags).toContain('pull');
-      expect(lift.movementTags).toContain('horizontal');
+      expect(lift.movementProfile.patterns).toContain('pull');
+      expect(lift.movementProfile.patterns).toContain('horizontal');
     });
 
-    it("cable-curl is accessory with pull tag", () => {
+    it("cable-curl is accessory with pull pattern", () => {
       const lift = LIFT_CATALOG.find((l) => l.id === 'cable-curl')!;
       expect(lift.classification).toBe('accessory');
-      expect(lift.movementTags).toContain('pull');
+      expect(lift.movementProfile.patterns).toContain('pull');
     });
 
-    it("farmers-carry is compound with carry tag", () => {
+    it("farmers-carry is compound with carry pattern", () => {
       const lift = LIFT_CATALOG.find((l) => l.id === 'farmers-carry')!;
       expect(lift.classification).toBe('compound');
-      expect(lift.movementTags).toContain('carry');
+      expect(lift.movementProfile.patterns).toContain('carry');
+    });
+  });
+
+  describe("jointActions and complexity — spot checks", () => {
+    it("face-pull drives external-rotation and is movement-simple", () => {
+      const lift = LIFT_CATALOG.find((l) => l.id === 'face-pull')!;
+      expect(lift.movementProfile.jointActions).toContain('external-rotation');
+      expect(lift.movementProfile.complexity).toBe('simple');
+    });
+
+    it("lateral-raise drives abduction and is movement-simple", () => {
+      const lift = LIFT_CATALOG.find((l) => l.id === 'lateral-raise')!;
+      expect(lift.movementProfile.jointActions).toContain('abduction');
+      expect(lift.movementProfile.complexity).toBe('simple');
+    });
+
+    it("back-squat drives flexion/extension and is movement-compound", () => {
+      const lift = LIFT_CATALOG.find((l) => l.id === 'back-squat')!;
+      expect(lift.movementProfile.jointActions).toEqual(expect.arrayContaining(['flexion', 'extension']));
+      expect(lift.movementProfile.complexity).toBe('compound');
+    });
+
+    it("goblet-squat is movement-compound yet role-accessory (axes are independent)", () => {
+      const lift = LIFT_CATALOG.find((l) => l.id === 'goblet-squat')!;
+      expect(lift.classification).toBe('accessory');
+      expect(lift.movementProfile.complexity).toBe('compound');
     });
   });
 
   describe("covers major movement patterns", () => {
     it("has at least one squat-pattern lift", () => {
-      expect(LIFT_CATALOG.some((l) => l.movementTags.includes('squat'))).toBe(true);
+      expect(LIFT_CATALOG.some((l) => l.movementProfile.patterns.includes('squat'))).toBe(true);
     });
 
     it("has at least one hinge-pattern lift", () => {
-      expect(LIFT_CATALOG.some((l) => l.movementTags.includes('hinge'))).toBe(true);
+      expect(LIFT_CATALOG.some((l) => l.movementProfile.patterns.includes('hinge'))).toBe(true);
     });
 
     it("has at least one carry-pattern lift", () => {
-      expect(LIFT_CATALOG.some((l) => l.movementTags.includes('carry'))).toBe(true);
+      expect(LIFT_CATALOG.some((l) => l.movementProfile.patterns.includes('carry'))).toBe(true);
     });
 
     it("has at least one vertical push lift", () => {
       expect(
         LIFT_CATALOG.some(
-          (l) => l.movementTags.includes('push') && l.movementTags.includes('vertical'),
+          (l) => l.movementProfile.patterns.includes('push') && l.movementProfile.patterns.includes('vertical'),
         ),
       ).toBe(true);
     });
@@ -100,7 +138,7 @@ describe("LIFT_CATALOG", () => {
     it("has at least one vertical pull lift", () => {
       expect(
         LIFT_CATALOG.some(
-          (l) => l.movementTags.includes('pull') && l.movementTags.includes('vertical'),
+          (l) => l.movementProfile.patterns.includes('pull') && l.movementProfile.patterns.includes('vertical'),
         ),
       ).toBe(true);
     });
@@ -108,7 +146,7 @@ describe("LIFT_CATALOG", () => {
     it("has at least one horizontal push lift", () => {
       expect(
         LIFT_CATALOG.some(
-          (l) => l.movementTags.includes('push') && l.movementTags.includes('horizontal'),
+          (l) => l.movementProfile.patterns.includes('push') && l.movementProfile.patterns.includes('horizontal'),
         ),
       ).toBe(true);
     });
@@ -116,7 +154,7 @@ describe("LIFT_CATALOG", () => {
     it("has at least one horizontal pull lift", () => {
       expect(
         LIFT_CATALOG.some(
-          (l) => l.movementTags.includes('pull') && l.movementTags.includes('horizontal'),
+          (l) => l.movementProfile.patterns.includes('pull') && l.movementProfile.patterns.includes('horizontal'),
         ),
       ).toBe(true);
     });
@@ -184,7 +222,7 @@ describe("resolveLift with custom lifts", () => {
     id: 'custom-safety-bar-squat',
     name: 'Safety Bar Squat',
     classification: 'compound',
-    movementTags: ['squat'],
+    movementProfile: { patterns: ['squat'], jointActions: ['flexion', 'extension'], complexity: 'compound' },
     isCustom: true,
   };
 
@@ -200,7 +238,7 @@ describe("resolveLift with custom lifts", () => {
       id: 'deadlift',
       name: 'My Deadlift',
       classification: 'compound',
-      movementTags: ['hinge'],
+      movementProfile: { patterns: ['hinge'], jointActions: ['flexion', 'extension'], complexity: 'compound' },
       isCustom: true,
     };
     const lift = resolveLift('Deadlift', DEFAULT_SLOT_MAP, LIFT_CATALOG, [shadow]);
