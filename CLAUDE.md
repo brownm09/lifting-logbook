@@ -339,6 +339,24 @@ npm test -w @lifting-logbook/api
 npm test -w @lifting-logbook/web
 ```
 
+### apps/web Playwright E2E (local)
+
+`apps/web` has two test layers. `npm test -w @lifting-logbook/web` runs Jest unit/component tests only. A separate Playwright suite lives in `apps/web/e2e/` and runs in CI's "Playwright E2E" job — it does **not** run as part of `npm test`.
+
+**Run it locally before pushing whenever a change touches `apps/web` and any of the following:**
+
+- UI display strings (headings, button labels, link text)
+- `aria-label` values on inputs or regions
+- Role names, tab labels, dialog titles
+- Any string a Playwright `getByLabel` / `getByRole` / `locator('text=...')` call might match
+
+```bash
+# From the repo root — playwright.config.ts auto-starts mock-api (port 3004) and next dev (port 3000)
+npm run test:e2e -w @lifting-logbook/web
+```
+
+Playwright must be installed (`npx playwright install --with-deps chromium` once). The config handles all env vars (dummy Clerk keys, `DEV_AUTH_TOKEN`, `API_URL`) so no manual setup is needed. The motivating incident is [#444](https://github.com/brownm09/lifting-logbook/issues/444) / PR #438, where an aria-label rename (`Back Squat` → `Squat`) passed Jest but broke the smoke spec and was only caught by CI.
+
 ### Coverage Requirements
 
 <!-- When #259 ships: remove the "until then" clause from the frontend row below. Tracked as a checklist item on issue #259. -->
@@ -347,6 +365,7 @@ npm test -w @lifting-logbook/web
 |---|---|
 | New API endpoint | In-memory E2E test in the same PR |
 | New frontend page or interactive feature | Playwright test once #259 is implemented; until then, a written test plan in the PR body |
+| `apps/web` UI string / aria-label / role-name change | Run `npm run test:e2e -w @lifting-logbook/web` locally before pushing (see above) |
 | Bug fix | Regression test that fails before the fix and passes after |
 | Refactor / docs only | None required — existing tests must pass |
 
