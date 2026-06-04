@@ -16,14 +16,18 @@ import { PrismaWorkoutSkipOverrideRepository } from './workout-skip-override.rep
 import { PrismaWorkoutRepository } from './workout.repository';
 import { HybridLiftingProgramSpecRepository } from './hybrid-program-spec.repository';
 import { InMemoryProgramPhilosophyRepository } from '../in-memory/program-philosophy.adapter';
+import { InMemoryLiftingProgramSpecRepository } from '../in-memory/lifting-program-spec.adapter';
 import { UserSettingsRepository } from '../../user-settings/user-settings.repository';
 
 @Injectable()
 export class PrismaRepositoryFactory implements IRepositoryFactory {
   // Built-in program philosophy is user-independent, so it can be a singleton. The
-  // spec repo is NOT — its custom-program branch must be scoped to the requesting
-  // user, so it is constructed per-request inside forUser() like every other repo.
+  // spec repo's custom-program branch must be scoped to the requesting user, so a
+  // thin per-user wrapper is built in forUser() — but its built-in spec data is
+  // global, so the in-memory delegate is shared here rather than rebuilt (and
+  // re-seeded) on every request.
   private readonly philosophyRepo = new InMemoryProgramPhilosophyRepository();
+  private readonly inMemorySpecRepo = new InMemoryLiftingProgramSpecRepository();
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -43,7 +47,11 @@ export class PrismaRepositoryFactory implements IRepositoryFactory {
       workoutDateOverride: new PrismaWorkoutDateOverrideRepository(this.prisma, user.id),
       workoutLiftOverride: new PrismaWorkoutLiftOverrideRepository(this.prisma, user.id),
       workoutSkipOverride: new PrismaWorkoutSkipOverrideRepository(this.prisma, user.id),
-      liftingProgramSpec: new HybridLiftingProgramSpecRepository(this.prisma, user.id),
+      liftingProgramSpec: new HybridLiftingProgramSpecRepository(
+        this.prisma,
+        user.id,
+        this.inMemorySpecRepo,
+      ),
     };
   }
 }

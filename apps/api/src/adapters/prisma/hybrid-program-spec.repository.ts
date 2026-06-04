@@ -6,11 +6,13 @@ import { PrismaService } from './prisma.service';
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export class HybridLiftingProgramSpecRepository implements ILiftingProgramSpecRepository {
-  private readonly inMemory = new InMemoryLiftingProgramSpecRepository();
-
+  // The built-in spec data is user-independent. It defaults to a fresh in-memory
+  // repo for standalone construction (tests), but the factory injects a shared
+  // instance so the seed map is built once per process rather than per request.
   constructor(
     private readonly prisma: PrismaService,
     private readonly userId: string,
+    private readonly inMemory: ILiftingProgramSpecRepository = new InMemoryLiftingProgramSpecRepository(),
   ) {}
 
   async getProgramSpec(program: string): Promise<LiftingProgramSpec[]> {

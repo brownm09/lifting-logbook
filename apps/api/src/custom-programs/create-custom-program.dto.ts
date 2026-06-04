@@ -10,9 +10,34 @@ import {
   IsString,
   Max,
   Min,
+  Validate,
   ValidateNested,
+  ValidationArguments,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+
+// Cross-field guard: the work percentage for set i is (1 - i * wtDecrementPct), so the
+// final set is (1 - (sets-1) * wtDecrementPct). When that goes below 0 the prescribed
+// weight is negative — PROG_SPEC_WORK_PCTS throws a RangeError at plan-generation time.
+// Enforcing the bound here turns that latent 500 into a 400 at creation. Mirrors the
+// core guard exactly (minPct >= 0 is allowed; a final set of 0 is valid).
+@ValidatorConstraint({ name: 'wtDecrementWithinSetBound', async: false })
+export class WtDecrementWithinSetBound implements ValidatorConstraintInterface {
+  validate(value: unknown, args: ValidationArguments): boolean {
+    const { sets } = args.object as { sets?: unknown };
+    // Defer to @IsInt/@Min/@IsNumber for type/range errors on the sibling fields;
+    // a single-set scheme has no later set to drive negative.
+    if (typeof sets !== 'number' || typeof value !== 'number' || sets <= 1) return true;
+    return 1 - (sets - 1) * value >= 0;
+  }
+  defaultMessage(args: ValidationArguments): string {
+    const { sets } = args.object as { sets?: number };
+    const bound = typeof sets === 'number' && sets > 1 ? 1 / (sets - 1) : 1;
+    return `wtDecrementPct must be at most ${bound} for ${sets ?? '?'} sets (a larger value drives the final set's weight negative)`;
+  }
+}
 
 export class CustomProgramSpecRowDto {
   @IsInt() @IsIn([1, 2, 3]) week!: number;
@@ -25,10 +50,9 @@ export class CustomProgramSpecRowDto {
   @IsInt() @Min(1) @Max(20) reps!: number;
   @IsBoolean() amrap!: boolean;
   @IsString() warmUpPct!: string;
-  // Per-set weight drop, as a fraction of TM. A large value drives later sets'
-  // work percentage negative; the exact cross-field bound (≤ 1/(sets-1)) is
-  // enforced downstream by PROG_SPEC_WORK_PCTS. Here we block the obvious cases.
-  @IsNumber() @Min(0) @Max(1) wtDecrementPct!: number;
+  // Per-set weight drop, as a fraction of TM. @Min/@Max block the gross cases;
+  // WtDecrementWithinSetBound enforces the exact cross-field bound (≤ 1/(sets-1)).
+  @IsNumber() @Min(0) @Max(1) @Validate(WtDecrementWithinSetBound) wtDecrementPct!: number;
   @IsString() activation!: string;
   @IsOptional() @IsString() weekType?: string;
 }

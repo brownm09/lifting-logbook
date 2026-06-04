@@ -58,4 +58,17 @@ describe('CreateCustomProgramDto validation', () => {
   it('rejects a negative wtDecrementPct', async () => {
     expect(await flattenConstraintKeys(dtoWith({ wtDecrementPct: -0.1 }))).toContain('min');
   });
+
+  it('rejects a wtDecrementPct that drives the final set negative (cross-field)', async () => {
+    // 0.6 passes @Max(1) but 1 - (3-1)*0.6 = -0.2 → final set negative.
+    expect(
+      await flattenConstraintKeys(dtoWith({ wtDecrementPct: 0.6, sets: 3 })),
+    ).toContain('wtDecrementWithinSetBound');
+  });
+
+  it('accepts the boundary where the final set is exactly 0', async () => {
+    // 1 - (3-1)*0.5 = 0 → allowed (mirrors the core guard).
+    const errors = await validate(dtoWith({ wtDecrementPct: 0.5, sets: 3 }), { whitelist: true });
+    expect(errors).toHaveLength(0);
+  });
 });
