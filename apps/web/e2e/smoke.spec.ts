@@ -41,8 +41,10 @@ test('onboarding: enter lifts → confirm → choose program → lands on cycle'
   // Step 2: Enter Lifts
   await page.getByLabel('Bench Press weight').fill('185');
   await page.getByLabel('Bench Press reps').fill('5');
-  await page.getByLabel('Back Squat weight').fill('225');
-  await page.getByLabel('Back Squat reps').fill('5');
+  // The default squat row now uses the canonical catalog name 'Squat'
+  // (previously displayed as 'Back Squat') — see DEFAULT_LIFTS in onboarding/lib.ts.
+  await page.getByLabel('Squat weight').fill('225');
+  await page.getByLabel('Squat reps').fill('5');
   await page.getByLabel('Deadlift weight').fill('275');
   await page.getByLabel('Deadlift reps').fill('5');
   await page.getByRole('button', { name: 'Next', exact: true }).click();

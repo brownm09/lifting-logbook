@@ -1,6 +1,11 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    // The root base sets lib: ["ES2020"] only. Test files type-check DOM-typed
+    // code (e.g. e.target.value on input change events) under ts-jest, so the
+    // spec config must include the same DOM libs the app builds against
+    // (see tsconfig.json) — otherwise valid DOM property access fails to compile.
+    "lib": ["dom", "dom.iterable", "esnext"],
     "jsx": "react-jsx",
     "noEmit": true,
     "types": ["jest", "node", "@testing-library/jest-dom"],
