@@ -1,6 +1,6 @@
 # Proposal: Custom User-Created Lifts
 
-**Status:** `draft`
+**Status:** `shipped`
 **Date:** 2026-06-03
 **Issue:** [#425](https://github.com/brownm09/lifting-logbook/issues/425)
 
