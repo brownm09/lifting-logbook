@@ -178,6 +178,86 @@
   color: var(--color-text-muted);
 }
 
+/* ── Add-a-lift picker (Enter Lifts step) ──────────────────── */
+
+.removeLiftBtn {
+  margin-left: auto;
+  width: 32px;
+  min-height: 32px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.removeLiftBtn:hover {
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+}
+
+.liftPicker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.liftSearchInput {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-base);
+  background: var(--color-bg);
+  color: var(--color-text);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.liftSearchInput:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
+}
+
+.liftPickerList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.liftPickerItem {
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: none;
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-align: left;
+  font-size: var(--font-size-base);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.liftPickerItem:hover {
+  background: var(--color-surface-alt);
+}
+
+.liftPickerEmpty {
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
 .maxesGrid {
   display: flex;
   flex-direction: column;

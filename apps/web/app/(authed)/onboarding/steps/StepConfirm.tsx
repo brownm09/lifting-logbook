@@ -1,9 +1,8 @@
 'use client';
 
 import styles from '../onboarding.module.css';
-import { LIFT_LABELS, type LiftKey } from '../lib';
 
-type Max = { lift: LiftKey; oneRm: number };
+type Max = { lift: string; oneRm: number };
 
 type Props = {
   maxes: Max[];
@@ -19,7 +18,7 @@ export function StepConfirm({ maxes }: Props) {
       <div className={styles.maxesGrid}>
         {maxes.map(({ lift, oneRm }) => (
           <div key={lift} className={styles.maxRow}>
-            <span className={styles.maxRowLabel}>{LIFT_LABELS[lift]}</span>
+            <span className={styles.maxRowLabel}>{lift}</span>
             <span className={styles.maxRowValue}>
               {oneRm > 0 ? `${oneRm} lb` : '—'}
               {oneRm > 0 && (

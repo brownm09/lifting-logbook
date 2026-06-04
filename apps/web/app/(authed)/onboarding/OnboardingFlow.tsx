@@ -4,9 +4,9 @@ import { useMemo, useState, useTransition } from 'react';
 import styles from './onboarding.module.css';
 import {
   brzycki1RM,
+  DEFAULT_LIFTS,
   type DiscoveryMethod,
-  type LiftEntry,
-  type LiftKey,
+  type LiftRow,
 } from './lib';
 import type { Experience } from '@/lib/programs';
 import { StepMethod } from './steps/StepMethod';
@@ -22,40 +22,49 @@ const STEP_LABELS = [
   'Choose Program',
 ];
 
-export function OnboardingFlow() {
+export function OnboardingFlow({ catalog }: { catalog: string[] }) {
   const [step, setStep] = useState(0);
   const [method, setMethod] = useState<DiscoveryMethod>('estimate');
-  const [lifts, setLifts] = useState<Record<LiftKey, LiftEntry>>({
-    bench: { weight: '', reps: '' },
-    squat: { weight: '', reps: '' },
-    deadlift: { weight: '', reps: '' },
-  });
+  const [lifts, setLifts] = useState<LiftRow[]>(
+    DEFAULT_LIFTS.map((lift) => ({ lift, weight: '', reps: '' })),
+  );
   const [experience, setExperience] = useState<Experience>('beginner');
   const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [cycleError, setCycleError] = useState<string | null>(null);
 
-  const canAdvanceFromLifts = (Object.keys(lifts) as LiftKey[]).every((k) => {
-    const entry = lifts[k];
-    if (method === 'manual') return Number(entry.weight) > 0;
-    return Number(entry.weight) > 0 && Number(entry.reps) > 0;
-  });
+  const canAdvanceFromLifts =
+    lifts.length > 0 &&
+    lifts.every((row) => {
+      if (method === 'manual') return Number(row.weight) > 0;
+      return Number(row.weight) > 0 && Number(row.reps) > 0;
+    });
 
   const computedMaxes = useMemo(() => {
-    return (Object.keys(lifts) as LiftKey[]).map((k) => {
-      const entry = lifts[k];
-      const w = Number(entry.weight);
-      const r = Number(entry.reps);
+    return lifts.map((row) => {
+      const w = Number(row.weight);
+      const r = Number(row.reps);
       const oneRm = method === 'manual' ? Math.round(w) : brzycki1RM(w, r);
-      return { lift: k, oneRm };
+      return { lift: row.lift, oneRm };
     });
   }, [lifts, method]);
 
-  function updateLift(key: LiftKey, field: keyof LiftEntry, value: string) {
-    setLifts((prev) => ({
-      ...prev,
-      [key]: { ...prev[key], [field]: value },
-    }));
+  function updateLift(index: number, field: keyof Omit<LiftRow, 'lift'>, value: string) {
+    setLifts((prev) =>
+      prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)),
+    );
+  }
+
+  function addLift(lift: string) {
+    setLifts((prev) =>
+      prev.some((row) => row.lift === lift)
+        ? prev
+        : [...prev, { lift, weight: '', reps: '' }],
+    );
+  }
+
+  function removeLift(index: number) {
+    setLifts((prev) => prev.filter((_, i) => i !== index));
   }
 
   function goNext() {
@@ -69,8 +78,9 @@ export function OnboardingFlow() {
   function handleConfirm() {
     if (!selectedProgramId) return;
     setCycleError(null);
+    const maxes = computedMaxes.filter((m) => m.oneRm > 0);
     startTransition(async () => {
-      const result = await createFirstCycle(selectedProgramId);
+      const result = await createFirstCycle(selectedProgramId, maxes);
       if (result && !result.ok) {
         setCycleError(result.error);
       }
@@ -109,7 +119,14 @@ export function OnboardingFlow() {
         <section className={styles.body}>
           {step === 0 && <StepMethod method={method} onSelect={setMethod} />}
           {step === 1 && (
-            <StepLifts method={method} lifts={lifts} onChange={updateLift} />
+            <StepLifts
+              method={method}
+              lifts={lifts}
+              catalog={catalog}
+              onChange={updateLift}
+              onAdd={addLift}
+              onRemove={removeLift}
+            />
           )}
           {step === 2 && <StepConfirm maxes={computedMaxes} />}
           {step === 3 && (
