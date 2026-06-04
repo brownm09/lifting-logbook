@@ -152,7 +152,8 @@ model CustomLift {
   userId                String
   name                  String
   classification        String
-  // MovementProfile, stored as separate columns (see ADR / issue #427).
+  // MovementProfile, stored as separate columns
+  // (see docs/proposals/2026-06-03-lift-movement-profiles.md, issue #427).
   // `patterns` was renamed from the former `movementTags` column.
   patterns              String[]
   jointActions          String[]

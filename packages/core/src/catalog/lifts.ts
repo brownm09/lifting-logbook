@@ -54,6 +54,8 @@ export const LIFT_CATALOG: readonly Lift[] = [
   { id: 'face-pull',    name: 'Face Pull',      classification: 'accessory', movementProfile: { patterns: ['pull', 'horizontal'], jointActions: ['external-rotation'], complexity: 'simple' } },
 
   // --- Carry pattern ---
+  // A loaded carry is a whole-body stabilization task (hence movement-`compound`) with no prime
+  // mover driven through a range of motion — the empty `jointActions` is deliberate, not an omission.
   { id: 'farmers-carry',  name: "Farmer's Carry",  classification: 'compound',  movementProfile: { patterns: ['carry'], jointActions: [], complexity: 'compound' } },
 
   // --- Common accessories ---
