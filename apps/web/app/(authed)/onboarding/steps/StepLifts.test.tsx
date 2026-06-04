@@ -1,3 +1,4 @@
+import '@testing-library/jest-dom';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
@@ -52,6 +53,22 @@ describe('StepLifts — default rows', () => {
 });
 
 describe('StepLifts — add a lift', () => {
+  it('shows available catalog lifts when the input is focused with no query', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+
+    // Before focus: no picker items visible
+    expect(screen.queryByRole('button', { name: 'Overhead Press' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByLabelText('Add a lift'));
+
+    // After focus with empty query: unselected catalog lifts appear immediately
+    expect(screen.getByRole('button', { name: 'Overhead Press' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Barbell Row' })).toBeInTheDocument();
+    // Already-selected lifts are not offered
+    expect(screen.queryByRole('button', { name: 'Squat' })).not.toBeInTheDocument();
+  });
+
   it('appends a catalog lift selected from the picker', async () => {
     const user = userEvent.setup();
     render(<Harness />);
