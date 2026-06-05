@@ -30,7 +30,7 @@ export function StepLifts({ method, lifts, catalog, onChange, onAdd, onRemove }:
   const normalized = trimmed.toLowerCase();
   const alreadySelected = lifts.some((row) => row.lift.toLowerCase() === normalized);
   const matchesCatalog = catalog.some((lift) => lift.toLowerCase() === normalized);
-  const canAddCustom = trimmed.length > 0 && !alreadySelected && !matchesCatalog;
+  const canAddCustom = trimmed.length > 0 && !alreadySelected && !matchesCatalog && available.length === 0;
 
   function handleAdd(lift: string) {
     onAdd(lift);
