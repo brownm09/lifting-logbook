@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import styles from '../onboarding.module.css';
 import type { DiscoveryMethod, LiftRow } from '../lib';
 
@@ -16,6 +16,7 @@ type Props = {
 export function StepLifts({ method, lifts, catalog, onChange, onAdd, onRemove }: Props) {
   const [query, setQuery] = useState('');
   const [focused, setFocused] = useState(false);
+  const listboxId = useId();
 
   const selected = new Set(lifts.map((row) => row.lift));
   const available = catalog.filter(
@@ -90,6 +91,11 @@ export function StepLifts({ method, lifts, catalog, onChange, onAdd, onRemove }:
 
       <div className={styles.liftPicker}>
         <input
+          role="combobox"
+          aria-expanded={focused && (available.length > 0 || canAddCustom || query.length > 0)}
+          aria-haspopup="listbox"
+          aria-controls={listboxId}
+          aria-autocomplete="list"
           type="search"
           placeholder="Add a lift…"
           value={query}
@@ -100,33 +106,34 @@ export function StepLifts({ method, lifts, catalog, onChange, onAdd, onRemove }:
           aria-label="Add a lift"
         />
         {focused && (available.length > 0 || canAddCustom || query.length > 0) && (
-          <ul className={styles.liftPickerList}>
-            {available.map((lift) => (
-              <li key={lift}>
-                <button
-                  type="button"
+          <>
+            <ul id={listboxId} role="listbox" aria-label="Available lifts" className={styles.liftPickerList}>
+              {available.map((lift) => (
+                <li
+                  key={lift}
+                  role="option"
+                  aria-selected={false}
                   className={styles.liftPickerItem}
                   onMouseDown={(e) => { e.preventDefault(); handleAdd(lift); }}
                 >
                   {lift}
-                </button>
-              </li>
-            ))}
-            {canAddCustom && (
-              <li>
-                <button
-                  type="button"
+                </li>
+              ))}
+              {canAddCustom && (
+                <li
+                  role="option"
+                  aria-selected={false}
                   className={styles.liftPickerItem}
                   onMouseDown={(e) => { e.preventDefault(); handleAdd(trimmed); }}
                 >
                   Add &ldquo;{trimmed}&rdquo; as a custom lift
-                </button>
-              </li>
-            )}
+                </li>
+              )}
+            </ul>
             {available.length === 0 && !canAddCustom && (
-              <li className={styles.liftPickerEmpty}>No lifts match &ldquo;{query}&rdquo;</li>
+              <p className={styles.liftPickerEmpty}>No lifts match &ldquo;{query}&rdquo;</p>
             )}
-          </ul>
+          </>
         )}
       </div>
 
