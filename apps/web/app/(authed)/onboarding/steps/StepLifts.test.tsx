@@ -129,6 +129,19 @@ describe('StepLifts — add a lift', () => {
       screen.queryByRole('option', { name: /as a custom lift/i }),
     ).not.toBeInTheDocument();
   });
+
+  it('does not offer custom-add when the query partially matches a catalog lift', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+
+    // 'overhead' partially matches 'Overhead Press' — the catalog option appears
+    // but the custom-add option must not, since there are catalog results.
+    await user.type(screen.getByLabelText('Add a lift'), 'overhead');
+    expect(screen.getByRole('option', { name: 'Overhead Press' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('option', { name: /as a custom lift/i }),
+    ).not.toBeInTheDocument();
+  });
 });
 
 describe('StepLifts — remove a lift', () => {
