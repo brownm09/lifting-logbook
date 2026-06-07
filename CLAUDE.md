@@ -386,6 +386,31 @@ When a PR adds or modifies a `.catch(() => default)`, `?? default`, or `try { �
 
 ---
 
+## Observability
+
+This repo runs a full OpenTelemetry + Grafana Cloud stack. The Plan-then-optimize → Pass 3
+**Observability** dimension defers to this section (per dev-env [ADR-042](https://github.com/brownm09/dev-env/blob/main/docs/adr/042-plan-risk-dimension-audit-and-observability-section.md)).
+
+### Convention
+
+- **Logging** — `nestjs-pino` (Pino), **structured JSON**, standard Pino levels (runtime-configurable). Configured in [`apps/api/src/app.module.ts`](apps/api/src/app.module.ts). Auth-bearing headers are redacted with `remove: true` (`req.headers.authorization`, `req.headers.cookie`, `req/res set-cookie`); `/health` is excluded from auto-logging to control Grafana Cloud log spend.
+- **Tracing & metrics** — OpenTelemetry NodeSDK in [`apps/api/src/otel.ts`](apps/api/src/otel.ts): `OTLPTraceExporter` + `OTLPMetricExporter` (OTLP/HTTP) with `getNodeAutoInstrumentations()` (HTTP/Fastify, `pg`, Node built-ins). Service name defaults to `lifting-logbook-api`. The web app instruments via `@vercel/otel` ([`apps/web/instrumentation.ts`](apps/web/instrumentation.ts)).
+- **Backends** — Grafana Cloud via the OTel Collector: traces → **Tempo**, logs → **Loki**, metrics → **Mimir** (see [ADR-018](docs/adr/ADR-018-observability-stack.md)).
+- **Log↔trace correlation** — a Pino `mixin()` injects `trace_id` / `span_id` from the active span into every log line, enabling bidirectional Loki↔Tempo navigation in Grafana.
+- **Errors** — domain exceptions are mapped to HTTP responses by per-feature exception filters (e.g. `apps/api/src/programs/conflict.filter.ts`, `not-found.filter.ts`); request/response logging — including error responses, carrying `trace_id`/`span_id` via the `mixin` — is emitted by `nestjs-pino`/`pino-http` auto-logging. Error spans on the failing request are retained by the tail-based sampling policy ([ADR-020](docs/adr/ADR-020-tail-based-sampling-policy.md)).
+
+### What the Observability audit dimension must verify for this repo
+
+1. **Raw SQL is NOT auto-traced.** `@prisma/instrumentation` is excluded from the OTel SDK due to an SDK v1/v2 incompatibility ([ADR-024](docs/adr/ADR-024-prisma-otel-sdk-override.md)). Prisma Client ORM calls and any `$queryRaw` / `$executeRaw` emit **no spans**. Any new raw-SQL call site must be wrapped in a **manual span** to remain observable. (There are currently zero raw-SQL usages — this is a forward-looking gate.)
+2. **LLM adapters apply NO PII scrubbing to prompts.** The cycle-planning adapters (`apps/api/src/adapters/llm/anthropic-cycle-planning.adapter.ts`, `openai-compatible-cycle-planning.adapter.ts`) send user context to the provider unscrubbed. New LLM call sites must consider prompt-content exposure before sending or logging.
+3. **Redaction covers headers, not arbitrary payloads.** The Pino `redact` config strips auth headers/cookies only. New API boundaries must log at appropriate levels and must never log secrets, tokens, or sensitive request/response bodies.
+
+### References
+
+[ADR-018](docs/adr/ADR-018-observability-stack.md) (stack), [ADR-019](docs/adr/ADR-019-slo-methodology.md) (SLOs), [ADR-020](docs/adr/ADR-020-tail-based-sampling-policy.md) (tail sampling), [ADR-021](docs/adr/ADR-021-no-test-tracing.md) (no test tracing), [ADR-024](docs/adr/ADR-024-prisma-otel-sdk-override.md) (Prisma SDK override); operational runbook: [`docs/runbooks/observability.md`](docs/runbooks/observability.md).
+
+---
+
 ## Documentation and Citations
 
 When writing or updating any architectural documentation (ADRs, design docs, READMEs):
