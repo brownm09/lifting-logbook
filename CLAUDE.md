@@ -397,7 +397,7 @@ This repo runs a full OpenTelemetry + Grafana Cloud stack. The Plan-then-optimiz
 - **Tracing & metrics** — OpenTelemetry NodeSDK in [`apps/api/src/otel.ts`](apps/api/src/otel.ts): `OTLPTraceExporter` + `OTLPMetricExporter` (OTLP/HTTP) with `getNodeAutoInstrumentations()` (HTTP/Fastify, `pg`, Node built-ins). Service name defaults to `lifting-logbook-api`. The web app instruments via `@vercel/otel` ([`apps/web/instrumentation.ts`](apps/web/instrumentation.ts)).
 - **Backends** — Grafana Cloud via the OTel Collector: traces → **Tempo**, logs → **Loki**, metrics → **Mimir** (see [ADR-018](docs/adr/ADR-018-observability-stack.md)).
 - **Log↔trace correlation** — a Pino `mixin()` injects `trace_id` / `span_id` from the active span into every log line, enabling bidirectional Loki↔Tempo navigation in Grafana.
-- **Errors** — uncaught/HTTP errors flow through the Nest exception filter and are logged via Pino (so they carry `trace_id`/`span_id`); spans on the failing request are marked error and kept by the tail-based sampling policy ([ADR-020](docs/adr/ADR-020-tail-based-sampling-policy.md)).
+- **Errors** — domain exceptions are mapped to HTTP responses by per-feature exception filters (e.g. `apps/api/src/programs/conflict.filter.ts`, `not-found.filter.ts`); request/response logging — including error responses, carrying `trace_id`/`span_id` via the `mixin` — is emitted by `nestjs-pino`/`pino-http` auto-logging. Error spans on the failing request are retained by the tail-based sampling policy ([ADR-020](docs/adr/ADR-020-tail-based-sampling-policy.md)).
 
 ### What the Observability audit dimension must verify for this repo
 
