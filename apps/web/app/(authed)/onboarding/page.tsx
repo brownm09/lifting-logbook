@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
+import { LIFT_NAMES } from "@lifting-logbook/types";
 import { fetchLiftCatalog } from "@/lib/api";
 import { getActiveProgram } from "@/lib/active-program";
 import { OnboardingFlow } from "./OnboardingFlow";
-import { DEFAULT_LIFTS } from "./lib";
 
 export const metadata: Metadata = {
   title: "Get Started — Lifting Logbook",
@@ -15,20 +15,26 @@ export default async function OnboardingPage() {
   // and ignores the :program param, so the active-program default is safe even
   // before a cycle exists.
   //
-  // Error-fallback coverage (docs/standards/error-fallback-test-coverage.md,
-  // option c — structure-only justification): the catch below swallows a
-  // catalog-fetch failure and falls back to the seeded DEFAULT_LIFTS. This is
-  // intentional and not asserted by a test because the only behavior that
-  // matters on failure is that onboarding still renders with at least the
-  // big-three lifts selectable — there is no data shape to assert beyond "the
-  // flow does not hard-fail," which OnboardingFlow's tests already exercise
-  // against an explicit catalog.
+  // On fetch failure we fall back to the full built-in LIFT_NAMES rather than
+  // the three seeded DEFAULT_LIFTS: OnboardingFlow pre-selects those same three
+  // as the starting rows, so a DEFAULT_LIFTS fallback leaves the picker with
+  // nothing selectable for any query — every search collapses to the
+  // "add as a custom lift" option and the catalog search appears broken (#458).
+  // LIFT_NAMES keeps search functional offline. The failure is logged rather
+  // than swallowed so the upstream catalog-fetch failure is observable.
+  // Fallback coverage (docs/standards/error-fallback-test-coverage.md, option b):
+  // page.test.tsx asserts the fallback catalog is the full built-in list,
+  // distinct from the pre-selected defaults.
   let catalog: string[];
   try {
     const program = await getActiveProgram();
     catalog = await fetchLiftCatalog(program);
-  } catch {
-    catalog = [...DEFAULT_LIFTS];
+  } catch (e) {
+    console.error(
+      "OnboardingPage: lift catalog fetch failed, falling back to built-in LIFT_NAMES",
+      e,
+    );
+    catalog = [...LIFT_NAMES];
   }
 
   return <OnboardingFlow catalog={catalog} />;
