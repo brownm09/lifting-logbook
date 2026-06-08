@@ -58,8 +58,13 @@ describe('OnboardingPage — catalog fetch fallback', () => {
     expect(LIFT_NAMES).toContain('Overhead Press');
     expect(html).toContain('Overhead Press');
 
-    // The catalog handed down is exactly the built-in list.
-    expect(html).toContain(`data-catalog="${JSON.stringify([...LIFT_NAMES]).replace(/"/g, '&quot;')}"`);
+    // The catalog handed down is exactly the built-in list. Parse the echoed
+    // attribute rather than matching React's escaped serialization, so the
+    // assertion tracks the data contract instead of the renderer's escaping rules.
+    const encoded = html.match(/data-catalog="([^"]*)"/)?.[1];
+    if (encoded === undefined) throw new Error('data-catalog attribute not found in rendered output');
+    const passedCatalog = JSON.parse(encoded.replace(/&quot;/g, '"'));
+    expect(passedCatalog).toEqual([...LIFT_NAMES]);
 
     // The failure is surfaced, not silently swallowed.
     expect(errSpy).toHaveBeenCalledWith(
