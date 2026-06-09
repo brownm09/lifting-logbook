@@ -127,22 +127,53 @@ Both directions are wired via Grafana datasource provisioning in
 
 ---
 
-## Alert silencing
+## Alerting
 
 ### Alert rules
 
-Three Prometheus alert rules are defined in
+Four Prometheus alert rules are defined in
 [`infra/observability/alerts/api.yaml`](../../infra/observability/alerts/api.yaml):
 
 | Rule | Condition | Severity |
 |---|---|---|
-| `APIHighErrorRate` | 5xx rate > 1% over 5 minutes | warning |
+| `APIRouteHighErrorRate` | any single route's 5xx rate > 5% over 5 minutes (grouped `by (http_route)`) | critical |
+| `APIHighErrorRate` | API-wide 5xx rate > 1% over 5 minutes | warning |
 | `APIHighP95Latency` | p95 latency > 1 s over 5 minutes | warning |
 | `APINoRequests` | Zero requests for 10 minutes | info |
 
+`APIRouteHighErrorRate` exists because the API-wide `APIHighErrorRate` can stay below 1% when a
+single endpoint fails at 100% but carries little traffic — the exact shape of the #458/#460
+outage, which ran undetected for four days. The per-route rule trips on any one route's
+sustained 5xx regardless of overall volume. See
+[api-5xx-surge.md](api-5xx-surge.md) for first response.
+
 > **Known issue:** `APINoRequests` fires spuriously outside business hours because it
-> has no `for:` grace period. This is a documented open item in ADR-018. Silence it
-> during off-hours or add a time-based inhibition rule until the fix lands.
+> has no `for:` grace period. This is a documented open item in ADR-018. The Alertmanager
+> route (below) holds `severity=info` back from paging; you can also silence it during
+> off-hours.
+
+### Notification routing
+
+Firing rules are routed to notification channels by the Alertmanager config in
+[`infra/observability/alertmanager.yaml`](../../infra/observability/alertmanager.yaml). Without
+this, the rules above would evaluate but page no one — the gap that let the #458 outage run
+silently (#462).
+
+| Aspect | Behaviour |
+|---|---|
+| Channels | **email + Slack** (`oncall` receiver), both with `send_resolved` |
+| What pages | `severity =~ "warning|critical"` |
+| What is held back | `severity = "info"` (e.g. `APINoRequests`) → `null` receiver, visible in the Alertmanager UI but no page |
+| De-duplication | a route-level `APIRouteHighErrorRate` critical inhibits the redundant aggregate `APIHighErrorRate` warning for the same incident |
+| Grouping | `by (alertname, http_route)` so distinct failing routes page separately |
+
+The email address, SMTP credentials, and Slack webhook URL are **secrets** — they are never
+committed. The file carries clearly-marked `.invalid` / `PLACEHOLDER` values; the real
+destinations live in the Grafana Cloud Alertmanager (apply/update procedure:
+[`docs/operations/slo.md`](../operations/slo.md#applying-alert-config-to-grafana-cloud)).
+Locally, `docker compose up` starts an Alertmanager at <http://localhost:9093> so the
+rule → route → receiver path is exercisable (delivery fails without real creds, which is
+expected).
 
 ### Creating a silence
 
@@ -218,3 +249,5 @@ documented in:
 - [Grafana Tempo — search and query](https://grafana.com/docs/tempo/latest/tracing/tempo-search/) — TraceQL reference and search UI guide
 - [Grafana Loki — log exploration](https://grafana.com/docs/loki/latest/visualize/grafana/) — LogQL syntax and Explore panel usage
 - [OpenTelemetry Collector — environment variable substitution](https://opentelemetry.io/docs/collector/configuration/#environment-variables) — how `${env:VAR}` syntax works in collector config
+- [Prometheus — Alertmanager configuration](https://prometheus.io/docs/alerting/latest/configuration/) — the routing tree, receivers, and inhibit-rule syntax used in `infra/observability/alertmanager.yaml`
+- [Prometheus — Alerting rules](https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/) — the `groups`/`rules` syntax used in `infra/observability/alerts/api.yaml`

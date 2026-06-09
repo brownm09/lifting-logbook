@@ -1,7 +1,24 @@
 # Runbook: API 5xx Surge
 
-**Triggers:** `APIHighErrorRate` alert (5xx rate > 1% for 5 minutes); also the starting
-point for `APIHighP95Latency` — check the Latency panel alongside the Error Rate panel
+**Triggers:**
+- `APIRouteHighErrorRate` (severity **critical**) — a single route's 5xx rate > 5% for 5
+  minutes. This is the primary signal for a *one-endpoint* failure: it fires even when the
+  broken route carries only a small share of total traffic, so the API-wide ratio stays low.
+  It is the alert that would have caught the #458/#460 outage (`GET /programs/:program/lifts`
+  returned 500 on every call for four days while overall traffic was modest and the aggregate
+  rate never crossed 1%). The firing alert's `http_route` label names the failing endpoint —
+  start diagnosis there.
+- `APIHighErrorRate` (severity **warning**) — API-wide 5xx rate > 1% for 5 minutes; the signal
+  for a broad degradation hitting many routes at once.
+- Also the starting point for `APIHighP95Latency` — check the Latency panel alongside the
+  Error Rate panel.
+
+**Notification:** these alerts route through the Alertmanager config in
+[`infra/observability/alertmanager.yaml`](../../infra/observability/alertmanager.yaml) to the
+on-call **email + Slack** channels (warning/critical only; `APINoRequests`/info is held back
+from paging). If an alert fired but no page arrived, verify the Grafana Cloud Alertmanager
+contact points per [`docs/operations/slo.md`](../operations/slo.md#applying-alert-config-to-grafana-cloud).
+
 **Default severity:** SEV2 — escalate to SEV1 if error rate exceeds 10% for > 5 minutes
 **Dashboard:** Grafana → Lifting Logbook → API RED → Error Rate panel and Latency panel
 
@@ -9,8 +26,10 @@ point for `APIHighP95Latency` — check the Latency panel alongside the Error Ra
 
 ## Symptom
 
-- `APIHighErrorRate` alert fires in Grafana Alerting
-- The Error Rate panel in the API RED dashboard shows a spike above the 1% threshold
+- `APIRouteHighErrorRate` or `APIHighErrorRate` alert fires in Grafana Alerting and pages via
+  email + Slack
+- The Error Rate panel in the API RED dashboard shows a spike above the threshold (filter by
+  the `http_route` from the alert label for a single-endpoint failure)
 - Users report errors or the application appears broken
 
 ---

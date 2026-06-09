@@ -14,6 +14,25 @@ groups:
           description: "{{ $value | humanizePercentage }} of requests are returning 5xx"
           runbook_url: "https://github.com/brownm09/lifting-logbook/blob/main/docs/runbooks/api-5xx-surge.md"
 
+      # Per-route 5xx rate. The aggregate APIHighErrorRate above can stay under 1%
+      # when a single endpoint fails at 100% but carries only a small share of total
+      # traffic — precisely the #458/#460 outage shape (GET /programs/:program/lifts
+      # returned 500 on every call for four days, undetected). Grouping by route trips
+      # this alert as soon as any one route's 5xx ratio is sustained, regardless of how
+      # much traffic the rest of the API is taking.
+      - alert: APIRouteHighErrorRate
+        expr: |
+          sum by (http_route) (rate(http_server_request_duration_seconds_count{http_response_status_code=~"5.."}[5m]))
+          / sum by (http_route) (rate(http_server_request_duration_seconds_count[5m]))
+          > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Route {{ $labels.http_route }} 5xx rate > 5%"
+          description: "{{ $value | humanizePercentage }} of requests to {{ $labels.http_route }} are returning 5xx over the last 5m"
+          runbook_url: "https://github.com/brownm09/lifting-logbook/blob/main/docs/runbooks/api-5xx-surge.md"
+
       - alert: APIHighP95Latency
         expr: |
           histogram_quantile(

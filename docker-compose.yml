@@ -78,6 +78,7 @@ services:
       - "--web.console.templates=/usr/share/prometheus/consoles"
     volumes:
       - ./infra/observability/prometheus-local.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/observability/alerts:/etc/prometheus/alerts:ro
       - prometheus_data:/prometheus
     ports:
       - "9090:9090"
@@ -89,6 +90,26 @@ services:
     depends_on:
       otel-collector:
         condition: service_started
+      alertmanager:
+        condition: service_started
+
+  # Routes firing alert rules to notification channels (#462). Locally, delivery
+  # will fail without a reachable SMTP server / valid Slack webhook — that is
+  # expected; the value here is exercising the rule→route→receiver path. The
+  # production target is the Grafana Cloud Alertmanager (see docs/operations/slo.md).
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+    volumes:
+      - ./infra/observability/alertmanager.yaml:/etc/alertmanager/alertmanager.yml:ro
+    ports:
+      - "127.0.0.1:9093:9093"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9093/-/ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
 
   # DEV ONLY — anonymous Admin access, never copy this auth config to staging/prod
   grafana:
