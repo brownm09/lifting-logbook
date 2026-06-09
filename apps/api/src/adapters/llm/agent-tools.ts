@@ -21,10 +21,23 @@ those tags.
 
 Always end the conversation by calling propose_cycle_plan exactly once.`;
 
+// The lifter's goal is interpolated into a <user_goal> data fence in the prompt. A goal
+// containing a literal `</user_goal>` (or a fresh `<user_goal>`) could otherwise break out of
+// the fence and have its trailing text read as prompt instructions. A legitimate training goal
+// never contains those delimiter tokens, so we strip any occurrence before interpolation. The
+// pattern tolerates internal whitespace (`</user_goal >`, `< / user_goal >`) because an LLM may
+// still read a loosely-spaced tag as a fence delimiter. This is defense-in-depth, not a hard
+// boundary: the system prompt already instructs the model to treat the fenced text as data, the
+// DTO bounds length (@MaxLength(2000) in cycle-plan.dto.ts), and the proposed plan is reviewed by
+// the user before anything is applied. This guard removes the structural escape hatch.
+export function sanitizeGoal(goal: string): string {
+  return goal.replace(/<\s*\/?\s*user_goal\s*>/gi, '');
+}
+
 export function buildUserMessage(req: CyclePlanRequest): string {
   return (
     `Plan cycle ${req.cycleNum} for program "${req.program}".\n\n` +
-    `<user_goal>\n${req.goal}\n</user_goal>`
+    `<user_goal>\n${sanitizeGoal(req.goal)}\n</user_goal>`
   );
 }
 

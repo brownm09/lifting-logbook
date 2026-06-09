@@ -29,6 +29,20 @@ import type {
 const API_URL = process.env.API_URL ?? 'http://localhost:3004';
 const isCloudRun = API_URL.startsWith('https://');
 
+// ---------------------------------------------------------------------------
+// AUTH HEADER INVARIANT — read before adding any server-side API call.
+//
+// Server -> API requests cross Cloud Run IAM, which consumes the `Authorization`
+// header for the GCP identity token. The Clerk JWT therefore travels in the custom
+// `X-Clerk-Authorization` header (read by apps/api auth.guard.ts). Hand-building an
+// `Authorization: Bearer <clerk-jwt>` header on this path will 403 behind Cloud Run IAM.
+//
+// DO NOT construct auth headers inline at call sites. Route every server-side request
+// through apiFetch / apiFetchNullable so it inherits getAuthHeaders() below. The
+// browser path uses a DIFFERENT scheme (plain Authorization) — see lib/client-api.ts.
+// This split will be lint-enforced once packages/api-client lands (#466).
+// See CONTRIBUTING.md -> API auth headers.
+// ---------------------------------------------------------------------------
 async function getAuthHeaders(): Promise<Record<string, string>> {
   if (!isCloudRun) {
     const devToken = process.env.DEV_AUTH_TOKEN;

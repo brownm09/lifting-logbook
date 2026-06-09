@@ -32,7 +32,6 @@ This document maps every critical user flow to its test coverage across the API 
 | `apps/api/src/programs/programs.e2e.spec.ts` | Full API surface via in-memory adapters. Runs on every `npm test`. |
 | `apps/api/src/programs/programs.db.e2e.spec.ts` | Full API surface via Prisma adapters. Postgres is auto-provisioned by Jest globalSetup (Testcontainers locally; service container in CI). Runs on every `npm test -w @lifting-logbook/api` when Docker is available. |
 | `apps/api/src/observability/otel.e2e.spec.ts` | OTel + nestjs-pino trace correlation smoke test. |
-| `apps/api-legacy/tests/server.test.ts` | Legacy Express health check. |
 
 ## Frontend E2E Tests
 

@@ -30,9 +30,6 @@ lifting-logbook/
     api/
       src/         # NestJS API server (primary)
       tests/       # Integration and unit tests co-located with the app
-    api-legacy/
-      src/         # Express API server (legacy comparison)
-      tests/
     web/
       app/         # Next.js App Router frontend
     mobile/        # React Native (Expo) mobile client
