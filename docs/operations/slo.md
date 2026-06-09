@@ -126,12 +126,38 @@ monthly review.
 SLO compliance is derived from the Prometheus metrics emitted by the OpenTelemetry SDK in
 `apps/api` and collected by the OTel Collector:
 
-- **Local dev:** Prometheus runs at `http://localhost:9090`; Grafana at `http://localhost:3030`
+- **Local dev:** Prometheus runs at `http://localhost:9090`; Grafana at `http://localhost:3030`;
+  Alertmanager at `http://localhost:9093`
 - **Production:** Grafana Cloud Metrics (Mimir); alert rules in
-  `infra/observability/alerts/api.yaml` are applied to the Grafana Cloud stack
+  `infra/observability/alerts/api.yaml` and the Alertmanager routing/notification config in
+  `infra/observability/alertmanager.yaml` are applied to the Grafana Cloud stack
 
 Ensure Mimir retention is set to **≥ 30 days** so 28-day window expressions have complete
 data. Contact the Grafana Cloud portal (Stack → Settings → Data retention) to verify.
+
+### Applying alert config to Grafana Cloud
+
+The rule and routing config are kept as code in `infra/observability/`. They are applied to the
+Grafana Cloud Mimir ruler + Alertmanager with [`mimirtool`](https://grafana.com/docs/mimir/latest/manage/tools/mimirtool/)
+(set `MIMIR_ADDRESS` / `MIMIR_API_USER` / `MIMIR_API_KEY` from the Grafana Cloud portal):
+
+```bash
+# Alert rules (Mimir ruler)
+mimirtool rules load infra/observability/alerts/api.yaml
+
+# Routing + notification config (Mimir Alertmanager)
+mimirtool alertmanager load infra/observability/alertmanager.yaml
+```
+
+> **Secrets, not committed.** `alertmanager.yaml` carries `.invalid` / `PLACEHOLDER` values for
+> the SMTP identity, on-call email recipient, and Slack webhook URL. Before loading, substitute
+> the real values from Secret Manager / the Grafana Cloud portal (or configure the contact
+> points directly in the Cloud Alertmanager UI) — never commit the real destinations. This is
+> what makes an alert actually **page** rather than sit on a dashboard; the gap it closes is the
+> #458/#460 outage that ran four days with no notification ([#462](https://github.com/brownm09/lifting-logbook/issues/462)).
+
+After loading, send a test notification from the Grafana Cloud Alertmanager UI to confirm both
+the email and Slack contact points reach the operator.
 
 ---
 

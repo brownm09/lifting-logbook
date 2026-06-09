@@ -1,6 +1,19 @@
 global:
   scrape_interval: 15s
 
+# Load the API alert rules locally so the alerting path can be exercised in the
+# local stack, not just in Grafana Cloud Mimir (#462). Previously these rules
+# existed but were never loaded here, so a developer could not see them evaluate.
+rule_files:
+  - /etc/prometheus/alerts/api.yaml
+
+# Route firing alerts to the local Alertmanager, which applies the routing tree
+# and notification config in infra/observability/alertmanager.yaml.
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
 scrape_configs:
   - job_name: otel-collector
     static_configs:

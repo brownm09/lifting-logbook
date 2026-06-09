@@ -319,7 +319,8 @@ In the GitHub repository → **Settings → Secrets and variables → Actions**:
 
 This is the manual approval gate that prevents automatic production deploys.
 The `deploy-production` job in `.github/workflows/deploy.yml` will pause and
-wait for your approval before proceeding.
+wait for your approval before proceeding. To approve a paused run (UI or `gh` CLI),
+see [Approving a production deploy](#approving-a-production-deploy) under Ongoing operations.
 
 ---
 
@@ -336,6 +337,34 @@ the production URL will appear in the `deploy-production` job summary after appr
 ### Deploying a change
 
 Push or merge to `main`. The pipeline runs automatically.
+
+### Approving a production deploy
+
+After `build-images`, `deploy-staging`, and `smoke-test` succeed, the run pauses at the
+`production` environment gate (the Required-reviewer rule from [Step 6](#step-6--configure-github-environment-protection-rules))
+and waits for approval before the `deploy-production` job starts. This gate is what applies
+pending Prisma migrations to prod — it sits in front of the in-VPC migrate job and the
+DB-backed `/readyz` smoke ([ADR-027](adr/ADR-027-deploy-pipeline-migrations.md)) — so approve
+it deliberately, after sanity-checking staging.
+
+**From the GitHub UI:** open the Deploy workflow run, click **Review deployments**, select
+`production`, and approve.
+
+**From the CLI (no browser):**
+
+```bash
+# Find the latest Deploy run on main
+RUNID=$(gh run list --workflow Deploy --branch main --limit 1 --json databaseId -q '.[0].databaseId')
+
+# Inspect what is pending approval (optional)
+gh api repos/brownm09/lifting-logbook/actions/runs/$RUNID/pending_deployments
+
+# Approve the production environment (id 15694632193)
+gh api repos/brownm09/lifting-logbook/actions/runs/$RUNID/pending_deployments \
+  -X POST -f state=approved -F 'environment_ids[]=15694632193' -f comment="approved via gh"
+```
+
+The `production` environment id is `15694632193`. To **reject** instead, use `-f state=rejected`.
 
 ### Web image: per-env build (ADR-025)
 

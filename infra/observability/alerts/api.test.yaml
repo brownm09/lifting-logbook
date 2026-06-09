@@ -1,0 +1,64 @@
+# promtool unit tests for infra/observability/alerts/api.yaml.
+# Run: promtool test rules infra/observability/alerts/api.test.yaml
+#
+# Locks the #462 outage-detection property: a single route failing at 100% while
+# the API-wide 5xx ratio stays well under 1% must trip APIRouteHighErrorRate
+# (critical) but NOT the aggregate APIHighErrorRate (warning). This is exactly
+# the #458/#460 shape — without the per-route rule it went undetected for days.
+
+rule_files:
+  - api.yaml
+
+evaluation_interval: 1m
+
+tests:
+  # Scenario: GET /programs/:program/lifts returns 500 on every call (low volume),
+  # while a busy /dashboard route serves 200s at high volume. Aggregate 5xx ratio
+  # is ~0.1% (1 of ~1001/min); the broken route's ratio is 100%.
+  - interval: 1m
+    input_series:
+      # Broken endpoint — only 5xx, ~1 req/min.
+      - series: 'http_server_request_duration_seconds_count{http_route="/programs/:program/lifts", http_response_status_code="500"}'
+        values: "0+1x10"
+      # Healthy high-traffic endpoint — only 2xx, ~1000 req/min.
+      - series: 'http_server_request_duration_seconds_count{http_route="/dashboard", http_response_status_code="200"}'
+        values: "0+1000x10"
+    alert_rule_test:
+      # After 5m active, the per-route critical fires for the broken route.
+      - eval_time: 6m
+        alertname: APIRouteHighErrorRate
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              http_route: "/programs/:program/lifts"
+            exp_annotations:
+              summary: "Route /programs/:program/lifts 5xx rate > 5%"
+              description: "100% of requests to /programs/:program/lifts are returning 5xx over the last 5m"
+              runbook_url: "https://github.com/brownm09/lifting-logbook/blob/main/docs/runbooks/api-5xx-surge.md"
+      # The aggregate warning must NOT fire — overall 5xx ratio is ~0.1%, under 1%.
+      - eval_time: 6m
+        alertname: APIHighErrorRate
+        exp_alerts: []
+      # Traffic is flowing, so the no-requests alert must stay inactive.
+      - eval_time: 6m
+        alertname: APINoRequests
+        exp_alerts: []
+
+  # Scenario: broad degradation — many routes returning 5xx pushes the API-wide
+  # ratio over 1%, so the aggregate warning fires too.
+  - interval: 1m
+    input_series:
+      - series: 'http_server_request_duration_seconds_count{http_route="/dashboard", http_response_status_code="500"}'
+        values: "0+30x10"
+      - series: 'http_server_request_duration_seconds_count{http_route="/dashboard", http_response_status_code="200"}'
+        values: "0+1000x10"
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: APIHighErrorRate
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "API error rate > 1%"
+              description: "2.913% of requests are returning 5xx"
+              runbook_url: "https://github.com/brownm09/lifting-logbook/blob/main/docs/runbooks/api-5xx-surge.md"
