@@ -67,7 +67,9 @@ pipeline before the new API revision goes live.**
    ```
 3. **Drift guard:** the `&& prisma migrate status` clause asserts a clean end-state. With
    `--wait`, a failed `migrate deploy` *or* a non-empty pending set fails the job → fails the
-   deploy → the last-good API revision keeps serving.
+   deploy → the last-good API revision keeps serving. Scope note: `migrate status` detects
+   *migration-state* drift (unapplied or failed migrations), **not** arbitrary out-of-band
+   schema changes (that would require `migrate diff`); "drift guard" here means the former.
 
 Terraform's `lifecycle.ignore_changes` on the job targets **only** the container image (and the
 gcloud-set `client`/`client_version`), so the command, env, SA, and VPC config stay
