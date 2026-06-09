@@ -8,6 +8,9 @@
 
 A cloud-native strength training tracker built as a Turborepo monorepo.
 
+> **🧭 On-call, or just want to read the logs and dashboards? Start here →
+> [Observability & On-Call onboarding](docs/operations/observability-onboarding.md).**
+
 For full architecture context, decision records, and project goals see **[docs/README.md](docs/README.md)**.
 For an end-user walkthrough of every screen in the web app, see **[docs/user-guide.md](docs/user-guide.md)**.
 
@@ -126,9 +129,11 @@ packages affected by your changes.
 
 ### Observability
 
-Grafana is available at **http://localhost:3030** once the stack is running. See
-[docs/runbooks/observability.md](docs/runbooks/observability.md) for the full guide:
-trace queries, log↔trace correlation, alert silencing, and Grafana Cloud credential wiring.
+Grafana is available at **http://localhost:3030** once the stack is running. New to the logs,
+traces, dashboards, or on-call rotation? Start with the
+[Observability & On-Call onboarding guide](docs/operations/observability-onboarding.md), then see
+[docs/runbooks/observability.md](docs/runbooks/observability.md) for the full mechanics:
+trace queries, log↔trace correlation, alerting, and Grafana Cloud credential wiring.
 
 ---
 

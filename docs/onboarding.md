@@ -213,5 +213,6 @@ for startup, trace queries, and log↔trace correlation.
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | Branch workflow, commit format, PR conventions |
 | [docs/deploy.md](deploy.md) | First-time cloud infrastructure setup (GCP, Terraform, Clerk) |
 | [docs/security-review-checklist.md](security-review-checklist.md) | Pre-ship security checklist |
+| [docs/operations/observability-onboarding.md](operations/observability-onboarding.md) | Observability & on-call start-here: reading logs/dashboards/traces and joining the rotation |
 | [docs/runbooks/](runbooks/) | Incident response guides and operational runbooks |
 | [docs/PRD.md](PRD.md) | Product requirements, user personas, success metrics |
