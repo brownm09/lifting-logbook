@@ -25,6 +25,11 @@ export function setAuthTokenGetter(fn: TokenGetter): void {
   _getToken = fn;
 }
 
+// AUTH HEADER INVARIANT — browser -> API calls send the Clerk JWT in `Authorization`
+// (there is no Cloud Run IAM hop on the client path, so no header collision). Do NOT
+// hand-build auth headers at call sites; route every client mutation through clientFetch
+// so it inherits getClientAuthHeaders(). The SERVER path uses a different header
+// (X-Clerk-Authorization) — see lib/api.ts. See CONTRIBUTING.md -> API auth headers.
 async function getClientAuthHeaders(): Promise<Record<string, string>> {
   if (devToken) return { Authorization: `Bearer ${devToken}` };
   if (_getToken) {
@@ -198,7 +203,7 @@ export async function importLiftRecords(
   form.append('file', file);
   const res = await fetch(
     `${API_URL}/programs/${encodeURIComponent(program)}/lift-records/import`,
-    { method: 'POST', body: form, headers: authHeaders },
+    { method: 'POST', body: form, headers: authHeaders, cache: 'no-store' },
   );
   if (res.status === 201) {
     return { ok: true, data: (await res.json()) as ImportLiftRecordsResponse };

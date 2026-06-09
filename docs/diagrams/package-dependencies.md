@@ -13,15 +13,12 @@ graph TB
 
     subgraph apps["apps/"]
         API["apps/api\nNestJS + Fastify\n(primary API server)"]
-        APILegacy["apps/api-legacy\nExpress\n(legacy comparison)"]
         Web["apps/web\nNext.js App Router"]
         Mobile["apps/mobile\nExpo (React Native)"]
     end
 
     API --> Core
     API --> Types
-    APILegacy --> Core
-    APILegacy --> Types
     Web --> Types
     Mobile --> Types
 ```

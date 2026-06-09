@@ -129,7 +129,7 @@ For this project (Node.js/NestJS backend), a well-optimized Docker image (multi-
 
 The ADR-009 comparison table shows Cloud Run as cheaper at low traffic and GKE as cheaper at sustained high traffic. This is consistent with Google's public pricing documentation and community reporting. The crossover point is typically around 50–100 sustained requests per second where GKE's node-level pricing becomes more efficient than Cloud Run's per-request billing.
 
-**Lesson for this project:** Cloud Run is the correct choice for the legacy comparison service (`apps/api-legacy`) and for early-stage deployment of the primary API before traffic patterns are known. The cold start window (200–600ms for Node.js) is acceptable for non-latency-critical endpoints. If the app graduates to sustained traffic, migrating to GKE involves a Helm chart change rather than a rewrite — the ADR's dual-track deployment model is the right hedge.
+**Lesson for this project:** Cloud Run is the correct choice for early-stage deployment of the primary API before traffic patterns are known. The cold start window (200–600ms for Node.js) is acceptable for non-latency-critical endpoints. If the app graduates to sustained traffic, migrating to GKE involves a Helm chart change rather than a rewrite — the ADR's dual-track deployment model is the right hedge.
 
 **Primary sources:**
 - [Cloud Run — Container instance lifecycle](https://cloud.google.com/run/docs/container-contract) — documents the instance startup sequence and how to minimize cold start latency

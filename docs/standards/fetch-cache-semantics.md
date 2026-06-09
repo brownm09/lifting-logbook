@@ -72,7 +72,7 @@ that flags `fetch()` calls with no options argument:
 // Flagged by ESLint — missing options entirely
 await fetch(url);
 
-// Not flagged by ESLint (cache/next must be verified in code review)
+// Also flagged by ESLint — two-arg options object with neither `cache` nor `next`
 await fetch(url, { method: 'POST' });
 
 // Correct — cache option explicit
@@ -80,9 +80,14 @@ await fetch(url, { cache: 'no-store' });
 await fetch(url, { next: { revalidate: 60 } });
 ```
 
-**Limitation:** The ESLint rule catches the zero-argument case only. A `fetch(url, { method: 'POST' })`
-call without an explicit `cache` option is not caught automatically and must be caught in code
-review using this standard as the reference.
+**Enforcement:** The `lifting-logbook/require-fetch-cache` ESLint rule
+(`tools/eslint-rules/require-fetch-cache.js`) flags any `fetch()` in `apps/web` that omits an
+explicit cache directive — both the zero/one-argument form (`fetch(url)`) and the two-argument
+form whose options object lacks both `cache` and `next` (e.g. `fetch(url, { method: 'POST' })`).
+
+**Remaining code-review responsibility:** an options object containing a spread (`{ ...init }`)
+or a non-object-literal second argument is not flagged, because the cache directive cannot be
+verified statically in those cases — the wrapper or the caller must still set it.
 
 ---
 
