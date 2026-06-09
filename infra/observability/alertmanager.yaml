@@ -65,9 +65,12 @@ receivers:
 
 inhibit_rules:
   # When a route-level critical is firing, suppress the redundant aggregate
-  # warning for the same incident to cut duplicate pages.
+  # warning to cut duplicate pages. No `equal:` scoping label — both alerts are
+  # produced by aggregating expressions (`sum(...)` / `sum by (http_route)(...)`)
+  # that drop per-target labels like `job`, so there is no shared label to key
+  # on; the intent is simply "if the route critical is firing, hold the aggregate
+  # warning."
   - source_matchers:
       - alertname = "APIRouteHighErrorRate"
     target_matchers:
       - alertname = "APIHighErrorRate"
-    equal: ["job"]
