@@ -210,8 +210,10 @@ Grafana Cloud endpoints and credentials are obtained from the Grafana Cloud port
 
 ### GKE production
 
-Values are stored in a Kubernetes Secret named `otel-collector-auth` in the workload
-namespace (keys: `otlp-auth-header`, `loki-auth-header`). The Helm chart reads them
+Values are stored in a Kubernetes Secret named `otel-collector-secrets` in the workload
+namespace — this must match the chart's `existingSecret` value
+([`charts/otel-collector/values.yaml`](../../infra/kubernetes/charts/otel-collector/values.yaml))
+(keys: `otlp-auth-header`, `loki-auth-header`). The Helm chart reads them
 automatically — see
 [`infra/kubernetes/charts/otel-collector/templates/NOTES.txt`](../../infra/kubernetes/charts/otel-collector/templates/NOTES.txt)
 for the bootstrap command.
@@ -220,9 +222,9 @@ Recommended path: External Secrets Operator pulling from GCP Secret Manager via
 Workload Identity. To bootstrap manually:
 
 ```sh
-kubectl create secret generic otel-collector-auth \
-  --from-literal=otlp-auth-header="Basic <base64(instanceId:apiKey)>" \
-  --from-literal=loki-auth-header="Basic <base64(instanceId:apiKey)>"
+kubectl create secret generic otel-collector-secrets \
+  --from-literal=otlp-auth-header="Basic <base64(tempoInstanceId:apiKey)>" \
+  --from-literal=loki-auth-header="Basic <base64(lokiInstanceId:apiKey)>"
 ```
 
 ### Cloud Run (future)
