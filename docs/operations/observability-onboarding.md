@@ -151,6 +151,11 @@ routed by Alertmanager — `warning`/`critical` page, `info` is held back):
 | `APIHighP95Latency` | p95 latency > 1 s / 5 min | warning |
 | `APINoRequests` | zero requests for 10 min (known off-hours false positive) | info |
 
+> This table is a derived summary for orientation. The canonical source of alert conditions and
+> severities is [`infra/observability/alerts/api.yaml`](../../infra/observability/alerts/api.yaml)
+> (rules) plus [observability.md → Alerting](../runbooks/observability.md#alerting) (routing); if
+> they ever disagree with the table above, they win — update this copy to match.
+
 **The path every incident follows:**
 
 1. **Acknowledge** the alert.
