@@ -224,6 +224,12 @@ count_over_time(
 )
 ```
 
+> **If `2a`/`2e`/`2f` are rejected or time out:** a `[14d:5m]` subquery evaluates an inner 5m
+> rate at ~4 000 steps in one shot, and `rate(...[14d])` spans a long window — either can exceed
+> Grafana Cloud Mimir's per-query execution-time / max-samples limits. Narrow the range and coarsen
+> the step (e.g. `[7d:10m]`), or run a week at a time and sum the counts. The false-positive *trend*
+> is what drives the decision, not exact step counts.
+
 ### Step 3 — decide from the data
 
 | Observation from 2a–2f | Recommended change |
