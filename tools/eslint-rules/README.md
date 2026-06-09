@@ -16,7 +16,7 @@ test coverage to be in place:
 #### 1. Test-file `<path>:<line>` reference
 
 A comment in any `*.spec.ts(x)` / `*.test.ts(x)` under `apps/web/e2e`,
-`apps/web/src`, `apps/api/src`, `apps/api-legacy/src`, or `packages` that names
+`apps/web/src`, `apps/api/src`, or `packages` that names
 the fallback's source location. Either a single line or a range works:
 
 ```ts

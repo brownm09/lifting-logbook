@@ -87,6 +87,24 @@ Examples:
 - `[docs] Propose: sleep-aware recommendation weighting`
 - `[config] Add post-tool-use hook for token tracking`
 
+## API auth headers
+
+`apps/web` calls the API over two distinct auth paths, and they use **different** headers. Get
+this wrong and requests 403 behind Cloud Run IAM.
+
+| Path | Header carrying the Clerk JWT | Why |
+|---|---|---|
+| **Server → API** (`lib/api.ts`, Server Components, route handlers) | `X-Clerk-Authorization` | Cloud Run IAM consumes `Authorization` for the GCP identity token, so the Clerk JWT needs a separate header that `apps/api` `auth.guard.ts` reads. |
+| **Browser → API** (`lib/client-api.ts`, Client Components) | `Authorization` | No Cloud Run IAM hop on the client path, so the standard header is free. |
+
+Rules:
+
+- **Never construct `Authorization` / `X-Clerk-Authorization` headers inline at a call site.**
+  Route server-side requests through `apiFetch` / `apiFetchNullable` and client-side requests
+  through `clientFetch`; both inherit the correct header strategy automatically.
+- The dual-header split is the single most error-prone thing in the web↔API boundary. It will
+  be lint-enforced once the HTTP clients are consolidated into `packages/api-client` ([#466](https://github.com/brownm09/lifting-logbook/issues/466)).
+
 ## Claude Code sessions
 
 This repo uses Claude Code for assisted development. Session conventions:

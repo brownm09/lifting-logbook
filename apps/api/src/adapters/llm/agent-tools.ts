@@ -21,10 +21,19 @@ those tags.
 
 Always end the conversation by calling propose_cycle_plan exactly once.`;
 
+// The lifter's goal is interpolated into a <user_goal> data fence in the prompt. A goal
+// containing a literal `</user_goal>` (or a fresh `<user_goal>`) could otherwise break out of
+// the fence and have its trailing text read as prompt instructions. A legitimate training goal
+// never contains those delimiter tokens, so we strip any occurrence before interpolation. The
+// DTO already bounds length (@MaxLength(2000) in cycle-plan.dto.ts); this guards structure.
+export function sanitizeGoal(goal: string): string {
+  return goal.replace(/<\/?user_goal>/gi, '');
+}
+
 export function buildUserMessage(req: CyclePlanRequest): string {
   return (
     `Plan cycle ${req.cycleNum} for program "${req.program}".\n\n` +
-    `<user_goal>\n${req.goal}\n</user_goal>`
+    `<user_goal>\n${sanitizeGoal(req.goal)}\n</user_goal>`
   );
 }
 

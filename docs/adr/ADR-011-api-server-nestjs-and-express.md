@@ -4,6 +4,7 @@
 **Date:** 2026-04-03
 **Reviewed:** 2026-04-07
 **Review outcome:** Pass with gaps — open items resolved: [#42](https://github.com/brownm09/lifting-logbook/issues/42) (archival policy section below)
+**Amended:** 2026-06-09 — `apps/api-legacy` deleted at the v0.2 cutoff; see Post-comparison disposition ([#465](https://github.com/brownm09/lifting-logbook/issues/465))
 
 ---
 
@@ -164,20 +165,21 @@ narrative is complete and no further parity updates are expected.
 
 ### Post-comparison disposition
 
-At the v0.2 cutoff:
+At the v0.2 cutoff the comparison concluded. **Disposition executed 2026-06-09 ([#465](https://github.com/brownm09/lifting-logbook/issues/465)):**
 
-1. Tag the repository at HEAD with `legacy-comparison-complete`:
+1. Tag the last commit that still contains the implementation so the snapshot stays browsable:
    ```bash
-   git tag legacy-comparison-complete
+   git tag legacy-comparison-complete 734bda7   # parent of the deletion commit
    git push origin legacy-comparison-complete
    ```
-2. Add a notice to `apps/api-legacy/README.md`:
-   > **Archived reference.** This implementation was kept current with v0.2 Core API endpoints
-   > for comparison purposes. No further updates are planned. See ADR-011 for context.
-3. No further PRs targeting `apps/api-legacy` will be reviewed or merged, except critical
-   security patches.
-4. The directory is retained in the monorepo as a read-only portfolio reference. It is not
-   deleted or moved to a separate repository.
+2. **`apps/api-legacy/` was deleted from the monorepo.** This supersedes the original
+   disposition (which retained the directory as a read-only reference). Rationale: an
+   unmaintained second app is permanent cognitive and CI load; the comparison narrative is
+   fully captured by the Decision and "What the Comparison Demonstrates" tables above; and the
+   code remains recoverable from git history and the `legacy-comparison-complete` tag. The
+   hexagonal-architecture point the comparison proved — swapping the entire transport layer
+   requires zero `packages/core` changes — stands on this documented record, not on a live
+   second codebase.
 
 ---
 

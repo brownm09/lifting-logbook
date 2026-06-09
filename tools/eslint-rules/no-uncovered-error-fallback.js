@@ -10,7 +10,6 @@ const TEST_GLOB_DIRS = [
   'apps/web/e2e',
   'apps/web/src',
   'apps/api/src',
-  'apps/api-legacy/src',
   'packages',
 ];
 

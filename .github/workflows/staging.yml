@@ -333,6 +333,7 @@ jobs:
       # should not hard-fail the job before they run. A genuine migration failure
       # still surfaces as an integration-test failure (missing tables).
       - name: Run database migrations (staging)
+        id: migrate
         continue-on-error: true
         run: |
           gcloud run jobs update lifting-logbook-stg-migrate \
@@ -344,6 +345,23 @@ jobs:
             --region="${{ env.REGION }}" \
             --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
             --wait
+
+      # The migrate step above is continue-on-error (Cloud SQL flakiness, #344), so a genuine
+      # migration failure would otherwise vanish into a green run. Surface it loudly: a workflow
+      # warning annotation plus a job-summary block. Advisory only — the Staging Integration
+      # Tests remain the authoritative gate — but it stops a real failure being swallowed
+      # silently. See ADR-027 and CLAUDE.md -> Error Message Diligence.
+      - name: Surface swallowed migration failure (staging)
+        if: steps.migrate.outcome == 'failure'
+        run: |
+          echo "::warning title=Staging migration failed (swallowed by continue-on-error)::The in-VPC Prisma migrate job exited non-zero. This may be transient Cloud SQL flakiness (#344) or a genuine migration failure - confirm the Staging Integration Tests below actually exercise the migrated tables before trusting this run."
+          {
+            echo "### :warning: Staging migration failed (swallowed by continue-on-error)"
+            echo ""
+            echo "The in-VPC Prisma migrate job exited non-zero. \`continue-on-error\` kept the pipeline green per #344 (intermittent staging Cloud SQL connectivity)."
+            echo ""
+            echo "If this is **not** transient flakiness, the staging schema may be stale. Verify the integration tests touched the affected tables, then re-run or investigate. See ADR-027."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Set up GKE credentials
         if: needs.terraform-staging.outputs.gke_enabled == 'true'

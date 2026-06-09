@@ -14,6 +14,7 @@ export async function getGcpIdentityToken(audience: string): Promise<string | nu
     const res = await fetch(url, {
       headers: { 'Metadata-Flavor': 'Google' },
       signal: AbortSignal.timeout(2000),
+      cache: 'no-store',
     });
     if (!res.ok) return null;
     return res.text();
