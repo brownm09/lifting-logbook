@@ -260,6 +260,48 @@ resource "google_secret_manager_secret_version" "clerk_publishable_key" {
   }
 }
 
+# ── OTel Collector → Grafana Cloud auth headers (#474) ───────────────────────
+# The collector sends these `Basic <base64(instanceId:apiKey)>` headers verbatim
+# to Grafana Cloud (traces/metrics → OTLP gateway, logs → Loki push). The values
+# are NEVER committed: Terraform creates the containers with a REPLACE_ME
+# placeholder and ignore_changes, and the operator populates the real tokens once
+# via `gcloud secrets versions add` (see docs/deploy.md → OTel Collector telemetry).
+# The deploy pipeline reads them with the CI/CD SA (roles/owner already grants
+# secretAccessor) and syncs them into the otel-collector-secrets k8s Secret.
+resource "google_secret_manager_secret" "otel_otlp_auth_header" {
+  secret_id = "${local.name_prefix}-otel-otlp-auth-header"
+  replication {
+    auto {}
+  }
+  depends_on = [google_project_service.required_apis]
+}
+
+resource "google_secret_manager_secret_version" "otel_otlp_auth_header" {
+  secret      = google_secret_manager_secret.otel_otlp_auth_header.id
+  secret_data = "REPLACE_ME"
+
+  lifecycle {
+    ignore_changes = [secret_data]
+  }
+}
+
+resource "google_secret_manager_secret" "otel_loki_auth_header" {
+  secret_id = "${local.name_prefix}-otel-loki-auth-header"
+  replication {
+    auto {}
+  }
+  depends_on = [google_project_service.required_apis]
+}
+
+resource "google_secret_manager_secret_version" "otel_loki_auth_header" {
+  secret      = google_secret_manager_secret.otel_loki_auth_header.id
+  secret_data = "REPLACE_ME"
+
+  lifecycle {
+    ignore_changes = [secret_data]
+  }
+}
+
 # ─── Cloud KMS (ADR-014 — credential encryption at rest) ─────────────────────
 
 resource "google_kms_key_ring" "main" {

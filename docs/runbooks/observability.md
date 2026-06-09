@@ -211,30 +211,41 @@ Grafana Cloud endpoints and credentials are obtained from the Grafana Cloud port
 - **API key:** Stack → Details → Generate a token (select "MetricsPublisher" or
   create a service account with Send metrics + Send traces + Send logs permissions)
 
-### GKE production
+### GKE production (wired — #474)
 
-Values are stored in a Kubernetes Secret named `otel-collector-secrets` in the workload
-namespace — this must match the chart's `existingSecret` value
-([`charts/otel-collector/values.yaml`](../../infra/kubernetes/charts/otel-collector/values.yaml))
-(keys: `otlp-auth-header`, `loki-auth-header`). The Helm chart reads them
-automatically — see
-[`infra/kubernetes/charts/otel-collector/templates/NOTES.txt`](../../infra/kubernetes/charts/otel-collector/templates/NOTES.txt)
-for the bootstrap command.
+The collector DaemonSet is deployed automatically by the deploy pipeline; there is no
+manual `helm install` step. On every push-to-main deploy, `.github/workflows/deploy.yml`:
 
-Recommended path: External Secrets Operator pulling from GCP Secret Manager via
-Workload Identity. To bootstrap manually:
+1. **Syncs the auth headers** — reads `lifting-logbook-{stg,prod}-otel-otlp-auth-header`
+   and `-otel-loki-auth-header` from GCP Secret Manager (the CI/CD SA has `roles/owner`)
+   and writes them into a Kubernetes Secret named **`otel-collector-secrets`** (keys
+   `otlp-auth-header`, `loki-auth-header`) in the workload namespace. The chart's
+   `daemonset.yaml` reads that Secret via `secretKeyRef`. The step fails the deploy
+   loudly — and never echoes the value — if either secret is absent or still the
+   Terraform `REPLACE_ME` placeholder.
+2. **Helm-deploys the collector** — `helm upgrade --install otel-collector` with the
+   per-env values file (`infra/kubernetes/values/{staging,production}-otel-collector.yaml`),
+   which sets the non-secret OTLP/Loki endpoints.
 
-```sh
-kubectl create secret generic otel-collector-secrets \
-  --from-literal=otlp-auth-header="Basic <base64(tempoInstanceId:apiKey)>" \
-  --from-literal=loki-auth-header="Basic <base64(lokiInstanceId:apiKey)>"
-```
+**One-time token bootstrap** (the only manual step, run once per env): see
+[`docs/deploy.md` → OTel Collector / Grafana Cloud telemetry](../deploy.md#otel-collector--grafana-cloud-telemetry).
+Terraform creates the Secret Manager containers with a `REPLACE_ME` placeholder; the
+operator populates the real Grafana token with `gcloud secrets versions add`.
 
-### Cloud Run (future)
+**Metrics → Mimir:** the collector ships metrics over the **same OTLP gateway** as traces
+(the gateway fans metrics out to Mimir), reusing the OTLP auth header. The chart's metrics
+pipeline uses the `otlphttp/metrics` exporter — **not** a `:8889` Prometheus scrape, which
+nothing scrapes in GKE. This is the path `APIRouteHighErrorRate` depends on. (The local
+docker-compose collector keeps the `prometheus`/`:8889` exporter, which the local
+Prometheus container scrapes.)
 
-A sidecar template exists at
-[`infra/cloud-run/otel-collector-sidecar.yaml`](../../infra/cloud-run/otel-collector-sidecar.yaml).
-Credentials are wired via Cloud Run Secret Manager volumes — see the file for details.
+### Cloud Run (deferred)
+
+The A/B Cloud Run replica does not yet ship telemetry. A sidecar template exists at
+[`infra/cloud-run/otel-collector-sidecar.yaml`](../../infra/cloud-run/otel-collector-sidecar.yaml),
+but wiring it safely against the Terraform-owned service is tracked as a follow-up to #474.
+GKE (the primary topology per [ADR-018](../adr/ADR-018-observability-stack.md)) carries the
+bulk of traffic and is fully wired.
 
 ---
 

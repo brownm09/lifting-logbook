@@ -520,6 +520,56 @@ The non-Prisma `user_data_source` table (managed outside Prisma) lives in
 `infra/migrations/`; both scripts apply `infra/migrations/001_create_user_data_source.sql`
 after the Prisma migrations.
 
+### OTel Collector / Grafana Cloud telemetry
+
+**The deploy pipeline deploys the OTel Collector DaemonSet automatically (#474).** On every
+GKE deploy, `deploy.yml` (staging + production) syncs the Grafana Cloud auth headers from
+Secret Manager into the `otel-collector-secrets` Kubernetes Secret and runs
+`helm upgrade --install otel-collector` with the per-env values file. Traces flow to Tempo,
+logs to Loki, and **metrics to Mimir over the OTLP gateway** (`otlphttp/metrics` exporter —
+the path `APIRouteHighErrorRate` depends on; `:8889` is not scraped in GKE). The Cloud Run
+A/B replica does not yet ship telemetry — see the deferred follow-up to #474.
+
+**One-time token bootstrap (do this once per environment, before the deploy that needs it).**
+The auth headers are never committed: Terraform creates the Secret Manager containers with a
+`REPLACE_ME` placeholder, and you populate the real Grafana token here. The sync step fails
+the deploy loudly if the placeholder is still in place.
+
+1. **Get the values from the Grafana Cloud portal:**
+   - **OTLP endpoint + instance ID** — Stack → Details → OpenTelemetry → *OTLP endpoint* and
+     the numeric *Instance ID / User* (this endpoint also routes metrics → Mimir).
+   - **Loki endpoint + user** — Stack → Details → Loki → *URL* (append `/loki/api/v1/push`)
+     and its *User*. The OTLP and Loki instance IDs may differ but can share one token.
+   - **API token** — Stack → Details → generate a token with **send metrics + send logs +
+     send traces** scopes (or a service account with those permissions).
+
+   The endpoint URLs are non-secret and live in
+   `infra/kubernetes/values/{staging,production}-otel-collector.yaml` — confirm they match
+   your stack's region and update them there if needed.
+
+2. **Build the Basic-auth headers** (the collector sends these verbatim):
+   ```bash
+   OTLP_HEADER="Basic $(printf '%s:%s' "$OTLP_INSTANCE_ID" "$GRAFANA_TOKEN" | base64 -w0)"
+   LOKI_HEADER="Basic $(printf '%s:%s' "$LOKI_INSTANCE_ID" "$GRAFANA_TOKEN" | base64 -w0)"
+   ```
+
+3. **Populate Secret Manager** for each environment (`stg` against the staging project,
+   `prod` against the production project):
+   ```bash
+   printf '%s' "$OTLP_HEADER" | gcloud secrets versions add lifting-logbook-stg-otel-otlp-auth-header --data-file=- --project=<STAGING_PROJECT_ID>
+   printf '%s' "$LOKI_HEADER" | gcloud secrets versions add lifting-logbook-stg-otel-loki-auth-header --data-file=- --project=<STAGING_PROJECT_ID>
+   printf '%s' "$OTLP_HEADER" | gcloud secrets versions add lifting-logbook-prod-otel-otlp-auth-header --data-file=- --project=<PROD_PROJECT_ID>
+   printf '%s' "$LOKI_HEADER" | gcloud secrets versions add lifting-logbook-prod-otel-loki-auth-header --data-file=- --project=<PROD_PROJECT_ID>
+   ```
+   The secret containers are created by `terraform apply` (see `infra/terraform/main.tf`).
+   If applying Terraform out of band, `gcloud secrets create <name> --replication-policy=automatic`
+   first, then `versions add`.
+
+After the secrets are populated, the next push-to-main deploy wires telemetry end to end —
+verify in Grafana Cloud: Tempo `{ service.name = "lifting-logbook-api" }`, Loki
+`{ service_name = "lifting-logbook-api" }`, and the `http.server.*` metric in Mimir. The
+operational runbook is [`docs/runbooks/observability.md`](runbooks/observability.md).
+
 ### Accessing logs
 
 ```bash

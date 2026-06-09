@@ -513,6 +513,40 @@ jobs:
             --set env.API_URL="$API_CLUSTER_URL" \
             --wait --timeout=5m
 
+      # ── OTel Collector (observability — #474) ──────────────────────────────
+      # Sync the Grafana Cloud auth headers from Secret Manager into the
+      # otel-collector-secrets k8s Secret (keys consumed by the chart's
+      # daemonset.yaml secretKeyRef), then deploy the collector DaemonSet. Without
+      # this the collector has no credentials and traces/logs/metrics never leave
+      # the cluster. The guards fail the deploy loudly if either secret is absent
+      # or still the Terraform "REPLACE_ME" placeholder (the one-time Grafana token
+      # bootstrap — see docs/deploy.md) and never echo the value, so no token
+      # reaches CI logs.
+      - name: Sync otel-collector secrets to Kubernetes
+        if: needs.terraform-staging.outputs.gke_enabled == 'true'
+        run: |
+          OTLP_H=$(gcloud secrets versions access latest \
+            --secret="lifting-logbook-stg-otel-otlp-auth-header" \
+            --project="${{ vars.GCP_STAGING_PROJECT_ID }}")
+          { [ -n "$OTLP_H" ] && [ "$OTLP_H" != "REPLACE_ME" ]; } || { echo "ERROR: otel otlp-auth-header unpopulated (staging) — run the Grafana token bootstrap in docs/deploy.md"; exit 1; }
+          LOKI_H=$(gcloud secrets versions access latest \
+            --secret="lifting-logbook-stg-otel-loki-auth-header" \
+            --project="${{ vars.GCP_STAGING_PROJECT_ID }}")
+          { [ -n "$LOKI_H" ] && [ "$LOKI_H" != "REPLACE_ME" ]; } || { echo "ERROR: otel loki-auth-header unpopulated (staging) — run the Grafana token bootstrap in docs/deploy.md"; exit 1; }
+          kubectl create secret generic otel-collector-secrets \
+            --namespace=staging \
+            --from-literal=otlp-auth-header="$OTLP_H" \
+            --from-literal=loki-auth-header="$LOKI_H" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Helm deploy otel-collector (GKE staging)
+        if: needs.terraform-staging.outputs.gke_enabled == 'true'
+        run: |
+          helm upgrade --install otel-collector ./infra/kubernetes/charts/otel-collector \
+            --namespace=staging \
+            --values=infra/kubernetes/values/staging-otel-collector.yaml \
+            --wait --timeout=5m
+
       # Cloud Run: A/B comparison target (10% traffic — ADR-009)
       - name: Deploy API to Cloud Run (staging)
         run: |
@@ -788,6 +822,37 @@ jobs:
             --set gcp.projectId="${{ vars.GCP_PROD_PROJECT_ID }}" \
             --set env.NODE_ENV=production \
             --set env.API_URL="$API_CLUSTER_URL" \
+            --wait --timeout=5m
+
+      # ── OTel Collector (observability — #474) ──────────────────────────────
+      # Mirror of the staging step (see deploy-staging). Syncs the Grafana Cloud
+      # auth headers from Secret Manager into the otel-collector-secrets k8s Secret
+      # and deploys the collector DaemonSet so prod traces/logs/metrics reach
+      # Grafana Cloud. Guards fail loudly on an absent or placeholder secret and
+      # never echo the value.
+      - name: Sync otel-collector secrets to Kubernetes (production)
+        if: steps.tf-prod.outputs.gke_enabled == 'true'
+        run: |
+          OTLP_H=$(gcloud secrets versions access latest \
+            --secret="lifting-logbook-prod-otel-otlp-auth-header" \
+            --project="${{ vars.GCP_PROD_PROJECT_ID }}")
+          { [ -n "$OTLP_H" ] && [ "$OTLP_H" != "REPLACE_ME" ]; } || { echo "ERROR: otel otlp-auth-header unpopulated (production) — run the Grafana token bootstrap in docs/deploy.md"; exit 1; }
+          LOKI_H=$(gcloud secrets versions access latest \
+            --secret="lifting-logbook-prod-otel-loki-auth-header" \
+            --project="${{ vars.GCP_PROD_PROJECT_ID }}")
+          { [ -n "$LOKI_H" ] && [ "$LOKI_H" != "REPLACE_ME" ]; } || { echo "ERROR: otel loki-auth-header unpopulated (production) — run the Grafana token bootstrap in docs/deploy.md"; exit 1; }
+          kubectl create secret generic otel-collector-secrets \
+            --namespace=production \
+            --from-literal=otlp-auth-header="$OTLP_H" \
+            --from-literal=loki-auth-header="$LOKI_H" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Helm deploy otel-collector (GKE production)
+        if: steps.tf-prod.outputs.gke_enabled == 'true'
+        run: |
+          helm upgrade --install otel-collector ./infra/kubernetes/charts/otel-collector \
+            --namespace=production \
+            --values=infra/kubernetes/values/production-otel-collector.yaml \
             --wait --timeout=5m
 
       - name: Deploy API to Cloud Run (production)
