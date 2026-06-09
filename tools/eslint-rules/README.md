@@ -72,6 +72,38 @@ workoutSkipOverride.getSkipsForCycle(program, dashboard.cycleNum).catch((err: un
 - **Aliased `redirect` imports** (`import { redirect as nextRedirect }`) are
   not detected. Bare `redirect(...)` and `something.redirect(...)` are.
 
+### `lifting-logbook/require-fetch-cache`
+
+Scoped to `apps/web/**/*.{ts,tsx}` (spec/test files ignored) via
+[`eslint.config.js`](../../eslint.config.js). Next.js reversed the default
+`fetch()` caching behaviour between v14 and v15, so relying on the default is a
+latent correctness bug (see
+[`docs/standards/fetch-cache-semantics.md`](../../docs/standards/fetch-cache-semantics.md)).
+This rule requires every `fetch()` call to carry an explicit cache directive.
+
+It flags:
+
+- **Zero/one-argument calls** — `fetch(url)` (no options object at all).
+- **Two-argument calls whose options object literal omits both `cache` and
+  `next`** — e.g. `fetch(url, { method: 'POST' })`. This is the gap the previous
+  `no-restricted-syntax` selector (which matched only single-argument calls)
+  could not catch.
+
+Deliberate non-flags (cannot be verified statically, so left to code review):
+
+- **Options object containing a spread** (`fetch(url, { ...init })`) — the spread
+  may carry `cache`/`next` at runtime, as in the `apiFetch` / `clientFetch`
+  wrappers.
+- **Second argument that is not an object literal** (`fetch(url, init)`) — a
+  variable or call expression is not statically inspectable. A TS type assertion
+  (`{ next: { revalidate: 60 } } as RequestInit`) **is** unwrapped to the object
+  literal underneath and inspected.
+
+> **Lint-scope caveat.** The web workspace lint script is `eslint app`, so
+> `apps/web/lib/*.ts` is not currently linted in CI — this rule only effectively
+> runs against `apps/web/app`. Widening that scope is tracked in
+> [#473](https://github.com/brownm09/lifting-logbook/issues/473).
+
 ## Adding a new rule
 
 1. Write `tools/eslint-rules/my-new-rule.js` exporting an ESLint rule module
