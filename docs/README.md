@@ -162,6 +162,12 @@ monorepo/
 
 ---
 
+## Observability & On-Call
+
+New to the logs, traces, dashboards, or on-call rotation? Start with the
+[**Observability & On-Call onboarding guide**](operations/observability-onboarding.md) — it
+sequences the runbooks below in reading order and explains what the signals mean.
+
 ## Runbooks
 
 | Runbook | Covers |
