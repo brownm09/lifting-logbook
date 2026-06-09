@@ -204,7 +204,9 @@ the environment realistic data for testing cycle generation, reporting, and API 
 any real user PII.
 
 **When to run:** after `prisma migrate deploy` completes on the staging database (the deploy
-workflow runs migrations automatically; for manual runs use `./scripts/migrate-staging-db.sh`).
+pipeline runs the `lifting-logbook-stg-migrate` Cloud Run Job automatically — see
+[ADR-027](adr/ADR-027-deploy-pipeline-migrations.md); for manual runs use
+`./scripts/migrate-staging-db.sh`).
 
 **What it creates:**
 
@@ -451,15 +453,34 @@ gcloud run services update-traffic lifting-logbook-prod-api \
 
 ### Running database migrations
 
-Migrations live in `infra/migrations/`. To apply:
+**The deploy pipeline applies Prisma migrations automatically (ADR-027).** On every
+deploy, `deploy.yml` (prod + staging) and `staging.yml` (PR staging) run the
+`lifting-logbook-<env>-migrate` Cloud Run Job — `prisma migrate deploy && prisma migrate
+status` — *before* the new API revision goes live. The job runs inside the VPC (the Cloud
+SQL instance has a private IP only), so a GitHub-hosted runner never connects to the DB
+directly. `gcloud run jobs execute --wait` returns non-zero if a migration or the
+`migrate status` drift check fails, which halts the deploy and leaves the last-good API
+revision serving. No manual step is required for normal deploys.
+
+> Until ADR-027 (#460) this was not the case: `prisma migrate deploy` ran only in
+> `ci.yml` against the CI test database, so prod schema drifted silently — a missing
+> `custom_lift` table 500'd the lift-catalog endpoint (#458). Adding a migration without
+> deploying is now safe: the next deploy applies it.
+
+**Break-glass / bootstrap (manual):** to apply migrations out of band — first-time
+bootstrap before any deploy, or recovery when the pipeline is unavailable — use the
+sanctioned script, which temporarily enables a public IP scoped to your IP, proxies in via
+the Cloud SQL Auth Proxy (IAM-authenticated), runs `prisma migrate deploy`, then removes
+the public IP. It is idempotent:
 
 ```bash
-# Connect to Cloud SQL via the Cloud SQL Auth Proxy
-cloud-sql-proxy "lifting-logbook-prod:us-central1:<instance-name>"
-
-# Then apply migrations with psql or your migration runner
-psql "$DATABASE_URL" -f infra/migrations/001_create_user_data_source.sql
+./scripts/migrate-prod-db.sh       # production
+./scripts/migrate-staging-db.sh    # staging (proxy on port 5434)
 ```
+
+The non-Prisma `user_data_source` table (managed outside Prisma) lives in
+`infra/migrations/`; both scripts apply `infra/migrations/001_create_user_data_source.sql`
+after the Prisma migrations.
 
 ### Accessing logs
 

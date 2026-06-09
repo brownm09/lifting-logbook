@@ -239,3 +239,90 @@ resource "google_vpc_access_connector" "main" {
   ip_cidr_range = var.environment == "production" ? "10.8.0.0/28" : "10.8.1.0/28"
   depends_on    = [google_project_service.required_apis]
 }
+
+# ─── Database migration job (ADR-027) ─────────────────────────────────────────
+#
+# Cloud Run Job that runs `prisma migrate deploy` against the environment's
+# Cloud SQL database. The database has a private IP only, so a GitHub-hosted
+# runner cannot reach it directly — this job runs *inside* the VPC via the same
+# serverless connector the API service uses, then the deploy pipeline executes
+# it (gcloud run jobs execute --wait) before the API revision goes live. A
+# failed migration therefore fails the deploy and the last-good API revision
+# keeps serving. Before this job existed, migrations were never applied by the
+# pipeline (only ci.yml ran `migrate deploy`, against the CI test DB), so prod
+# schema drifted silently and any endpoint touching a missing table 500'd
+# (#458 / #460). See ADR-027.
+#
+# The container reuses the API image (it already ships the Prisma CLI,
+# @prisma/engines, and the migrations under apps/api/prisma) and overrides the
+# entrypoint to run migrations instead of the server. It runs as the API
+# workload SA, which already holds roles/cloudsql.client and
+# roles/secretmanager.secretAccessor (see api_workload_roles in gke.tf).
+resource "google_cloud_run_v2_job" "migrate" {
+  name     = "${local.name_prefix}-migrate"
+  location = var.region
+
+  template {
+    template {
+      service_account = google_service_account.api_workload.email
+
+      # A migration must run exactly once. A retry of a half-applied migration
+      # leaves a failed row in _prisma_migrations that Prisma refuses to step
+      # past anyway, so retrying cannot help — fail fast and surface it.
+      max_retries = 0
+
+      vpc_access {
+        connector = google_vpc_access_connector.main.id
+        egress    = "PRIVATE_RANGES_ONLY"
+      }
+
+      containers {
+        image = local.api_image
+
+        # The API image WORKDIR is /app/apps/api, so the schema path is
+        # relative to it. `migrate deploy` applies only pending migrations in
+        # order (idempotent); `migrate status` then asserts a clean end-state,
+        # so a non-zero exit (failed apply or leftover pending migration) fails
+        # the job and, via `--wait`, the deploy.
+        command = ["/bin/sh", "-c"]
+        args = [
+          "npx prisma migrate deploy --schema=prisma/schema.prisma && npx prisma migrate status --schema=prisma/schema.prisma"
+        ]
+
+        env {
+          name = "DATABASE_URL"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.database_url.secret_id
+              version = "latest"
+            }
+          }
+        }
+
+        resources {
+          limits = {
+            cpu    = "1"
+            memory = "512Mi"
+          }
+        }
+      }
+    }
+  }
+
+  # The real image tag is set by the deploy pipeline via `gcloud run jobs
+  # update --image` (Terraform applies with image_tag=bootstrap → placeholder).
+  # Unlike the services — which ignore the whole `template` because gcloud run
+  # deploy mutates many fields — the job's image is the only field gcloud
+  # touches, so we ignore *only* the image and keep command/env/SA/VPC under
+  # Terraform's control (changeable via a normal apply). client/client_version
+  # are set by gcloud and would otherwise read as perpetual drift.
+  lifecycle {
+    ignore_changes = [
+      template[0].template[0].containers[0].image,
+      client,
+      client_version,
+    ]
+  }
+
+  depends_on = [google_project_service.required_apis]
+}

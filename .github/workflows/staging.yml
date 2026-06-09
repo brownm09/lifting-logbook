@@ -322,6 +322,29 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_STAGING_SERVICE_ACCOUNT }}
 
+      # ── Database migrations (ADR-027) ──────────────────────────────────────
+      # Apply pending Prisma migrations to the staging DB via the in-VPC Cloud
+      # Run Job (created by terraform-staging) before the API revision goes live,
+      # so staging exercises the same migrate path as prod (#460). Terraform
+      # applies a placeholder image, so set the real image, then execute + wait.
+      # continue-on-error matches the staging Cloud Run deploy below: staging
+      # Cloud SQL connectivity is intermittently flaky (#344), and the Staging
+      # Integration Tests are the authoritative gate — a transient migrate blip
+      # should not hard-fail the job before they run. A genuine migration failure
+      # still surfaces as an integration-test failure (missing tables).
+      - name: Run database migrations (staging)
+        continue-on-error: true
+        run: |
+          gcloud run jobs update lifting-logbook-stg-migrate \
+            --image="${{ needs.build-images.outputs.ar_repo }}/api:${{ needs.build-images.outputs.image_tag }}" \
+            --region="${{ env.REGION }}" \
+            --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
+            --quiet
+          gcloud run jobs execute lifting-logbook-stg-migrate \
+            --region="${{ env.REGION }}" \
+            --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
+            --wait
+
       - name: Set up GKE credentials
         if: needs.terraform-staging.outputs.gke_enabled == 'true'
         uses: google-github-actions/get-gke-credentials@v2
