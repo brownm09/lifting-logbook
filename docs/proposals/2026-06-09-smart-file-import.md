@@ -12,7 +12,7 @@ The Consistent Intermediate Lifter migrating off a brittle Google Sheets / Apps 
 
 ## Proposed Solution
 
-A multi-step import **wizard** that accepts any CSV, auto-detects its type, maps columns, lets the user review and repair rows, previews the before→after effect, and commits — covering all four data types the app stores. The standalone design prototype committed at [`docs/proposals/assets/2026-06-09-smart-csv-import.prototype.html`](assets/2026-06-09-smart-csv-import.prototype.html) is the **design of record** for the seven steps (Source → Analyzing → Classify → Map columns → Review → Preview → Done).
+A multi-step import **wizard** that accepts any CSV, auto-detects its type, maps columns, lets the user review and repair rows, previews the before→after effect, and commits — covering all four data types the app stores. The standalone design prototype committed at [`docs/proposals/assets/2026-06-09-smart-file-import.prototype.html`](assets/2026-06-09-smart-file-import.prototype.html) is the **design of record** for the seven steps (Source → Analyzing → Classify → Map columns → Review → Preview → Done).
 
 This extends, rather than discards, the existing single-purpose importer. We reuse the parsing, normalization, and write primitives already in the codebase and add the new "intelligence" layer (classifier + fuzzy mapper) and a preview-then-commit API around them.
 
@@ -89,11 +89,11 @@ These were open questions settled during proposal review:
 
 ## Open Questions
 
-*(none — the three review-stage questions are settled under Resolved Design Decisions above.)*
+- **Which program does an auto-detected import target, and where is that chosen?** Every write path is program-scoped (the proposed `POST /programs/:program/import`, matching #225), but the prototype's Source step shows no program selector and the app supports multiple programs per user. Options: (a) launch the wizard from within a program context so `:program` is implicit; (b) add an explicit program-picker step; or (c) let the classifier's destination drive it (a program-spec file *creates* a program; the other three target the active one). To settle at the start of Phase 1, since it shapes the API surface and the Source-step UX.
 
 ## References
 
-- [`docs/proposals/assets/2026-06-09-smart-csv-import.prototype.html`](assets/2026-06-09-smart-csv-import.prototype.html) — the committed design prototype; design of record for the seven wizard steps and all UI affordances referenced above.
+- [`docs/proposals/assets/2026-06-09-smart-file-import.prototype.html`](assets/2026-06-09-smart-file-import.prototype.html) — the committed design prototype; design of record for the seven wizard steps and all UI affordances referenced above.
 - [`docs/proposals/2026-05-11-historical-lift-data-backfill.md`](2026-05-11-historical-lift-data-backfill.md) — the prior lift-records-only importer this proposal supersedes and generalizes to all four data types.
 - [Prisma Client `createMany` reference](https://www.prisma.io/docs/orm/reference/prisma-client-reference#createmany) — documents the `skipDuplicates` option that makes lift-record commit idempotent.
 - [RFC 7578 — Returning Values from Forms: multipart/form-data](https://www.rfc-editor.org/rfc/rfc7578) — the multipart upload format the `@fastify/multipart` file-upload endpoint accepts.
