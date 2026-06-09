@@ -113,6 +113,7 @@ Web and mobile clients functional end-to-end. Key user-facing features implement
 | [Custom User-Created Lifts](docs/proposals/2026-06-03-custom-lifts.md) | Per-user persisted `CustomLift` entity (Prisma model + `ICustomLiftRepository` port + ownership isolation); `resolveLift` prefers custom over catalog; `GET/POST/PATCH/DELETE /lifts/custom`. Foundational for #426 and #427 | [#425](https://github.com/brownm09/lifting-logbook/issues/425) | shipped |
 | [Onboarding — Any-Lift Max Estimation](docs/proposals/2026-06-03-onboarding-any-lift-max-estimation.md) | Dynamic add/remove lift list in onboarding for any catalog or custom lift; persists confirmed maxes (closes the discard gap in `createFirstCycle`) | [#426](https://github.com/brownm09/lifting-logbook/issues/426) | shipped |
 | [Lift Movement Profiles](docs/proposals/2026-06-03-lift-movement-profiles.md) | Combined `MovementProfile` (patterns + joint actions + complexity) on `Lift`; preconfigured for the 23 catalog entries, editable for custom lifts | [#427](https://github.com/brownm09/lifting-logbook/issues/427) | shipped |
+| [Smart File Import Wizard](docs/proposals/2026-06-09-smart-file-import.md) | Auto-detects a CSV's type (lift records, training maxes, program spec, strength goals), maps columns with confidence, reviews/fixes rows, previews before→after, then commits; generalizes #225 to all four data types | [#477](https://github.com/brownm09/lifting-logbook/issues/477) | draft |
 
 ---
 
