@@ -462,6 +462,15 @@ directly. `gcloud run jobs execute --wait` returns non-zero if a migration or th
 `migrate status` drift check fails, which halts the deploy and leaves the last-good API
 revision serving. No manual step is required for normal deploys.
 
+As a runtime complement, the production deploy then runs a **DB-backed smoke test**: it mints
+a Cloud Run identity token and probes the API's `GET /readyz` (a `@Public`, no-Clerk endpoint
+that runs `SELECT 1`). A non-200 fails the deploy — catching the case where the API is up but
+cannot actually serve database requests (the failure that left prod silently 500ing in #458,
+which no smoke previously detected). The two guards divide the work: `migrate status` (pre-deploy)
+ensures the schema is migrated; `/readyz` (post-deploy) ensures the live service can serve it.
+`/readyz` does not auto-roll-back on failure — roll back the API revision manually (see
+[Rolling back](#rolling-back) / `gcloud run services update-traffic`).
+
 > Until ADR-027 (#460) this was not the case: `prisma migrate deploy` ran only in
 > `ci.yml` against the CI test database, so prod schema drifted silently — a missing
 > `custom_lift` table 500'd the lift-catalog endpoint (#458). Adding a migration without

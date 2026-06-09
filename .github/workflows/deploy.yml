@@ -800,6 +800,40 @@ jobs:
             --no-allow-unauthenticated \
             --quiet
 
+      # ── Production DB-backed smoke test (#460) ─────────────────────────────
+      # The migrate guard above prevents shipping against an unmigrated schema;
+      # this verifies the *live* API can actually serve a database-backed
+      # request after deploy — the failure class that left prod silently 500ing
+      # in #458 (no prod smoke previously existed; the staging smoke never hit a
+      # DB endpoint). /readyz is @Public (no Clerk) and runs `SELECT 1`, but the
+      # API requires Cloud Run IAM auth, so mint an identity token for the
+      # service URL (impersonation is required — WIF-federated creds cannot mint
+      # ID tokens directly). A non-200 fails the deploy so it surfaces loudly
+      # rather than days later. NOTE: this does not auto-roll-back the revision;
+      # roll back manually on failure (docs/deploy.md) — automated rollback is a
+      # tracked follow-up.
+      - name: Smoke test Cloud Run production — /readyz (DB-backed)
+        run: |
+          API_URL="${{ steps.tf-prod.outputs.cloud_run_api_url }}"
+          API_URL="${API_URL%/}"
+          ID_TOKEN=$(gcloud auth print-identity-token \
+            --impersonate-service-account="${{ secrets.GCP_PROD_SERVICE_ACCOUNT }}" \
+            --audiences="$API_URL" \
+            --include-email)
+          [ -n "$ID_TOKEN" ] || { echo "ERROR: failed to mint Cloud Run identity token for $API_URL"; exit 1; }
+          # Allow up to 2 minutes for the new revision to become ready.
+          for i in $(seq 1 12); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              -H "Authorization: Bearer $ID_TOKEN" "$API_URL/readyz" || true)
+            if [ "$STATUS" = "200" ]; then
+              echo "Production /readyz returned 200 — DB-backed readiness OK"
+              exit 0
+            fi
+            echo "/readyz attempt $i: got $STATUS, retrying in 10s..."
+            sleep 10
+          done
+          echo "Production /readyz smoke FAILED — API is up but cannot serve DB-backed requests (check migrations, Cloud SQL connectivity, DATABASE_URL). Roll back the API revision per docs/deploy.md." && exit 1
+
       - name: Deploy web to Cloud Run (production)
         run: |
           gcloud run deploy lifting-logbook-prod-web \

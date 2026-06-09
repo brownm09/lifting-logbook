@@ -102,6 +102,12 @@ break-glass / first-time-bootstrap path, not the steady-state mechanism.
 **Positive:**
 - Adding a migration to the repo is now safe: the next deploy applies it. The class of "latent
   prod outage on every migration" is closed.
+- Paired with a **post-deploy DB-backed readiness smoke** (`GET /readyz` → `SELECT 1`, probed
+  with a Cloud Run identity token in `deploy-production`): `migrate status` guards schema
+  *completeness* before deploy; `/readyz` guards that the live revision can actually *serve* DB
+  requests after deploy. Together they close the #458 gap from both ends — previously no prod
+  smoke hit a DB-backed endpoint at all. (`/readyz` does not auto-roll-back; that is a tracked
+  follow-up.)
 - Staging exercises the same migrate path as prod (rather than relying on Terraform
   re-provisioning to hide drift), so a broken migration is caught on the PR's staging pipeline
   before merge.
