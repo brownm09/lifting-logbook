@@ -53,6 +53,8 @@ const _cycleDashboardRepo: ICycleDashboardRepository = {
 const _programSpecRepo: ILiftingProgramSpecRepository = {
   getProgramSpec: (): Promise<LiftingProgramSpec[]> =>
     Promise.resolve([]),
+  saveProgramSpec: () =>
+    Promise.resolve({ created: 0, updated: 0, skipped: 0 }),
 };
 
 // ---------------------------------------------------------------------------

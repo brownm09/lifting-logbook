@@ -9,7 +9,6 @@ import {
   NotFoundException,
   Param,
   Patch,
-  PayloadTooLargeException,
   Post,
   Req,
 } from '@nestjs/common';
@@ -32,6 +31,7 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthUser } from '../ports/auth';
 import { IRepositoryFactory } from '../ports/factory';
 import { REPOSITORY_FACTORY } from '../ports/tokens';
+import { MAX_IMPORT_ROWS, readUploadedCsv } from './import-file.util';
 import { toLiftRecordResponse } from './mappers';
 
 @Controller('programs/:program')
@@ -108,33 +108,7 @@ export class LiftRecordsController {
     @Req() req: FastifyRequest,
     @CurrentUser() user: AuthUser,
   ): Promise<ImportLiftRecordsResponse> {
-    // Maximum rows accepted per import. Guards against unbounded OR queries in
-    // findExistingRecords and excessive memory usage during parsing.
-    const MAX_IMPORT_ROWS = 5_000;
-
-    // req.file() is provided by @fastify/multipart registered in main.ts.
-    const file = await (req as FastifyRequest & {
-      file(): Promise<{ toBuffer(): Promise<Buffer>; file: { truncated: boolean } } | null>;
-    }).file();
-    if (!file) throw new BadRequestException('No file uploaded');
-
-    let csvBuffer: Buffer;
-    try {
-      csvBuffer = await file.toBuffer();
-    } catch (err) {
-      // @fastify/multipart throws with code FST_REQ_FILE_TOO_LARGE when the
-      // file exceeds the configured fileSize limit.
-      if ((err as { code?: string }).code === 'FST_REQ_FILE_TOO_LARGE') {
-        throw new PayloadTooLargeException('File exceeds the 5 MB upload limit');
-      }
-      throw err;
-    }
-    // Also handle the case where @fastify/multipart truncates instead of throwing.
-    if (file.file.truncated) {
-      throw new PayloadTooLargeException('File exceeds the 5 MB upload limit');
-    }
-
-    const csvText = csvBuffer.toString('utf-8');
+    const csvText = await readUploadedCsv(req);
     const table = parseCsvText(csvText);
     const parsed = parseLiftRecords(table);
 

@@ -57,7 +57,7 @@ describe('CycleDashboardController', () => {
       getCycleDashboard: jest.fn(),
       saveCycleDashboard: jest.fn(),
     };
-    specRepo = { getProgramSpec: jest.fn() };
+    specRepo = { getProgramSpec: jest.fn(), saveProgramSpec: jest.fn() };
     scheduledRepo = {
       getScheduledWorkouts: jest.fn().mockResolvedValue([]),
       saveScheduledWorkouts: jest.fn(),

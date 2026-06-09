@@ -1,0 +1,5 @@
+Metric,Squat,Bench P.,Deadlift,OH Press
+Goal Type,absolute,absolute,relative,absolute
+Target,405,275,,185
+Unit,lbs,lbs,lbs,lbs
+Ratio,,,2.0,

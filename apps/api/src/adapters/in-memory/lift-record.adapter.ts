@@ -9,9 +9,20 @@ export class InMemoryLiftRecordRepository implements ILiftRecordRepository {
   }
 
   async appendLiftRecords(program: string, records: LiftRecord[]): Promise<number> {
+    // Mirror Prisma's createMany({ skipDuplicates: true }) on the natural-key
+    // unique constraint: rows whose key already exists (or repeats within this
+    // batch) are skipped, and the return value is the count actually inserted.
     const existing = this.store.get(program) ?? [];
-    this.store.set(program, [...existing, ...records]);
-    return records.length;
+    const seenKeys = new Set(existing.map(liftRecordNaturalKey));
+    const toInsert: LiftRecord[] = [];
+    for (const r of records) {
+      const key = liftRecordNaturalKey(r);
+      if (seenKeys.has(key)) continue;
+      seenKeys.add(key);
+      toInsert.push(r);
+    }
+    this.store.set(program, [...existing, ...toInsert]);
+    return toInsert.length;
   }
 
   async findExistingRecords(program: string, candidates: LiftRecord[]): Promise<LiftRecord[]> {
