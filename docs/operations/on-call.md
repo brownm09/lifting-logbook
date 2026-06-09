@@ -1,5 +1,8 @@
 # On-Call Guide
 
+> **Joining the rotation?** Start with the [Observability & On-Call onboarding guide](observability-onboarding.md)
+> for the full reading path (reading dashboards, logs, and traces) before this guide's incident process.
+
 Covers severity levels, escalation paths, incident response process, and the postmortem
 template. SLO targets and error budget policy are in [`docs/operations/slo.md`](slo.md).
 Runbooks for specific failure modes are in [`docs/runbooks/`](../runbooks/README.md).

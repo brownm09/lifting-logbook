@@ -1,5 +1,8 @@
 # Observability Runbook
 
+> **New here?** Start with the [Observability & On-Call onboarding guide](../operations/observability-onboarding.md)
+> for a guided reading path; this runbook is the mechanics it links to.
+
 Covers the local development stack, Grafana dashboards, trace queries, log↔trace
 correlation, alert silencing, and Grafana Cloud credential wiring for production.
 
