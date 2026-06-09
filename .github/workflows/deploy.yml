@@ -413,6 +413,23 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_STAGING_SERVICE_ACCOUNT }}
 
+      # ── Database migrations (ADR-027) ──────────────────────────────────────
+      # Mirror of the production migration step (see deploy-production). Applies
+      # pending migrations to the staging DB before the API revision goes live so
+      # staging exercises the same migrate path as prod rather than relying on
+      # Terraform re-provisioning to mask drift (#460).
+      - name: Run database migrations (staging)
+        run: |
+          gcloud run jobs update lifting-logbook-stg-migrate \
+            --image="${{ needs.build-images.outputs.ar_repo }}/api:${{ github.sha }}" \
+            --region="${{ env.REGION }}" \
+            --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
+            --quiet
+          gcloud run jobs execute lifting-logbook-stg-migrate \
+            --region="${{ env.REGION }}" \
+            --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
+            --wait
+
       # GKE-only steps below are skipped when terraform var enable_gke = false
       # (single-user / Cloud-Run-only deployments).
       - name: Set up GKE credentials
@@ -667,6 +684,30 @@ jobs:
           echo "api_wi_sa=$(terraform output -raw cicd_service_account_email)" >> "$GITHUB_OUTPUT"
           echo "web_workload_sa=$(terraform output -raw web_workload_sa)" >> "$GITHUB_OUTPUT"
 
+      # ── Database migrations (ADR-027) ──────────────────────────────────────
+      # Apply pending Prisma migrations to the prod DB via an in-VPC Cloud Run
+      # Job *before* the API revision goes live. The prod Cloud SQL instance has
+      # a private IP only and is unreachable from this runner directly, so the
+      # job (created by `Terraform apply (production)` above) runs inside the VPC
+      # via the same connector the API uses. Terraform applies a placeholder
+      # image, so set the real image, then execute and wait. `--wait` returns
+      # non-zero if the migration (or the `migrate status` drift check baked into
+      # the job) fails, which halts the deploy and leaves the last-good API
+      # revision serving. This step is the systemic fix for #460: the pipeline
+      # previously never ran `migrate deploy` against prod, so the schema drifted
+      # silently until an endpoint hit a missing table and 500'd (#458).
+      - name: Run database migrations (production)
+        run: |
+          gcloud run jobs update lifting-logbook-prod-migrate \
+            --image="${{ steps.tf-prod.outputs.ar_repo }}/api:${{ github.sha }}" \
+            --region="${{ env.REGION }}" \
+            --project="${{ vars.GCP_PROD_PROJECT_ID }}" \
+            --quiet
+          gcloud run jobs execute lifting-logbook-prod-migrate \
+            --region="${{ env.REGION }}" \
+            --project="${{ vars.GCP_PROD_PROJECT_ID }}" \
+            --wait
+
       # GKE-only steps below are skipped when terraform var enable_gke = false
       # (single-user / Cloud-Run-only deployments).
       - name: Set up GKE credentials (production)
@@ -758,6 +799,40 @@ jobs:
             --platform=managed \
             --no-allow-unauthenticated \
             --quiet
+
+      # ── Production DB-backed smoke test (#460) ─────────────────────────────
+      # The migrate guard above prevents shipping against an unmigrated schema;
+      # this verifies the *live* API can actually serve a database-backed
+      # request after deploy — the failure class that left prod silently 500ing
+      # in #458 (no prod smoke previously existed; the staging smoke never hit a
+      # DB endpoint). /readyz is @Public (no Clerk) and runs `SELECT 1`, but the
+      # API requires Cloud Run IAM auth, so mint an identity token for the
+      # service URL (impersonation is required — WIF-federated creds cannot mint
+      # ID tokens directly). A non-200 fails the deploy so it surfaces loudly
+      # rather than days later. NOTE: this does not auto-roll-back the revision;
+      # roll back manually on failure (docs/deploy.md) — automated rollback is a
+      # tracked follow-up.
+      - name: Smoke test Cloud Run production — /readyz (DB-backed)
+        run: |
+          API_URL="${{ steps.tf-prod.outputs.cloud_run_api_url }}"
+          API_URL="${API_URL%/}"
+          ID_TOKEN=$(gcloud auth print-identity-token \
+            --impersonate-service-account="${{ secrets.GCP_PROD_SERVICE_ACCOUNT }}" \
+            --audiences="$API_URL" \
+            --include-email)
+          [ -n "$ID_TOKEN" ] || { echo "ERROR: failed to mint Cloud Run identity token for $API_URL"; exit 1; }
+          # Allow up to 2 minutes for the new revision to become ready.
+          for i in $(seq 1 12); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              -H "Authorization: Bearer $ID_TOKEN" "$API_URL/readyz" || true)
+            if [ "$STATUS" = "200" ]; then
+              echo "Production /readyz returned 200 — DB-backed readiness OK"
+              exit 0
+            fi
+            echo "/readyz attempt $i: got $STATUS, retrying in 10s..."
+            sleep 10
+          done
+          echo "Production /readyz smoke FAILED — API is up but cannot serve DB-backed requests (check migrations, Cloud SQL connectivity, DATABASE_URL). Roll back the API revision per docs/deploy.md." && exit 1
 
       - name: Deploy web to Cloud Run (production)
         run: |
