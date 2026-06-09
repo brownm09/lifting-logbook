@@ -38,6 +38,12 @@ interface KindProfile {
   usesLiftColumn: boolean;
   /** Scan the first data column too (transposed layouts put attribute labels there). */
   transposed: boolean;
+  /**
+   * Scan every cell, not just headers/first-column. Used for the strength-goals
+   * ladder, whose distinctive markers (Current TM / Intermediate / Advanced /
+   * Elite / Goal Date) live in an interior header row and tier columns.
+   */
+  scanAllCells: boolean;
 }
 
 const PROFILES: readonly KindProfile[] = [
@@ -49,6 +55,7 @@ const PROFILES: readonly KindProfile[] = [
     expectedCols: 9,
     usesLiftColumn: true,
     transposed: false,
+    scanAllCells: false,
   },
   {
     kind: 'training-maxes',
@@ -58,6 +65,7 @@ const PROFILES: readonly KindProfile[] = [
     expectedCols: 3,
     usesLiftColumn: true,
     transposed: false,
+    scanAllCells: false,
   },
   {
     kind: 'program-spec',
@@ -67,18 +75,22 @@ const PROFILES: readonly KindProfile[] = [
     ],
     distinctiveTokens: ['warm-up', 'amrap', 'activation', 'decrement', 'week type'],
     antiTokens: [],
-    expectedCols: 12,
+    expectedCols: 11,
     usesLiftColumn: false,
     transposed: false,
+    scanAllCells: false,
   },
   {
     kind: 'strength-goals',
-    signatureTokens: ['goal', 'target', 'ratio', 'unit', 'bodyweight', 'lift', 'metric'],
-    distinctiveTokens: ['goal type', 'ratio', 'bodyweight', 'target'],
-    antiTokens: ['cycle', 'workout', 'set'],
+    signatureTokens: [
+      'goal', 'target', 'ratio', 'current tm', 'intermediate', 'advanced', 'elite', 'lift', 'start date',
+    ],
+    distinctiveTokens: ['intermediate', 'advanced', 'elite', 'current tm', 'goal date'],
+    antiTokens: ['cycle', 'workout', 'program'],
     expectedCols: 5,
     usesLiftColumn: false,
     transposed: true,
+    scanAllCells: true,
   },
 ];
 
@@ -100,12 +112,18 @@ function scoreKind(
   ctx: {
     headers: string[];
     firstColumn: string[];
+    allCells: string[];
     numCols: number;
     liftHitRate: number;
   },
 ): KindScore {
-  // Labels to scan: headers always; first column too for transposed layouts.
-  const labels = profile.transposed ? [...ctx.headers, ...ctx.firstColumn] : ctx.headers;
+  // Labels to scan: all cells for ladder layouts, headers + first column for
+  // transposed ones, headers only otherwise.
+  const labels = profile.scanAllCells
+    ? ctx.allCells
+    : profile.transposed
+      ? [...ctx.headers, ...ctx.firstColumn]
+      : ctx.headers;
 
   const matchedSig = profile.signatureTokens.filter((t) => hasToken(labels, t));
   const tokenScore = profile.signatureTokens.length
@@ -186,10 +204,11 @@ export function classifyImport(table: SpreadsheetCell[][]): ImportClassification
   const dataRows = table.slice(1);
   const headers = headerRow.map(norm).filter((h) => h.length > 0);
   const firstColumn = dataRows.map((r) => norm(r[0])).filter((v) => v.length > 0);
+  const allCells = table.flat().map(norm).filter((v) => v.length > 0);
   const numCols = Math.max(headerRow.length, ...dataRows.map((r) => r.length), 0);
   const liftHitRate = liftColumnHitRate(headers, dataRows);
 
-  const ctx = { headers, firstColumn, numCols, liftHitRate };
+  const ctx = { headers, firstColumn, allCells, numCols, liftHitRate };
   const scored = PROFILES.map((p) => scoreKind(p, ctx)).sort((a, b) => b.score - a.score);
 
   const winner = scored[0]!;

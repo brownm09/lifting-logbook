@@ -66,11 +66,15 @@ describe('Smart Import HTTP (e2e, in-memory adapters)', () => {
   const TM_CSV = ['Date Updated,Lift,Weight', '12/29/2025,Bench P.,182.5'].join('\n');
 
   const GOALS_CSV = [
-    'Metric,Squat,Bench P.,Deadlift',
-    'Goal Type,absolute,absolute,relative',
-    'Target,405,275,',
-    'Unit,lbs,lbs,lbs',
-    'Ratio,,,2.0',
+    'Weight,175,,,',
+    'Start Date,10/24/2022,,,',
+    "Today's Date,6/9/2026,,,",
+    'Lift,Current TM,Intermediate,Advanced,Elite',
+    'Squat,250,280,350,420',
+    'Bench P.,185,210,262.5,315',
+    'Chin-up,252.5,210,262.5,315',
+    'Deadlift,287.5,350,437.5,525',
+    'OH Press,110,131.25,175,218.75',
   ].join('\n');
 
   const SPEC_CSV = [
@@ -94,10 +98,10 @@ describe('Smart Import HTTP (e2e, in-memory adapters)', () => {
       expect(body.preview.creates).toBe(1);
     });
 
-    it('routes a transposed strength-goals file to strength-goals', async () => {
+    it('routes a tier-ladder strength-goals file to strength-goals', async () => {
       const body = (await importCsv('import-sg-prev', GOALS_CSV, '?mode=preview')).json();
       expect(body.destination).toBe('strength-goals');
-      expect(body.preview.creates).toBe(3);
+      expect(body.preview.creates).toBe(5);
     });
 
     it('routes a program-spec file to program-spec', async () => {
@@ -145,12 +149,12 @@ describe('Smart Import HTTP (e2e, in-memory adapters)', () => {
       const first = (
         await importCsv('import-sg', GOALS_CSV, '?mode=commit&destination=strength-goals')
       ).json();
-      expect(first.created).toBe(3);
+      expect(first.created).toBe(5);
       const second = (
         await importCsv('import-sg', GOALS_CSV, '?mode=commit&destination=strength-goals')
       ).json();
       expect(second.created).toBe(0);
-      expect(second.skipped).toBe(3);
+      expect(second.skipped).toBe(5);
     });
 
     it('commits a program spec to a custom program and is idempotent', async () => {

@@ -1,5 +1,11 @@
-Metric,Squat,Bench P.,Deadlift,OH Press
-Goal Type,absolute,absolute,relative,absolute
-Target,405,275,,185
-Unit,lbs,lbs,lbs,lbs
-Ratio,,,2.0,
+Weight,175,,,
+Start Date,10/24/2022,,,
+Today's Date,6/9/2026,,,
+Lift,Current TM,Intermediate,Advanced,Elite
+Squat,250,280,350,420
+Bench P.,185,210,262.5,315
+Chin-up,252.5,210,262.5,315
+Deadlift,287.5,350,437.5,525
+OH Press,110,131.25,175,218.75
+Goal Date,N/A,2024/10/24,2027/10/24,2032/10/24
+Note: can hope to increase OHP 1.25 lbs every week; it would take a minimum of 24 weeks to get from 105 to 135.,,,,

@@ -1,82 +1,92 @@
 import { StrengthGoalEntry, SpreadsheetCell } from '../../models';
 
 /**
- * Parses a transposed `Strength_Goals` CSV into `StrengthGoalEntry[]`.
+ * Parses the `Strength_Goals` CSV into `StrengthGoalEntry[]`.
  *
- * The layout is **pivoted**: lifts run across the header row and each subsequent
- * row is an attribute. Example:
+ * The real export is a **tier ladder**, not one goal per lift. Layout:
  *
- *   Metric,     Squat,    Bench,    Deadlift, OHP
- *   Goal Type,  absolute, absolute, relative, absolute
- *   Target,     405,      275,      ,         185
- *   Unit,       lbs,      lbs,      lbs,      lbs
- *   Ratio,      ,         ,         2.0,
+ *   Weight,175,,,                 ← bodyweight (metadata)
+ *   Start Date,10/24/2022,,,
+ *   Today's Date,6/9/2026,,,
+ *   Lift,Current TM,Intermediate,Advanced,Elite   ← header row
+ *   Squat,250,280,350,420
+ *   Bench P.,185,210,262.5,315
+ *   …
+ *   Goal Date,N/A,2024/10/24,2027/10/24,2032/10/24
+ *   Note: …                       ← footer (ignored)
  *
- * → one entry per lift column. Attribute rows are matched by a fuzzy label on
- * the first cell (substring, case-insensitive), so "Goal Type" / "Type",
- * "Target" / "Target Weight", "Ratio" / "BW Ratio", "Unit" all resolve.
+ * Each lift carries a Current TM plus several goal tiers (Intermediate / Advanced
+ * / Elite) as absolute target weights. The `StrengthGoalEntry` model holds a
+ * single goal, so Phase 1 imports the **next milestone**: the lowest tier strictly
+ * above the lift's Current TM (falling back to the highest tier when all are
+ * already cleared, or the first tier when no Current TM is given). Goals are
+ * absolute, in lbs (the export carries no unit column).
  *
- * PROVISIONAL FORMAT (#477): pending the user's real export. The matching is
- * deliberately tolerant; tighten the attribute labels and add a fixture once the
- * canonical export shape is confirmed.
+ * NOTE (#477): full multi-tier goals + per-tier goal dates need a model change and
+ * are tracked as a follow-up; the header/tier matching here is name-based and
+ * tolerant so minor export variations still parse.
  */
 export function parseStrengthGoals(data: SpreadsheetCell[][]): StrengthGoalEntry[] {
-  if (data.length < 2) return [];
+  const norm = (c: SpreadsheetCell | undefined): string =>
+    String(c ?? '').trim().toLowerCase();
 
-  const header = data[0]!;
-  const lifts = header.slice(1).map((c) => String(c ?? '').trim());
+  // The header row is the one whose first cell is "Lift".
+  const headerIdx = data.findIndex((r) => norm(r[0]) === 'lift');
+  if (headerIdx === -1) return [];
+  const headerNames = (data[headerIdx] ?? []).map(norm);
 
-  // Index attribute rows by a normalized first-cell label.
-  const attrRows = new Map<string, SpreadsheetCell[]>();
-  for (const row of data.slice(1)) {
-    const label = String(row[0] ?? '').trim().toLowerCase();
-    if (label) attrRows.set(label, row);
+  // Classify columns: the Current-TM column vs. the goal-tier columns (in order).
+  let currentTmIdx = -1;
+  const tierIdxs: number[] = [];
+  for (let c = 1; c < headerNames.length; c++) {
+    const name = headerNames[c]!;
+    if (!name) continue;
+    if (name.includes('current') || name === 'tm') currentTmIdx = c;
+    else tierIdxs.push(c);
   }
-  const findAttr = (token: string): SpreadsheetCell[] | undefined => {
-    for (const [label, row] of attrRows) if (label.includes(token)) return row;
-    return undefined;
-  };
 
-  const goalTypeRow = findAttr('type');
-  const targetRow = findAttr('target');
-  const unitRow = findAttr('unit');
-  const ratioRow = findAttr('ratio');
+  // Stamp goals with the export's "Today's Date" when present, else now.
+  const todayRow = data.find((r) => norm(r[0]).includes('today'));
+  const todayRaw = todayRow ? String(todayRow[1] ?? '').trim() : '';
+  const parsedToday = todayRaw ? new Date(todayRaw) : null;
+  const updatedAt = parsedToday && !isNaN(parsedToday.getTime()) ? parsedToday : new Date();
 
-  const num = (cell: SpreadsheetCell | undefined): number | undefined => {
-    const s = String(cell ?? '').trim();
+  const num = (c: SpreadsheetCell | undefined): number | undefined => {
+    const s = String(c ?? '').trim();
     if (!s) return undefined;
     const n = Number(s);
     return isNaN(n) ? undefined : n;
   };
 
+  // Metadata/footer rows that are not lifts.
+  const STOP = ['goal date', 'note', 'start date', "today's date", 'today', 'weight'];
+
   const entries: StrengthGoalEntry[] = [];
-  lifts.forEach((lift, i) => {
-    if (!lift) return;
-    const col = i + 1;
-    const target = num(targetRow?.[col]);
-    const ratio = num(ratioRow?.[col]);
-    const goalTypeRaw = String(goalTypeRow?.[col] ?? '').trim().toLowerCase();
+  for (let i = headerIdx + 1; i < data.length; i++) {
+    const row = data[i] ?? [];
+    const lift = String(row[0] ?? '').trim();
+    const lc = lift.toLowerCase();
+    if (!lift || STOP.some((s) => lc.startsWith(s))) continue;
 
-    // Nothing to import for this lift column.
-    if (!goalTypeRaw && target === undefined && ratio === undefined) return;
+    const tiers = tierIdxs
+      .map((c) => num(row[c]))
+      .filter((n): n is number => n !== undefined);
+    if (tiers.length === 0) continue;
 
-    const goalType: StrengthGoalEntry['goalType'] =
-      goalTypeRaw.includes('relative') || (goalTypeRaw === '' && ratio !== undefined)
-        ? 'relative'
-        : 'absolute';
-
-    const unitRaw = String(unitRow?.[col] ?? '').trim().toLowerCase();
-    const unit: StrengthGoalEntry['unit'] = unitRaw === 'kg' ? 'kg' : 'lbs';
+    const currentTM = currentTmIdx >= 0 ? num(row[currentTmIdx]) : undefined;
+    // Next milestone: lowest tier above the Current TM; else the top tier.
+    let target =
+      currentTM !== undefined ? tiers.find((t) => t > currentTM) : tiers[0];
+    if (target === undefined) target = tiers[tiers.length - 1];
 
     entries.push({
       lift,
-      goalType,
-      unit,
-      updatedAt: new Date(),
+      goalType: 'absolute',
+      unit: 'lbs',
+      updatedAt,
       ...(target !== undefined ? { target } : {}),
-      ...(ratio !== undefined ? { ratio } : {}),
     });
-  });
+  }
 
   return entries;
 }
