@@ -158,9 +158,26 @@ matrix in Step 3 below.
 
 ### Running the queries
 
-Two ways, same queries:
+Three ways, same queries:
 
-- **Committed script (CLI).** Run all of 1a–2f at once:
+- **PowerShell (Windows, turnkey — no curl/node/jq).** Enter your keys once; they persist to your
+  user environment, then the runner uses them:
+
+  ```powershell
+  # One-time: enter MIMIR_ADDRESS / MIMIR_API_USER / MIMIR_API_KEY (token input hidden).
+  powershell -NoProfile -ExecutionPolicy Bypass -File scripts/observability/mimir-setup.ps1
+
+  # Then run all of 1a–2f (now, or from any new terminal):
+  powershell -NoProfile -ExecutionPolicy Bypass -File scripts/observability/run-calibration-queries.ps1
+  ```
+
+  [`mimir-setup.ps1`](../../scripts/observability/mimir-setup.ps1) persists the variables permanently
+  via the user environment (no admin needed); the token is stored in plaintext there, so treat it like
+  any saved credential (the script prints the one-liner to remove it later).
+  [`run-calibration-queries.ps1`](../../scripts/observability/run-calibration-queries.ps1) reads them
+  and queries Mimir with `Invoke-RestMethod`.
+
+- **Bash (cross-platform / CI).** Run all of 1a–2f at once:
 
   ```bash
   # One-time: copy the template, fill in values from the Grafana Cloud portal.
@@ -171,19 +188,21 @@ Two ways, same queries:
   ```
 
   The script sources [`scripts/observability/mimir-query-env.sh`](../../scripts/observability/mimir-query-env.sh),
-  which exports `MIMIR_ADDRESS` / `MIMIR_API_USER` / `MIMIR_API_KEY`. The **auth** variables
+  which exports `MIMIR_ADDRESS` / `MIMIR_API_USER` / `MIMIR_API_KEY` (it also honors variables already
+  in the environment — e.g. those set by `mimir-setup.ps1`). The **auth** variables
   (`MIMIR_API_USER` / `MIMIR_API_KEY`) are the same ones the `mimirtool` step below uses, so one
   credentials file serves both; the URL base may differ between the two (the query API is at
   `${MIMIR_ADDRESS}/api/v1/query` — set `MIMIR_QUERY_URL` if that path is wrong for your stack). The
-  token needs only the `metrics:read` scope. To set the variables in your shell without the script
-  (e.g. to run `mimirtool`), `source scripts/observability/mimir-query-env.sh`.
+  token needs only the `metrics:read` scope.
 
 - **Grafana Explore (zero install).** Open **Explore → Mimir datasource** (Cloud Metrics) and paste
   each query below. Use **Instant** (not Range) query type for the `count(...)` and `[14d:5m]`
   subqueries so they return a single evaluation.
 
-> The query blocks below are the canonical copy; `run-calibration-queries.sh` mirrors them as the
-> executable form. Edit both together when the rule's metric/label names or thresholds change.
+> Both runners read the executable copy of these queries from
+> [`scripts/observability/calibration-queries.tsv`](../../scripts/observability/calibration-queries.tsv).
+> The annotated blocks below are the human reference — keep the `.tsv` and this doc in sync when the
+> rule's metric/label names or thresholds change.
 
 ### Step 1 — confirm `http_route` is the route template
 

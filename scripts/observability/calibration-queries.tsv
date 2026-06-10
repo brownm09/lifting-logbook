@@ -1,0 +1,20 @@
+# calibration-queries.tsv — executable source for the #468 APIRouteHighErrorRate calibration.
+#
+# Format: <label><TAB><PromQL>  (one query per line; lines starting with # are ignored).
+# Read by BOTH run-calibration-queries.sh and run-calibration-queries.ps1 — this is the
+# single executable copy. The annotated human reference (with PASS/FAIL guidance) lives in
+# docs/operations/slo.md -> "Calibrating APIRouteHighErrorRate"; keep the two in sync when
+# the rule's metric/label names or thresholds change.
+#
+# Step 1 — confirm http_route is the route template (low cardinality)
+1a — distinct route labels (expect templated paths, not raw IDs)	count by (http_route) (http_server_request_duration_seconds_count)
+1b — total route cardinality (expect ~number of endpoints)	count(count by (http_route) (http_server_request_duration_seconds_count))
+1c — empty/missing-route series (small fixed set is fine)	count by (http_route) (http_server_request_duration_seconds_count{http_route=""})
+#
+# Step 2 — characterize traffic to choose a volume floor vs. a longer for:
+2a — per-route avg request rate, req/s over 14d	sum by (http_route) (rate(http_server_request_duration_seconds_count[14d]))
+2b — per-route PEAK 5m request rate over 14d	max_over_time((sum by (http_route) (rate(http_server_request_duration_seconds_count[5m])))[14d:5m])
+2c — per-route 5xx count over 14d	sum by (http_route) (increase(http_server_request_duration_seconds_count{http_response_status_code=~"5.."}[14d]))
+2d — overall daily request volume	sum(increase(http_server_request_duration_seconds_count[1d]))
+2e — false-positive windows under the CURRENT rule (ratio > 5%), 14d	count_over_time(((sum by (http_route) (rate(http_server_request_duration_seconds_count{http_response_status_code=~"5.."}[5m])) / sum by (http_route) (rate(http_server_request_duration_seconds_count[5m]))) > 0.05)[14d:5m])
+2f — false-positive windows WITH a 5 req/5m floor (compare vs 2e), 14d	count_over_time(((sum by (http_route) (rate(http_server_request_duration_seconds_count{http_response_status_code=~"5.."}[5m])) / sum by (http_route) (rate(http_server_request_duration_seconds_count[5m])) > 0.05) and (sum by (http_route) (rate(http_server_request_duration_seconds_count[5m])) > 0.0167))[14d:5m])

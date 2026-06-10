@@ -20,10 +20,10 @@
 #            limits. If they error, narrow the range / coarsen the step per the
 #            fallback note in slo.md, or run those few in Grafana Explore directly.
 #
-# Sync:      The 1a-2f PromQL below mirrors the code blocks in docs/operations/slo.md
-#            -> "Calibrating APIRouteHighErrorRate". Keep both in sync when the rule's
-#            metric/label names or thresholds change — the Step 3 decision matrix
-#            references the 2e/2f labels by name.
+# Queries:   read from calibration-queries.tsv (the single executable copy, shared
+#            with run-calibration-queries.ps1). The annotated human reference lives in
+#            docs/operations/slo.md -> "Calibrating APIRouteHighErrorRate"; keep the two
+#            in sync when the rule's metric/label names or thresholds change.
 
 set -uo pipefail
 
@@ -57,34 +57,16 @@ run_query() {
   fi
 }
 
-# --- Step 1: confirm http_route is the route template (low cardinality) ---
-run_query "1a — distinct route labels (expect templated paths, not raw IDs)" \
-  'count by (http_route) (http_server_request_duration_seconds_count)'
+QUERIES_TSV="$SCRIPT_DIR/calibration-queries.tsv"
+[ -f "$QUERIES_TSV" ] || { echo "ERROR: $QUERIES_TSV not found." >&2; exit 1; }
 
-run_query "1b — total route cardinality (expect ~number of endpoints)" \
-  'count(count by (http_route) (http_server_request_duration_seconds_count))'
-
-run_query "1c — empty/missing-route series (small fixed set is fine)" \
-  'count by (http_route) (http_server_request_duration_seconds_count{http_route=""})'
-
-# --- Step 2: characterize traffic to choose a volume floor vs. a longer for: ---
-run_query "2a — per-route avg request rate, req/s over 14d" \
-  'sum by (http_route) (rate(http_server_request_duration_seconds_count[14d]))'
-
-run_query "2b — per-route PEAK 5m request rate over 14d" \
-  'max_over_time((sum by (http_route) (rate(http_server_request_duration_seconds_count[5m])))[14d:5m])'
-
-run_query "2c — per-route 5xx count over 14d" \
-  'sum by (http_route) (increase(http_server_request_duration_seconds_count{http_response_status_code=~"5.."}[14d]))'
-
-run_query "2d — overall daily request volume" \
-  'sum(increase(http_server_request_duration_seconds_count[1d]))'
-
-run_query "2e — false-positive windows under the CURRENT rule (ratio > 5%), 14d" \
-  'count_over_time(((sum by (http_route) (rate(http_server_request_duration_seconds_count{http_response_status_code=~"5.."}[5m])) / sum by (http_route) (rate(http_server_request_duration_seconds_count[5m]))) > 0.05)[14d:5m])'
-
-run_query "2f — false-positive windows WITH a 5 req/5m floor (compare vs 2e), 14d" \
-  'count_over_time(((sum by (http_route) (rate(http_server_request_duration_seconds_count{http_response_status_code=~"5.."}[5m])) / sum by (http_route) (rate(http_server_request_duration_seconds_count[5m])) > 0.05) and (sum by (http_route) (rate(http_server_request_duration_seconds_count[5m])) > 0.0167))[14d:5m])'
+# label<TAB>query, one per line; '#' / blank lines are comments.
+while IFS=$'\t' read -r label query; do
+  label="${label%$'\r'}"; query="${query%$'\r'}"   # tolerate CRLF working copies (autocrlf)
+  case "$label" in ''|\#*) continue ;; esac
+  [ -n "$query" ] || continue
+  run_query "$label" "$query"
+done < "$QUERIES_TSV"
 
 echo
 echo "Done. Feed 1a/1b into Step 1 and the 2e-vs-2f difference into Step 3 of"
