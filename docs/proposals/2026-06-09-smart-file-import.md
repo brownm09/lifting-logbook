@@ -1,8 +1,10 @@
 # Proposal: Smart File Import Wizard
 
-**Status:** `draft`
+**Status:** `accepted`
 **Date:** 2026-06-09
 **Issue:** [#477](https://github.com/brownm09/lifting-logbook/issues/477)
+
+> **Phase 1 (MVP) shipped** in [#477](https://github.com/brownm09/lifting-logbook/issues/477) — PR [#485](https://github.com/brownm09/lifting-logbook/pull/485) (merged `46f9f9c`, 2026-06-09). Open follow-ups: [#483](https://github.com/brownm09/lifting-logbook/issues/483) (Phase 2 column-mapper), [#484](https://github.com/brownm09/lifting-logbook/issues/484) (Phase 3 split + Undo), [#486](https://github.com/brownm09/lifting-logbook/issues/486) (multi-tier strength goals), [#488](https://github.com/brownm09/lifting-logbook/issues/488) (commit atomicity / concurrent-import safety), [#489](https://github.com/brownm09/lifting-logbook/issues/489) (maintainability consolidation).
 
 ---
 
