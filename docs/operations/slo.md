@@ -152,10 +152,33 @@ note that threshold tuning waits for sustained traffic:
    holds `rate(...[5m])` at ratio 100% for the whole window and can satisfy `for: 5m`. That sensitivity
    is *wanted* for the low-traffic outage this defends against (#458/#460), but risks alert fatigue.
 
-There is no committed tooling to query production Mimir; run these in **Grafana Explore → Mimir
-datasource** (Cloud Metrics) and feed the results into the decision matrix below. `http_route` is the
-OTLP→Prometheus rendering of the OTel `http.route` attribute; `http_response_status_code` of
-`http.response.status_code`.
+`http_route` is the OTLP→Prometheus rendering of the OTel `http.route` attribute;
+`http_response_status_code` of `http.response.status_code`. Feed the results into the decision
+matrix in Step 3 below.
+
+### Running the queries
+
+Two ways, same queries:
+
+- **Committed script (CLI).** Run all of 1a–2f at once:
+
+  ```bash
+  # One-time: copy the template, fill in values from the Grafana Cloud portal.
+  cp scripts/observability/.mimir-credentials.example scripts/observability/.mimir-credentials
+  # edit scripts/observability/.mimir-credentials  (gitignored — never commit real tokens)
+
+  scripts/observability/run-calibration-queries.sh
+  ```
+
+  The script sources [`scripts/observability/mimir-query-env.sh`](../../scripts/observability/mimir-query-env.sh),
+  which exports `MIMIR_ADDRESS` / `MIMIR_API_USER` / `MIMIR_API_KEY` — the **same** variables the
+  `mimirtool` step below uses, so one credentials file serves both. The token needs only the
+  `metrics:read` scope. To set the variables in your shell without the script (e.g. to run
+  `mimirtool`), `source scripts/observability/mimir-query-env.sh`.
+
+- **Grafana Explore (zero install).** Open **Explore → Mimir datasource** (Cloud Metrics) and paste
+  each query below. Use **Instant** (not Range) query type for the `count(...)` and `[14d:5m]`
+  subqueries so they return a single evaluation.
 
 ### Step 1 — confirm `http_route` is the route template
 

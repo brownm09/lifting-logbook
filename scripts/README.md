@@ -35,6 +35,14 @@ Repository automation scripts. Grouped by lifecycle.
 | [`mkdir-dist.js`](mkdir-dist.js) | Ensures `dist/` exists before a build. |
 | [`watch.js`](watch.js) | esbuild watch mode for `src/{core,api}/*/index.ts` entry points. |
 
+## Observability / alert calibration
+
+| Script | Purpose |
+|---|---|
+| [`observability/format-promql-result.js`](observability/format-promql-result.js) | Helper for the runner: pretty-prints a Prometheus `/api/v1/query` JSON response (route label → value). Stands in for `jq`, which is unavailable in this environment. |
+| [`observability/mimir-query-env.sh`](observability/mimir-query-env.sh) | **Sourced** setup script: loads and exports `MIMIR_ADDRESS` / `MIMIR_API_USER` / `MIMIR_API_KEY` (and optional `MIMIR_QUERY_URL` / `MIMIR_TENANT_ID`) for querying Grafana Cloud Mimir. Reads the gitignored `observability/.mimir-credentials` (copy from [`.mimir-credentials.example`](observability/.mimir-credentials.example)) or already-set env vars. Same variables `mimirtool` uses. |
+| [`observability/run-calibration-queries.sh`](observability/run-calibration-queries.sh) | Runs the `APIRouteHighErrorRate` calibration queries (steps 1a–2f) from [`docs/operations/slo.md`](../docs/operations/slo.md#calibrating-apiroutehigherrorrate) against production Mimir and prints the results ([#468](https://github.com/brownm09/lifting-logbook/issues/468)). Sources `mimir-query-env.sh`; needs `curl` + `node`. |
+
 ## Verification / testing
 
 | Script | Purpose |
