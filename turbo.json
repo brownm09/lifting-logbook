@@ -18,6 +18,7 @@
       "inputs": ["src/**", "app/**", "*.ts", ".eslintrc*", "eslint.config*"]
     },
     "dev": {
+      "dependsOn": ["db:generate"],
       "persistent": true,
       "cache": false
     }
