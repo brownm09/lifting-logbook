@@ -24,6 +24,15 @@ import { bucketConfidence, clearsAutoAccept } from './importThresholds';
 /** A `<=` margin between the winner and a runner-up that flags a "close call". */
 const CLOSE_CALL_DELTA = 0.15;
 
+/**
+ * Cap on the number of data rows sampled for classification. Classification
+ * signals (header tokens, column shape, lift-catalog hit rate) are saturated
+ * well before this; sampling bounds the `table.flat()` + per-column scan so a
+ * large file under the byte cap isn't fully walked before the row-count limit
+ * is enforced downstream in the parser.
+ */
+const CLASSIFY_SAMPLE_ROWS = 200;
+
 interface KindProfile {
   kind: ImportKind;
   /** Headers (substring, normalized) that count toward this type. */
@@ -201,10 +210,12 @@ function liftColumnHitRate(headers: string[], dataRows: SpreadsheetCell[][]): nu
 
 export function classifyImport(table: SpreadsheetCell[][]): ImportClassification {
   const headerRow = table[0] ?? [];
-  const dataRows = table.slice(1);
+  // Sample at most CLASSIFY_SAMPLE_ROWS data rows — enough to saturate every
+  // signal without walking a large file end to end.
+  const dataRows = table.slice(1, 1 + CLASSIFY_SAMPLE_ROWS);
   const headers = headerRow.map(norm).filter((h) => h.length > 0);
   const firstColumn = dataRows.map((r) => norm(r[0])).filter((v) => v.length > 0);
-  const allCells = table.flat().map(norm).filter((v) => v.length > 0);
+  const allCells = [headerRow, ...dataRows].flat().map(norm).filter((v) => v.length > 0);
   const numCols = Math.max(headerRow.length, ...dataRows.map((r) => r.length), 0);
   const liftHitRate = liftColumnHitRate(headers, dataRows);
 

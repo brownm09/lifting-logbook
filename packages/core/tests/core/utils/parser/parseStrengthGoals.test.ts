@@ -32,6 +32,15 @@ describe("parseStrengthGoals", () => {
     expect(goals[0]!.updatedAt.getFullYear()).toBe(2026);
   });
 
+  it("targets the numerically lowest tier above Current TM even when tier columns are out of order", () => {
+    const goals = parseStrengthGoals([
+      ["Lift", "Current TM", "Elite", "Intermediate", "Advanced"],
+      ["Squat", "250", "420", "280", "350"],
+    ]);
+    // Intermediate (280) is the lowest tier above 250 despite appearing after Elite.
+    expect(goals[0]).toMatchObject({ lift: "Squat", target: 280 });
+  });
+
   it("falls back to the top tier when every tier is already cleared", () => {
     const goals = parseStrengthGoals([
       ["Lift", "Current TM", "Intermediate", "Advanced", "Elite"],

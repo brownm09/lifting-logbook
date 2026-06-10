@@ -97,6 +97,12 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
       } else {
         setCommitErrors(result.errors);
       }
+    } catch (e) {
+      // A network failure or non-JSON 500 rejects rather than returning the
+      // {ok:false} union; surface it instead of leaving the step silent.
+      setCommitErrors([
+        { row: 0, message: e instanceof Error ? e.message : 'Import failed' },
+      ]);
     } finally {
       setBusy(false);
     }

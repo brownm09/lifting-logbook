@@ -70,11 +70,15 @@ export function parseStrengthGoals(data: SpreadsheetCell[][]): StrengthGoalEntry
 
     const tiers = tierIdxs
       .map((c) => num(row[c]))
-      .filter((n): n is number => n !== undefined);
+      .filter((n): n is number => n !== undefined)
+      // Sort ascending so "next milestone" is the numerically lowest tier above
+      // the Current TM regardless of column order in the export.
+      .sort((a, b) => a - b);
     if (tiers.length === 0) continue;
 
     const currentTM = currentTmIdx >= 0 ? num(row[currentTmIdx]) : undefined;
-    // Next milestone: lowest tier above the Current TM; else the top tier.
+    // Next milestone: lowest tier strictly above the Current TM; else the top tier
+    // (all cleared); the lowest tier when no Current TM is given.
     let target =
       currentTM !== undefined ? tiers.find((t) => t > currentTM) : tiers[0];
     if (target === undefined) target = tiers[tiers.length - 1];

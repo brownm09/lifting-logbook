@@ -134,6 +134,8 @@ export class ImportController {
         const existing = await repos.liftingProgramSpec.getProgramSpec(program);
         return { errors, preview: buildProgramSpecPreview(valid as LiftingProgramSpec[], existing) };
       }
+      default:
+        throw new BadRequestException(`Unsupported import destination: ${destination}`);
     }
   }
 
@@ -173,6 +175,8 @@ export class ImportController {
         const result = await repos.liftingProgramSpec.saveProgramSpec(program, valid);
         return { destination, ...result };
       }
+      default:
+        throw new BadRequestException(`Unsupported import destination: ${destination}`);
     }
   }
 
@@ -206,6 +210,8 @@ export class ImportController {
         return validateStrengthGoalImport(parsed as StrengthGoalEntry[]);
       case 'program-spec':
         return validateProgramSpecImport(parsed as LiftingProgramSpec[]);
+      default:
+        throw new BadRequestException(`Unsupported import destination: ${destination}`);
     }
   }
 
@@ -227,6 +233,8 @@ export class ImportController {
         return parseStrengthGoals(table);
       case 'program-spec':
         return parseLiftingProgramSpec(table);
+      default:
+        throw new BadRequestException(`Unsupported import destination: ${destination}`);
     }
   }
 }

@@ -169,6 +169,36 @@ describe('Smart Import HTTP (e2e, in-memory adapters)', () => {
       expect(second.skipped).toBe(1);
     });
 
+    it('preserves training maxes for lifts absent from a partial import', async () => {
+      const program = 'import-tm-partial';
+      await importCsv(
+        program,
+        ['Date Updated,Lift,Weight', '12/29/2025,Bench P.,182.5', '12/29/2025,Squat,300'].join('\n'),
+        '?mode=commit&destination=training-maxes',
+      );
+      // Re-import only Bench P. at a new value; Squat is omitted.
+      const res = (
+        await importCsv(
+          program,
+          ['Date Updated,Lift,Weight', '1/2/2026,Bench P.,185'].join('\n'),
+          '?mode=commit&destination=training-maxes',
+        )
+      ).json();
+      expect(res.updated).toBe(1);
+      const maxes = (
+        await app.getHttpAdapter().getInstance().inject({
+          method: 'GET',
+          url: `/programs/${program}/training-maxes`,
+          headers: AUTH,
+        })
+      ).json() as Array<{ lift: string; weight: number }>;
+      // Lift names are resolved to canonical slot-map IDs on import
+      // ("Squat" → "back-squat", "Bench P." → "bench-press").
+      const byLift = Object.fromEntries(maxes.map((m) => [m.lift, m.weight]));
+      expect(byLift['back-squat']).toBe(300); // omitted lift survives
+      expect(byLift['bench-press']).toBe(185); // imported lift updated
+    });
+
     it('rejects a program-spec commit to a built-in (non-UUID) program', async () => {
       const res = await importCsv('5-3-1', SPEC_CSV, '?mode=commit&destination=program-spec');
       expect(res.statusCode).toBe(400);
