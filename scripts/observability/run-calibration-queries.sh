@@ -19,6 +19,11 @@
 # Notes:     Heavy [14d:5m] subqueries (2b/2e/2f) can hit Grafana Cloud per-query
 #            limits. If they error, narrow the range / coarsen the step per the
 #            fallback note in slo.md, or run those few in Grafana Explore directly.
+#
+# Sync:      The 1a-2f PromQL below mirrors the code blocks in docs/operations/slo.md
+#            -> "Calibrating APIRouteHighErrorRate". Keep both in sync when the rule's
+#            metric/label names or thresholds change — the Step 3 decision matrix
+#            references the 2e/2f labels by name.
 
 set -uo pipefail
 

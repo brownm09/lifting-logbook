@@ -171,14 +171,19 @@ Two ways, same queries:
   ```
 
   The script sources [`scripts/observability/mimir-query-env.sh`](../../scripts/observability/mimir-query-env.sh),
-  which exports `MIMIR_ADDRESS` / `MIMIR_API_USER` / `MIMIR_API_KEY` — the **same** variables the
-  `mimirtool` step below uses, so one credentials file serves both. The token needs only the
-  `metrics:read` scope. To set the variables in your shell without the script (e.g. to run
-  `mimirtool`), `source scripts/observability/mimir-query-env.sh`.
+  which exports `MIMIR_ADDRESS` / `MIMIR_API_USER` / `MIMIR_API_KEY`. The **auth** variables
+  (`MIMIR_API_USER` / `MIMIR_API_KEY`) are the same ones the `mimirtool` step below uses, so one
+  credentials file serves both; the URL base may differ between the two (the query API is at
+  `${MIMIR_ADDRESS}/api/v1/query` — set `MIMIR_QUERY_URL` if that path is wrong for your stack). The
+  token needs only the `metrics:read` scope. To set the variables in your shell without the script
+  (e.g. to run `mimirtool`), `source scripts/observability/mimir-query-env.sh`.
 
 - **Grafana Explore (zero install).** Open **Explore → Mimir datasource** (Cloud Metrics) and paste
   each query below. Use **Instant** (not Range) query type for the `count(...)` and `[14d:5m]`
   subqueries so they return a single evaluation.
+
+> The query blocks below are the canonical copy; `run-calibration-queries.sh` mirrors them as the
+> executable form. Edit both together when the rule's metric/label names or thresholds change.
 
 ### Step 1 — confirm `http_route` is the route template
 
