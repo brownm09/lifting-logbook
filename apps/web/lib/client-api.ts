@@ -3,8 +3,11 @@
 
 import type {
   CreateLiftOverrideRequest,
+  ImportCommitResponse,
   ImportError,
+  ImportKind,
   ImportLiftRecordsResponse,
+  ImportPreviewResponse,
   LiftMetadataResponse,
   LiftOverrideResponse,
   CreateLiftRecordRequest,
@@ -209,6 +212,67 @@ export async function importLiftRecords(
     return { ok: true, data: (await res.json()) as ImportLiftRecordsResponse };
   }
   const body = (await res.json()) as { errors?: ImportError[] };
+  return {
+    ok: false,
+    errors: body.errors ?? [{ row: 0, message: `Unexpected error (HTTP ${res.status})` }],
+  };
+}
+
+function importUrl(program: string, mode: 'preview' | 'commit', destination?: ImportKind): string {
+  const params = new URLSearchParams({ mode });
+  if (destination) params.set('destination', destination);
+  return `${API_URL}/programs/${encodeURIComponent(program)}/import?${params.toString()}`;
+}
+
+/**
+ * Smart Import — classify + preview a CSV without writing (#477). Pass a
+ * `destination` to override the classifier (e.g. after a low-confidence pick).
+ */
+export async function previewImport(
+  program: string,
+  file: File,
+  destination?: ImportKind,
+): Promise<ImportPreviewResponse> {
+  const authHeaders = await getClientAuthHeaders();
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(importUrl(program, 'preview', destination), {
+    method: 'POST',
+    body: form,
+    headers: authHeaders,
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    throw new Error(`Import preview failed (HTTP ${res.status})`);
+  }
+  return (await res.json()) as ImportPreviewResponse;
+}
+
+/**
+ * Smart Import — commit a CSV to the chosen destination. The server re-parses the
+ * file (never trusting any client payload) and writes idempotently. Returns a
+ * discriminated union so callers handle validation errors without catching.
+ */
+export async function commitImport(
+  program: string,
+  file: File,
+  destination: ImportKind,
+): Promise<
+  { ok: true; data: ImportCommitResponse } | { ok: false; errors: ImportError[] }
+> {
+  const authHeaders = await getClientAuthHeaders();
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(importUrl(program, 'commit', destination), {
+    method: 'POST',
+    body: form,
+    headers: authHeaders,
+    cache: 'no-store',
+  });
+  if (res.ok) {
+    return { ok: true, data: (await res.json()) as ImportCommitResponse };
+  }
+  const body = (await res.json().catch(() => ({}))) as { errors?: ImportError[] };
   return {
     ok: false,
     errors: body.errors ?? [{ row: 0, message: `Unexpected error (HTTP ${res.status})` }],

@@ -16,6 +16,12 @@ export class InMemoryTrainingMaxRepository implements ITrainingMaxRepository {
   }
 
   async saveTrainingMaxes(program: string, maxes: TrainingMax[]): Promise<void> {
-    this.maxesByProgram.set(program, maxes);
+    // Upsert-by-lift, mirroring the Prisma adapter's per-lift `upsert`: incoming
+    // lifts overwrite, omitted lifts are preserved. A prior full-replace here
+    // diverged from production and let a partial Smart Import (#477) silently
+    // wipe training maxes for lifts not present in the uploaded file.
+    const byLift = new Map((this.maxesByProgram.get(program) ?? []).map((m) => [m.lift, m]));
+    for (const m of maxes) byLift.set(m.lift, m);
+    this.maxesByProgram.set(program, [...byLift.values()]);
   }
 }

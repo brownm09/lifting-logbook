@@ -7,6 +7,7 @@ import { CycleDashboardController } from './cycle-dashboard.controller';
 import { CycleGenerationController } from './cycle-generation.controller';
 import { CycleGenerationService } from './cycle-generation.service';
 import { CyclePlanController } from './cycle-plan.controller';
+import { ImportController } from './import.controller';
 import { LiftRecordsController } from './lift-records.controller';
 import { ManageLiftsController } from './manage-lifts.controller';
 import { ProgramSpecController } from './program-spec.controller';
@@ -34,6 +35,7 @@ import { WorkoutsController } from './workouts.controller';
     LiftRecordsController,
     ManageLiftsController,
     ProgramSpecController,
+    ImportController,
   ],
   providers: [
     { provide: BODY_WEIGHT_REPOSITORY, useClass: InMemoryBodyWeightRepository },

@@ -86,6 +86,14 @@ const LIFT_RECORDS = [
 // In-memory state (reset between tests via GET /__reset)
 // ---------------------------------------------------------------------------
 
+const CUSTOM_PROGRAM = {
+  id: 'cust-1',
+  name: 'My Custom Program',
+  description: null,
+  baseTemplate: null,
+  createdAt: '2026-01-01',
+};
+
 function createInitialState() {
   return {
     noCurrentCycle: false,
@@ -93,6 +101,9 @@ function createInitialState() {
     strengthGoals: [],
     skippedWorkouts: new Set(),
     workoutSchedule: null,
+    // Empty by default so the /programs page test still sees RPT as the only
+    // program; the import test opts in via /__reset?withCustomProgram=true.
+    customPrograms: [],
   };
 }
 
@@ -162,6 +173,9 @@ const server = createServer(async (req, res) => {
     if (url.searchParams.get('withSchedule') === 'true') {
       state.workoutSchedule = { type: 'fixed', days: [0, 2, 4] }; // Mon/Wed/Fri
     }
+    if (url.searchParams.get('withCustomProgram') === 'true') {
+      state.customPrograms = [CUSTOM_PROGRAM];
+    }
     json(res, { ok: true });
     return;
   }
@@ -178,7 +192,7 @@ const server = createServer(async (req, res) => {
   // GET /programs/custom
   // -------------------------------------------------------------------------
   if (method === 'GET' && url.pathname === '/programs/custom') {
-    json(res, []);
+    json(res, state.customPrograms);
     return;
   }
 
@@ -336,6 +350,38 @@ const server = createServer(async (req, res) => {
     // GET /programs/:p/lifts
     if (method === 'GET' && rest[0] === 'lifts' && rest.length === 1) {
       json(res, ['squat', 'bench-press', 'deadlift', 'overhead-press', 'barbell-row']);
+      return;
+    }
+
+    // POST /programs/:p/import?mode=preview|commit[&destination=]
+    // Canned Smart Import response (#477) — classifies any upload as training-maxes.
+    if (method === 'POST' && rest[0] === 'import' && rest.length === 1) {
+      const mode = url.searchParams.get('mode') ?? 'preview';
+      const destination = url.searchParams.get('destination') ?? 'training-maxes';
+      if (mode === 'commit') {
+        json(res, { destination, created: 2, updated: 1, skipped: 0, errors: [] });
+      } else {
+        json(res, {
+          classification: {
+            type: 'training-maxes',
+            confidence: 0.95,
+            bucket: 'high',
+            reasons: ['Matched 4/4 expected columns (Date Updated, Lift, Weight)'],
+            alternatives: [{ type: 'lift-records', confidence: 0.42, closeCall: false }],
+          },
+          destination: 'training-maxes',
+          preview: {
+            creates: 2,
+            updates: 1,
+            skips: 0,
+            deltas: [
+              { key: 'squat', label: 'squat', kind: 'create', after: '300' },
+              { key: 'bench-press', label: 'bench-press', kind: 'update', before: '200', after: '210' },
+            ],
+          },
+          errors: [],
+        });
+      }
       return;
     }
   }

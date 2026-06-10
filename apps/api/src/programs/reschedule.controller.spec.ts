@@ -32,8 +32,8 @@ describe('RescheduleController', () => {
       getOverride: jest.fn().mockResolvedValue(null),
       upsertOverride: jest.fn().mockResolvedValue(undefined),
     };
-    specRepoA = { getProgramSpec: jest.fn().mockResolvedValue(STUB_SPEC) } as jest.Mocked<ILiftingProgramSpecRepository>;
-    specRepoB = { getProgramSpec: jest.fn().mockResolvedValue(STUB_SPEC) } as jest.Mocked<ILiftingProgramSpecRepository>;
+    specRepoA = { getProgramSpec: jest.fn().mockResolvedValue(STUB_SPEC), saveProgramSpec: jest.fn() } as jest.Mocked<ILiftingProgramSpecRepository>;
+    specRepoB = { getProgramSpec: jest.fn().mockResolvedValue(STUB_SPEC), saveProgramSpec: jest.fn() } as jest.Mocked<ILiftingProgramSpecRepository>;
     dashboardRepoA = { getCycleDashboard: jest.fn().mockResolvedValue({}), saveCycleDashboard: jest.fn() } as unknown as jest.Mocked<ICycleDashboardRepository>;
     dashboardRepoB = { getCycleDashboard: jest.fn().mockResolvedValue({}), saveCycleDashboard: jest.fn() } as unknown as jest.Mocked<ICycleDashboardRepository>;
     factory = {

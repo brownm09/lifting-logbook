@@ -476,6 +476,99 @@ export interface ImportLiftRecordsResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Smart File Import (multi-type wizard) — #477
+// ---------------------------------------------------------------------------
+
+/**
+ * The four destinations the Smart Import wizard can route a CSV to. Mirrors the
+ * four CSV exports the app stores: lift history, training maxes, strength goals,
+ * and a program spec.
+ */
+export type ImportKind =
+  | 'lift-records'
+  | 'training-maxes'
+  | 'strength-goals'
+  | 'program-spec';
+
+/** Confidence bucket for a classification, derived from per-type thresholds. */
+export type ImportConfidenceBucket = 'high' | 'medium' | 'low';
+
+/** A rejected classification candidate, surfaced under "Other possibilities considered". */
+export interface ImportAlternative {
+  type: ImportKind;
+  /** This candidate's own confidence (0–1), independent of the winner's. */
+  confidence: number;
+  /** True when this candidate scored within a small margin of the winner. */
+  closeCall: boolean;
+}
+
+/**
+ * Result of running the signal-based classifier over a parsed CSV table.
+ *
+ * `type` is `null` only when no candidate cleared its per-type auto-accept
+ * threshold (a low-confidence / no-winner result); the wizard then asks the
+ * user to pick a destination or skip the file. It never auto-routes.
+ */
+export interface ImportClassification {
+  type: ImportKind | null;
+  /** Winning candidate's confidence (0–1); the top score even when below auto-accept. */
+  confidence: number;
+  bucket: ImportConfidenceBucket;
+  /** Human-readable explanations of the signals that fired ("Why this classification"). */
+  reasons: string[];
+  /** Other destinations considered, ranked by their own confidence. */
+  alternatives: ImportAlternative[];
+}
+
+/** A single before→after row in a preview diff, formatted for display. */
+export interface ImportDelta {
+  /** Stable identity of the affected entity (lift id, spec-row natural key, …). */
+  key: string;
+  /** Display label (e.g. "Back Squat", "Week 1 · Bench Press"). */
+  label: string;
+  kind: 'create' | 'update' | 'skip';
+  /** Prior stored value, present for updates and skips; absent for creates. */
+  before?: string;
+  /** Incoming value from the imported file. */
+  after?: string;
+}
+
+/** Aggregate counts plus per-row deltas for a previewed import. */
+export interface ImportPreview {
+  creates: number;
+  updates: number;
+  skips: number;
+  deltas: ImportDelta[];
+}
+
+/**
+ * Response for `POST /programs/:program/import?mode=preview` — writes nothing.
+ *
+ * `destination` is the resolved target: the classifier winner when it clears its
+ * auto-accept threshold, the client's `?destination=` override otherwise, or
+ * `null` when the result is low-confidence and no override was supplied (in which
+ * case `preview` is also `null` and the wizard prompts for a manual pick).
+ */
+export interface ImportPreviewResponse {
+  classification: ImportClassification;
+  destination: ImportKind | null;
+  preview: ImportPreview | null;
+  /** Per-row validation errors for the resolved destination, surfaced as data (not a 400). */
+  errors: ImportError[];
+}
+
+/** Response for `POST /programs/:program/import?mode=commit`. */
+export interface ImportCommitResponse {
+  destination: ImportKind;
+  /** Rows newly inserted. Re-running the same file yields 0 (idempotent). */
+  created: number;
+  /** Rows whose prior value was overwritten (upsert kinds only; 0 for append-only lift records). */
+  updated: number;
+  /** Rows skipped because they were identical to the stored value / a duplicate. */
+  skipped: number;
+}
+
+// ---------------------------------------------------------------------------
 // Custom Lifts
 // ---------------------------------------------------------------------------
 
