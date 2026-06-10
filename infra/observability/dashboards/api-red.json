@@ -20,6 +20,18 @@
         "multi": false,
         "options": [],
         "refresh": 1
+      },
+      {
+        "name": "environment",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "query": { "query": "label_values(http_server_request_duration_seconds_count, deployment_environment_name)", "refId": "env" },
+        "label": "Environment",
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "current": { "text": "production", "value": "production" },
+        "refresh": 1
       }
     ]
   },
@@ -32,7 +44,7 @@
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "targets": [
         {
-          "expr": "sum(rate(http_server_request_duration_seconds_count[5m]))",
+          "expr": "sum(rate(http_server_request_duration_seconds_count{deployment_environment_name=\"$environment\"}[5m]))",
           "legendFormat": "req/s",
           "refId": "A"
         }
@@ -51,7 +63,7 @@
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "targets": [
         {
-          "expr": "sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~\"5..\"}[5m])) / sum(rate(http_server_request_duration_seconds_count[5m])) * 100",
+          "expr": "sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~\"5..\", deployment_environment_name=\"$environment\"}[5m])) / sum(rate(http_server_request_duration_seconds_count{deployment_environment_name=\"$environment\"}[5m])) * 100",
           "legendFormat": "error %",
           "refId": "A"
         }
@@ -70,7 +82,7 @@
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum(rate(http_server_request_duration_seconds_bucket[5m])) by (le))",
+          "expr": "histogram_quantile(0.50, sum(rate(http_server_request_duration_seconds_bucket{deployment_environment_name=\"$environment\"}[5m])) by (le))",
           "legendFormat": "p50",
           "refId": "A"
         }
@@ -89,7 +101,7 @@
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(http_server_request_duration_seconds_bucket[5m])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_request_duration_seconds_bucket{deployment_environment_name=\"$environment\"}[5m])) by (le))",
           "legendFormat": "p95",
           "refId": "A"
         }
@@ -108,7 +120,7 @@
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "targets": [
         {
-          "expr": "histogram_quantile(0.99, sum(rate(http_server_request_duration_seconds_bucket[5m])) by (le))",
+          "expr": "histogram_quantile(0.99, sum(rate(http_server_request_duration_seconds_bucket{deployment_environment_name=\"$environment\"}[5m])) by (le))",
           "legendFormat": "p99",
           "refId": "A"
         }

@@ -27,6 +27,18 @@ data:
             endpoint: 0.0.0.0:4318
 
     processors:
+      # Promote the `deployment.environment.name` resource attribute (set by the
+      # API/web SDKs, #487) to a metric datapoint attribute. OTLP→Prometheus puts
+      # resource attributes on `target_info`, NOT on each series, so without this
+      # the production alert rules in infra/observability/alerts/api.yaml — which
+      # match `deployment_environment_name="production"` — would match nothing and
+      # a staging 5xx could still page. Traces/logs keep resource attributes
+      # natively in Tempo/Loki, so only the metrics pipeline needs this.
+      transform/env_label:
+        metric_statements:
+          - context: datapoint
+            statements:
+              - set(attributes["deployment_environment_name"], resource.attributes["deployment.environment.name"])
       tail_sampling:
         # Required: OTEL_DECISION_WAIT — set by docker-compose (2s) or Helm decisionWait value (default: 10s)
         decision_wait: ${env:OTEL_DECISION_WAIT}
@@ -78,7 +90,7 @@ data:
           exporters: [otlphttp/traces]
         metrics:
           receivers: [otlp]
-          processors: [batch]
+          processors: [transform/env_label, batch]
           exporters: [otlphttp/metrics]
         logs:
           receivers: [otlp]

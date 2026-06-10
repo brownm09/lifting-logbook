@@ -1,0 +1,68 @@
+import {
+  DEPLOYMENT_ENVIRONMENT_ATTR,
+  buildResourceAttributesEnv,
+  resolveDeploymentEnvironment,
+} from './otel';
+
+// Regression coverage for #487: the API must tag telemetry with a deployment
+// environment so the production alert rules (infra/observability/alerts/api.yaml)
+// can scope to prod and a staging 5xx never pages on the shared Grafana Cloud
+// stack. These assertions lock the resource attribute the collector promotes to
+// the `deployment_environment_name` Mimir label.
+describe('resolveDeploymentEnvironment', () => {
+  it('uses NODE_ENV verbatim when set', () => {
+    expect(resolveDeploymentEnvironment('production')).toBe('production');
+    expect(resolveDeploymentEnvironment('staging')).toBe('staging');
+  });
+
+  it('trims surrounding whitespace', () => {
+    expect(resolveDeploymentEnvironment('  staging  ')).toBe('staging');
+  });
+
+  it('falls back to "development" when the value is blank', () => {
+    expect(resolveDeploymentEnvironment('')).toBe('development');
+    expect(resolveDeploymentEnvironment('   ')).toBe('development');
+  });
+
+  it('reads process.env.NODE_ENV by default, falling back to "development" when unset', () => {
+    const original = process.env.NODE_ENV;
+    try {
+      process.env.NODE_ENV = 'production';
+      expect(resolveDeploymentEnvironment()).toBe('production');
+      process.env.NODE_ENV = '';
+      expect(resolveDeploymentEnvironment()).toBe('development');
+    } finally {
+      process.env.NODE_ENV = original;
+    }
+  });
+});
+
+describe('buildResourceAttributesEnv', () => {
+  it('emits a deployment.environment.name=<env> pair from NODE_ENV', () => {
+    expect(buildResourceAttributesEnv(undefined, 'production')).toBe(
+      'deployment.environment.name=production',
+    );
+  });
+
+  it('appends to a pre-existing OTEL_RESOURCE_ATTRIBUTES value, preserving it', () => {
+    expect(
+      buildResourceAttributesEnv('service.namespace=lifting', 'staging'),
+    ).toBe('service.namespace=lifting,deployment.environment.name=staging');
+  });
+
+  it('treats a blank pre-existing value as empty (no leading comma)', () => {
+    expect(buildResourceAttributesEnv('   ', 'production')).toBe(
+      'deployment.environment.name=production',
+    );
+  });
+
+  it('falls back to development when the resolved environment is blank', () => {
+    expect(buildResourceAttributesEnv(undefined, '')).toBe(
+      'deployment.environment.name=development',
+    );
+  });
+
+  it('uses the stable semconv attribute key', () => {
+    expect(DEPLOYMENT_ENVIRONMENT_ATTR).toBe('deployment.environment.name');
+  });
+});

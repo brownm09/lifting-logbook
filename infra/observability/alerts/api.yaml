@@ -1,10 +1,17 @@
 groups:
   - name: api
     rules:
+      # All rules below are scoped to production via the
+      # `deployment_environment_name="production"` label. Staging and production
+      # share one free-tier Grafana Cloud stack, so without this scoping a staging
+      # 5xx would trip the same rules that page for prod (#487). The label is set
+      # as a `deployment.environment.name` resource attribute by the API/web SDKs
+      # and promoted to a metric series label by the otel-collector transform
+      # processor (infra/kubernetes/charts/otel-collector/templates/configmap.yaml).
       - alert: APIHighErrorRate
         expr: |
-          sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~"5.."}[5m]))
-          / sum(rate(http_server_request_duration_seconds_count[5m]))
+          sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~"5..", deployment_environment_name="production"}[5m]))
+          / sum(rate(http_server_request_duration_seconds_count{deployment_environment_name="production"}[5m]))
           > 0.01
         for: 5m
         labels:
@@ -22,8 +29,8 @@ groups:
       # much traffic the rest of the API is taking.
       - alert: APIRouteHighErrorRate
         expr: |
-          sum by (http_route) (rate(http_server_request_duration_seconds_count{http_response_status_code=~"5.."}[5m]))
-          / sum by (http_route) (rate(http_server_request_duration_seconds_count[5m]))
+          sum by (http_route) (rate(http_server_request_duration_seconds_count{http_response_status_code=~"5..", deployment_environment_name="production"}[5m]))
+          / sum by (http_route) (rate(http_server_request_duration_seconds_count{deployment_environment_name="production"}[5m]))
           > 0.05
         for: 5m
         labels:
@@ -37,7 +44,7 @@ groups:
         expr: |
           histogram_quantile(
             0.95,
-            sum(rate(http_server_request_duration_seconds_bucket[5m])) by (le)
+            sum(rate(http_server_request_duration_seconds_bucket{deployment_environment_name="production"}[5m])) by (le)
           ) > 1
         for: 5m
         labels:
@@ -49,11 +56,11 @@ groups:
 
       - alert: APINoRequests
         expr: |
-          (sum(increase(http_server_request_duration_seconds_count[10m])) or vector(0)) == 0
+          (sum(increase(http_server_request_duration_seconds_count{deployment_environment_name="production"}[10m])) or vector(0)) == 0
         for: 10m
         labels:
           severity: info
         annotations:
-          summary: "API received no requests in 10 minutes"
-          description: "No traffic seen. May fire spuriously outside business hours."
+          summary: "Production API received no requests in 10 minutes"
+          description: "No traffic seen on production. May fire spuriously outside business hours."
           runbook_url: "https://github.com/brownm09/lifting-logbook/blob/main/docs/runbooks/api-5xx-surge.md"

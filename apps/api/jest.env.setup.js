@@ -36,6 +36,13 @@ for (const key of BLOCK) {
   process.env[key] = '';
 }
 
+// Never start the OpenTelemetry SDK during tests. otel.ts autostarts on import
+// unless OTEL_SDK_AUTOSTART === 'false'; importing it from a spec (e.g.
+// otel.spec.ts, #487) would otherwise spin up exporters + a PeriodicExporting-
+// MetricReader interval that keeps Jest from exiting cleanly. No test tracing is
+// the policy — see ADR-021.
+process.env.OTEL_SDK_AUTOSTART = 'false';
+
 const originalEnv = process.env;
 process.env = new Proxy(originalEnv, {
   set(target, key, value) {
