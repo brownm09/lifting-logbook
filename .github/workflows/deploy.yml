@@ -121,10 +121,25 @@ jobs:
 
       - name: Terraform apply (staging)
         working-directory: ${{ env.TF_DIR }}
+        # Bounded retry absorbs transient GCP API 5xx / eventual-consistency
+        # during apply (a real CI red-run driver per the #498 diagnosis —
+        # docs/runbooks/staging-ci-flakiness.md; #504 applies it here for prod
+        # parity). terraform apply is re-runnable; a genuine config error fails
+        # both attempts and hard-fails.
         run: |
-          terraform apply -auto-approve \
-            -var-file=terraform.tfvars.staging \
-            -var="billing_account=${{ secrets.GCP_BILLING_ACCOUNT }}"
+          for attempt in 1 2; do
+            if terraform apply -auto-approve \
+                 -var-file=terraform.tfvars.staging \
+                 -var="billing_account=${{ secrets.GCP_BILLING_ACCOUNT }}"; then
+              exit 0
+            fi
+            if [ "${attempt}" -lt 2 ]; then
+              echo "Terraform apply attempt ${attempt} failed; retrying in 20s..."
+              sleep 20
+            fi
+          done
+          echo "::error title=Terraform apply failed::terraform apply (staging) failed on both attempts."
+          exit 1
 
       - name: Capture Terraform outputs
         id: tf-outputs
@@ -268,21 +283,29 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # Bounded retry (Wandalen/wretry.action, pinned to v3.8.0 SHA) wraps the
+      # build+push to absorb transient Artifact Registry 504s on layer-blob
+      # push — the dominant real CI red-run driver per the #498 diagnosis
+      # (docs/runbooks/staging-ci-flakiness.md), applied here for prod parity
+      # (#504). Cached layers make a push-retry cheap. The wrapped
+      # docker/build-push-action@v6 config is unchanged; tags are
+      # comma-separated to keep wretry's forwarded `with` a flat parse.
       - name: Build and push API image
-        uses: docker/build-push-action@v6
+        uses: Wandalen/wretry.action@e68c23e6309f2871ca8ae4763e7629b9c258e1ea  # v3.8.0
         with:
-          context: .
-          file: apps/api/Dockerfile
-          push: true
-          tags: |
-            ${{ steps.ar.outputs.repo }}/api:${{ github.sha }}
-            ${{ steps.ar.outputs.repo }}/api:latest
-          # Per-image cache scope (#407). Same rationale as the web builds
-          # below — isolates the API build cache from any other image flavor
-          # so a stale layer in one cannot poison another. `-v2` suffix forces
-          # a one-time miss on merge.
-          cache-from: type=gha,scope=api-deploy-v2
-          cache-to: type=gha,scope=api-deploy-v2,mode=max
+          action: docker/build-push-action@v6
+          attempt_limit: 3
+          attempt_delay: 15000
+          # Per-image cache scope (#407): isolates the API build cache from any
+          # other image flavor so a stale layer in one cannot poison another.
+          # `-v2` suffix forces a one-time miss on merge.
+          with: |
+            context: .
+            file: apps/api/Dockerfile
+            push: true
+            tags: ${{ steps.ar.outputs.repo }}/api:${{ github.sha }},${{ steps.ar.outputs.repo }}/api:latest
+            cache-from: type=gha,scope=api-deploy-v2
+            cache-to: type=gha,scope=api-deploy-v2,mode=max
 
       # ── Web image: per-env builds (ADR-025) ────────────────────────────────
       # Two builds with per-env NEXT_PUBLIC_* values. The staging tag is built
@@ -291,25 +314,29 @@ jobs:
 
       - name: Build and push web image (staging)
         if: needs.preflight.outputs.staging_enabled == 'true'
-        uses: docker/build-push-action@v6
+        uses: Wandalen/wretry.action@e68c23e6309f2871ca8ae4763e7629b9c258e1ea  # v3.8.0
         with:
-          context: .
-          file: apps/web/Dockerfile
-          push: true
-          tags: |
-            ${{ steps.ar.outputs.repo }}/web:${{ github.sha }}-staging
-          build-args: |
-            NEXT_PUBLIC_API_URL=${{ steps.api-url-staging.outputs.url }}
-            NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ steps.clerk-pub-staging.outputs.key }}
+          action: docker/build-push-action@v6
+          attempt_limit: 3
+          attempt_delay: 15000
           # Per-env cache scope (#407). Previously both staging and prod web
           # builds shared an unscoped `type=gha`, which was suspected of
           # poisoning the cache across builds — three consecutive main runs
-          # produced images missing /livez (then /healthz) from the standalone tree despite
-          # the route being on main. Scoping isolates per-image-flavor caches
-          # and the new name (`-v2`) forces a one-time miss on this PR's merge,
-          # rebuilding the next-build layer from scratch.
-          cache-from: type=gha,scope=web-staging-v2
-          cache-to: type=gha,scope=web-staging-v2,mode=max
+          # produced images missing /livez (then /healthz) from the standalone
+          # tree despite the route being on main. Scoping isolates per-image-
+          # flavor caches; the `-v2` suffix forced a one-time miss on merge.
+          # build-args stays newline-delimited (NAME=value pairs cannot be
+          # comma-split safely).
+          with: |
+            context: .
+            file: apps/web/Dockerfile
+            push: true
+            tags: ${{ steps.ar.outputs.repo }}/web:${{ github.sha }}-staging
+            build-args: |
+              NEXT_PUBLIC_API_URL=${{ steps.api-url-staging.outputs.url }}
+              NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ steps.clerk-pub-staging.outputs.key }}
+            cache-from: type=gha,scope=web-staging-v2
+            cache-to: type=gha,scope=web-staging-v2,mode=max
 
       # `:latest` is intentionally moved here from the (previously single) web
       # build. In staging-enabled mode this means the `:latest` tag in the
@@ -320,20 +347,24 @@ jobs:
       # uses the explicit `-staging` SHA tag — so the asymmetry is invisible
       # to the deploy pipeline itself.
       - name: Build and push web image (production)
-        uses: docker/build-push-action@v6
+        uses: Wandalen/wretry.action@e68c23e6309f2871ca8ae4763e7629b9c258e1ea  # v3.8.0
         with:
-          context: .
-          file: apps/web/Dockerfile
-          push: true
-          tags: |
-            ${{ steps.ar.outputs.repo }}/web:${{ github.sha }}-prod
-            ${{ steps.ar.outputs.repo }}/web:latest
-          build-args: |
-            NEXT_PUBLIC_API_URL=${{ steps.api-url-prod.outputs.url }}
-            NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ steps.clerk-pub-prod.outputs.key }}
+          action: docker/build-push-action@v6
+          attempt_limit: 3
+          attempt_delay: 15000
           # Per-env cache scope (#407) — see staging build above for context.
-          cache-from: type=gha,scope=web-prod-v2
-          cache-to: type=gha,scope=web-prod-v2,mode=max
+          # build-args stays newline-delimited (NAME=value pairs cannot be
+          # comma-split safely).
+          with: |
+            context: .
+            file: apps/web/Dockerfile
+            push: true
+            tags: ${{ steps.ar.outputs.repo }}/web:${{ github.sha }}-prod,${{ steps.ar.outputs.repo }}/web:latest
+            build-args: |
+              NEXT_PUBLIC_API_URL=${{ steps.api-url-prod.outputs.url }}
+              NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ steps.clerk-pub-prod.outputs.key }}
+            cache-from: type=gha,scope=web-prod-v2
+            cache-to: type=gha,scope=web-prod-v2,mode=max
 
       # ── Copy images to production AR (#411) ────────────────────────────────
       # `steps.ar.outputs.repo` resolves to the *staging* AR in staging-enabled
@@ -367,21 +398,46 @@ jobs:
       # writes new tags in the prod AR. The prod CI/CD SA must have
       # `roles/artifactregistry.reader` on the staging AR for the read; if
       # this errors with permission denied, grant that role and rerun.
+      # Bounded retry: imagetools create is a registry-to-registry copy
+      # (staging AR → prod AR) exposed to the same transient AR 504s as the
+      # build/push steps (#498 / #504). The copy is idempotent (tag
+      # overwrite); a genuine permission/manifest error fails all attempts and
+      # hard-fails the deploy.
       - name: Copy API image to prod AR
         if: needs.preflight.outputs.staging_enabled == 'true'
         run: |
-          docker buildx imagetools create \
-            --tag ${{ steps.ar-prod.outputs.repo }}/api:${{ github.sha }} \
-            --tag ${{ steps.ar-prod.outputs.repo }}/api:latest \
-            ${{ steps.ar.outputs.repo }}/api:${{ github.sha }}
+          for attempt in 1 2 3; do
+            if docker buildx imagetools create \
+                 --tag ${{ steps.ar-prod.outputs.repo }}/api:${{ github.sha }} \
+                 --tag ${{ steps.ar-prod.outputs.repo }}/api:latest \
+                 ${{ steps.ar.outputs.repo }}/api:${{ github.sha }}; then
+              exit 0
+            fi
+            if [ "${attempt}" -lt 3 ]; then
+              echo "imagetools copy (API) attempt ${attempt} failed; retrying in 15s..."
+              sleep 15
+            fi
+          done
+          echo "::error title=Image copy failed::Copy API image to prod AR failed after 3 attempts."
+          exit 1
 
       - name: Copy web image to prod AR
         if: needs.preflight.outputs.staging_enabled == 'true'
         run: |
-          docker buildx imagetools create \
-            --tag ${{ steps.ar-prod.outputs.repo }}/web:${{ github.sha }}-prod \
-            --tag ${{ steps.ar-prod.outputs.repo }}/web:latest \
-            ${{ steps.ar.outputs.repo }}/web:${{ github.sha }}-prod
+          for attempt in 1 2 3; do
+            if docker buildx imagetools create \
+                 --tag ${{ steps.ar-prod.outputs.repo }}/web:${{ github.sha }}-prod \
+                 --tag ${{ steps.ar-prod.outputs.repo }}/web:latest \
+                 ${{ steps.ar.outputs.repo }}/web:${{ github.sha }}-prod; then
+              exit 0
+            fi
+            if [ "${attempt}" -lt 3 ]; then
+              echo "imagetools copy (web) attempt ${attempt} failed; retrying in 15s..."
+              sleep 15
+            fi
+          done
+          echo "::error title=Image copy failed::Copy web image to prod AR failed after 3 attempts."
+          exit 1
 
       # Auth context invariant: build-images now ends with the prod CI/CD SA
       # active (the auth swap above for the imagetools copy is not restored).
@@ -752,14 +808,30 @@ jobs:
 
       - name: Terraform apply (production)
         working-directory: ${{ env.TF_DIR }}
+        # Bounded retry absorbs transient GCP API 5xx / eventual-consistency
+        # during apply (the same real CI driver as staging — #498 / #504,
+        # docs/runbooks/staging-ci-flakiness.md). init + workspace select run
+        # once; only the re-runnable apply retries. A genuine config error
+        # fails both attempts and hard-fails the prod deploy — failure
+        # semantics unchanged (AC #3 of #504).
         run: |
           terraform init \
             -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
             -backend-config="prefix=terraform/state"
           terraform workspace select production || terraform workspace new production
-          terraform apply -auto-approve \
-            -var-file=terraform.tfvars.production \
-            -var="billing_account=${{ secrets.GCP_BILLING_ACCOUNT }}"
+          for attempt in 1 2; do
+            if terraform apply -auto-approve \
+                 -var-file=terraform.tfvars.production \
+                 -var="billing_account=${{ secrets.GCP_BILLING_ACCOUNT }}"; then
+              exit 0
+            fi
+            if [ "${attempt}" -lt 2 ]; then
+              echo "Terraform apply attempt ${attempt} failed; retrying in 20s..."
+              sleep 20
+            fi
+          done
+          echo "::error title=Terraform apply failed::terraform apply (production) failed on both attempts."
+          exit 1
 
       - name: Capture production Terraform outputs
         id: tf-prod
