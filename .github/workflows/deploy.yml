@@ -703,23 +703,41 @@ jobs:
       # first) and never echoes a secret value. Scope is the two auth secrets
       # whose absence breaks the served surface; the DB-url and OTel-header
       # secrets keep their own per-step `[ -n ]` guards later in the job.
+      #
+      # Error-message diligence (CLAUDE.md; the #395 transient-504 incident): a
+      # non-zero gcloud exit is NOT assumed to mean "secret absent". stdout (the
+      # secret) is captured to a shell var and stderr to a file, then the failure
+      # is classified — only a NOT_FOUND error is reported as missing; anything
+      # else is reported as "inaccessible (transient or IAM), re-run if transient".
+      # The secret value itself never touches disk; only the error text does.
       - name: Validate production auth secrets (pre-promote)
         run: |
           MISSING=0
+          ERR_FILE="$RUNNER_TEMP/secret_stderr"
           for SECRET in \
             lifting-logbook-prod-clerk-secret-key \
             lifting-logbook-prod-clerk-publishable-key; do
-            VALUE=$(gcloud secrets versions access latest \
+            if VALUE=$(gcloud secrets versions access latest \
               --secret="$SECRET" \
-              --project="${{ vars.GCP_PROD_PROJECT_ID }}" 2>/dev/null || true)
-            if [ -z "$VALUE" ]; then
-              echo "::error title=Missing production secret::$SECRET is absent or has no accessible version. Populate it in GCP Secret Manager (docs/deploy.md Step 4) before promoting."
-              MISSING=1
-            elif [ "$VALUE" = "REPLACE_ME" ]; then
-              echo "::error title=Placeholder production secret::$SECRET is still the Terraform placeholder (REPLACE_ME). Set the real value in GCP Secret Manager (docs/deploy.md Step 4) before promoting."
+              --project="${{ vars.GCP_PROD_PROJECT_ID }}" 2>"$ERR_FILE"); then
+              if [ -z "$VALUE" ]; then
+                echo "::error title=Empty production secret::$SECRET resolved to an empty value. Set the real value in GCP Secret Manager (docs/deploy.md Step 4) before promoting."
+                MISSING=1
+              elif [ "$VALUE" = "REPLACE_ME" ]; then
+                echo "::error title=Placeholder production secret::$SECRET is still the Terraform placeholder (REPLACE_ME). Set the real value in GCP Secret Manager (docs/deploy.md Step 4) before promoting."
+                MISSING=1
+              fi
+            else
+              ERR=$(cat "$ERR_FILE" 2>/dev/null || true)
+              if printf '%s' "$ERR" | grep -qi "NOT_FOUND"; then
+                echo "::error title=Missing production secret::$SECRET does not exist in GCP Secret Manager. Create and populate it (docs/deploy.md Step 4) before promoting."
+              else
+                echo "::error title=Production secret inaccessible::Could not read $SECRET — possibly a transient Secret Manager error or an IAM/permission problem, NOT necessarily a missing secret. Re-run if transient; otherwise verify the prod CI/CD service account's secretmanager.versions.access grant. Detail: $ERR"
+              fi
               MISSING=1
             fi
           done
+          rm -f "$ERR_FILE"
           if [ "$MISSING" -ne 0 ]; then
             echo "Production auth-secret preflight failed — aborting before any production mutation. See the errors above." >&2
             exit 1

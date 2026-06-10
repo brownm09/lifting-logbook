@@ -347,6 +347,21 @@ pending Prisma migrations to prod — it sits in front of the in-VPC migrate job
 DB-backed `/readyz` smoke ([ADR-027](adr/ADR-027-deploy-pipeline-migrations.md)) — so approve
 it deliberately, after sanity-checking staging.
 
+Once approved, `deploy-production` self-guards at two boundaries (issue
+[#490](https://github.com/brownm09/lifting-logbook/issues/490)):
+
+- **Pre-promote auth-secret check** — before any prod mutation, the job fails fast if
+  `lifting-logbook-prod-clerk-secret-key` or `…-clerk-publishable-key` is absent, empty, or still
+  the `REPLACE_ME` placeholder ([Step 4](#step-4--sign-up-for-clerk-and-create-two-apps)). This
+  prevents the [#382](https://github.com/brownm09/lifting-logbook/issues/382) auth-outage class
+  (a missing secret reaching a live prod web revision). A "secret inaccessible" error (as opposed
+  to "missing"/"placeholder") usually means a transient Secret Manager blip or an IAM gap — re-run
+  the deploy if transient.
+- **Post-deploy web smoke** — after the prod web Cloud Run deploy, the job probes `/livez`
+  (Next.js runtime) and `/sign-in` (Clerk auth flow) through the Cloud Run ingress. A non-200
+  fails the run; the revision is already live, so **roll back the web revision** (see
+  [Rolling back](#rolling-back)) if it fails.
+
 **From the GitHub UI:** open the Deploy workflow run, click **Review deployments**, select
 `production`, and approve.
 
