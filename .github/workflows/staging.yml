@@ -368,15 +368,17 @@ jobs:
       - name: Run database migrations (staging)
         id: migrate
         run: |
-          gcloud run jobs update lifting-logbook-stg-migrate \
-            --image="${{ needs.build-images.outputs.ar_repo }}/api:${{ needs.build-images.outputs.image_tag }}" \
-            --region="${{ env.REGION }}" \
-            --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
-            --quiet
-          # Bounded retry: idempotent migrate deploy succeeds on retry after a
-          # transient blip; a genuine failure exhausts all attempts and hard-fails.
+          # Bounded retry covering BOTH the job-image update and the execute:
+          # each is idempotent (same image ref; idempotent migrate deploy), so a
+          # transient blip on either call succeeds on retry, while a genuine
+          # failure exhausts all attempts and hard-fails (no masking).
           for attempt in 1 2 3; do
-            if gcloud run jobs execute lifting-logbook-stg-migrate \
+            if gcloud run jobs update lifting-logbook-stg-migrate \
+                 --image="${{ needs.build-images.outputs.ar_repo }}/api:${{ needs.build-images.outputs.image_tag }}" \
+                 --region="${{ env.REGION }}" \
+                 --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
+                 --quiet \
+               && gcloud run jobs execute lifting-logbook-stg-migrate \
                  --region="${{ env.REGION }}" \
                  --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
                  --wait; then
