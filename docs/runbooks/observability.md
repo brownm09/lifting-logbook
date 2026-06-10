@@ -135,14 +135,18 @@ Both directions are wired via Grafana datasource provisioning in
 ### Alert rules
 
 Four Prometheus alert rules are defined in
-[`infra/observability/alerts/api.yaml`](../../infra/observability/alerts/api.yaml):
+[`infra/observability/alerts/api.yaml`](../../infra/observability/alerts/api.yaml). **All four are
+scoped to production** via the `deployment_environment_name="production"` label — staging and
+production share one free-tier Grafana Cloud stack, so without scoping a staging 5xx would page on
+the prod rules ([#487](https://github.com/brownm09/lifting-logbook/issues/487); see the
+environment-scoping note under [Grafana Cloud credential wiring](#grafana-cloud-credential-wiring)).
 
-| Rule | Condition | Severity |
+| Rule | Condition (production only) | Severity |
 |---|---|---|
 | `APIRouteHighErrorRate` | any single route's 5xx rate > 5% over 5 minutes (grouped `by (http_route)`) | critical |
 | `APIHighErrorRate` | API-wide 5xx rate > 1% over 5 minutes | warning |
 | `APIHighP95Latency` | p95 latency > 1 s over 5 minutes | warning |
-| `APINoRequests` | Zero requests for 10 minutes | info |
+| `APINoRequests` | Zero production requests for 10 minutes | info |
 
 `APIRouteHighErrorRate` exists because the API-wide `APIHighErrorRate` can stay below 1% when a
 single endpoint fails at 100% but carries little traffic — the exact shape of the #458/#460
@@ -242,12 +246,24 @@ nothing scrapes in GKE. This is the path `APIRouteHighErrorRate` depends on. (Th
 docker-compose collector keeps the `prometheus`/`:8889` exporter, which the local
 Prometheus container scrapes.)
 
-> **Shared stack (free tier):** staging and production export to the **same** Grafana Cloud
-> stack with the same endpoints/token. The API currently tags telemetry with `service.name`
-> only — there is **no `deployment.environment`** attribute — so staging and prod telemetry
-> intermix, and a staging 5xx trips the `http_route`-grouped prod alert rules. Adding an
-> environment discriminator + scoping the prod alerts is tracked in
-> [#487](https://github.com/brownm09/lifting-logbook/issues/487).
+> **Shared stack (free tier) — environment scoping:** staging and production export to the
+> **same** Grafana Cloud stack with the same endpoints/token, so telemetry from both environments
+> intermixes in Tempo/Loki/Mimir. To keep staging from paging the production alert rules
+> ([#487](https://github.com/brownm09/lifting-logbook/issues/487)):
+>
+> 1. The API and web SDKs tag every span/metric/log with the
+>    [`deployment.environment.name`](https://opentelemetry.io/docs/specs/semconv/resource/deployment-environment/)
+>    resource attribute, sourced from `NODE_ENV` (`production` / `staging`; `development` locally).
+>    See [`apps/api/src/otel.ts`](../../apps/api/src/otel.ts) and
+>    [`apps/web/instrumentation.ts`](../../apps/web/instrumentation.ts).
+> 2. Resource attributes do **not** become per-series Prometheus labels on their own (OTLP→Prom
+>    puts them on `target_info`). The collector's `transform/env_label` processor promotes the
+>    attribute to a `deployment_environment_name` metric label in the **metrics** pipeline
+>    ([`configmap.yaml`](../../infra/kubernetes/charts/otel-collector/templates/configmap.yaml));
+>    traces/logs keep the resource attribute natively in Tempo/Loki for filtering.
+> 3. All four `api.yaml` alert rules match `deployment_environment_name="production"`, so a staging
+>    5xx never pages. `infra/observability/alerts/api.test.yaml` locks this with a
+>    staging-does-not-page scenario.
 
 ### Cloud Run (deferred)
 

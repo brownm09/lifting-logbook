@@ -5,6 +5,10 @@
 # the API-wide 5xx ratio stays well under 1% must trip APIRouteHighErrorRate
 # (critical) but NOT the aggregate APIHighErrorRate (warning). This is exactly
 # the #458/#460 shape — without the per-route rule it went undetected for days.
+#
+# Also locks the #487 env-scoping property: all rules match
+# deployment_environment_name="production", so series carry that label and the
+# final scenario asserts an identical staging failure does NOT page.
 
 rule_files:
   - api.yaml
@@ -18,10 +22,10 @@ tests:
   - interval: 1m
     input_series:
       # Broken endpoint — only 5xx, ~1 req/min.
-      - series: 'http_server_request_duration_seconds_count{http_route="/programs/:program/lifts", http_response_status_code="500"}'
+      - series: 'http_server_request_duration_seconds_count{http_route="/programs/:program/lifts", http_response_status_code="500", deployment_environment_name="production"}'
         values: "0+1x10"
       # Healthy high-traffic endpoint — only 2xx, ~1000 req/min.
-      - series: 'http_server_request_duration_seconds_count{http_route="/dashboard", http_response_status_code="200"}'
+      - series: 'http_server_request_duration_seconds_count{http_route="/dashboard", http_response_status_code="200", deployment_environment_name="production"}'
         values: "0+1000x10"
     alert_rule_test:
       # After 5m active, the per-route critical fires for the broken route.
@@ -48,9 +52,9 @@ tests:
   # ratio over 1%, so the aggregate warning fires too.
   - interval: 1m
     input_series:
-      - series: 'http_server_request_duration_seconds_count{http_route="/dashboard", http_response_status_code="500"}'
+      - series: 'http_server_request_duration_seconds_count{http_route="/dashboard", http_response_status_code="500", deployment_environment_name="production"}'
         values: "0+30x10"
-      - series: 'http_server_request_duration_seconds_count{http_route="/dashboard", http_response_status_code="200"}'
+      - series: 'http_server_request_duration_seconds_count{http_route="/dashboard", http_response_status_code="200", deployment_environment_name="production"}'
         values: "0+1000x10"
     alert_rule_test:
       - eval_time: 6m
@@ -62,3 +66,22 @@ tests:
               summary: "API error rate > 1%"
               description: "2.913% of requests are returning 5xx"
               runbook_url: "https://github.com/brownm09/lifting-logbook/blob/main/docs/runbooks/api-5xx-surge.md"
+
+  # Scenario: the #487 env-scoping guard. An identical broken route on STAGING
+  # (deployment_environment_name="staging") must NOT page — the production-scoped
+  # rules match nothing, so APIRouteHighErrorRate and APIHighErrorRate stay silent.
+  # APINoRequests does fire (info, non-paging): there is zero *production* traffic,
+  # which is the intended behaviour (a dark prod is worth an info signal).
+  - interval: 1m
+    input_series:
+      - series: 'http_server_request_duration_seconds_count{http_route="/programs/:program/lifts", http_response_status_code="500", deployment_environment_name="staging"}'
+        values: "0+1x10"
+      - series: 'http_server_request_duration_seconds_count{http_route="/dashboard", http_response_status_code="200", deployment_environment_name="staging"}'
+        values: "0+1000x10"
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: APIRouteHighErrorRate
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: APIHighErrorRate
+        exp_alerts: []
