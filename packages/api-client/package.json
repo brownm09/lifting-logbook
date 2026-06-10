@@ -1,0 +1,15 @@
+{
+  "name": "@lifting-logbook/api-client",
+  "version": "0.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "lint": "eslint src",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@lifting-logbook/types": "*"
+  }
+}

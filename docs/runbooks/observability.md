@@ -148,7 +148,10 @@ Four Prometheus alert rules are defined in
 single endpoint fails at 100% but carries little traffic — the exact shape of the #458/#460
 outage, which ran undetected for four days. The per-route rule trips on any one route's
 sustained 5xx regardless of overall volume. See
-[api-5xx-surge.md](api-5xx-surge.md) for first response.
+[api-5xx-surge.md](api-5xx-surge.md) for first response. Its `> 5%` threshold, `for: 5m` window,
+and whether to add a low-traffic volume floor are calibrated against production metrics using the
+queries in [slo.md → Calibrating `APIRouteHighErrorRate`](../operations/slo.md#calibrating-apiroutehigherrorrate)
+([#468](https://github.com/brownm09/lifting-logbook/issues/468)).
 
 > **Known issue:** `APINoRequests` fires spuriously outside business hours because it
 > has no `for:` grace period. This is a documented open item in ADR-018. The Alertmanager

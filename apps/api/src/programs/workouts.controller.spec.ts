@@ -32,7 +32,7 @@ describe('WorkoutsController', () => {
       getCycleDashboard: jest.fn(),
       saveCycleDashboard: jest.fn(),
     };
-    specRepo = { getProgramSpec: jest.fn() };
+    specRepo = { getProgramSpec: jest.fn(), saveProgramSpec: jest.fn() };
     overrideRepo = {
       getOverride: jest.fn().mockResolvedValue(null),
       upsertOverride: jest.fn().mockResolvedValue(undefined),

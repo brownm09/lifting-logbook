@@ -25,3 +25,7 @@ scripts/cloud-sql-proxy.exe
 
 # Playwright staging auth state — contains real session tokens, never commit
 apps/web/playwright/.auth/
+
+# Playwright run artifacts
+apps/web/test-results/
+apps/web/playwright-report/

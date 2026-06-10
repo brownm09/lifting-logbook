@@ -19,6 +19,7 @@ module.exports = {
     '\\.module\\.css$': 'identity-obj-proxy',
     '^@src/core$': '<rootDir>/../../packages/core/src/index.ts',
     '^@src/core/(.*)$': '<rootDir>/../../packages/core/src/$1',
+    '^@lifting-logbook/api-client$': '<rootDir>/../../packages/api-client/src/index.ts',
     '^@lifting-logbook/core$': '<rootDir>/../../packages/core/src/index.ts',
     '^@lifting-logbook/types$': '<rootDir>/../../packages/types/src/index.ts',
     '^@/(.*)$': '<rootDir>/$1',

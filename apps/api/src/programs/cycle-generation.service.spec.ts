@@ -87,6 +87,7 @@ describe('CycleGenerationService', () => {
     };
     programSpecRepo = {
       getProgramSpec: jest.fn().mockResolvedValue(stubProgramSpec()),
+      saveProgramSpec: jest.fn(),
     };
     trainingMaxRepo = {
       getTrainingMaxes: jest.fn(),

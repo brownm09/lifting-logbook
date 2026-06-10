@@ -97,13 +97,22 @@ this wrong and requests 403 behind Cloud Run IAM.
 | **Server → API** (`lib/api.ts`, Server Components, route handlers) | `X-Clerk-Authorization` | Cloud Run IAM consumes `Authorization` for the GCP identity token, so the Clerk JWT needs a separate header that `apps/api` `auth.guard.ts` reads. |
 | **Browser → API** (`lib/client-api.ts`, Client Components) | `Authorization` | No Cloud Run IAM hop on the client path, so the standard header is free. |
 
+Both paths share **one** typed client — `createApiClient({ baseUrl, getAuthHeaders })` in
+[`packages/api-client`](packages/api-client) ([#466](https://github.com/brownm09/lifting-logbook/issues/466)).
+The endpoints and DTOs live there once; `lib/api.ts` and `lib/client-api.ts` are thin wrappers
+that differ only in the `getAuthHeaders` strategy above. The client merges those headers with
+**auth-wins precedence**, so a call site cannot override them.
+
 Rules:
 
 - **Never construct `Authorization` / `X-Clerk-Authorization` headers inline at a call site.**
-  Route server-side requests through `apiFetch` / `apiFetchNullable` and client-side requests
-  through `clientFetch`; both inherit the correct header strategy automatically.
-- The dual-header split is the single most error-prone thing in the web↔API boundary. It will
-  be lint-enforced once the HTTP clients are consolidated into `packages/api-client` ([#466](https://github.com/brownm09/lifting-logbook/issues/466)).
+  Import the endpoint functions from `@/lib/api` (server) or `@/lib/client-api` (browser); they
+  bind the shared client to the correct strategy automatically. Add a new endpoint to
+  `packages/api-client` and re-export it from the relevant wrapper — never call `fetch()` to the
+  API directly.
+- The dual-header split is the single most error-prone thing in the web↔API boundary. The
+  consolidation above is its structural mitigation; lint-enforcing "no direct `fetch()` to the
+  API" is tracked as flag 6 of the architecture review ([#464](https://github.com/brownm09/lifting-logbook/issues/464)).
 
 ## Claude Code sessions
 
