@@ -131,10 +131,24 @@ jobs:
 
       - name: Terraform apply (staging)
         working-directory: ${{ env.TF_DIR }}
+        # Bounded retry absorbs transient GCP API 5xx / eventual-consistency
+        # during apply (a real staging red-run driver per the #498 diagnosis —
+        # see docs/runbooks/staging-ci-flakiness.md). terraform apply is
+        # re-runnable; a genuine config error fails both attempts and hard-fails.
         run: |
-          terraform apply -auto-approve \
-            -var-file=terraform.tfvars.staging \
-            -var="billing_account=${{ secrets.GCP_BILLING_ACCOUNT }}"
+          for attempt in 1 2; do
+            if terraform apply -auto-approve \
+                 -var-file=terraform.tfvars.staging \
+                 -var="billing_account=${{ secrets.GCP_BILLING_ACCOUNT }}"; then
+              exit 0
+            fi
+            if [ "${attempt}" -lt 2 ]; then
+              echo "Terraform apply attempt ${attempt} failed; retrying in 20s..."
+              sleep 20
+            fi
+          done
+          echo "::error title=Terraform apply failed::terraform apply (staging) failed on both attempts."
+          exit 1
 
       - name: Capture Terraform outputs
         id: tf-outputs
@@ -256,39 +270,52 @@ jobs:
         if: steps.image-tag.outputs.skip_build != 'true'
         uses: docker/setup-buildx-action@v3
 
+      # Bounded retry (Wandalen/wretry.action, pinned to v3.8.0 SHA) wraps the
+      # build+push to absorb transient Artifact Registry 504s on layer-blob push
+      # — the dominant real staging red-run driver per the #498 diagnosis (the
+      # workflow's own prereq-guard hints already named "Artifact Registry 504 on
+      # layer-blob push"). Cached layers make a push-retry cheap. The wrapped
+      # docker/build-push-action@v6 config is unchanged; tags are comma-separated
+      # to keep wretry's forwarded `with` a flat parse. See
+      # docs/runbooks/staging-ci-flakiness.md.
       - name: Build and push API image
         if: steps.image-tag.outputs.skip_build != 'true'
-        uses: docker/build-push-action@v6
+        uses: Wandalen/wretry.action@e68c23e6309f2871ca8ae4763e7629b9c258e1ea  # v3.8.0
         with:
-          context: .
-          file: apps/api/Dockerfile
-          push: true
-          tags: |
-            ${{ steps.ar.outputs.repo }}/api:${{ github.event.pull_request.head.sha }}
-            ${{ steps.ar.outputs.repo }}/api:pr-${{ github.event.pull_request.number }}
+          action: docker/build-push-action@v6
+          attempt_limit: 3
+          attempt_delay: 15000
           # Per-image cache scope (#407). Isolates the PR-branch API build
           # from the deploy.yml main-branch API cache, mirroring the web scoping.
-          cache-from: type=gha,scope=api-pr-v2
-          cache-to: type=gha,scope=api-pr-v2,mode=max
+          with: |
+            context: .
+            file: apps/api/Dockerfile
+            push: true
+            tags: ${{ steps.ar.outputs.repo }}/api:${{ github.event.pull_request.head.sha }},${{ steps.ar.outputs.repo }}/api:pr-${{ github.event.pull_request.number }}
+            cache-from: type=gha,scope=api-pr-v2
+            cache-to: type=gha,scope=api-pr-v2,mode=max
 
       - name: Build and push web image
         if: steps.image-tag.outputs.skip_build != 'true'
-        uses: docker/build-push-action@v6
+        uses: Wandalen/wretry.action@e68c23e6309f2871ca8ae4763e7629b9c258e1ea  # v3.8.0
         with:
-          context: .
-          file: apps/web/Dockerfile
-          push: true
-          tags: |
-            ${{ steps.ar.outputs.repo }}/web:${{ github.event.pull_request.head.sha }}
-            ${{ steps.ar.outputs.repo }}/web:pr-${{ github.event.pull_request.number }}
-          build-args: |
-            NEXT_PUBLIC_API_URL=${{ steps.api-url.outputs.url }}
-            NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ steps.clerk-pub-key.outputs.key }}
+          action: docker/build-push-action@v6
+          attempt_limit: 3
+          attempt_delay: 15000
           # Scoped cache (#407). Isolates PR-branch builds from the deploy.yml
           # main-branch web caches so a stale layer in one workflow cannot
-          # silently poison the other.
-          cache-from: type=gha,scope=web-pr-v2
-          cache-to: type=gha,scope=web-pr-v2,mode=max
+          # silently poison the other. build-args stays newline-delimited (values
+          # are NAME=value pairs that cannot be comma-split safely).
+          with: |
+            context: .
+            file: apps/web/Dockerfile
+            push: true
+            tags: ${{ steps.ar.outputs.repo }}/web:${{ github.event.pull_request.head.sha }},${{ steps.ar.outputs.repo }}/web:pr-${{ github.event.pull_request.number }}
+            build-args: |
+              NEXT_PUBLIC_API_URL=${{ steps.api-url.outputs.url }}
+              NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ steps.clerk-pub-key.outputs.key }}
+            cache-from: type=gha,scope=web-pr-v2
+            cache-to: type=gha,scope=web-pr-v2,mode=max
 
   # ── 3a. Deploy API (staging) ──────────────────────────────────────────────
   # Split into per-service jobs so they run in parallel within a single PR.
@@ -327,41 +354,42 @@ jobs:
       # Run Job (created by terraform-staging) before the API revision goes live,
       # so staging exercises the same migrate path as prod (#460). Terraform
       # applies a placeholder image, so set the real image, then execute + wait.
-      # continue-on-error matches the staging Cloud Run deploy below: staging
-      # Cloud SQL connectivity is intermittently flaky (#498), and the Staging
-      # Integration Tests are the authoritative gate — a transient migrate blip
-      # should not hard-fail the job before they run. A genuine migration failure
-      # still surfaces as an integration-test failure (missing tables).
+      #
+      # This step previously carried continue-on-error against an assumed
+      # "staging Cloud SQL connectivity flakiness". The #498 diagnosis
+      # (gcloud telemetry, 2026-06-10) found NO such flakiness: 0 migrate
+      # task-failures across 46 runs, all recent API revisions healthy, and no
+      # connection-exhaustion/auth/timeout errors in Cloud SQL logs. The only
+      # DB-side error class observed is schema drift (`relation … does not exist`)
+      # — exactly what continue-on-error would MASK. So the masking is removed:
+      # a bounded retry absorbs the rare transient blip (prisma migrate deploy is
+      # idempotent), and a genuine migration failure now hard-fails the deploy.
+      # See docs/runbooks/staging-ci-flakiness.md and ADR-027.
       - name: Run database migrations (staging)
         id: migrate
-        continue-on-error: true
         run: |
           gcloud run jobs update lifting-logbook-stg-migrate \
             --image="${{ needs.build-images.outputs.ar_repo }}/api:${{ needs.build-images.outputs.image_tag }}" \
             --region="${{ env.REGION }}" \
             --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
             --quiet
-          gcloud run jobs execute lifting-logbook-stg-migrate \
-            --region="${{ env.REGION }}" \
-            --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
-            --wait
-
-      # The migrate step above is continue-on-error (Cloud SQL flakiness, #498), so a genuine
-      # migration failure would otherwise vanish into a green run. Surface it loudly: a workflow
-      # warning annotation plus a job-summary block. Advisory only — the Staging Integration
-      # Tests remain the authoritative gate — but it stops a real failure being swallowed
-      # silently. See ADR-027 and CLAUDE.md -> Error Message Diligence.
-      - name: Surface swallowed migration failure (staging)
-        if: steps.migrate.outcome == 'failure'
-        run: |
-          echo "::warning title=Staging migration failed (swallowed by continue-on-error)::The in-VPC Prisma migrate job exited non-zero. This may be transient Cloud SQL flakiness (#498) or a genuine migration failure - confirm the Staging Integration Tests below actually exercise the migrated tables before trusting this run."
-          {
-            echo "### :warning: Staging migration failed (swallowed by continue-on-error)"
-            echo ""
-            echo "The in-VPC Prisma migrate job exited non-zero. \`continue-on-error\` kept the pipeline green per #498 (intermittent staging Cloud SQL connectivity)."
-            echo ""
-            echo "If this is **not** transient flakiness, the staging schema may be stale. Verify the integration tests touched the affected tables, then re-run or investigate. See ADR-027."
-          } >> "$GITHUB_STEP_SUMMARY"
+          # Bounded retry: idempotent migrate deploy succeeds on retry after a
+          # transient blip; a genuine failure exhausts all attempts and hard-fails.
+          for attempt in 1 2 3; do
+            if gcloud run jobs execute lifting-logbook-stg-migrate \
+                 --region="${{ env.REGION }}" \
+                 --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
+                 --wait; then
+              echo "Migrate succeeded on attempt ${attempt}."
+              exit 0
+            fi
+            if [ "${attempt}" -lt 3 ]; then
+              echo "Migrate attempt ${attempt} failed; retrying in $((attempt * 15))s..."
+              sleep $((attempt * 15))
+            fi
+          done
+          echo "::error title=Staging migration failed::The in-VPC Prisma migrate job exited non-zero on all 3 attempts. This is a genuine migration/schema failure, not transient flakiness (#498 diagnosis). See ADR-027 and docs/runbooks/staging-ci-flakiness.md."
+          exit 1
 
       - name: Set up GKE credentials
         if: needs.terraform-staging.outputs.gke_enabled == 'true'
@@ -471,8 +499,12 @@ jobs:
       - name: Deploy API to Cloud Run (staging)
         id: deploy-api
         if: steps.clerk-check.outputs.configured == 'true'
-        # Cloud SQL connectivity issues tracked in #498. continue-on-error allows the
-        # job to complete so the log-fetch step below can capture the crash reason.
+        # continue-on-error is retained here (NOT for Cloud SQL flakiness — the
+        # #498 diagnosis found none) so a failed revision still lets the log-fetch
+        # step below capture the container crash reason; the integration-test gate
+        # then fails the run. A "container did not start" here is most likely an
+        # image/startup or Artifact Registry issue, not connectivity. See
+        # docs/runbooks/staging-ci-flakiness.md.
         continue-on-error: true
         run: |
           gcloud run deploy lifting-logbook-stg-api \
@@ -661,7 +693,7 @@ jobs:
             exit 1
           fi
           if [[ "$API_DEPLOYED" != "true" ]]; then
-            echo "::error::Cloud Run API deploy failed — integration tests cannot run. Check the 'Fetch Cloud Run API logs on failure' step in the Deploy API (staging) job. Tracked in #498."
+            echo "::error::Cloud Run API deploy failed — integration tests cannot run. Check the 'Fetch Cloud Run API logs on failure' step in the Deploy API (staging) job (commonly an image/startup error or an Artifact Registry push issue — not Cloud SQL connectivity, per the #498 diagnosis). See docs/runbooks/staging-ci-flakiness.md."
             exit 1
           fi
 
@@ -794,7 +826,7 @@ jobs:
             } else if (!clerkConfigured) {
               body = '⚠️ **Staging integration tests skipped** — `lifting-logbook-stg-clerk-secret-key` in GCP Secret Manager is still the placeholder value. Follow [docs/deploy.md Step 4](https://github.com/${{ github.repository }}/blob/${{ github.event.pull_request.head.sha }}/docs/deploy.md#step-4--sign-up-for-clerk-and-create-two-apps) to configure the staging Clerk secret key, then re-run CI.';
             } else if (!cloudRunApiDeployed) {
-              body = `⚠️ **Staging integration tests skipped** — Cloud Run API deploy failed (container did not start). Check the "Fetch Cloud Run API logs on failure" step in the [workflow run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for the crash reason. Tracked in [#498](https://github.com/${{ github.repository }}/issues/498).`;
+              body = `⚠️ **Staging integration tests skipped** — Cloud Run API deploy failed (container did not start). Check the "Fetch Cloud Run API logs on failure" step in the [workflow run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for the crash reason — commonly an image/startup error or an Artifact Registry push issue, not Cloud SQL connectivity (see the [#498](https://github.com/${{ github.repository }}/issues/498) diagnosis and \`docs/runbooks/staging-ci-flakiness.md\`).`;
             } else if (testResult === 'success') {
               body = `✅ **Staging integration tests passed**\n\n🔗 [Staging environment](${webUrl})`;
             } else if (testResult === 'failure') {
