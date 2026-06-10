@@ -70,8 +70,10 @@ tests:
   # Scenario: the #487 env-scoping guard. An identical broken route on STAGING
   # (deployment_environment_name="staging") must NOT page — the production-scoped
   # rules match nothing, so APIRouteHighErrorRate and APIHighErrorRate stay silent.
-  # APINoRequests does fire (info, non-paging): there is zero *production* traffic,
-  # which is the intended behaviour (a dark prod is worth an info signal).
+  # (APINoRequests is intentionally not asserted here: it is info-level/non-paging
+  # and its `for: 10m` exceeds this scenario's 6m horizon, so it would be pending,
+  # not firing. Zero production traffic keeping it active is the intended "dark
+  # prod" info signal, exercised implicitly rather than asserted on a timing edge.)
   - interval: 1m
     input_series:
       - series: 'http_server_request_duration_seconds_count{http_route="/programs/:program/lifts", http_response_status_code="500", deployment_environment_name="staging"}'
@@ -85,3 +87,36 @@ tests:
       - eval_time: 6m
         alertname: APIHighErrorRate
         exp_alerts: []
+
+  # Scenario: the APIHighP95Latency rule (the only rule with no prior promtool
+  # coverage). Production observations all land in the (2, +Inf] bucket, so p95
+  # resolves to the highest finite bucket boundary (2s) — above the 1s threshold,
+  # so the warning fires. An identical slow histogram on STAGING is excluded by
+  # the production label matcher and must NOT fire, locking the #487 env-scoping
+  # label on the latency rule.
+  - interval: 1m
+    input_series:
+      # Production — cumulative buckets 0 <= 0 <= N, all mass above 2s.
+      - series: 'http_server_request_duration_seconds_bucket{le="1", deployment_environment_name="production"}'
+        values: "0+0x10"
+      - series: 'http_server_request_duration_seconds_bucket{le="2", deployment_environment_name="production"}'
+        values: "0+0x10"
+      - series: 'http_server_request_duration_seconds_bucket{le="+Inf", deployment_environment_name="production"}'
+        values: "0+100x10"
+      # Staging — identical slow histogram; invisible to the prod-scoped rule.
+      - series: 'http_server_request_duration_seconds_bucket{le="1", deployment_environment_name="staging"}'
+        values: "0+0x10"
+      - series: 'http_server_request_duration_seconds_bucket{le="2", deployment_environment_name="staging"}'
+        values: "0+0x10"
+      - series: 'http_server_request_duration_seconds_bucket{le="+Inf", deployment_environment_name="staging"}'
+        values: "0+100x10"
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: APIHighP95Latency
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "API p95 latency > 1s"
+              description: "p95 latency is 2s"
+              runbook_url: "https://github.com/brownm09/lifting-logbook/blob/main/docs/runbooks/api-5xx-surge.md"

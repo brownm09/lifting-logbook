@@ -22,6 +22,9 @@ export const DEPLOYMENT_ENVIRONMENT_ATTR = 'deployment.environment.name';
  * Cloud Run service spec; locally it is unset, so we fall back to `development`.
  * Pure and exported so the resource attribute is unit-testable without starting
  * the SDK (#487 AC: "assertion that the resource attribute is set").
+ *
+ * This is the canonical copy. apps/web/instrumentation.ts mirrors this logic
+ * inline (separate workspace); keep the two in sync — see the note there.
  */
 export function resolveDeploymentEnvironment(
   nodeEnv: string | undefined = process.env.NODE_ENV,
