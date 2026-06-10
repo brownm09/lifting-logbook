@@ -139,6 +139,32 @@ break-glass / first-time-bootstrap path, not the steady-state mechanism.
 - **Self-hosted runner on the VPC.** Rejected: a standing runner is far more operational
   surface than a per-deploy job for a single-maintainer project.
 
+## Addendum — 2026-06-10: staging migrate `continue-on-error` removed (#498)
+
+When this ADR shipped, the staging pipeline's `Run database migrations (staging)` step (and the
+Cloud Run API deploy step) carried `continue-on-error: true`, justified as tolerating
+"intermittent staging Cloud SQL connectivity flakiness", with the Staging Integration Tests as
+the authoritative gate. [#498](https://github.com/brownm09/lifting-logbook/issues/498) was filed
+to track that untracked root cause.
+
+A read-only GCP diagnosis (gcloud telemetry, 2026-06-10) **did not corroborate the Cloud SQL
+premise**: 0 migrate task-failures across the last 46 executions, all recent Cloud Run API
+revisions healthy, and no connection-exhaustion / auth / connect-timeout errors in the staging
+Cloud SQL logs over 7 days. The only DB-side error class observed was schema drift
+(`relation "public.custom_lift" does not exist`) — precisely the failure mode the migrate
+`continue-on-error` could **mask**. The genuine staging red-run driver was upstream: transient
+Artifact Registry 504s on image push and Terraform apply transients (the #395 misleading-error
+chain through the `Verify deploy prerequisites` guard).
+
+**Change:** the migrate step's `continue-on-error` is **removed**. A bounded 3-attempt retry now
+absorbs the rare transient blip (`prisma migrate deploy` is idempotent), and a genuine
+migration/schema failure **hard-fails the deploy** rather than being swallowed — restoring the
+fail-safe ordering this ADR's Decision intended. The "Surface swallowed migration failure" step
+is removed (nothing is swallowed now). Bounded retries were also added to the real driver (AR
+build/push, Terraform apply). The Cloud Run API deploy step keeps `continue-on-error` solely so
+its log-fetch step can capture a crash reason; the integration-test gate still fails the run.
+Full evidence and re-triage guidance: [`docs/runbooks/staging-ci-flakiness.md`](../runbooks/staging-ci-flakiness.md).
+
 ## References
 
 - [Prisma — Deploying database changes with Prisma Migrate](https://www.prisma.io/docs/orm/prisma-migrate/workflows/development-and-production#production-and-testing-environments) — establishes `prisma migrate deploy` as the production/CI command (applies pending migrations, never resets, no prompts); the basis for the job's command.
