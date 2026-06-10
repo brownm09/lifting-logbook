@@ -28,6 +28,8 @@ Three categories of decision must be made before any code lands:
 
 GKE production deployments run the Collector as a DaemonSet — one Collector pod per node, receiving OTLP from every workload pod over the node-local network. This matches [ADR-009](ADR-009-infrastructure-kubernetes-cloud-run.md)'s GKE-first stance. Cloud Run cannot run DaemonSets; a sidecar config is templated for future use but not deployed in this epic.
 
+> **Update (#474) — DaemonSet wired into the deploy pipeline.** The GKE DaemonSet is now deployed automatically by `.github/workflows/deploy.yml` (staging + production), with Grafana Cloud auth headers synced from GCP Secret Manager into the `otel-collector-secrets` Kubernetes Secret. Metrics ship to Mimir over the **OTLP gateway** (`otlphttp/metrics` exporter), not a `:8889` Prometheus scrape — in GKE nothing scrapes `:8889`, so that path never reached Mimir. The **Cloud Run sidecar remains deferred**: gcloud has no additive sidecar command, and the A/B Cloud Run service spec is Terraform-owned, so wiring it safely is tracked as a follow-up. See [`docs/deploy.md`](../deploy.md#otel-collector--grafana-cloud-telemetry) and [`docs/runbooks/observability.md`](../runbooks/observability.md).
+
 ### Prisma instrumentation: official `@prisma/instrumentation`
 
 Use `@prisma/instrumentation` rather than wrapping Prisma calls manually. It is published by the Prisma team, hooks into the same internal events Prisma uses for its own logging, and produces spans with the SQL query, parameters (when configured), and duration. Manual span wrapping at every call site is rejected because it is high-maintenance, easy to forget, and duplicates effort already done by the official package.

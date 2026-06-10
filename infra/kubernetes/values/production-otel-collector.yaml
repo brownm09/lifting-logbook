@@ -1,0 +1,21 @@
+# Production overrides for charts/otel-collector — applied on top of charts/otel-collector/values.yaml
+# Used by: helm upgrade otel-collector ./infra/kubernetes/charts/otel-collector \
+#            --values infra/kubernetes/values/production-otel-collector.yaml
+#
+# The OTLP/Loki endpoints are NON-secret and committed here. The auth headers are
+# pulled from GCP Secret Manager and synced into the `otel-collector-secrets` k8s
+# Secret by the deploy pipeline (see .github/workflows/deploy.yml → "Sync otel-collector
+# secrets to Kubernetes"). The collector pod reads only that k8s Secret, so its
+# ServiceAccount needs no Workload Identity binding (gcp.serviceAccountEmail left empty).
+#
+# Confirm these endpoint URLs match your Grafana Cloud stack region:
+#   Stack → Details → OpenTelemetry → OTLP endpoint   (traces + metrics → Tempo/Mimir)
+#   Stack → Details → Loki → URL + /loki/api/v1/push  (logs → Loki)
+
+env:
+  OTEL_COLLECTOR_OTLP_ENDPOINT: https://otlp-gateway-prod-us-central1.grafana.net/otlp
+  OTEL_COLLECTOR_LOKI_ENDPOINT: https://logs-prod-021.grafana.net/loki/api/v1/push
+
+# 20% probabilistic sampling of clean traces; errors and slow traces (>1 000 ms) are always kept.
+tailSampleRate: "20"
+decisionWait: "10s"

@@ -260,6 +260,18 @@ resource "google_secret_manager_secret_version" "clerk_publishable_key" {
   }
 }
 
+# ── OTel Collector → Grafana Cloud auth headers (#474) ───────────────────────
+# These are intentionally NOT Terraform-managed. Unlike the Clerk/DB secrets
+# (created once at initial bootstrap), the OTel auth headers are created and
+# populated together by scripts/bootstrap-otel-secrets.sh — the operator never
+# wants a REPLACE_ME placeholder version to exist (the deploy's sync step would
+# fail on it), and declaring them here would 409 against the script-created
+# secrets on the next `terraform apply`. The deploy pipeline reads them with the
+# CI/CD SA (roles/owner already grants secretAccessor) and syncs them into the
+# otel-collector-secrets k8s Secret. Secret names:
+#   ${name_prefix}-otel-otlp-auth-header   (traces + metrics → Tempo/Mimir)
+#   ${name_prefix}-otel-loki-auth-header   (logs → Loki)
+
 # ─── Cloud KMS (ADR-014 — credential encryption at rest) ─────────────────────
 
 resource "google_kms_key_ring" "main" {
