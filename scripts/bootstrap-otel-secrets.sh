@@ -21,34 +21,32 @@
 # note the secret-name prefix uses "stg", while the staging GCP *project* is
 # "lifting-logbook-staging". They are intentionally different.
 #
-# The secret CONTAINERS are created by `terraform apply` (infra/terraform/main.tf) with a
-# REPLACE_ME placeholder. Run this AFTER that apply: it adds a real version and leaves the
-# placeholder as an older version (CI reads :latest). If a secret does not exist yet, the
-# script stops and tells you to apply Terraform first — or pass --create to make it ad-hoc
-# (then Terraform will need a `terraform import` for that secret, so prefer applying first).
+# This script OWNS these secrets end-to-end: it creates the container if it does not
+# exist yet, then adds a version with the real header. They are deliberately NOT
+# Terraform-managed (see infra/terraform/main.tf for why) — so there is no REPLACE_ME
+# placeholder and no `terraform import` to worry about. Re-running is safe and idempotent
+# (it just adds a newer version, which CI reads as :latest).
 #
 # Prereqs:
 #   * gcloud CLI authenticated (`gcloud auth login`) with secretmanager.admin (or owner)
 #     on both projects. The project owner has this by default.
 #
 # Usage:
-#   ./scripts/bootstrap-otel-secrets.sh [--env both|staging|production] [--create] \
+#   ./scripts/bootstrap-otel-secrets.sh [--env both|staging|production] \
 #       [--staging-project-id <id>] [--prod-project-id <id>]
 #
 # Examples:
-#   ./scripts/bootstrap-otel-secrets.sh                       # both envs, secrets must already exist
+#   ./scripts/bootstrap-otel-secrets.sh                       # both envs
 #   ./scripts/bootstrap-otel-secrets.sh --env staging         # staging only
-#   ./scripts/bootstrap-otel-secrets.sh --create              # also create the containers if missing
 
 set -euo pipefail
 
 ENVS="both"
-CREATE=false
 STAGING_PROJECT_ID="lifting-logbook-staging"
 PROD_PROJECT_ID="lifting-logbook-prod"
 
 usage() {
-  echo "Usage: $0 [--env both|staging|production] [--create]" >&2
+  echo "Usage: $0 [--env both|staging|production]" >&2
   echo "          [--staging-project-id <id>] [--prod-project-id <id>]" >&2
   exit "${1:-0}"
 }
@@ -56,7 +54,6 @@ usage() {
 while [ $# -gt 0 ]; do
   case "$1" in
     --env) ENVS="$2"; shift 2 ;;
-    --create) CREATE=true; shift ;;
     --staging-project-id) STAGING_PROJECT_ID="$2"; shift 2 ;;
     --prod-project-id) PROD_PROJECT_ID="$2"; shift 2 ;;
     -h|--help) usage 0 ;;
@@ -94,18 +91,12 @@ echo
 OTLP_HEADER="Basic $(printf '%s:%s' "$OTLP_INSTANCE_ID" "$GRAFANA_TOKEN" | b64)"
 LOKI_HEADER="Basic $(printf '%s:%s' "$LOKI_INSTANCE_ID" "$GRAFANA_TOKEN" | b64)"
 
-# Write one secret: ensure it exists (or create with --create), then add a new version.
+# Write one secret: create the container if missing, then add a new version.
 write_secret() {
   local project="$1" name="$2" value="$3"
   if ! gcloud secrets describe "$name" --project="$project" >/dev/null 2>&1; then
-    if [ "$CREATE" = true ]; then
-      echo "    creating secret $name (ad-hoc — Terraform will need a 'terraform import' for it)"
-      gcloud secrets create "$name" --replication-policy=automatic --project="$project" >/dev/null
-    else
-      echo "ERROR: secret '$name' does not exist in project '$project'." >&2
-      echo "       Run 'terraform apply' first (it creates the container), or re-run with --create." >&2
-      exit 1
-    fi
+    echo "    creating secret $name"
+    gcloud secrets create "$name" --replication-policy=automatic --project="$project" >/dev/null
   fi
   printf '%s' "$value" | gcloud secrets versions add "$name" --data-file=- --project="$project" >/dev/null
   echo "    ✓ added new version to $name"

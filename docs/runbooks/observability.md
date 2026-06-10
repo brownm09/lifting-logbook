@@ -221,16 +221,16 @@ manual `helm install` step. On every push-to-main deploy, `.github/workflows/dep
    and writes them into a Kubernetes Secret named **`otel-collector-secrets`** (keys
    `otlp-auth-header`, `loki-auth-header`) in the workload namespace. The chart's
    `daemonset.yaml` reads that Secret via `secretKeyRef`. The step fails the deploy
-   loudly — and never echoes the value — if either secret is absent or still the
-   Terraform `REPLACE_ME` placeholder.
+   loudly — and never echoes the value — if either secret is absent, empty, or the
+   unpopulated `REPLACE_ME` sentinel.
 2. **Helm-deploys the collector** — `helm upgrade --install otel-collector` with the
    per-env values file (`infra/kubernetes/values/{staging,production}-otel-collector.yaml`),
    which sets the non-secret OTLP/Loki endpoints.
 
-**One-time token bootstrap** (the only manual step, run once per env): see
-[`docs/deploy.md` → OTel Collector / Grafana Cloud telemetry](../deploy.md#otel-collector--grafana-cloud-telemetry).
-Terraform creates the Secret Manager containers with a `REPLACE_ME` placeholder; the
-operator populates the real Grafana token with `gcloud secrets versions add`.
+**One-time token bootstrap** (the only manual step, run once per env): run
+[`scripts/bootstrap-otel-secrets.sh`](../../scripts/bootstrap-otel-secrets.sh) — it creates
+the Secret Manager containers (not Terraform-managed) and populates the real Grafana token.
+See [`docs/deploy.md` → OTel Collector / Grafana Cloud telemetry](../deploy.md#otel-collector--grafana-cloud-telemetry).
 
 **Metrics → Mimir:** the collector ships metrics over the **same OTLP gateway** as traces
 (the gateway fans metrics out to Mimir), reusing the OTLP auth header. The chart's metrics

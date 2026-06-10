@@ -518,9 +518,10 @@ jobs:
       # otel-collector-secrets k8s Secret (keys consumed by the chart's
       # daemonset.yaml secretKeyRef), then deploy the collector DaemonSet. Without
       # this the collector has no credentials and traces/logs/metrics never leave
-      # the cluster. The guards fail the deploy loudly if either secret is absent
-      # or still the Terraform "REPLACE_ME" placeholder (the one-time Grafana token
-      # bootstrap — see docs/deploy.md) and never echo the value, so no token
+      # the cluster. The secrets are created + populated by
+      # scripts/bootstrap-otel-secrets.sh (not Terraform — see docs/deploy.md). The
+      # guards fail the deploy loudly if either secret is absent, empty, or the
+      # unpopulated "REPLACE_ME" sentinel, and never echo the value, so no token
       # reaches CI logs.
       - name: Sync otel-collector secrets to Kubernetes
         if: needs.terraform-staging.outputs.gke_enabled == 'true'

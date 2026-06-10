@@ -531,16 +531,16 @@ the path `APIRouteHighErrorRate` depends on; `:8889` is not scraped in GKE). The
 A/B replica does not yet ship telemetry — see the deferred follow-up to #474.
 
 **One-time token bootstrap (do this once per environment, before the deploy that needs it).**
-The auth headers are never committed: Terraform creates the Secret Manager containers with a
-`REPLACE_ME` placeholder, and you populate the real Grafana token here. The sync step fails
-the deploy loudly if the placeholder is still in place.
+The auth headers are never committed and are **not** Terraform-managed — the script below
+creates the Secret Manager containers and populates them. The deploy's sync step fails loudly
+if a secret is missing or empty.
 
-> **Easiest path — guided script.** After `terraform apply` has created the secret
-> containers, run [`./scripts/bootstrap-otel-secrets.sh`](../scripts/bootstrap-otel-secrets.sh).
-> It prompts for the instance IDs + token (the token prompt is hidden), builds the headers,
-> and writes both envs' secret versions for you. Pass `--create` to also create the
-> containers ad-hoc if you have not applied Terraform yet (Terraform will then need a
-> `terraform import`). The manual steps below are the equivalent done by hand.
+> **Easiest path — guided script.** Run
+> [`./scripts/bootstrap-otel-secrets.sh`](../scripts/bootstrap-otel-secrets.sh). It prompts
+> for the instance IDs + token (the token prompt is hidden), builds the headers, creates the
+> secret containers if they don't exist yet, and writes both envs' secret versions for you.
+> Re-running is safe (it just adds a newer version). The manual steps below are the equivalent
+> done by hand.
 
 1. **Get the values from the Grafana Cloud portal:**
    - **OTLP endpoint + instance ID** — Stack → Details → OpenTelemetry → *OTLP endpoint* and
@@ -568,9 +568,9 @@ the deploy loudly if the placeholder is still in place.
    printf '%s' "$OTLP_HEADER" | gcloud secrets versions add lifting-logbook-prod-otel-otlp-auth-header --data-file=- --project=<PROD_PROJECT_ID>
    printf '%s' "$LOKI_HEADER" | gcloud secrets versions add lifting-logbook-prod-otel-loki-auth-header --data-file=- --project=<PROD_PROJECT_ID>
    ```
-   The secret containers are created by `terraform apply` (see `infra/terraform/main.tf`).
-   If applying Terraform out of band, `gcloud secrets create <name> --replication-policy=automatic`
-   first, then `versions add`.
+   If a container does not exist yet, create it first with
+   `gcloud secrets create <name> --replication-policy=automatic --project=<project>`, then
+   `versions add`. (The guided script does this for you.)
 
    > **Single shared stack (free tier).** Staging and production reuse the *same* Grafana Cloud
    > stack, endpoints, and token here. Because the API does not yet emit a `deployment.environment`
