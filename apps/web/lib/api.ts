@@ -1,47 +1,25 @@
 import 'server-only';
 
 import { auth } from '@clerk/nextjs/server';
+import { createApiClient } from '@lifting-logbook/api-client';
 import { getGcpIdentityToken } from './gcp-identity-token';
-import type {
-  BodyWeightResponse,
-  CreateCustomProgramRequest,
-  CreateLiftRecordRequest,
-  CustomProgramResponse,
-  CustomProgramSummaryResponse,
-  CycleDashboardResponse,
-  LiftMetadataResponse,
-  LiftingProgramSpecResponse,
-  LiftRecordResponse,
-  RecordBodyWeightRequest,
-  StrengthGoalResponse,
-  SwitchProgramResponse,
-  UpsertStrengthGoalRequest,
-  TrainingMaxHistoryResponse,
-  TrainingMaxResponse,
-  UpdateCustomProgramRequest,
-  UpdateLiftRecordRequest,
-  UpdateTrainingMaxesRequest,
-  UpdateUserSettingsRequest,
-  UserSettingsResponse,
-  WorkoutResponse,
-} from '@lifting-logbook/types';
 
 const API_URL = process.env.API_URL ?? 'http://localhost:3004';
 const isCloudRun = API_URL.startsWith('https://');
 
 // ---------------------------------------------------------------------------
-// AUTH HEADER INVARIANT — read before adding any server-side API call.
+// AUTH HEADER INVARIANT (server path) — read before changing this strategy.
 //
 // Server -> API requests cross Cloud Run IAM, which consumes the `Authorization`
 // header for the GCP identity token. The Clerk JWT therefore travels in the custom
 // `X-Clerk-Authorization` header (read by apps/api auth.guard.ts). Hand-building an
 // `Authorization: Bearer <clerk-jwt>` header on this path will 403 behind Cloud Run IAM.
 //
-// DO NOT construct auth headers inline at call sites. Route every server-side request
-// through apiFetch / apiFetchNullable so it inherits getAuthHeaders() below. The
-// browser path uses a DIFFERENT scheme (plain Authorization) — see lib/client-api.ts.
-// This split will be lint-enforced once packages/api-client lands (#466).
-// See CONTRIBUTING.md -> API auth headers.
+// This is the ONLY thing the server wrapper does differently from the browser one:
+// every endpoint lives in @lifting-logbook/api-client; this module just supplies the
+// strategy below. The client merges these headers with auth-wins precedence, so call
+// sites cannot override them. The browser path uses a DIFFERENT scheme (plain
+// Authorization) — see lib/client-api.ts. See CONTRIBUTING.md -> API auth headers.
 // ---------------------------------------------------------------------------
 async function getAuthHeaders(): Promise<Record<string, string>> {
   if (!isCloudRun) {
@@ -87,329 +65,35 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
   return {};
 }
 
-// NestJS ValidationPipe returns { statusCode, message: string | string[], error }.
-// Surface that detail so client-side error UIs can show actionable text instead of just
-// "Request failed: 400".
-async function extractErrorMessage(res: Response, path: string): Promise<string> {
-  try {
-    const body = (await res.json()) as { message?: string | string[] };
-    if (Array.isArray(body.message)) return body.message.join('; ');
-    if (typeof body.message === 'string') return body.message;
-  } catch {
-    // fall through to generic
-  }
-  return `API ${res.status} ${res.statusText} for ${path}`;
-}
-
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const authHeaders = await getAuthHeaders();
-  const res = await fetch(`${API_URL}${path}`, {
-    ...init,
-    headers: { ...(init?.headers as Record<string, string> | undefined), ...authHeaders },
-  });
-  if (!res.ok) {
-    throw new Error(await extractErrorMessage(res, path));
-  }
-  return res.json() as Promise<T>;
-}
-
-/** Like apiFetch but returns null on 404 instead of throwing. */
-async function apiFetchNullable<T>(path: string, init?: RequestInit): Promise<T | null> {
-  const authHeaders = await getAuthHeaders();
-  const res = await fetch(`${API_URL}${path}`, {
-    ...init,
-    headers: { ...(init?.headers as Record<string, string> | undefined), ...authHeaders },
-  });
-  if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
-  return res.json() as Promise<T>;
-}
-
-export function fetchCycleDashboard(
-  program: string,
-): Promise<CycleDashboardResponse | null> {
-  return apiFetchNullable(
-    `/programs/${encodeURIComponent(program)}/cycles/current`,
-    { cache: 'no-store' },
-  );
-}
-
-export function createCycle(programId: string): Promise<CycleDashboardResponse> {
-  return apiFetch(`/programs/${encodeURIComponent(programId)}/cycles`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({}),
-  });
-}
-
-export function initializeCycle(
-  programId: string,
-  options: { cycleDate?: string } = {},
-): Promise<CycleDashboardResponse> {
-  return apiFetch(`/programs/${encodeURIComponent(programId)}/cycles/initialize`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(options),
-  });
-}
-
-export function fetchProgramSpec(
-  program: string,
-): Promise<LiftingProgramSpecResponse[]> {
-  return apiFetch(`/programs/${encodeURIComponent(program)}/spec`, {
-    next: { revalidate: 3600 },
-  } as RequestInit);
-}
-
-export function fetchTrainingMaxes(
-  program: string,
-): Promise<TrainingMaxResponse[]> {
-  return apiFetch(
-    `/programs/${encodeURIComponent(program)}/training-maxes`,
-    { cache: 'no-store' },
-  );
-}
-
-export function fetchTrainingMaxHistory(
-  program: string,
-): Promise<TrainingMaxHistoryResponse> {
-  return apiFetch(
-    `/programs/${encodeURIComponent(program)}/training-maxes/history`,
-    { cache: 'no-store' },
-  );
-}
-
-export function updateTrainingMaxHistoryEntry(
-  program: string,
-  id: string,
-  body: { isPR?: boolean; goalMet?: boolean },
-): Promise<TrainingMaxHistoryResponse['entries'][number]> {
-  return apiFetch(
-    `/programs/${encodeURIComponent(program)}/training-maxes/history/${encodeURIComponent(id)}`,
-    {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      cache: 'no-store',
-    },
-  );
-}
-
-export function updateTrainingMaxes(
-  program: string,
-  body: UpdateTrainingMaxesRequest,
-): Promise<TrainingMaxResponse[]> {
-  return apiFetch(
-    `/programs/${encodeURIComponent(program)}/training-maxes`,
-    {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      cache: 'no-store',
-    } as RequestInit,
-  );
-}
-
-export function fetchWorkout(
-  program: string,
-  workoutNum: number,
-): Promise<WorkoutResponse | null> {
-  return apiFetchNullable(
-    `/programs/${encodeURIComponent(program)}/workouts/${workoutNum}`,
-    { cache: 'no-store' },
-  );
-}
-
-export function fetchLiftRecords(
-  program: string,
-): Promise<LiftRecordResponse[]> {
-  return apiFetch(
-    `/programs/${encodeURIComponent(program)}/lift-records`,
-    { cache: 'no-store' },
-  );
-}
-
-export function createLiftRecord(
-  program: string,
-  body: CreateLiftRecordRequest,
-): Promise<LiftRecordResponse> {
-  return apiFetch(
-    `/programs/${encodeURIComponent(program)}/lift-records`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      cache: 'no-store',
-    },
-  );
-}
-
-export function updateLiftRecord(
-  program: string,
-  id: string,
-  body: UpdateLiftRecordRequest,
-): Promise<LiftRecordResponse> {
-  return apiFetch(
-    `/programs/${encodeURIComponent(program)}/lift-records/${encodeURIComponent(id)}`,
-    {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      cache: 'no-store',
-    },
-  );
-}
-
-export function recordBodyWeight(
-  program: string,
-  body: RecordBodyWeightRequest,
-): Promise<void> {
-  return apiFetch(
-    `/programs/${encodeURIComponent(program)}/body-weight`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      cache: 'no-store',
-    },
-  );
-}
-
-export function fetchLatestBodyWeight(
-  program: string,
-): Promise<BodyWeightResponse | null> {
-  return apiFetchNullable(
-    `/programs/${encodeURIComponent(program)}/body-weight/latest`,
-    { cache: 'no-store' },
-  );
-}
-
-export async function fetchStrengthGoals(
-  program: string,
-): Promise<StrengthGoalResponse[]> {
-  const path = `/programs/${encodeURIComponent(program)}/strength-goals`;
-  const authHeaders = await getAuthHeaders();
-  const res = await fetch(`${API_URL}${path}`, {
-    cache: 'no-store',
-    headers: authHeaders,
-  });
-  if (!res.ok) throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
-  return res.json() as Promise<StrengthGoalResponse[]>;
-}
-
-export async function upsertStrengthGoal(
-  program: string,
-  lift: string,
-  body: UpsertStrengthGoalRequest,
-): Promise<StrengthGoalResponse> {
-  const path = `/programs/${encodeURIComponent(program)}/strength-goals/${encodeURIComponent(lift)}`;
-  const authHeaders = await getAuthHeaders();
-  const res = await fetch(`${API_URL}${path}`, {
-    method: 'PUT',
-    cache: 'no-store',
-    headers: { 'Content-Type': 'application/json', ...authHeaders },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
-  return res.json() as Promise<StrengthGoalResponse>;
-}
-
-export async function deleteStrengthGoal(
-  program: string,
-  lift: string,
-): Promise<void> {
-  const path = `/programs/${encodeURIComponent(program)}/strength-goals/${encodeURIComponent(lift)}`;
-  const authHeaders = await getAuthHeaders();
-  const res = await fetch(`${API_URL}${path}`, {
-    method: 'DELETE',
-    cache: 'no-store',
-    headers: authHeaders,
-  });
-  // 404 is treated as success: the goal is already absent, which is the desired end state.
-  if (!res.ok && res.status !== 404) {
-    throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
-  }
-}
-
-export async function fetchLiftCatalog(program: string): Promise<string[]> {
-  const path = `/programs/${encodeURIComponent(program)}/lifts`;
-  const authHeaders = await getAuthHeaders();
-  const res = await fetch(`${API_URL}${path}`, { cache: 'no-store', headers: authHeaders });
-  if (!res.ok) throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
-  return res.json() as Promise<string[]>;
-}
-
-export function fetchLiftMetadata(lift: string): Promise<LiftMetadataResponse> {
-  return apiFetch<LiftMetadataResponse>(
-    `/lifts/${encodeURIComponent(lift)}/metadata`,
-    { cache: 'no-store' },
-  );
-}
-
-export function fetchUserSettings(): Promise<UserSettingsResponse> {
-  return apiFetch<UserSettingsResponse>('/users/me/settings', { cache: 'no-store' });
-}
-
-export function updateUserSettings(
-  body: UpdateUserSettingsRequest,
-): Promise<UserSettingsResponse> {
-  return apiFetch<UserSettingsResponse>('/users/me/settings', {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    cache: 'no-store',
-  });
-}
-
-export function switchProgram(programId: string): Promise<SwitchProgramResponse> {
-  return apiFetch<SwitchProgramResponse>(
-    `/programs/${encodeURIComponent(programId)}/switch`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: 'no-store' },
-  );
-}
-
-export function fetchCustomPrograms(): Promise<CustomProgramSummaryResponse[]> {
-  return apiFetch<CustomProgramSummaryResponse[]>('/programs/custom', { cache: 'no-store' });
-}
-
-export function fetchCustomProgram(id: string): Promise<CustomProgramResponse> {
-  return apiFetch<CustomProgramResponse>(
-    `/programs/custom/${encodeURIComponent(id)}`,
-    { cache: 'no-store' },
-  );
-}
-
-export function createCustomProgram(body: CreateCustomProgramRequest): Promise<CustomProgramResponse> {
-  return apiFetch<CustomProgramResponse>('/programs/custom', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    cache: 'no-store',
-  });
-}
-
-export function updateCustomProgram(
-  id: string,
-  body: UpdateCustomProgramRequest,
-): Promise<CustomProgramResponse> {
-  return apiFetch<CustomProgramResponse>(`/programs/custom/${encodeURIComponent(id)}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    cache: 'no-store',
-  });
-}
-
-export async function deleteCustomProgram(id: string): Promise<void> {
-  const authHeaders = await getAuthHeaders();
-  const path = `/programs/custom/${encodeURIComponent(id)}`;
-  const res = await fetch(`${API_URL}${path}`, {
-    method: 'DELETE',
-    headers: authHeaders,
-    cache: 'no-store',
-  });
-  if (!res.ok && res.status !== 404) {
-    throw new Error(`API ${res.status} ${res.statusText} for ${path}`);
-  }
-}
-
+// Endpoints are defined once in @lifting-logbook/api-client. This module is a thin
+// wrapper that binds them to the server auth strategy above and re-exports the
+// subset used by Server Components / Server Actions.
+export const {
+  fetchCycleDashboard,
+  createCycle,
+  initializeCycle,
+  fetchProgramSpec,
+  fetchTrainingMaxes,
+  fetchTrainingMaxHistory,
+  updateTrainingMaxHistoryEntry,
+  updateTrainingMaxes,
+  fetchWorkout,
+  fetchLiftRecords,
+  createLiftRecord,
+  updateLiftRecord,
+  recordBodyWeight,
+  fetchLatestBodyWeight,
+  fetchStrengthGoals,
+  upsertStrengthGoal,
+  deleteStrengthGoal,
+  fetchLiftCatalog,
+  fetchLiftMetadata,
+  fetchUserSettings,
+  updateUserSettings,
+  switchProgram,
+  fetchCustomPrograms,
+  fetchCustomProgram,
+  createCustomProgram,
+  updateCustomProgram,
+  deleteCustomProgram,
+} = createApiClient({ baseUrl: API_URL, getAuthHeaders });

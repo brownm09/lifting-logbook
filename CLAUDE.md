@@ -41,6 +41,7 @@ Turborepo monorepo with npm workspaces:
 ```
 packages/core        — pure domain logic (no infrastructure dependencies)
 packages/types       — shared TypeScript interfaces and API contracts
+packages/api-client  — typed REST client with pluggable auth (shared by web server + browser)
 apps/api             — NestJS + Fastify (primary): REST + GraphQL
 apps/web             — Next.js App Router frontend
 apps/mobile          — React Native (Expo) mobile client
