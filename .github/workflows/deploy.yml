@@ -690,6 +690,42 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_PROD_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_PROD_SERVICE_ACCOUNT }}
 
+      # ── Pre-promote auth-secret validation (#490 item 2 / #382) ────────────
+      # Fail fast BEFORE any production mutation (terraform apply, migrate, Cloud
+      # Run / Helm deploy) if a serve-gating auth secret is absent or still the
+      # Terraform placeholder. GCP Secret Manager is already the single source of
+      # truth — every surface (Cloud Run --update-secrets, the k8s Secret sync,
+      # the web build-arg) fetches from it rather than holding its own copy — so
+      # the only failure mode left is "the source value was never populated".
+      # #382 was exactly that: a missing prod clerk-secret-key, caught only after
+      # the web service was already serving auth 500s in prod. This surfaces it at
+      # promote time instead. It aggregates all failures (does not stop at the
+      # first) and never echoes a secret value. Scope is the two auth secrets
+      # whose absence breaks the served surface; the DB-url and OTel-header
+      # secrets keep their own per-step `[ -n ]` guards later in the job.
+      - name: Validate production auth secrets (pre-promote)
+        run: |
+          MISSING=0
+          for SECRET in \
+            lifting-logbook-prod-clerk-secret-key \
+            lifting-logbook-prod-clerk-publishable-key; do
+            VALUE=$(gcloud secrets versions access latest \
+              --secret="$SECRET" \
+              --project="${{ vars.GCP_PROD_PROJECT_ID }}" 2>/dev/null || true)
+            if [ -z "$VALUE" ]; then
+              echo "::error title=Missing production secret::$SECRET is absent or has no accessible version. Populate it in GCP Secret Manager (docs/deploy.md Step 4) before promoting."
+              MISSING=1
+            elif [ "$VALUE" = "REPLACE_ME" ]; then
+              echo "::error title=Placeholder production secret::$SECRET is still the Terraform placeholder (REPLACE_ME). Set the real value in GCP Secret Manager (docs/deploy.md Step 4) before promoting."
+              MISSING=1
+            fi
+          done
+          if [ "$MISSING" -ne 0 ]; then
+            echo "Production auth-secret preflight failed — aborting before any production mutation. See the errors above." >&2
+            exit 1
+          fi
+          echo "Production auth secrets present and non-placeholder — proceeding."
+
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v4
         with:
@@ -882,6 +918,57 @@ jobs:
             --set-env-vars="API_URL=${{ steps.tf-prod.outputs.cloud_run_api_url }}" \
             --update-secrets="CLERK_SECRET_KEY=lifting-logbook-prod-clerk-secret-key:latest" \
             --quiet
+
+      # ── Production web served-surface smoke (#490 item 3 / #382 / #407) ────
+      # Verify the *live* prod web surface through the real Cloud Run ingress
+      # after deploy, using the same two-probe shape the staging smoke uses (the
+      # smoke-test job): /livez (Next.js runtime, owned by app code) and /sign-in
+      # (Clerk auth flow, owned by middleware). Staging exercises this before the
+      # promote gate, but prod previously had only the DB-backed API /readyz smoke
+      # above — the web served surface was never re-checked in prod, so both
+      # failure classes this catches reached production undetected:
+      #   #382 — missing prod clerk-secret-key → web cannot serve auth (/sign-in)
+      #   #407 — GFE intercepts /healthz before the container → probe /livez
+      # The prod web service is --allow-unauthenticated, so no ID token is needed
+      # (unlike the IAM-gated API /readyz above). A non-200 fails the deploy loudly
+      # rather than surfacing days later; roll back the web revision per
+      # docs/deploy.md on failure (automated rollback is a tracked follow-up). Runs
+      # before the OTel steps below so telemetry rollout never gates this check.
+      - name: Smoke test Cloud Run production — /livez (web runtime)
+        run: |
+          # %/ strips a trailing slash so $BASE_URL/livez is never double-slashed.
+          BASE_URL="${{ steps.tf-prod.outputs.cloud_run_web_url }}"
+          BASE_URL="${BASE_URL%/}"
+          # Allow up to 3 minutes for the new web revision to become healthy.
+          for i in $(seq 1 18); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/livez" || true)
+            if [ "$STATUS" = "200" ]; then
+              echo "Production /livez returned 200 — OK"
+              exit 0
+            fi
+            echo "/livez attempt $i: got $STATUS, retrying in 10s..."
+            sleep 10
+          done
+          echo "Production /livez smoke FAILED — Next.js runtime not serving 200 (probe owned by app code, distinct from the Clerk auth flow). Roll back the web revision per docs/deploy.md." && exit 1
+
+      - name: Smoke test Cloud Run production — /sign-in (Clerk auth flow)
+        run: |
+          BASE_URL="${{ steps.tf-prod.outputs.cloud_run_web_url }}"
+          BASE_URL="${BASE_URL%/}"
+          # The runtime is already up (/livez passed immediately before this step).
+          # /sign-in should respond within seconds; if Clerk middleware cannot serve
+          # 200 in 60s the #382 auth-outage class has occurred, and fast failure
+          # improves operator turnaround.
+          for i in $(seq 1 6); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/sign-in" || true)
+            if [ "$STATUS" = "200" ]; then
+              echo "Production /sign-in returned 200 — OK"
+              exit 0
+            fi
+            echo "/sign-in attempt $i: got $STATUS, retrying in 10s..."
+            sleep 10
+          done
+          echo "Production /sign-in smoke FAILED — runtime healthy but Clerk auth flow not serving 200 (check the prod clerk-secret-key and the middleware matcher). Roll back the web revision per docs/deploy.md." && exit 1
 
       # ── OTel Collector (observability — #474) ──────────────────────────────
       # Mirror of the staging step (see deploy-staging) — deployed LAST in the job,
