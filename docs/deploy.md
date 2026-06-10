@@ -535,6 +535,13 @@ The auth headers are never committed: Terraform creates the Secret Manager conta
 `REPLACE_ME` placeholder, and you populate the real Grafana token here. The sync step fails
 the deploy loudly if the placeholder is still in place.
 
+> **Easiest path — guided script.** After `terraform apply` has created the secret
+> containers, run [`./scripts/bootstrap-otel-secrets.sh`](../scripts/bootstrap-otel-secrets.sh).
+> It prompts for the instance IDs + token (the token prompt is hidden), builds the headers,
+> and writes both envs' secret versions for you. Pass `--create` to also create the
+> containers ad-hoc if you have not applied Terraform yet (Terraform will then need a
+> `terraform import`). The manual steps below are the equivalent done by hand.
+
 1. **Get the values from the Grafana Cloud portal:**
    - **OTLP endpoint + instance ID** — Stack → Details → OpenTelemetry → *OTLP endpoint* and
      the numeric *Instance ID / User* (this endpoint also routes metrics → Mimir).
