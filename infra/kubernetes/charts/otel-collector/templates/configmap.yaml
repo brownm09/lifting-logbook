@@ -53,8 +53,17 @@ data:
         endpoint: ${env:OTEL_COLLECTOR_OTLP_ENDPOINT}
         headers:
           authorization: ${env:OTEL_COLLECTOR_OTLP_AUTH_HEADER}
-      prometheus:
-        endpoint: "0.0.0.0:8889"
+      # Metrics ship to Grafana Cloud over the same OTLP gateway as traces (the
+      # gateway fans metrics out to Mimir), reusing the OTLP auth header. This
+      # replaces the local-dev `prometheus` exporter on :8889 — in GKE nothing
+      # scrapes :8889, so that path was a dead end and APIRouteHighErrorRate's
+      # metrics never reached Mimir (#474). The local docker-compose collector
+      # (infra/observability/otel-collector.yaml) keeps the prometheus exporter,
+      # which the local Prometheus container scrapes.
+      otlphttp/metrics:
+        endpoint: ${env:OTEL_COLLECTOR_OTLP_ENDPOINT}
+        headers:
+          authorization: ${env:OTEL_COLLECTOR_OTLP_AUTH_HEADER}
       loki:
         endpoint: ${env:OTEL_COLLECTOR_LOKI_ENDPOINT}
         headers:
@@ -70,7 +79,7 @@ data:
         metrics:
           receivers: [otlp]
           processors: [batch]
-          exporters: [prometheus]
+          exporters: [otlphttp/metrics]
         logs:
           receivers: [otlp]
           processors: [batch]

@@ -26,8 +26,6 @@ spec:
               name: otlp-grpc
             - containerPort: 4318
               name: otlp-http
-            - containerPort: 8889
-              name: prometheus
             - containerPort: 13133
               name: health
           envFrom:
