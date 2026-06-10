@@ -3,7 +3,6 @@ import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentation
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
-import { resourceFromAttributes } from '@opentelemetry/resources';
 // @prisma/instrumentation@5.x directly instantiates sdk-trace-base's Span class,
 // which was made package-private in sdk-trace-base@2.x — causing "Span is not a
 // constructor" at $connect(). PrismaInstrumentation is excluded from the
@@ -32,11 +31,24 @@ export function resolveDeploymentEnvironment(
   return nodeEnv && nodeEnv.trim() !== '' ? nodeEnv.trim() : 'development';
 }
 
-/** Resource attributes carried by every span/metric/log this service emits. */
-export function buildResourceAttributes(
+/**
+ * Compose the value for OTEL_RESOURCE_ATTRIBUTES (comma-separated `key=value`
+ * pairs per the OTel spec), appending `deployment.environment.name` while
+ * preserving any pre-existing value. The SDK's default env detector turns this
+ * into a resource attribute on every span/metric/log.
+ *
+ * We attach the attribute via this env var rather than importing
+ * `resourceFromAttributes` from @opentelemetry/resources: @prisma/instrumentation
+ * (kept as a dependency per ADR-024) drags a nested resources@1.x into
+ * apps/api/node_modules that has no such export, so a direct import resolves to
+ * the v1 types under `nest build` and fails with TS2724 (#487).
+ */
+export function buildResourceAttributesEnv(
+  existing: string | undefined = process.env.OTEL_RESOURCE_ATTRIBUTES,
   nodeEnv?: string,
-): Record<string, string> {
-  return { [DEPLOYMENT_ENVIRONMENT_ATTR]: resolveDeploymentEnvironment(nodeEnv) };
+): string {
+  const pair = `${DEPLOYMENT_ENVIRONMENT_ATTR}=${resolveDeploymentEnvironment(nodeEnv)}`;
+  return existing && existing.trim() !== '' ? `${existing},${pair}` : pair;
 }
 
 let sdk: NodeSDK | undefined;
@@ -50,9 +62,12 @@ export function startOtel(): NodeSDK | undefined {
   // OTEL_EXPORTER_OTLP_METRICS_ENDPOINT (full URL) override per-signal. Sampling
   // is controlled by OTEL_TRACES_SAMPLER / OTEL_TRACES_SAMPLER_ARG (defaults to
   // parentbased_always_on); ADR-018 covers the production sampling decision.
+  // Set deployment.environment.name before constructing the SDK so the default
+  // env-based resource detector picks it up (see buildResourceAttributesEnv).
+  process.env.OTEL_RESOURCE_ATTRIBUTES = buildResourceAttributesEnv();
+
   sdk = new NodeSDK({
     serviceName: process.env.OTEL_SERVICE_NAME ?? 'lifting-logbook-api',
-    resource: resourceFromAttributes(buildResourceAttributes()),
     traceExporter: new OTLPTraceExporter(),
     metricReaders: [
       new PeriodicExportingMetricReader({

@@ -1,6 +1,6 @@
 import {
   DEPLOYMENT_ENVIRONMENT_ATTR,
-  buildResourceAttributes,
+  buildResourceAttributesEnv,
   resolveDeploymentEnvironment,
 } from './otel';
 
@@ -37,11 +37,29 @@ describe('resolveDeploymentEnvironment', () => {
   });
 });
 
-describe('buildResourceAttributes', () => {
-  it('sets the deployment.environment.name attribute from NODE_ENV', () => {
-    expect(buildResourceAttributes('production')).toEqual({
-      [DEPLOYMENT_ENVIRONMENT_ATTR]: 'production',
-    });
+describe('buildResourceAttributesEnv', () => {
+  it('emits a deployment.environment.name=<env> pair from NODE_ENV', () => {
+    expect(buildResourceAttributesEnv(undefined, 'production')).toBe(
+      'deployment.environment.name=production',
+    );
+  });
+
+  it('appends to a pre-existing OTEL_RESOURCE_ATTRIBUTES value, preserving it', () => {
+    expect(
+      buildResourceAttributesEnv('service.namespace=lifting', 'staging'),
+    ).toBe('service.namespace=lifting,deployment.environment.name=staging');
+  });
+
+  it('treats a blank pre-existing value as empty (no leading comma)', () => {
+    expect(buildResourceAttributesEnv('   ', 'production')).toBe(
+      'deployment.environment.name=production',
+    );
+  });
+
+  it('falls back to development when the resolved environment is blank', () => {
+    expect(buildResourceAttributesEnv(undefined, '')).toBe(
+      'deployment.environment.name=development',
+    );
   });
 
   it('uses the stable semconv attribute key', () => {
