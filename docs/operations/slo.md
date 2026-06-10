@@ -135,6 +135,117 @@ SLO compliance is derived from the Prometheus metrics emitted by the OpenTelemet
 Ensure Mimir retention is set to **≥ 30 days** so 28-day window expressions have complete
 data. Contact the Grafana Cloud portal (Stack → Settings → Data retention) to verify.
 
+---
+
+## Calibrating `APIRouteHighErrorRate`
+
+`APIRouteHighErrorRate` (per-route 5xx ratio `by (http_route) > 5%` for 5m, defined in
+`infra/observability/alerts/api.yaml`) was shipped with two parameters that can only be settled
+against **real production metrics**, and were deferred to
+[#468](https://github.com/brownm09/lifting-logbook/issues/468) per [ADR-019](../adr/ADR-019-slo-methodology.md)'s
+note that threshold tuning waits for sustained traffic:
+
+1. **Is `http_route` the route *template*** (`/programs/:program/lifts`) rather than the raw path with
+   IDs interpolated? If raw, cardinality explodes and every single-request 500 becomes its own
+   100%-failure series — the rule must then be remediated.
+2. **Does the `> 5%` / `for: 5m` shape over-page on a single-user deploy?** On an idle route one 500
+   holds `rate(...[5m])` at ratio 100% for the whole window and can satisfy `for: 5m`. That sensitivity
+   is *wanted* for the low-traffic outage this defends against (#458/#460), but risks alert fatigue.
+
+There is no committed tooling to query production Mimir; run these in **Grafana Explore → Mimir
+datasource** (Cloud Metrics) and feed the results into the decision matrix below. `http_route` is the
+OTLP→Prometheus rendering of the OTel `http.route` attribute; `http_response_status_code` of
+`http.response.status_code`.
+
+### Step 1 — confirm `http_route` is the route template
+
+```promql
+# 1a. Enumerate every distinct route label value currently stored.
+#     PASS: templated → /programs/:program/lifts, /lifts/custom, /health, ...
+#     FAIL: raw paths with IDs → /programs/3f2a.../lifts, /programs/abc/lifts, ...
+count by (http_route) (http_server_request_duration_seconds_count)
+
+# 1b. Total route cardinality (single number).
+#     PASS: ~ number of API endpoints (single/low-double digits, stable over time).
+#     FAIL: hundreds+ and grows with usage → raw paths, cardinality blow-up.
+count(count by (http_route) (http_server_request_duration_seconds_count))
+
+# 1c. Empty/missing-route series — instrumentation-http can record the metric with no
+#     http.route on unmatched 404s or before routing resolves. A small fixed set is fine;
+#     a large or per-request-growing empty bucket means routes aren't landing on the metric.
+count by (http_route) (http_server_request_duration_seconds_count{http_route=""})
+```
+
+> **If 1a/1b show raw paths (FAIL):** add a `metricstransform` / `attributes` processor in
+> `infra/observability/otel-collector.yaml` to template the label (or set `http.route` explicitly
+> upstream), then re-run 1a–1c to confirm. The code uses default `getNodeAutoInstrumentations()` with
+> no Collector transform, so the expectation is PASS — these queries exist to *prove* it against a
+> real sample, not to assume it.
+
+### Step 2 — characterize traffic to choose a volume floor vs. a longer `for:`
+
+```promql
+# 2a. Per-route average request rate (req/s) over 14d. ×300 ≈ requests per 5m window.
+#     A candidate volume floor "> n req/s": n = 0.0167 ≈ 5 req / 5m.
+sum by (http_route) (rate(http_server_request_duration_seconds_count[14d]))
+
+# 2b. Per-route PEAK 5m request rate over 14d — a volume floor must sit BELOW the busiest
+#     5m of the lowest-but-real route, or a genuine low-traffic outage gets suppressed.
+max_over_time(
+  (sum by (http_route) (rate(http_server_request_duration_seconds_count[5m])))[14d:5m]
+)
+
+# 2c. Per-route 5xx count over 14d — where do real errors actually land?
+sum by (http_route) (increase(http_server_request_duration_seconds_count{http_response_status_code=~"5.."}[14d]))
+
+# 2d. Overall daily request volume — characterize the single-user traffic level.
+sum(increase(http_server_request_duration_seconds_count[1d]))
+
+# 2e. FALSE-POSITIVE ESTIMATE — count of per-route 5m windows in the last 14d where the
+#     CURRENT rule condition (ratio > 5%) held. Each sustained run ≈ one page.
+count_over_time(
+  (
+    (sum by (http_route) (rate(http_server_request_duration_seconds_count{http_response_status_code=~"5.."}[5m]))
+     / sum by (http_route) (rate(http_server_request_duration_seconds_count[5m]))) > 0.05
+  )[14d:5m]
+)
+
+# 2f. SAME, with a candidate floor of 5 req/5m (0.0167 req/s) applied. Compare 2f vs 2e:
+#     the difference is the number of one-off / idle-route pages the floor would remove.
+count_over_time(
+  (
+    (
+      sum by (http_route) (rate(http_server_request_duration_seconds_count{http_response_status_code=~"5.."}[5m]))
+      / sum by (http_route) (rate(http_server_request_duration_seconds_count[5m])) > 0.05
+    )
+    and
+    (sum by (http_route) (rate(http_server_request_duration_seconds_count[5m])) > 0.0167)
+  )[14d:5m]
+)
+```
+
+> **If `2a`/`2e`/`2f` are rejected or time out:** a `[14d:5m]` subquery evaluates an inner 5m
+> rate at ~4 000 steps in one shot, and `rate(...[14d])` spans a long window — either can exceed
+> Grafana Cloud Mimir's per-query execution-time / max-samples limits. Narrow the range and coarsen
+> the step (e.g. `[7d:10m]`), or run a week at a time and sum the counts. The false-positive *trend*
+> is what drives the decision, not exact step counts.
+
+### Step 3 — decide from the data
+
+| Observation from 2a–2f | Recommended change |
+|---|---|
+| 2e ≈ 0 (rule essentially never tripped outside real incidents) | **Confirm adequate** — record the 0 count as evidence in #468, no rule change. |
+| 2e > 0 driven by idle routes, **and** real routes' 2b peak ≫ 5 req/5m | **Add a volume floor** `and sum by (http_route)(rate(...[5m])) > <n>`, with `<n>` set below the lowest real route's 2b peak and above 1 req/5m. |
+| Even real routes routinely sit < 5 req/5m (very sparse single-user traffic) | **Lengthen `for:`** (e.g. 10–15m) instead of a floor, so a one-off 500 self-clears but a sustained outage still pages — avoids blinding low-traffic-but-broken routes. |
+| 2f removes legitimate-outage windows, not just noise | Floor too high → lower `<n>`, or fall back to the `for:` option. |
+
+Any change that adds volume-floor logic to `api.yaml` **must** add a matching `promtool test rules`
+scenario to `infra/observability/alerts/api.test.yaml` (a low-volume route below the floor must *not*
+fire; a route above the floor at 100% 5xx must). After changing the rule, apply it with the
+`mimirtool` procedure below.
+
+---
+
 ### Applying alert config to Grafana Cloud
 
 The rule and routing config are kept as code in `infra/observability/`. They are applied to the

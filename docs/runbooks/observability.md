@@ -148,7 +148,10 @@ Four Prometheus alert rules are defined in
 single endpoint fails at 100% but carries little traffic — the exact shape of the #458/#460
 outage, which ran undetected for four days. The per-route rule trips on any one route's
 sustained 5xx regardless of overall volume. See
-[api-5xx-surge.md](api-5xx-surge.md) for first response.
+[api-5xx-surge.md](api-5xx-surge.md) for first response. Its `> 5%` threshold, `for: 5m` window,
+and whether to add a low-traffic volume floor are calibrated against production metrics using the
+queries in [slo.md → Calibrating `APIRouteHighErrorRate`](../operations/slo.md#calibrating-apiroutehigherrorrate)
+([#468](https://github.com/brownm09/lifting-logbook/issues/468)).
 
 > **Known issue:** `APINoRequests` fires spuriously outside business hours because it
 > has no `for:` grace period. This is a documented open item in ADR-018. The Alertmanager
@@ -213,8 +216,10 @@ Grafana Cloud endpoints and credentials are obtained from the Grafana Cloud port
 
 ### GKE production
 
-Values are stored in a Kubernetes Secret named `otel-collector-auth` in the workload
-namespace (keys: `otlp-auth-header`, `loki-auth-header`). The Helm chart reads them
+Values are stored in a Kubernetes Secret named `otel-collector-secrets` in the workload
+namespace — this must match the chart's `existingSecret` value
+([`charts/otel-collector/values.yaml`](../../infra/kubernetes/charts/otel-collector/values.yaml))
+(keys: `otlp-auth-header`, `loki-auth-header`). The Helm chart reads them
 automatically — see
 [`infra/kubernetes/charts/otel-collector/templates/NOTES.txt`](../../infra/kubernetes/charts/otel-collector/templates/NOTES.txt)
 for the bootstrap command.
@@ -223,9 +228,9 @@ Recommended path: External Secrets Operator pulling from GCP Secret Manager via
 Workload Identity. To bootstrap manually:
 
 ```sh
-kubectl create secret generic otel-collector-auth \
-  --from-literal=otlp-auth-header="Basic <base64(instanceId:apiKey)>" \
-  --from-literal=loki-auth-header="Basic <base64(instanceId:apiKey)>"
+kubectl create secret generic otel-collector-secrets \
+  --from-literal=otlp-auth-header="Basic <base64(tempoInstanceId:apiKey)>" \
+  --from-literal=loki-auth-header="Basic <base64(lokiInstanceId:apiKey)>"
 ```
 
 ### Cloud Run (future)
