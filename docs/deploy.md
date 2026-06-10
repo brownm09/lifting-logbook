@@ -565,6 +565,13 @@ the deploy loudly if the placeholder is still in place.
    If applying Terraform out of band, `gcloud secrets create <name> --replication-policy=automatic`
    first, then `versions add`.
 
+   > **Single shared stack (free tier).** Staging and production reuse the *same* Grafana Cloud
+   > stack, endpoints, and token here. Because the API does not yet emit a `deployment.environment`
+   > attribute, the two environments' telemetry intermix and staging 5xx can trip prod alerts —
+   > tracked in [#487](https://github.com/brownm09/lifting-logbook/issues/487). If you later move to
+   > separate stacks, give each env its own endpoints (the per-env values files) and token (the
+   > per-env secrets) instead.
+
 After the secrets are populated, the next push-to-main deploy wires telemetry end to end —
 verify in Grafana Cloud: Tempo `{ service.name = "lifting-logbook-api" }`, Loki
 `{ service_name = "lifting-logbook-api" }`, and the `http.server.*` metric in Mimir. The

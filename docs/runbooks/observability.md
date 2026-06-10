@@ -239,6 +239,13 @@ nothing scrapes in GKE. This is the path `APIRouteHighErrorRate` depends on. (Th
 docker-compose collector keeps the `prometheus`/`:8889` exporter, which the local
 Prometheus container scrapes.)
 
+> **Shared stack (free tier):** staging and production export to the **same** Grafana Cloud
+> stack with the same endpoints/token. The API currently tags telemetry with `service.name`
+> only — there is **no `deployment.environment`** attribute — so staging and prod telemetry
+> intermix, and a staging 5xx trips the `http_route`-grouped prod alert rules. Adding an
+> environment discriminator + scoping the prod alerts is tracked in
+> [#487](https://github.com/brownm09/lifting-logbook/issues/487).
+
 ### Cloud Run (deferred)
 
 The A/B Cloud Run replica does not yet ship telemetry. A sidecar template exists at
