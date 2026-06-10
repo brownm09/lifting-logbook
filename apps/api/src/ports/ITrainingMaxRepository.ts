@@ -3,5 +3,16 @@ import { TrainingMax } from '@lifting-logbook/core';
 export interface ITrainingMaxRepository {
   getTrainingMaxes(program: string): Promise<TrainingMax[]>;
 
+  /**
+   * Upserts the given training maxes for a program, keyed by lift. Lifts that
+   * are not present in `maxes` are left untouched — this is an upsert, NOT a
+   * full replace, so callers may safely pass a subset of a program's lifts.
+   *
+   * Both adapters must honour this contract: the Prisma adapter upserts each
+   * row by `(userId, program, lift)`, and the in-memory adapter merges by lift.
+   * A full-replace implementation here would silently wipe omitted lifts on a
+   * partial Smart Import (#477) — the divergence fixed in #485. There is
+   * intentionally no delete-via-save path.
+   */
   saveTrainingMaxes(program: string, maxes: TrainingMax[]): Promise<void>;
 }
