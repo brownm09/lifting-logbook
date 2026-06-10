@@ -177,23 +177,28 @@ Three ways, same queries:
   [`run-calibration-queries.ps1`](../../scripts/observability/run-calibration-queries.ps1) reads them
   and queries Mimir with `Invoke-RestMethod`.
 
-- **Bash (cross-platform / CI).** Run all of 1a–2f at once:
+- **Bash (turnkey — Git Bash, macOS, Linux, CI).** Enter your keys once; they persist to
+  `~/.bashrc`, then the runner uses them:
 
   ```bash
-  # One-time: copy the template, fill in values from the Grafana Cloud portal.
-  cp scripts/observability/.mimir-credentials.example scripts/observability/.mimir-credentials
-  # edit scripts/observability/.mimir-credentials  (gitignored — never commit real tokens)
+  # One-time: enter MIMIR_ADDRESS / MIMIR_API_USER / MIMIR_API_KEY (token input hidden).
+  # `source` so the current shell gets them too (new shells inherit from ~/.bashrc).
+  source scripts/observability/mimir-setup.sh
 
+  # Then run all of 1a–2f (now, or from any new terminal):
   scripts/observability/run-calibration-queries.sh
   ```
 
-  The script sources [`scripts/observability/mimir-query-env.sh`](../../scripts/observability/mimir-query-env.sh),
-  which exports `MIMIR_ADDRESS` / `MIMIR_API_USER` / `MIMIR_API_KEY` (it also honors variables already
-  in the environment — e.g. those set by `mimir-setup.ps1`). The **auth** variables
-  (`MIMIR_API_USER` / `MIMIR_API_KEY`) are the same ones the `mimirtool` step below uses, so one
-  credentials file serves both; the URL base may differ between the two (the query API is at
-  `${MIMIR_ADDRESS}/api/v1/query` — set `MIMIR_QUERY_URL` if that path is wrong for your stack). The
-  token needs only the `metrics:read` scope.
+  [`mimir-setup.sh`](../../scripts/observability/mimir-setup.sh) writes the variables to `~/.bashrc`
+  (plaintext, like any saved credential — it prints the removal one-liner). The runner sources
+  [`mimir-query-env.sh`](../../scripts/observability/mimir-query-env.sh), which exports the variables
+  (and also honors any already set — including those from `mimir-setup.sh`/`mimir-setup.ps1`, or a
+  gitignored `.mimir-credentials` file copied from
+  [`.mimir-credentials.example`](../../scripts/observability/.mimir-credentials.example) if you prefer
+  a file over `~/.bashrc`). The **auth** variables (`MIMIR_API_USER` / `MIMIR_API_KEY`) are the same
+  ones the `mimirtool` step below uses, so one setup serves both; the URL base may differ (the query
+  API is at `${MIMIR_ADDRESS}/api/v1/query` — set `MIMIR_QUERY_URL` if that path is wrong for your
+  stack). The token needs only the `metrics:read` scope.
 
 - **Grafana Explore (zero install).** Open **Explore → Mimir datasource** (Cloud Metrics) and paste
   each query below. Use **Instant** (not Range) query type for the `count(...)` and `[14d:5m]`
