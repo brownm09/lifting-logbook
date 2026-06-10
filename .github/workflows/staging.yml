@@ -328,7 +328,7 @@ jobs:
       # so staging exercises the same migrate path as prod (#460). Terraform
       # applies a placeholder image, so set the real image, then execute + wait.
       # continue-on-error matches the staging Cloud Run deploy below: staging
-      # Cloud SQL connectivity is intermittently flaky (#344), and the Staging
+      # Cloud SQL connectivity is intermittently flaky (#498), and the Staging
       # Integration Tests are the authoritative gate — a transient migrate blip
       # should not hard-fail the job before they run. A genuine migration failure
       # still surfaces as an integration-test failure (missing tables).
@@ -346,7 +346,7 @@ jobs:
             --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
             --wait
 
-      # The migrate step above is continue-on-error (Cloud SQL flakiness, #344), so a genuine
+      # The migrate step above is continue-on-error (Cloud SQL flakiness, #498), so a genuine
       # migration failure would otherwise vanish into a green run. Surface it loudly: a workflow
       # warning annotation plus a job-summary block. Advisory only — the Staging Integration
       # Tests remain the authoritative gate — but it stops a real failure being swallowed
@@ -354,11 +354,11 @@ jobs:
       - name: Surface swallowed migration failure (staging)
         if: steps.migrate.outcome == 'failure'
         run: |
-          echo "::warning title=Staging migration failed (swallowed by continue-on-error)::The in-VPC Prisma migrate job exited non-zero. This may be transient Cloud SQL flakiness (#344) or a genuine migration failure - confirm the Staging Integration Tests below actually exercise the migrated tables before trusting this run."
+          echo "::warning title=Staging migration failed (swallowed by continue-on-error)::The in-VPC Prisma migrate job exited non-zero. This may be transient Cloud SQL flakiness (#498) or a genuine migration failure - confirm the Staging Integration Tests below actually exercise the migrated tables before trusting this run."
           {
             echo "### :warning: Staging migration failed (swallowed by continue-on-error)"
             echo ""
-            echo "The in-VPC Prisma migrate job exited non-zero. \`continue-on-error\` kept the pipeline green per #344 (intermittent staging Cloud SQL connectivity)."
+            echo "The in-VPC Prisma migrate job exited non-zero. \`continue-on-error\` kept the pipeline green per #498 (intermittent staging Cloud SQL connectivity)."
             echo ""
             echo "If this is **not** transient flakiness, the staging schema may be stale. Verify the integration tests touched the affected tables, then re-run or investigate. See ADR-027."
           } >> "$GITHUB_STEP_SUMMARY"
@@ -471,7 +471,7 @@ jobs:
       - name: Deploy API to Cloud Run (staging)
         id: deploy-api
         if: steps.clerk-check.outputs.configured == 'true'
-        # Cloud SQL connectivity issues tracked in #344. continue-on-error allows the
+        # Cloud SQL connectivity issues tracked in #498. continue-on-error allows the
         # job to complete so the log-fetch step below can capture the crash reason.
         continue-on-error: true
         run: |
@@ -661,7 +661,7 @@ jobs:
             exit 1
           fi
           if [[ "$API_DEPLOYED" != "true" ]]; then
-            echo "::error::Cloud Run API deploy failed — integration tests cannot run. Check the 'Fetch Cloud Run API logs on failure' step in the Deploy API (staging) job. Tracked in #344."
+            echo "::error::Cloud Run API deploy failed — integration tests cannot run. Check the 'Fetch Cloud Run API logs on failure' step in the Deploy API (staging) job. Tracked in #498."
             exit 1
           fi
 
@@ -794,7 +794,7 @@ jobs:
             } else if (!clerkConfigured) {
               body = '⚠️ **Staging integration tests skipped** — `lifting-logbook-stg-clerk-secret-key` in GCP Secret Manager is still the placeholder value. Follow [docs/deploy.md Step 4](https://github.com/${{ github.repository }}/blob/${{ github.event.pull_request.head.sha }}/docs/deploy.md#step-4--sign-up-for-clerk-and-create-two-apps) to configure the staging Clerk secret key, then re-run CI.';
             } else if (!cloudRunApiDeployed) {
-              body = `⚠️ **Staging integration tests skipped** — Cloud Run API deploy failed (container did not start). Check the "Fetch Cloud Run API logs on failure" step in the [workflow run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for the crash reason. Tracked in [#344](https://github.com/${{ github.repository }}/issues/344).`;
+              body = `⚠️ **Staging integration tests skipped** — Cloud Run API deploy failed (container did not start). Check the "Fetch Cloud Run API logs on failure" step in the [workflow run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for the crash reason. Tracked in [#498](https://github.com/${{ github.repository }}/issues/498).`;
             } else if (testResult === 'success') {
               body = `✅ **Staging integration tests passed**\n\n🔗 [Staging environment](${webUrl})`;
             } else if (testResult === 'failure') {
