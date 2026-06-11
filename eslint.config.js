@@ -31,6 +31,11 @@ module.exports = [
     },
     rules: {
       'lifting-logbook/require-fetch-cache': 'error',
+      // Forbid raw fetch() to the API and hand-built auth headers outside the typed api-client.
+      // The rule allowlists the two wrapper modules (lib/api.ts, lib/client-api.ts) and the
+      // metadata-server fetch (lib/gcp-identity-token.ts) internally. See
+      // tools/eslint-rules/no-raw-fetch-outside-api-client.js.
+      'lifting-logbook/no-raw-fetch-outside-api-client': 'error',
     },
   },
   // Enforce test coverage for error-swallowing fallbacks in Server Components and

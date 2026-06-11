@@ -99,10 +99,41 @@ Deliberate non-flags (cannot be verified statically, so left to code review):
   (`{ next: { revalidate: 60 } } as RequestInit`) **is** unwrapped to the object
   literal underneath and inspected.
 
-> **Lint-scope caveat.** The web workspace lint script is `eslint app`, so
-> `apps/web/lib/*.ts` is not currently linted in CI — this rule only effectively
-> runs against `apps/web/app`. Widening that scope is tracked in
-> [#473](https://github.com/brownm09/lifting-logbook/issues/473).
+> **Lint scope.** The web workspace lint script is `eslint app lib`, so this rule
+> runs against both `apps/web/app` and `apps/web/lib` in CI. (`lib/` coverage was
+> added in [#473](https://github.com/brownm09/lifting-logbook/issues/473) — before
+> that the script was `eslint app` and `lib/` fetch sites were unguarded.)
+
+### `lifting-logbook/no-raw-fetch-outside-api-client`
+
+Scoped to `apps/web/**/*.{ts,tsx}` (spec/test files ignored) via
+[`eslint.config.js`](../../eslint.config.js). #466/#479 consolidated all web HTTP
+access into [`packages/api-client`](../../packages/api-client)'s
+`createApiClient({ baseUrl, getAuthHeaders })`, which owns the
+`X-Clerk-Authorization` (server, Cloud Run IAM) vs `Authorization` (browser) split
+and merges auth headers with auth-wins precedence. This rule (flag 6 of the
+2026-06-08 architecture review, [#464](https://github.com/brownm09/lifting-logbook/issues/464)
+/ [#494](https://github.com/brownm09/lifting-logbook/issues/494)) prevents a raw
+`fetch()` to the API — written the "obvious" way — from bypassing the client and
+403-ing behind Cloud Run IAM.
+
+It flags:
+
+- **Bare `fetch(...)` calls** — `fetch(url, …)` (not `something.fetch(…)`). API
+  calls must go through the typed client.
+- **Hand-built auth headers** — an object literal with a static property keyed
+  `Authorization` or `X-Clerk-Authorization` (compared case-insensitively). These
+  headers are owned by the api-client; constructing them elsewhere is the footgun.
+
+Allowlisted files (checked by filename inside the rule, not via `eslint.config.js`):
+
+- `apps/web/lib/api.ts` and `apps/web/lib/client-api.ts` — the two
+  `createApiClient()` wrapper modules that legitimately set auth headers.
+- `apps/web/lib/gcp-identity-token.ts` — fetches the **GCP metadata server** (not
+  the API) and builds a `Metadata-Flavor` header, not an auth header.
+
+`packages/api-client` is outside the `apps/web` lint scope, so the `fetch()` inside
+`createApiClient()` is never seen by this rule.
 
 ## Adding a new rule
 
