@@ -31,10 +31,16 @@ export async function GET() {
     return NextResponse.json({ ok: true, userId, apiCheck: 'skipped' });
   }
 
+  /* eslint-disable lifting-logbook/no-raw-fetch-outside-api-client --
+     Deliberate exception: this deployment probe calls the backend /health directly with a
+     GCP identity token for Cloud Run IAM *only* — it intentionally omits Clerk JWT forwarding
+     (see the comment above re: dev-mode JWT TTL). Routing through the typed api-client would
+     add X-Clerk-Authorization and change the auth semantics this probe specifically verifies. */
   const res = await fetch(`${API_URL}/health`, {
     headers: { Authorization: `Bearer ${identityToken}` },
     cache: 'no-store',
   });
+  /* eslint-enable lifting-logbook/no-raw-fetch-outside-api-client */
 
   if (!res.ok) {
     return NextResponse.json(
