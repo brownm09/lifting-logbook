@@ -5,4 +5,9 @@ metadata:
 data:
   NODE_ENV: {{ .Values.env.NODE_ENV | quote }}
   PORT: {{ .Values.env.PORT | quote }}
+  # Server-side (SSR) API endpoint — cluster-internal on GKE.
   API_URL: {{ .Values.env.API_URL | quote }}
+  # Browser-facing (external) API endpoint, injected at runtime into
+  # window.__PUBLIC_CONFIG__ (#396 / ADR-028). Distinct from API_URL because the
+  # browser cannot reach the in-cluster service.
+  PUBLIC_API_URL: {{ .Values.env.PUBLIC_API_URL | quote }}

@@ -33,7 +33,11 @@ spec:
             - configMapRef:
                 name: {{ include "lifting-logbook-web.fullname" . }}-config
           env:
-            - name: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+            # Runtime public config (#396 / ADR-028): read by the root layout at request
+            # time and passed to <ClerkProvider> as a prop — no longer NEXT_PUBLIC_ /
+            # bundle-inlined. API_URL (cluster-internal, SSR) and PUBLIC_API_URL
+            # (browser-facing) come from the ConfigMap via envFrom above.
+            - name: CLERK_PUBLISHABLE_KEY
               valueFrom:
                 secretKeyRef:
                   name: {{ include "lifting-logbook-web.fullname" . }}-secrets

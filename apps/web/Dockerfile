@@ -26,8 +26,11 @@ COPY --from=installer /app/out/full/ .
 # dependency of web) extends ../../tsconfig.base.json and fails with TS5083
 # without this explicit copy.
 COPY --from=installer /app/tsconfig.base.json ./tsconfig.base.json
-ARG NEXT_PUBLIC_API_URL
-ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+# No NEXT_PUBLIC_* build-args: public config (API URL, Clerk publishable key, default
+# program) is injected at RUNTIME, not baked into the bundle at build time. This is what
+# restores the single build-once / promote-everywhere image (#396 / ADR-028, superseding
+# ADR-025's per-env builds). The runtime values are supplied by the deploy step's
+# --set-env-vars / --update-secrets and read by the root layout at request time.
 RUN npx turbo run build --filter=@lifting-logbook/web
 
 # Build-time guard for #407 / #409: the staging deploy smoke probes /livez

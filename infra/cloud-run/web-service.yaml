@@ -2,10 +2,13 @@
 # Per ADR-009: Cloud Run receives 10% of traffic as the A/B comparison target.
 #
 # Template variables (substituted by CI/CD):
-#   $PROJECT_ID  — GCP project ID
-#   $REGION      — GCP region (us-central1)
-#   $IMAGE_TAG   — Git SHA of the deployed image
-#   $API_URL     — Internal Cloud Run API service URL
+#   $PROJECT_ID      — GCP project ID
+#   $REGION          — GCP region (us-central1)
+#   $IMAGE_TAG       — Git SHA of the deployed image
+#   $API_URL         — Internal Cloud Run API service URL (server-side calls)
+#   $PUBLIC_API_URL  — Browser-facing (external) API URL, injected at runtime into
+#                      window.__PUBLIC_CONFIG__ (#396 / ADR-028). On Cloud Run this is
+#                      the same external URL as $API_URL.
 
 apiVersion: serving.knative.dev/v1
 kind: Service
@@ -38,7 +41,12 @@ spec:
               value: "3001"
             - name: API_URL
               value: $API_URL
-            - name: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+            - name: PUBLIC_API_URL
+              value: $PUBLIC_API_URL
+            # Runtime public config (#396 / ADR-028): read by the root layout at request
+            # time and passed to <ClerkProvider> as a prop — no longer NEXT_PUBLIC_ /
+            # bundle-inlined. Restores the single build-once / promote-everywhere image.
+            - name: CLERK_PUBLISHABLE_KEY
               valueFrom:
                 secretKeyRef:
                   name: lifting-logbook-prod-clerk-publishable-key

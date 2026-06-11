@@ -2,10 +2,23 @@
 // Auth token is provided by ClerkApiInitializer via setAuthTokenGetter.
 
 import { createApiClient } from '@lifting-logbook/api-client';
+import { getClientPublicConfig } from './public-config';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3004';
-const isCloudRun = API_URL.startsWith('https://');
-const devToken = !isCloudRun ? process.env.NEXT_PUBLIC_DEV_AUTH_TOKEN : undefined;
+// Base URL and dev token are resolved LAZILY (per request) from the runtime-injected
+// window.__PUBLIC_CONFIG__ rather than read at module-eval time. The values are no longer
+// baked into the bundle at build time (#396 / ADR-028); the inline <head> script populates
+// the window global before this module evaluates or any fetch fires.
+function getApiUrl(): string {
+  return getClientPublicConfig().apiUrl;
+}
+
+// Dev-auth bearer token is only ever present in dev/Playwright (never on Cloud Run, where
+// the apiUrl is https://). Resolved per call so it tracks the runtime config.
+function getDevToken(): string | undefined {
+  const { apiUrl, devAuthToken } = getClientPublicConfig();
+  const isCloudRun = apiUrl.startsWith('https://');
+  return !isCloudRun ? devAuthToken : undefined;
+}
 
 type TokenGetter = () => Promise<string | null>;
 let _getToken: TokenGetter | null = null;
@@ -25,6 +38,7 @@ export function setAuthTokenGetter(fn: TokenGetter): void {
 // See CONTRIBUTING.md -> API auth headers.
 // ---------------------------------------------------------------------------
 async function getClientAuthHeaders(): Promise<Record<string, string>> {
+  const devToken = getDevToken();
   if (devToken) return { Authorization: `Bearer ${devToken}` };
   if (_getToken) {
     const token = await _getToken();
@@ -49,4 +63,4 @@ export const {
   importLiftRecords,
   previewImport,
   commitImport,
-} = createApiClient({ baseUrl: API_URL, getAuthHeaders: getClientAuthHeaders });
+} = createApiClient({ baseUrl: getApiUrl, getAuthHeaders: getClientAuthHeaders });

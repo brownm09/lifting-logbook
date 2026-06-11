@@ -151,8 +151,19 @@ resource "google_cloud_run_v2_service" "web" {
         value = google_cloud_run_v2_service.api.uri
       }
 
+      # Browser-facing API URL injected at runtime into window.__PUBLIC_CONFIG__
+      # (#396 / ADR-028). On Cloud Run the browser reaches the same external API URL
+      # as the server, so PUBLIC_API_URL == API_URL.
       env {
-        name = "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"
+        name  = "PUBLIC_API_URL"
+        value = google_cloud_run_v2_service.api.uri
+      }
+
+      # Runtime public config (#396 / ADR-028): consumed by the root layout and passed
+      # to <ClerkProvider> as a prop — no longer NEXT_PUBLIC_ / bundle-inlined, which is
+      # what restores the single build-once / promote-everywhere web image.
+      env {
+        name = "CLERK_PUBLISHABLE_KEY"
         value_source {
           secret_key_ref {
             secret  = google_secret_manager_secret.clerk_publishable_key.secret_id

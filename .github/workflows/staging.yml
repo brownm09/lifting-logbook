@@ -248,23 +248,12 @@ jobs:
         id: ar
         run: echo "repo=${{ needs.terraform-staging.outputs.ar_repo }}" >> "$GITHUB_OUTPUT"
 
-      - name: Resolve API URL for web image build
-        if: steps.image-tag.outputs.skip_build != 'true'
-        id: api-url
-        run: echo "url=${{ needs.terraform-staging.outputs.cloud_run_api_url }}" >> "$GITHUB_OUTPUT"
-
+      # No web-image API-URL / Clerk-key resolution: public config is injected at
+      # RUNTIME by the Cloud Run web deploy below, not baked into the bundle at build
+      # time (#396 / ADR-028). The web image builds once and is env-agnostic.
       - name: Configure Docker for Artifact Registry
         if: steps.image-tag.outputs.skip_build != 'true'
         run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
-
-      - name: Fetch staging Clerk publishable key
-        if: steps.image-tag.outputs.skip_build != 'true'
-        id: clerk-pub-key
-        run: |
-          CLERK_PUB=$(gcloud secrets versions access latest \
-            --secret="lifting-logbook-stg-clerk-publishable-key" \
-            --project="${{ vars.GCP_STAGING_PROJECT_ID }}")
-          echo "key=$CLERK_PUB" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         if: steps.image-tag.outputs.skip_build != 'true'
@@ -304,16 +293,13 @@ jobs:
           attempt_delay: 15000
           # Scoped cache (#407). Isolates PR-branch builds from the deploy.yml
           # main-branch web caches so a stale layer in one workflow cannot
-          # silently poison the other. build-args stays newline-delimited (values
-          # are NAME=value pairs that cannot be comma-split safely).
+          # silently poison the other. No build-args: public config is injected at
+          # runtime by the web deploy step, not baked in (#396 / ADR-028).
           with: |
             context: .
             file: apps/web/Dockerfile
             push: true
             tags: ${{ steps.ar.outputs.repo }}/web:${{ github.event.pull_request.head.sha }},${{ steps.ar.outputs.repo }}/web:pr-${{ github.event.pull_request.number }}
-            build-args: |
-              NEXT_PUBLIC_API_URL=${{ steps.api-url.outputs.url }}
-              NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ steps.clerk-pub-key.outputs.key }}
             cache-from: type=gha,scope=web-pr-v2
             cache-to: type=gha,scope=web-pr-v2,mode=max
 
@@ -606,6 +592,8 @@ jobs:
         if: needs.terraform-staging.outputs.gke_enabled == 'true'
         continue-on-error: true
         run: |
+          # API_URL = cluster-internal (SSR); PUBLIC_API_URL = browser-facing external
+          # endpoint injected into window.__PUBLIC_CONFIG__ at runtime (#396 / ADR-028).
           API_CLUSTER_URL="http://api.staging.svc.cluster.local:3000"
           helm upgrade --install web ./infra/kubernetes/charts/web \
             --namespace=staging \
@@ -615,6 +603,7 @@ jobs:
             --set gcp.projectId="${{ vars.GCP_STAGING_PROJECT_ID }}" \
             --set env.NODE_ENV=staging \
             --set env.API_URL="$API_CLUSTER_URL" \
+            --set env.PUBLIC_API_URL="${{ needs.terraform-staging.outputs.cloud_run_api_url }}" \
             --wait --timeout=10m
 
       # NOTE: this step is duplicated verbatim from `deploy-api` above. See the
@@ -639,6 +628,9 @@ jobs:
           # gcloud run services describe --format="value(status.url)" returns the legacy
           # *.a.run.app URL which may no longer be routed to the current service instance;
           # the "Service URL:" line from gcloud run deploy is always the live canonical URL.
+          # Runtime public-config injection (#396 / ADR-028): PUBLIC_API_URL == API_URL on
+          # Cloud Run; CLERK_PUBLISHABLE_KEY is a runtime secret env consumed by the root
+          # layout and passed to <ClerkProvider> as a prop.
           DEPLOY_OUT=$(gcloud run deploy lifting-logbook-stg-web \
             --image="${{ needs.build-images.outputs.ar_repo }}/web:${{ needs.build-images.outputs.image_tag }}" \
             --region="${{ env.REGION }}" \
@@ -646,8 +638,8 @@ jobs:
             --platform=managed \
             --allow-unauthenticated \
             --service-account="${{ needs.terraform-staging.outputs.web_workload_sa }}" \
-            --update-env-vars="API_URL=${{ needs.terraform-staging.outputs.cloud_run_api_url }}" \
-            --update-secrets="CLERK_SECRET_KEY=lifting-logbook-stg-clerk-secret-key:latest" \
+            --update-env-vars="API_URL=${{ needs.terraform-staging.outputs.cloud_run_api_url }},PUBLIC_API_URL=${{ needs.terraform-staging.outputs.cloud_run_api_url }}" \
+            --update-secrets="CLERK_SECRET_KEY=lifting-logbook-stg-clerk-secret-key:latest,CLERK_PUBLISHABLE_KEY=lifting-logbook-stg-clerk-publishable-key:latest" \
             --quiet 2>&1)
           echo "$DEPLOY_OUT"
           WEB_URL=$(echo "$DEPLOY_OUT" | grep "Service URL:" | awk '{print $NF}')

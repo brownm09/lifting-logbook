@@ -29,8 +29,10 @@ autoscaling:
 env:
   NODE_ENV: production
   PORT: "3001"
-  # API_URL is set per-environment in values/{staging,production}.yaml
+  # API_URL (SSR, cluster-internal) and PUBLIC_API_URL (browser-facing, runtime —
+  # #396/ADR-028) are set per-environment in values/{staging,production}.yaml.
   API_URL: ""
+  PUBLIC_API_URL: ""
 
 gcp:
   projectId: ""

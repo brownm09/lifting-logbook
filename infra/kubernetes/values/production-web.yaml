@@ -9,7 +9,8 @@ image:
 
 env:
   NODE_ENV: production
-  API_URL: ""      # set by CI/CD: GKE api service cluster-internal URL
+  API_URL: ""         # set by CI/CD: GKE api service cluster-internal URL (SSR)
+  PUBLIC_API_URL: ""  # set by CI/CD: browser-facing external API URL (runtime, #396/ADR-028)
 
 autoscaling:
   minReplicas: 2

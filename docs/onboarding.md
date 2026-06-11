@@ -65,10 +65,9 @@ Edit `apps/web/.env`:
 
 ```
 API_URL=http://localhost:3004
-NEXT_PUBLIC_API_URL=http://localhost:3004
-NEXT_PUBLIC_DEFAULT_PROGRAM=5-3-1
+PUBLIC_API_URL=http://localhost:3004
+DEFAULT_PROGRAM=5-3-1
 DEV_AUTH_TOKEN=dev-user
-NEXT_PUBLIC_DEV_AUTH_TOKEN=dev-user
 ```
 
 ```sh
