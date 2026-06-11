@@ -68,8 +68,11 @@ The pipeline now self-heals the transient classes; manual action is the exceptio
    `terraform apply`). A single transient 504 no longer reds the run. The same hardening was
    applied to `deploy.yml` (the push-to-`main` prod + staging-promote pipeline) for parity
    ([#504](https://github.com/brownm09/lifting-logbook/issues/504)) — including bounded retries on
-   the two `terraform apply` steps, all three `docker/build-push-action` builds, and the two
-   `imagetools` staging-AR→prod-AR copies, which are exposed to the same transient AR 504s.
+   the two `terraform apply` steps and every `docker/build-push-action` build. The latter now
+   includes the two direct prod-AR build-pushes that replaced the former `imagetools`
+   staging-AR→prod-AR copies ([#397](https://github.com/brownm09/lifting-logbook/issues/397) /
+   [ADR-029](../adr/ADR-029-per-env-artifact-registry-push.md)); they are exposed to the same
+   transient AR 504s and carry the same 3-attempt retry.
 2. **Migrate** runs a bounded 3-attempt retry and then **hard-fails** — there is no longer a
    `continue-on-error` masking it. A red migrate step is a *genuine* migration/schema failure:
    read the step log, fix the migration (or `prisma migrate resolve` via

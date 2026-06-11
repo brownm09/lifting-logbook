@@ -80,18 +80,3 @@ variable "cloud_run_min_instances" {
   type        = number
   default     = null
 }
-
-variable "external_ar_reader_service_accounts" {
-  description = <<-EOT
-    Service account emails (in other GCP projects) granted
-    `roles/artifactregistry.reader` on this environment's Artifact Registry.
-
-    Set in staging tfvars to include the production CI/CD SA: build-images
-    (.github/workflows/deploy.yml) re-auths to the prod SA at the tail of the
-    job and uses `docker buildx imagetools create` to copy api:<sha> and
-    web:<sha>-prod from the staging AR to the prod AR. The source-manifest
-    read uses prod credentials, so the prod SA needs reader access here.
-  EOT
-  type        = list(string)
-  default     = []
-}
