@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { TrainingMax } from '@lifting-logbook/core';
 import { ITrainingMaxRepository } from '../../ports/ITrainingMaxRepository';
+import { runBatch } from './prisma-tx.util';
 
 export class PrismaTrainingMaxRepository implements ITrainingMaxRepository {
   constructor(
@@ -21,9 +22,9 @@ export class PrismaTrainingMaxRepository implements ITrainingMaxRepository {
   }
 
   async saveTrainingMaxes(program: string, maxes: TrainingMax[]): Promise<void> {
-    await this.prisma.$transaction(
+    await runBatch(this.prisma, (db) =>
       maxes.map((m) =>
-        this.prisma.trainingMax.upsert({
+        db.trainingMax.upsert({
           where: {
             userId_program_lift: { userId: this.userId, program, lift: m.lift },
           },

@@ -3,6 +3,7 @@ import { LiftRecord } from '@lifting-logbook/core';
 import { IWorkoutRepository } from '../../ports/IWorkoutRepository';
 import { WorkoutNotFoundError } from '../../ports/errors';
 import { rowToLiftRecord } from './lift-record.repository';
+import { runBatch } from './prisma-tx.util';
 
 export class PrismaWorkoutRepository implements IWorkoutRepository {
   constructor(
@@ -25,11 +26,11 @@ export class PrismaWorkoutRepository implements IWorkoutRepository {
     workoutNum: number,
     records: LiftRecord[],
   ): Promise<void> {
-    await this.prisma.$transaction([
-      this.prisma.liftRecord.deleteMany({
+    await runBatch(this.prisma, (db) => [
+      db.liftRecord.deleteMany({
         where: { userId: this.userId, program, cycleNum, workoutNum },
       }),
-      this.prisma.liftRecord.createMany({
+      db.liftRecord.createMany({
         data: records.map((r) => ({
           userId: this.userId,
           program,

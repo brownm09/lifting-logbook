@@ -26,7 +26,9 @@ export class CustomProgramsController {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   private repo(user: AuthUser) {
-    return new CustomProgramsRepository(this.prisma, user.id);
+    // clientForRequest() yields the per-request RLS transaction client (GUC set) when one is
+    // active, so these queries are RLS-scoped under the lifting_app role. See prisma.service.ts.
+    return new CustomProgramsRepository(this.prisma.clientForRequest(), user.id);
   }
 
   @Get()

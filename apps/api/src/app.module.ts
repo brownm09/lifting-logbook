@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { LoggerModule } from 'nestjs-pino';
+import { ClsModule } from 'nestjs-cls';
 import { trace, context } from '@opentelemetry/api';
 import { RepositoryFactoryModule } from './adapters/factory/repository-factory.module';
 import { AuthModule } from './auth/auth.module';
@@ -11,6 +12,9 @@ import { UserSettingsModule } from './user-settings/user-settings.module';
 
 @Module({
   imports: [
+    // Provides ClsService (AsyncLocalStorage) globally. The RLS interceptor manages the context
+    // itself via cls.run() per request, so no auto-mounted middleware/guard is needed here.
+    ClsModule.forRoot({ global: true }),
     LoggerModule.forRoot({
       pinoHttp: {
         // Strip auth-bearing headers before they reach Loki. pino-http's default

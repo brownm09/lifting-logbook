@@ -4,7 +4,7 @@
 **Date:** 2026-04-03
 **Reviewed:** 2026-04-07
 **Review outcome:** Pass
-**Implementation status (2026-06-10):** Partially implemented — application-level `user_id` scoping is enforced in every repository (the live isolation boundary). The Postgres **RLS defense-in-depth layer described in the Decision below is NOT implemented**: no `ENABLE ROW LEVEL SECURITY` / `CREATE POLICY` migrations exist and no Prisma middleware sets `app.current_user_id`. Isolation is currently **single-layer**. Surfaced by the 2026-06-08 architecture review ([#464](https://github.com/brownm09/lifting-logbook/issues/464)); implementing-or-deferring the RLS layer is tracked in [#511](https://github.com/brownm09/lifting-logbook/issues/511).
+**Implementation status (2026-06-11):** Implemented — isolation is now **two-layer**. Application-level `user_id` scoping remains in every repository, and the Postgres **RLS defense-in-depth layer is now live**: migration `20260611000000_enable_rls` enables + forces RLS and creates per-user `CREATE POLICY` rules on all 14 user-data tables, and a per-request NestJS interceptor sets `app.current_user_id` (via `set_config`) inside a transaction that every repository query runs through. The gap was surfaced by the 2026-06-08 architecture review ([#464](https://github.com/brownm09/lifting-logbook/issues/464)) and closed in [#511](https://github.com/brownm09/lifting-logbook/issues/511). See the **Implementation** section below for the mechanism and the superuser/role requirement.
 
 ---
 
@@ -28,29 +28,61 @@ are a significant factor in the professional context in which this application i
 
 Use **shared schema with `user_id` scoping** for the Postgres adapter.
 
-Every user-data table includes a `user_id TEXT NOT NULL` column. All queries are filtered by the
-authenticated user's ID. Row-Level Security (RLS) is enabled in Postgres as a defense-in-depth
-measure:
+Every user-data table includes a `userId TEXT NOT NULL` column (`custom_program_spec` is the one
+exception — it has no `userId` and is isolated through its parent program's FK). All queries are
+filtered by the authenticated user's ID. Row-Level Security (RLS) is enabled in Postgres as a
+defense-in-depth measure, with **fail-closed** semantics (an unset session variable resolves to
+`NULL`, which matches no rows):
 
 ```sql
--- Enable RLS on all user-data tables
-ALTER TABLE workouts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "training_max" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "training_max" FORCE ROW LEVEL SECURITY;
 
--- Policy: users can only see their own rows
-CREATE POLICY user_isolation ON workouts
-  USING (user_id = current_setting('app.current_user_id'));
+CREATE POLICY "training_max_user_isolation" ON "training_max"
+  USING ("userId" = current_setting('app.current_user_id', true))
+  WITH CHECK ("userId" = current_setting('app.current_user_id', true));
 ```
 
-The application sets `app.current_user_id` at the start of each database session via Prisma
-middleware, so RLS enforcement happens at the database level independent of application logic.
+The application sets `app.current_user_id` once per request (via `set_config(_, _, true)`, the
+transaction-local `SET LOCAL` form) inside a transaction that every repository query for that
+request runs through, so RLS enforcement happens at the database level independent of application
+logic. See **Implementation** for why this requires a non-superuser database role.
 
-> **⚠ Implementation status (2026-06-10):** The RLS layer described in this section is **not yet
-> implemented**. No migration enables RLS or creates the `user_isolation` policies, and no Prisma
-> middleware/extension sets `app.current_user_id`. The live isolation boundary is application-level
-> `user_id` scoping in the repositories *only* — the database-enforced second layer does not exist.
-> Implementing it (or formally deciding to accept single-layer scoping) is tracked in
-> [#511](https://github.com/brownm09/lifting-logbook/issues/511). The decision to *use* RLS as
-> defense-in-depth stands; this note records that the code has not yet caught up.
+---
+
+## Implementation
+
+Implemented in [#511](https://github.com/brownm09/lifting-logbook/issues/511) (2026-06-11).
+
+- **Policies** — migration `apps/api/prisma/migrations/20260611000000_enable_rls` runs `ENABLE` +
+  `FORCE ROW LEVEL SECURITY` and one `USING`/`WITH CHECK` policy per table on all 13 `userId`
+  tables, plus an `EXISTS`-subquery policy on `custom_program_spec` (no `userId` — isolated through
+  `custom_program."userId"`). `FORCE` so the table owner is also constrained.
+- **Per-request user context** — `apps/api/src/adapters/prisma/rls.interceptor.ts` is a global
+  NestJS interceptor that, for every authenticated HTTP request, opens one interactive transaction,
+  runs `SELECT set_config('app.current_user_id', $userId, true)`, and stores the transaction client
+  in CLS (`nestjs-cls`). `PrismaRepositoryFactory` routes every repository through that client, so
+  all of a request's queries see the GUC. The `set_config` is wrapped in a manual OpenTelemetry
+  span ([ADR-024](ADR-024-prisma-otel-sdk-override.md) — raw SQL is not auto-traced). Because the
+  GUC is transaction-local, all of a request's DB work shares one transaction; the two repositories
+  that batch writes and the one that runs an interactive transaction use a small helper
+  (`prisma-tx.util.ts`) that reuses the request transaction instead of nesting (Prisma's
+  transaction client cannot open a nested transaction).
+- **Non-superuser role (required for enforcement)** — RLS is ignored by superusers and `BYPASSRLS`
+  roles. The migration creates a `lifting_app` role (`NOSUPERUSER NOBYPASSRLS`); the application
+  must connect as it in deployed environments for the policies to bite. Migrations run as the
+  owner/superuser role. Local dev and CI connect as the bootstrap superuser, so RLS is **dormant**
+  there (the app still works via the per-query `userId` scoping) — which is also the
+  instant-rollback path: repoint `DATABASE_URL` at the superuser role and RLS goes dormant with no
+  schema change. Provisioning `lifting_app` on Cloud SQL (Terraform user + secret cutover) is a
+  deployment-coupled follow-up.
+- **Verification** — `apps/api/src/adapters/prisma/rls.db.e2e.spec.ts` connects *as* `lifting_app`
+  and proves unscoped-read isolation, fail-closed-on-unset-GUC, `WITH CHECK` rejection, the
+  `custom_program_spec` FK policy, that the test role is genuinely non-superuser/non-`BYPASSRLS`,
+  and that the interceptor wires the GUC end to end.
+- **Known limitation** — `cycle-plan` calls an LLM between DB reads, so it holds its RLS transaction
+  (and a DB connection) for the model-call duration via a raised per-handler timeout. Moving the
+  LLM call outside the transaction is a tracked follow-up.
 
 ---
 
@@ -153,7 +185,9 @@ pricing that absorbs the infrastructure cost, or for HIPAA/regulated data.
 
 ## References
 
-- [PostgreSQL — Row Security Policies](https://www.postgresql.org/docs/current/ddl-rowsecurity.html) — The RLS feature used for database-level isolation; documents `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` and `CREATE POLICY` syntax.
+- [PostgreSQL — Row Security Policies](https://www.postgresql.org/docs/current/ddl-rowsecurity.html) — The RLS feature used for database-level isolation; documents `ALTER TABLE ... ENABLE ROW LEVEL SECURITY`, `FORCE ROW LEVEL SECURITY`, `CREATE POLICY` syntax, and the superuser/`BYPASSRLS` exemption that requires connecting as a non-superuser role.
+- [PostgreSQL — Configuration Settings Functions (`set_config` / `current_setting`)](https://www.postgresql.org/docs/current/functions-admin.html#FUNCTIONS-ADMIN-SET) — How `app.current_user_id` is set transaction-locally (`set_config(_, _, true)`) and read in policies (`current_setting('app.current_user_id', true)`, with `missing_ok = true` for fail-closed behaviour).
+- [nestjs-cls](https://papooch.github.io/nestjs-cls/) — The AsyncLocalStorage-backed CLS library used to carry the per-request transaction client from the RLS interceptor down to the repository factory.
 - [PostgreSQL — Schemas](https://www.postgresql.org/docs/current/ddl-schemas.html) — The schema-per-tenant alternative; covers `CREATE SCHEMA`, `search_path`, and namespace isolation.
 - [GDPR — Article 17: Right to Erasure](https://gdpr-info.eu/art-17-gdpr/) — The regulatory requirement analysed in the Compliance Analysis section; the difference in erasure complexity between shared-schema and schema-per-tenant is documented relative to this article.
 - [HHS — HIPAA Security Rule](https://www.hhs.gov/hipaa/for-professionals/security/index.html) — The US healthcare data protection regulation discussed in the HIPAA section; relevant if the application is extended to clinical contexts.
