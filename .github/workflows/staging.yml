@@ -631,6 +631,9 @@ jobs:
           # Runtime public-config injection (#396 / ADR-028): PUBLIC_API_URL == API_URL on
           # Cloud Run; CLERK_PUBLISHABLE_KEY is a runtime secret env consumed by the root
           # layout and passed to <ClerkProvider> as a prop.
+          # Use --set-env-vars (replace), matching deploy.yml: the deploy command is the single
+          # source of truth for the env set, so a var removed here can't linger on the revision
+          # via merge semantics. (Secrets use --update-secrets — a separate namespace.)
           DEPLOY_OUT=$(gcloud run deploy lifting-logbook-stg-web \
             --image="${{ needs.build-images.outputs.ar_repo }}/web:${{ needs.build-images.outputs.image_tag }}" \
             --region="${{ env.REGION }}" \
@@ -638,7 +641,7 @@ jobs:
             --platform=managed \
             --allow-unauthenticated \
             --service-account="${{ needs.terraform-staging.outputs.web_workload_sa }}" \
-            --update-env-vars="API_URL=${{ needs.terraform-staging.outputs.cloud_run_api_url }},PUBLIC_API_URL=${{ needs.terraform-staging.outputs.cloud_run_api_url }}" \
+            --set-env-vars="API_URL=${{ needs.terraform-staging.outputs.cloud_run_api_url }},PUBLIC_API_URL=${{ needs.terraform-staging.outputs.cloud_run_api_url }}" \
             --update-secrets="CLERK_SECRET_KEY=lifting-logbook-stg-clerk-secret-key:latest,CLERK_PUBLISHABLE_KEY=lifting-logbook-stg-clerk-publishable-key:latest" \
             --quiet 2>&1)
           echo "$DEPLOY_OUT"

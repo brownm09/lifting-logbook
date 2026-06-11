@@ -422,14 +422,24 @@ into the JS bundle (they are injected at runtime), and (2) each served page emit
 ```bash
 PROD_WEB="$(gcloud run services describe lifting-logbook-prod-web \
   --region=us-central1 --project=lifting-logbook-prod --format='value(status.url)')"
+# Resolve the ACTUAL API host injected at deploy time rather than assuming a *.run.app suffix:
+# a custom-domain or GKE-ingress API URL would not match a hardcoded `run.app` literal, so the
+# grep below would pass while a value was in fact embedded. Capture both env hosts.
+PROD_API_HOST="$(gcloud run services describe lifting-logbook-prod-api \
+  --region=us-central1 --project=lifting-logbook-prod --format='value(status.url)' | sed -E 's#^https?://##')"
+STG_API_HOST="$(gcloud run services describe lifting-logbook-stg-api \
+  --region=us-central1 --project=lifting-logbook-staging --format='value(status.url)' | sed -E 's#^https?://##')"
 
-# (1) The bundle must NOT contain any embedded API host or Clerk key — for EITHER env.
+# (1) The bundle must NOT contain any embedded API host (either env) or Clerk key.
 #     (Runtime injection means no NEXT_PUBLIC_* value is in the static chunks at all.)
-curl -sL "$PROD_WEB" -o /tmp/prod-index.html
-for chunk in $(grep -oE '/_next/static/chunks/[a-zA-Z0-9_./-]+\.js' /tmp/prod-index.html | sort -u); do
-  curl -sL "${PROD_WEB}${chunk}" | grep -E '(pk_test_|pk_live_|run\.app)' \
-    && { echo "FAIL: a public value is embedded in $chunk (expected runtime injection)"; exit 1; }
+INDEX_HTML="$(mktemp ./prod-index.XXXXXX.html)"   # workdir temp — /tmp is unusable on the Windows dev env
+curl -sL "$PROD_WEB" -o "$INDEX_HTML"
+EMBED_RE="pk_test_|pk_live_|$(printf '%s' "$PROD_API_HOST" | sed 's/[.]/\\./g')|$(printf '%s' "$STG_API_HOST" | sed 's/[.]/\\./g')"
+for chunk in $(grep -oE '/_next/static/chunks/[a-zA-Z0-9_./-]+\.js' "$INDEX_HTML" | sort -u); do
+  curl -sL "${PROD_WEB}${chunk}" | grep -E "$EMBED_RE" \
+    && { echo "FAIL: a public value is embedded in $chunk (expected runtime injection)"; rm -f "$INDEX_HTML"; exit 1; }
 done
+rm -f "$INDEX_HTML"
 echo "OK: bundle carries no embedded public config"
 
 # (2) The served HTML must carry the env-correct runtime config.

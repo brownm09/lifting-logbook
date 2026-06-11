@@ -40,15 +40,46 @@ export const PUBLIC_CONFIG_FALLBACK: PublicConfig = {
 };
 
 /**
+ * True when running in a deployed server runtime — i.e. a live Cloud Run / GKE container,
+ * not local `next dev` and not `next build`. Used to decide whether a missing
+ * `PUBLIC_API_URL` is a fatal misconfiguration (deployed) or an acceptable local-dev
+ * fallback. `next build` sets `NEXT_PHASE === 'phase-production-build'`; it is excluded so
+ * the guard never fires at build time — the keyless build the `force-dynamic` root layout
+ * relies on (ADR-028) must not throw.
+ */
+function isDeployedServerRuntime(): boolean {
+  return (
+    process.env.NODE_ENV === 'production' &&
+    process.env.NEXT_PHASE !== 'phase-production-build'
+  );
+}
+
+/**
  * Assemble the public config from server-side process.env. Called in the root layout
  * (a Server Component) so the reads happen at request time and are NOT build-time
  * inlined — the variables deliberately have no `NEXT_PUBLIC_` prefix.
+ *
+ * In a deployed runtime a missing `PUBLIC_API_URL` is fatal: we throw rather than silently
+ * fall back to localhost, which would ship a "healthy" production image whose browser calls
+ * all connection-refuse — the exact silent-misconfig class behind #395/#458. The localhost
+ * fallback is reserved for local dev and the SSR/client guard path (`getClientPublicConfig`).
  */
 export function readServerPublicConfig(): PublicConfig {
   const devAuthToken = process.env.DEV_AUTH_TOKEN || undefined;
+  // Treat an empty string as "unset": `gcloud run deploy --set-env-vars=PUBLIC_API_URL=`
+  // resolves to '' if its source terraform output is empty, which must trip the guard too.
+  const apiUrl = process.env.PUBLIC_API_URL || undefined;
+  if (!apiUrl && isDeployedServerRuntime()) {
+    throw new Error(
+      'PUBLIC_API_URL is not set in a deployed runtime. The browser-facing API URL must be ' +
+        'injected at deploy time (Cloud Run --set-env-vars / GKE ConfigMap). Refusing to ' +
+        `fall back to ${PUBLIC_CONFIG_FALLBACK.apiUrl}, which would silently ship a broken ` +
+        'image. See ADR-028 / issue #396.',
+    );
+  }
   return {
-    apiUrl: process.env.PUBLIC_API_URL ?? PUBLIC_CONFIG_FALLBACK.apiUrl,
-    defaultProgram: process.env.DEFAULT_PROGRAM ?? PUBLIC_CONFIG_FALLBACK.defaultProgram,
+    apiUrl: apiUrl ?? PUBLIC_CONFIG_FALLBACK.apiUrl,
+    defaultProgram: process.env.DEFAULT_PROGRAM || PUBLIC_CONFIG_FALLBACK.defaultProgram,
     ...(devAuthToken ? { devAuthToken } : {}),
   };
 }

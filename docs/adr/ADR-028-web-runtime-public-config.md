@@ -61,6 +61,13 @@ injected value per request. `apps/web/Dockerfile` no longer declares any `ARG NE
 `API_URL`: on Cloud Run they are the same external URL, but on GKE `API_URL` is cluster-internal
 while `PUBLIC_API_URL` must be the external endpoint the browser can reach.
 
+> `DEFAULT_PROGRAM` is intentionally **not wired into any deploy surface** (no workflow deploy
+> step, Cloud Run YAML, Terraform, or GKE ConfigMap sets it). Deployed environments use the code
+> default `'5-3-1'` from `lib/active-program.ts`; the env var exists only as a local-dev override.
+> This matches the former `NEXT_PUBLIC_DEFAULT_PROGRAM`, which was likewise never set in
+> build-args. To make the default configurable per environment later, wire it through the deploy
+> step + manifests like `PUBLIC_API_URL`.
+
 The deploy pipeline collapses to a single env-agnostic `web:<sha>` build; per-env values are
 supplied by the deploy step (`--set-env-vars` / `--update-secrets` on Cloud Run; ConfigMap +
 Secret on GKE), exactly as `CLERK_SECRET_KEY` already was.
@@ -78,12 +85,22 @@ Secret on GKE), exactly as `CLERK_SECRET_KEY` already was.
   the existing pre-promote gate instead.
 
 **Negative:**
-- The root layout is now `force-dynamic`, opting the app out of static prerendering. Acceptable:
-  the app is auth-gated and already rendered dynamically in practice.
-- A new failure mode: if the deploy step omits `PUBLIC_API_URL` / `CLERK_PUBLISHABLE_KEY`, the
-  app serves dev fallbacks / a missing Clerk key at runtime rather than failing the build. The
-  pre-promote auth-secret validation (production) and the runtime verification in
-  [`docs/deploy.md`](../deploy.md) cover this.
+- The root layout is now `force-dynamic`, opting the app out of static prerendering. Acceptable
+  and verified: no route uses `generateStaticParams` or static rendering (the only other
+  `dynamic` exports are the already-dynamic `/livez` and `/api/healthz` routes), so no
+  previously-static route loses optimization; the app is auth-gated and rendered dynamically in
+  practice regardless.
+- A new failure mode: the deploy step, not the build, now owns `PUBLIC_API_URL` /
+  `CLERK_PUBLISHABLE_KEY`. This is closed at three layers rather than left to a silent fallback:
+  (1) `readServerPublicConfig` **throws in a deployed runtime** (`NODE_ENV === 'production'` and
+  not the `next build` phase) when `PUBLIC_API_URL` is unset/empty — it refuses to fall back to
+  `http://localhost:3004`, which would ship a "healthy" image whose browser calls all
+  connection-refuse (the silent-misconfig class behind #395/#458); (2) the Clerk publishable key
+  is validated at the existing pre-promote gate (production) and the GKE secret-sync
+  `[ -n "$CLERK_PUB" ] || exit 1` guard; (3) the runtime verification in
+  [`docs/deploy.md`](../deploy.md) confirms each served page emits the env-correct
+  `window.__PUBLIC_CONFIG__`. The localhost fallback remains only for local dev and the
+  SSR/client guard path (`getClientPublicConfig`).
 - Public values are now visible in `window.__PUBLIC_CONFIG__` in page source. These are
   non-secret by definition (publishable key, API URL); `devAuthToken` is emitted only when
   `DEV_AUTH_TOKEN` is set, i.e. never in deployed environments — identical exposure to the
@@ -108,7 +125,8 @@ forfeits the promotion contract.
 - **Build:** `npm run build` succeeds with no `NEXT_PUBLIC_*` build-args and the `force-dynamic`
   root layout (no `/_not-found` prerender crash from a missing Clerk key).
 - **Tests:** `packages/api-client` covers thunk-`baseUrl` resolution; `apps/web` covers
-  `readServerPublicConfig`, the inline-script serialization/escaping, the browser read of
+  `readServerPublicConfig` (including the deployed-runtime fail-loud guard and the build-phase
+  exemption), the inline-script serialization/escaping, the browser read of
   `window.__PUBLIC_CONFIG__`, the `usePublicConfig` provider, and that `client-api` prefixes
   requests with the injected `apiUrl`. Playwright smoke (`npm run test:e2e -w @lifting-logbook/web`).
 - **CI:** `deploy.yml` builds `web:<sha>` once and promotes it; staging and production deploy
