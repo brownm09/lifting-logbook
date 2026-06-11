@@ -4,7 +4,7 @@
   "private": true,
   "main": "index.js",
   "scripts": {
-    "test": "node --test no-uncovered-error-fallback.test.js require-fetch-cache.test.js",
+    "test": "node --test no-uncovered-error-fallback.test.js require-fetch-cache.test.js no-raw-fetch-outside-api-client.test.js",
     "lint": "echo \"(no lint for eslint-rules workspace)\" && exit 0"
   },
   "dependencies": {},
