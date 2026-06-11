@@ -205,7 +205,7 @@ jobs:
       # Auth context invariant: credentials must be capable of pushing to
       # steps.ar.outputs.repo. The job-header auth already satisfies this (staging in
       # staging-enabled mode, prod in production-only mode) and is not swapped before
-      # the build/push below; the imagetools copy block re-auths to prod itself.
+      # the build/push below; the prod-AR build-push block (#397) re-auths to prod itself.
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
 
@@ -258,13 +258,22 @@ jobs:
             cache-from: type=gha,scope=web-deploy-v3
             cache-to: type=gha,scope=web-deploy-v3,mode=max
 
-      # ── Copy images to production AR (#411) ────────────────────────────────
-      # `steps.ar.outputs.repo` resolves to the *staging* AR in staging-enabled
-      # mode, so the api:<sha> and web:<sha>-prod tags pushed above only live
-      # in the staging registry. `deploy-production` pulls from the prod AR
-      # (steps.tf-prod.outputs.ar_repo) and would 404. Copy both images to the
-      # prod AR with `docker buildx imagetools create` — a registry-to-registry
-      # copy that does not require a rebuild or local Docker image state.
+      # ── Push images to the production AR directly (#397) ───────────────────
+      # In staging-enabled mode the build/push steps above resolve
+      # steps.ar.outputs.repo to the *staging* AR, so api:<sha> and web:<sha>
+      # currently live only in the staging registry. `deploy-production` pulls
+      # from the prod AR (steps.tf-prod.outputs.ar_repo) and would 404.
+      #
+      # Rather than copy staging-AR → prod-AR with `docker buildx imagetools
+      # create` — which *reads* the source manifest from the staging AR while
+      # authenticated as the prod SA and therefore required a cross-project
+      # `roles/artifactregistry.reader` grant (the old #411 arrangement) — we
+      # re-auth to prod and build+push each image straight to the prod AR. Every
+      # push *writes* only its own project's AR with that project's own SA; the
+      # prod SA never touches the staging AR, so the cross-project grant is gone
+      # (removed from infra/terraform, see ADR-029). Because the staging build
+      # above already exported the GHA layer cache (mode=max), each prod build is
+      # a cache-resolve + push — no real rebuild.
       #
       # Guarded by staging_enabled because production-only mode already pushed
       # directly to the prod AR (steps.ar.outputs.repo resolves to prod there).
@@ -286,59 +295,48 @@ jobs:
         if: needs.preflight.outputs.staging_enabled == 'true'
         run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
 
-      # `imagetools create` reads the source manifest from the staging AR and
-      # writes new tags in the prod AR. The prod CI/CD SA must have
-      # `roles/artifactregistry.reader` on the staging AR for the read; if
-      # this errors with permission denied, grant that role and rerun.
-      # Bounded retry: imagetools create is a registry-to-registry copy
-      # (staging AR → prod AR) exposed to the same transient AR 504s as the
-      # build/push steps (#498 / #504). The copy is idempotent (tag
-      # overwrite); a genuine permission/manifest error fails all attempts and
-      # hard-fails the deploy.
-      - name: Copy API image to prod AR
+      # Same wretry-wrapped build-push as the staging push above (3× bounded
+      # retry absorbs transient AR 504s — #498 / #504), reusing the same per-
+      # image GHA cache scope so this resolves entirely from cache and only
+      # uploads the manifest/layers to the prod AR. No `cache-to`: the staging
+      # build already exported the cache (mode=max); re-exporting here is wasted
+      # work and can race the staging export.
+      - name: Build and push API image to prod AR
         if: needs.preflight.outputs.staging_enabled == 'true'
-        run: |
-          for attempt in 1 2 3; do
-            if docker buildx imagetools create \
-                 --tag ${{ steps.ar-prod.outputs.repo }}/api:${{ github.sha }} \
-                 --tag ${{ steps.ar-prod.outputs.repo }}/api:latest \
-                 ${{ steps.ar.outputs.repo }}/api:${{ github.sha }}; then
-              exit 0
-            fi
-            if [ "${attempt}" -lt 3 ]; then
-              echo "imagetools copy (API) attempt ${attempt} failed; retrying in 15s..."
-              sleep 15
-            fi
-          done
-          echo "::error title=Image copy failed::Copy API image to prod AR failed after 3 attempts."
-          exit 1
+        uses: Wandalen/wretry.action@e68c23e6309f2871ca8ae4763e7629b9c258e1ea  # v3.8.0
+        with:
+          action: docker/build-push-action@v6
+          attempt_limit: 3
+          attempt_delay: 15000
+          with: |
+            context: .
+            file: apps/api/Dockerfile
+            push: true
+            tags: ${{ steps.ar-prod.outputs.repo }}/api:${{ github.sha }},${{ steps.ar-prod.outputs.repo }}/api:latest
+            cache-from: type=gha,scope=api-deploy-v2
 
-      - name: Copy web image to prod AR
+      - name: Build and push web image to prod AR
         if: needs.preflight.outputs.staging_enabled == 'true'
-        run: |
-          for attempt in 1 2 3; do
-            if docker buildx imagetools create \
-                 --tag ${{ steps.ar-prod.outputs.repo }}/web:${{ github.sha }} \
-                 --tag ${{ steps.ar-prod.outputs.repo }}/web:latest \
-                 ${{ steps.ar.outputs.repo }}/web:${{ github.sha }}; then
-              exit 0
-            fi
-            if [ "${attempt}" -lt 3 ]; then
-              echo "imagetools copy (web) attempt ${attempt} failed; retrying in 15s..."
-              sleep 15
-            fi
-          done
-          echo "::error title=Image copy failed::Copy web image to prod AR failed after 3 attempts."
-          exit 1
+        uses: Wandalen/wretry.action@e68c23e6309f2871ca8ae4763e7629b9c258e1ea  # v3.8.0
+        with:
+          action: docker/build-push-action@v6
+          attempt_limit: 3
+          attempt_delay: 15000
+          with: |
+            context: .
+            file: apps/web/Dockerfile
+            push: true
+            tags: ${{ steps.ar-prod.outputs.repo }}/web:${{ github.sha }},${{ steps.ar-prod.outputs.repo }}/web:latest
+            cache-from: type=gha,scope=web-deploy-v3
 
       # Auth context invariant: build-images now ends with the prod CI/CD SA
-      # active (the auth swap above for the imagetools copy is not restored).
+      # active (the auth swap above for the prod-AR build-push is not restored).
       # Any step appended after this point that needs staging-AR or staging-
       # project credentials must re-auth to staging first (see the existing
       # restore pattern at the start of the API/web push block above). The
       # `staging_enabled == 'true'` guard does not save you — production-only
-      # mode skips the entire copy block and leaves the staging auth from the
-      # job header active, so a forgotten re-auth will silently flip behavior
+      # mode skips the entire prod-AR push block and leaves the staging auth from
+      # the job header active, so a forgotten re-auth will silently flip behavior
       # between the two modes.
 
   # ── 3. Deploy to staging ─────────────────────────────────────────────────

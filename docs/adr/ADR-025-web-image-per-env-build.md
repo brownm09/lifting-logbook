@@ -137,6 +137,14 @@ mutating production-Clerk user state.
 
 ## Cross-project Artifact Registry note
 
+> **Resolved (2026-06-11) by [ADR-029](ADR-029-per-env-artifact-registry-push.md) ([#397](https://github.com/brownm09/lifting-logbook/issues/397)):**
+> the cross-project pull described below no longer exists. `build-images` now re-auths to prod and
+> build-pushes each image **directly** to the prod AR instead of copying staging-AR → prod-AR, so
+> the `artifactregistry.reader` grant was removed from Terraform. The text below is retained as the
+> historical record of the arrangement ADR-029 replaced. (This ADR is itself superseded by
+> [ADR-028](ADR-028-web-runtime-public-config.md), which collapsed the two web image variants to a
+> single `web:<sha>`.)
+
 In staging-enabled mode, both web image variants (`web:<sha>-staging` and
 `web:<sha>-prod`) are pushed to the **staging** project's Artifact Registry
 (`steps.ar.outputs.repo` resolves from `terraform-staging.outputs.ar_repo`),
@@ -172,9 +180,10 @@ Two follow-ups are tracked:
    ADR-025)" immediately after [#388](https://github.com/brownm09/lifting-logbook/issues/388)
    closes. That work will supersede this ADR by removing the build-time
    embedding entirely.
-2. **Per-env AR routing:** track separately. Push each environment's image
-   variant to that environment's AR, eliminating the cross-project pull
-   dependency.
+2. **Per-env AR routing:** ✅ Done — [ADR-029](ADR-029-per-env-artifact-registry-push.md)
+   ([#397](https://github.com/brownm09/lifting-logbook/issues/397)). Each environment's image is
+   now build-pushed directly to that environment's AR, eliminating the cross-project pull
+   dependency and the `artifactregistry.reader` grant.
 
 ## First-time prod bootstrap
 
