@@ -42,6 +42,10 @@ export class RlsInterceptor implements NestInterceptor {
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const prisma = this.prisma;
+    // Only the HTTP path is RLS-wired today; `apps/api` exposes no GraphQL resolvers
+    // (no GraphQLModule). If GraphQL resolvers touching userId tables are ever added, this guard
+    // must be broadened to the 'graphql' context type — otherwise those queries skip the GUC and
+    // fail closed (zero rows) under lifting_app rather than scoping correctly. See issue #511.
     if (!prisma || context.getType() !== 'http') {
       return next.handle();
     }

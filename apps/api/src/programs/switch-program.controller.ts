@@ -31,14 +31,18 @@ export class SwitchProgramController {
     // HybridLiftingProgramSpecRepository queries CustomProgramSpec by programId
     // without a userId filter, so we must gate here. Use ForbiddenException
     // rather than NotFoundException to avoid confirming UUID existence.
+    // clientForRequest() yields the per-request RLS transaction client (GUC set) when active, so
+    // this ownership check and the settings write are RLS-scoped under lifting_app. The factory's
+    // forUser() routes the same way. See prisma.service.ts (#511).
+    const db = this.prisma.clientForRequest();
     if (UUID_PATTERN.test(program)) {
-      const owned = await this.prisma.customProgram.findFirst({
+      const owned = await db.customProgram.findFirst({
         where: { id: program, userId: user.id },
       });
       if (!owned) throw new ForbiddenException('Program not found');
     }
 
-    const settingsRepo = new UserSettingsRepository(this.prisma, user.id);
+    const settingsRepo = new UserSettingsRepository(db, user.id);
     const repos = await this.factory.forUser(user);
 
     // Ensure a CycleDashboard exists for this program; create if not.

@@ -32,6 +32,10 @@ $$;
 GRANT USAGE ON SCHEMA "public" TO "lifting_app";
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA "public" TO "lifting_app";
 -- Future tables created by later migrations (run as the owner) are auto-granted to the app role.
+-- NOTE: with no FOR ROLE clause this default applies only to tables created by the role that runs
+-- THIS migration. That is correct as long as every migration runs as the same owner role (the
+-- documented contract, ADR-027). If a later migration is ever run by a different owner, its new
+-- tables will need explicit grants, or lifting_app queries against them fail with permission denied.
 ALTER DEFAULT PRIVILEGES IN SCHEMA "public"
   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "lifting_app";
 -- All primary keys default to cuid()/uuid() generated app-side; there are no SERIAL sequences,

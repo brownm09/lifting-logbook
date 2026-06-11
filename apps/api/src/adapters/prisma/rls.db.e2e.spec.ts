@@ -164,6 +164,57 @@ describeOrSkip('Row-Level Security (e2e, lifting_app role)', () => {
     expect(asAlice).toHaveLength(1);
   });
 
+  it('every table with a userId column has FORCE RLS enabled and at least one policy', async () => {
+    // Generic coverage guard: catches the "added a userId table, forgot the policy" regression
+    // class that the targeted tests above cannot — they only assert the specific tables they name.
+    // Metadata views are role-independent, so the owner connection is fine here.
+    const tables = await owner.$queryRaw<
+      Array<{
+        relname: string;
+        relrowsecurity: boolean;
+        relforcerowsecurity: boolean;
+        policy_count: number;
+      }>
+    >`
+      SELECT c.relname, c.relrowsecurity, c.relforcerowsecurity,
+             (SELECT count(*)::int FROM pg_policy p WHERE p.polrelid = c.oid) AS policy_count
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public' AND c.relkind = 'r'
+        AND EXISTS (
+          SELECT 1 FROM pg_attribute a
+          WHERE a.attrelid = c.oid AND a.attname = 'userId' AND NOT a.attisdropped
+        )`;
+
+    expect(tables.length).toBeGreaterThan(0);
+    for (const t of tables) {
+      expect({ table: t.relname, rls: t.relrowsecurity, force: t.relforcerowsecurity }).toEqual({
+        table: t.relname,
+        rls: true,
+        force: true,
+      });
+      expect({ table: t.relname, policies: t.policy_count }).toEqual({
+        table: t.relname,
+        policies: expect.any(Number),
+      });
+      expect(t.policy_count).toBeGreaterThanOrEqual(1);
+    }
+
+    // custom_program_spec has no userId (isolated via its parent program FK) so the query above
+    // excludes it — assert it explicitly.
+    const spec = await owner.$queryRaw<
+      Array<{ relrowsecurity: boolean; relforcerowsecurity: boolean; policy_count: number }>
+    >`
+      SELECT c.relrowsecurity, c.relforcerowsecurity,
+             (SELECT count(*)::int FROM pg_policy p WHERE p.polrelid = c.oid) AS policy_count
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public' AND c.relname = 'custom_program_spec'`;
+    expect(spec[0]?.relrowsecurity).toBe(true);
+    expect(spec[0]?.relforcerowsecurity).toBe(true);
+    expect(spec[0]?.policy_count).toBeGreaterThanOrEqual(1);
+  });
+
   it('runBatch stays isolated and atomic inside a request transaction (helper sequential path)', async () => {
     // Mirrors PrismaWorkoutRepository.saveWorkout / saveScheduledWorkouts under a request tx:
     // the injected client is a TransactionClient (no $transaction), so runBatch runs the ops
@@ -207,7 +258,11 @@ describeOrSkip('RLS request wiring (interceptor + factory)', () => {
       imports: [ClsModule.forRoot({ global: true })],
       providers: [
         Reflector,
-        { provide: PrismaService, useFactory: () => new PrismaService() },
+        {
+          provide: PrismaService,
+          useFactory: (clsService: ClsService) => new PrismaService(clsService),
+          inject: [ClsService],
+        },
       ],
     }).compile();
     await moduleRef.init();
@@ -258,5 +313,23 @@ describeOrSkip('RLS request wiring (interceptor + factory)', () => {
     const result = await lastValueFrom(interceptor.intercept(httpContextFor(USER_ALICE), handler));
     expect(result).toBe('ok');
     expect(observed.uid).toBe(USER_ALICE);
+  });
+
+  it('clientForRequest() returns the request tx client inside a request and the base client outside', async () => {
+    // Guards the path used by controllers that build repositories OUTSIDE the factory
+    // (CustomProgramsController, UserSettingsController, SwitchProgramController). If this routing
+    // regresses, those controllers' queries run on the base connection with no GUC and fail closed
+    // under lifting_app. Outside any CLS request, the base client must be returned.
+    expect(prisma.clientForRequest()).toBe(prisma);
+
+    // Inside a CLS context with the interceptor's tx stashed, the tx client must be returned.
+    await cls.run(async () => {
+      const sentinelTx = { marker: 'request-tx' } as unknown as PrismaClient;
+      cls.set(RLS_TX_CLIENT, sentinelTx);
+      expect(prisma.clientForRequest()).toBe(sentinelTx);
+    });
+
+    // After the request scope ends, it falls back to the base client again.
+    expect(prisma.clientForRequest()).toBe(prisma);
   });
 });

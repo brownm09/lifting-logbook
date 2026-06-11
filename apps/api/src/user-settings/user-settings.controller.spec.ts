@@ -13,6 +13,11 @@ type Row = { userId: string; activeProgram: string | null; workoutSchedule: unkn
 function makePrismaMock(): { service: PrismaService; store: Map<string, Row> } {
   const store = new Map<string, Row>();
   const service = {
+    // The controller routes repository construction through clientForRequest() (RLS); with no
+    // active request transaction it returns the base client — here, the mock itself.
+    clientForRequest() {
+      return this;
+    },
     userSettings: {
       findUnique: jest.fn(async ({ where }: { where: { userId: string } }) => {
         return store.get(where.userId) ?? null;

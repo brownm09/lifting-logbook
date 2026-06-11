@@ -14,7 +14,11 @@ import { REPOSITORY_FACTORY } from '../../ports/tokens';
     // Only instantiate PrismaService (and load the Prisma engine binary) when DATABASE_URL is set.
     {
       provide: PrismaService,
-      useFactory: () => (process.env.DATABASE_URL ? new PrismaService() : null),
+      // ClsService is passed so PrismaService.clientForRequest() can route repositories built
+      // outside the factory through the per-request RLS transaction. See prisma.service.ts (#511).
+      useFactory: (cls: ClsService) =>
+        process.env.DATABASE_URL ? new PrismaService(cls) : null,
+      inject: [ClsService],
     },
     {
       provide: REPOSITORY_FACTORY,

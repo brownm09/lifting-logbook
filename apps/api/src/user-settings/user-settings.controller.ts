@@ -10,9 +10,11 @@ import { UpdateSettingsDto } from './update-settings.dto';
 export class UserSettingsController {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
+  // clientForRequest() yields the per-request RLS transaction client (GUC set) when active, so
+  // these queries are RLS-scoped under the lifting_app role. See prisma.service.ts (#511).
   @Get()
   async getSettings(@CurrentUser() user: AuthUser): Promise<UserSettingsResponse> {
-    const repo = new UserSettingsRepository(this.prisma, user.id);
+    const repo = new UserSettingsRepository(this.prisma.clientForRequest(), user.id);
     return repo.getSettings();
   }
 
@@ -21,7 +23,7 @@ export class UserSettingsController {
     @CurrentUser() user: AuthUser,
     @Body() dto: UpdateSettingsDto,
   ): Promise<UserSettingsResponse> {
-    const repo = new UserSettingsRepository(this.prisma, user.id);
+    const repo = new UserSettingsRepository(this.prisma.clientForRequest(), user.id);
     return repo.upsertSettings(dto);
   }
 }

@@ -4,7 +4,7 @@ import {
   CustomProgramSummaryResponse,
   CustomProgramSpecRow,
 } from '@lifting-logbook/types';
-import { PrismaService } from '../adapters/prisma/prisma.service';
+import { PrismaExecutor, runInteractive } from '../adapters/prisma/prisma-tx.util';
 
 function toSpecRow(s: {
   week: number;
@@ -38,7 +38,7 @@ function toSpecRow(s: {
 
 export class CustomProgramsRepository {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly prisma: PrismaExecutor,
     private readonly userId: string,
   ) {}
 
@@ -137,7 +137,7 @@ export class CustomProgramsRepository {
         }
       : undefined;
 
-    const row = await this.prisma.$transaction(async (tx) => {
+    const row = await runInteractive(this.prisma, async (tx) => {
       const existing = await tx.customProgram.findFirst({
         where: { id, userId: this.userId },
       });
