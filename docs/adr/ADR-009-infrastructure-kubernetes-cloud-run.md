@@ -4,6 +4,7 @@
 **Date:** 2026-04-03
 **Reviewed:** 2026-04-07
 **Review outcome:** Pass
+**Implementation status (2026-06-10):** Partially implemented — both GKE and Cloud Run deploy the same image, but the **90/10 Cloud Load Balancer traffic split (below) is not wired**: there are no weighted `google_compute_backend_service` backends, URL-map split rules, or Ingress canary annotations in `infra/`. Each target is reachable independently today; the A/B traffic-split mechanism is unimplemented. Surfaced by the 2026-06-08 architecture review ([#464](https://github.com/brownm09/lifting-logbook/issues/464)) and reconciled in [#495](https://github.com/brownm09/lifting-logbook/issues/495).
 
 ---
 

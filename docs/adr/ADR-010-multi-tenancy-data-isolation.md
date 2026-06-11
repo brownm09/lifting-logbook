@@ -4,6 +4,7 @@
 **Date:** 2026-04-03
 **Reviewed:** 2026-04-07
 **Review outcome:** Pass
+**Implementation status (2026-06-10):** Partially implemented — application-level `user_id` scoping is enforced in every repository (the live isolation boundary). The Postgres **RLS defense-in-depth layer described in the Decision below is NOT implemented**: no `ENABLE ROW LEVEL SECURITY` / `CREATE POLICY` migrations exist and no Prisma middleware sets `app.current_user_id`. Isolation is currently **single-layer**. Surfaced by the 2026-06-08 architecture review ([#464](https://github.com/brownm09/lifting-logbook/issues/464)); implementing-or-deferring the RLS layer is tracked in [#511](https://github.com/brownm09/lifting-logbook/issues/511).
 
 ---
 
@@ -42,6 +43,14 @@ CREATE POLICY user_isolation ON workouts
 
 The application sets `app.current_user_id` at the start of each database session via Prisma
 middleware, so RLS enforcement happens at the database level independent of application logic.
+
+> **⚠ Implementation status (2026-06-10):** The RLS layer described in this section is **not yet
+> implemented**. No migration enables RLS or creates the `user_isolation` policies, and no Prisma
+> middleware/extension sets `app.current_user_id`. The live isolation boundary is application-level
+> `user_id` scoping in the repositories *only* — the database-enforced second layer does not exist.
+> Implementing it (or formally deciding to accept single-layer scoping) is tracked in
+> [#511](https://github.com/brownm09/lifting-logbook/issues/511). The decision to *use* RLS as
+> defense-in-depth stands; this note records that the code has not yet caught up.
 
 ---
 

@@ -4,6 +4,7 @@
 **Date:** 2026-04-03
 **Reviewed:** 2026-04-07
 **Review outcome:** Pass with gaps — open items: [#40](https://github.com/brownm09/lifting-logbook/issues/40)
+**Implementation status (2026-06-10):** REST transport implemented; **GraphQL transport not implemented** — the API is REST-only (no `@nestjs/graphql`, no resolvers, no schema in the codebase). The dual-transport *decision* stands as accepted design; the GraphQL half remains unbuilt. ([#40](https://github.com/brownm09/lifting-logbook/issues/40) closed the GraphQL *design* in ADR-015, not its implementation.) Surfaced by the 2026-06-08 architecture review ([#464](https://github.com/brownm09/lifting-logbook/issues/464)) and reconciled in [#495](https://github.com/brownm09/lifting-logbook/issues/495).
 
 ---
 
