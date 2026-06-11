@@ -152,10 +152,62 @@ note that threshold tuning waits for sustained traffic:
    holds `rate(...[5m])` at ratio 100% for the whole window and can satisfy `for: 5m`. That sensitivity
    is *wanted* for the low-traffic outage this defends against (#458/#460), but risks alert fatigue.
 
-There is no committed tooling to query production Mimir; run these in **Grafana Explore → Mimir
-datasource** (Cloud Metrics) and feed the results into the decision matrix below. `http_route` is the
-OTLP→Prometheus rendering of the OTel `http.route` attribute; `http_response_status_code` of
-`http.response.status_code`.
+`http_route` is the OTLP→Prometheus rendering of the OTel `http.route` attribute;
+`http_response_status_code` of `http.response.status_code`. Feed the results into the decision
+matrix in Step 3 below.
+
+### Running the queries
+
+Three ways, same queries:
+
+- **PowerShell (Windows, turnkey — no curl/node/jq).** Enter your keys once; they persist to your
+  user environment, then the runner uses them:
+
+  ```powershell
+  # One-time: enter MIMIR_ADDRESS / MIMIR_API_USER / MIMIR_API_KEY (token input hidden).
+  powershell -NoProfile -ExecutionPolicy Bypass -File scripts/observability/mimir-setup.ps1
+
+  # Then run all of 1a–2f (now, or from any new terminal):
+  powershell -NoProfile -ExecutionPolicy Bypass -File scripts/observability/run-calibration-queries.ps1
+  ```
+
+  [`mimir-setup.ps1`](../../scripts/observability/mimir-setup.ps1) persists the variables permanently
+  via the user environment (no admin needed); the token is stored in plaintext there, so treat it like
+  any saved credential (the script prints the one-liner to remove it later).
+  [`run-calibration-queries.ps1`](../../scripts/observability/run-calibration-queries.ps1) reads them
+  and queries Mimir with `Invoke-RestMethod`.
+
+- **Bash (turnkey — Git Bash, macOS, Linux, CI).** Enter your keys once; they persist to
+  `~/.bashrc`, then the runner uses them:
+
+  ```bash
+  # One-time: enter MIMIR_ADDRESS / MIMIR_API_USER / MIMIR_API_KEY (token input hidden).
+  # `source` so the current shell gets them too (new shells inherit from ~/.bashrc).
+  source scripts/observability/mimir-setup.sh
+
+  # Then run all of 1a–2f (now, or from any new terminal):
+  scripts/observability/run-calibration-queries.sh
+  ```
+
+  [`mimir-setup.sh`](../../scripts/observability/mimir-setup.sh) writes the variables to `~/.bashrc`
+  (plaintext, like any saved credential — it prints the removal one-liner). The runner sources
+  [`mimir-query-env.sh`](../../scripts/observability/mimir-query-env.sh), which exports the variables
+  (and also honors any already set — including those from `mimir-setup.sh`/`mimir-setup.ps1`, or a
+  gitignored `.mimir-credentials` file copied from
+  [`.mimir-credentials.example`](../../scripts/observability/.mimir-credentials.example) if you prefer
+  a file over `~/.bashrc`). The **auth** variables (`MIMIR_API_USER` / `MIMIR_API_KEY`) are the same
+  ones the `mimirtool` step below uses, so one setup serves both; the URL base may differ (the query
+  API is at `${MIMIR_ADDRESS}/api/v1/query` — set `MIMIR_QUERY_URL` if that path is wrong for your
+  stack). The token needs only the `metrics:read` scope.
+
+- **Grafana Explore (zero install).** Open **Explore → Mimir datasource** (Cloud Metrics) and paste
+  each query below. Use **Instant** (not Range) query type for the `count(...)` and `[14d:5m]`
+  subqueries so they return a single evaluation.
+
+> Both runners read the executable copy of these queries from
+> [`scripts/observability/calibration-queries.tsv`](../../scripts/observability/calibration-queries.tsv).
+> The annotated blocks below are the human reference — keep the `.tsv` and this doc in sync when the
+> rule's metric/label names or thresholds change.
 
 ### Step 1 — confirm `http_route` is the route template
 

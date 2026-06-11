@@ -6,6 +6,9 @@ dist/
 .env.*
 !.env.example
 
+# Grafana Cloud Mimir query credentials (see scripts/observability/.mimir-credentials.example)
+scripts/observability/.mimir-credentials
+
 # Turborepo
 .turbo/
 
