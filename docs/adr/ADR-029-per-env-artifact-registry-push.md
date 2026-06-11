@@ -75,6 +75,19 @@ together and stay consistent within a single run.
   imagetools registry-to-registry copy it replaces — CI wall-clock is approximately neutral.
 - The prod build-push relies on the staging build's GHA cache export having completed. If that cache
   were ever absent, the prod build would rebuild from source rather than fail — correct, just slower.
+- **The prod image is a cache-resolved rebuild, not a literal copy.** The old `imagetools create`
+  produced a prod image with the **same digest** as the staging one by construction. A second
+  `docker/build-push-action` resolved from the staging build's `mode=max` cache normally reproduces
+  the identical digest, but it is no longer byte-identical *by construction*: on a cold cache the prod
+  step rebuilds `api:<sha>` / `web:<sha>` from source and may emit a functionally-equivalent but
+  digest-different image from the one the staging gate exercised. This slightly relaxes the
+  "build-once / promote-everywhere, staging tests the exact prod artifact" contract that
+  [ADR-028](ADR-028-web-runtime-public-config.md) restored. The residual risk is accepted: both builds
+  run from the **same commit** and the **same deterministic Dockerfile**, carry the **same `<sha>`
+  tag**, and the warm cache (digest-identical) is the steady-state path — a cold-cache rebuild is the
+  rare exception, and the image it produces is functionally equivalent. Eliminating the standing
+  cross-project IAM grant is judged the better trade than preserving a strictly byte-identical promote
+  via the cross-project read.
 
 **Resilience / rollback:**
 - The prod build-push reuses the same `Wandalen/wretry.action` 3× bounded retry as the staging push
