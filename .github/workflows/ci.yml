@@ -35,11 +35,19 @@ jobs:
             ${{ runner.os }}-turbo-
 
       - name: Verify package-lock.json is in sync with package.json
+        # PR-scoped on purpose (issue #523). This is Layer 2 of the lockfile-drift
+        # defense (issue #435): it catches a contributor editing package.json without
+        # regenerating the lockfile — a PR-time mistake. On a `push` to `main` it would
+        # instead recompute the ideal tree from the LIVE registry, so any caret dep
+        # (direct OR transitive, e.g. a @clerk/shared in-range patch) publishing upstream
+        # would redden `main` with no contributor action (#432/#433/#501/#516/#520). The
+        # `npm ci` step below still runs on every push and catches install-breaking drift
+        # (the EUSAGE class). See ADR-036 for the PR-scoped enforcement rationale.
+        if: github.event_name == 'pull_request'
         run: |
-          # Layer 2 of the lockfile-drift defense (see issue #435). Regenerate the
-          # lockfile metadata from package.json without touching node_modules, then
-          # fail with a clear message if it differs from the committed lockfile.
-          # This surfaces drift before the cryptic `npm ci` EUSAGE error fires below.
+          # Regenerate the lockfile metadata from package.json without touching
+          # node_modules, then fail with a clear message if it differs from the committed
+          # lockfile. This surfaces drift before the cryptic `npm ci` EUSAGE error below.
           npm install --package-lock-only --ignore-scripts
           if ! git diff --exit-code package-lock.json; then
             echo "::error::package-lock.json is out of sync with package.json."
