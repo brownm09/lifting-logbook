@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { ICycleScheduledWorkoutRepository, ScheduledWorkout } from '../../ports/ICycleScheduledWorkoutRepository';
+import { runBatch } from './prisma-tx.util';
 
 export class PrismaCycleScheduledWorkoutRepository implements ICycleScheduledWorkoutRepository {
   constructor(
@@ -24,11 +25,11 @@ export class PrismaCycleScheduledWorkoutRepository implements ICycleScheduledWor
     // Concurrent cycle creation (e.g., double-submit) can race and hit the unique constraint.
     // Acceptable given cycle creation is a rare, deliberate user action; harden with
     // upsert-per-row semantics if this surfaces in practice.
-    await this.prisma.$transaction([
-      this.prisma.cycleScheduledWorkout.deleteMany({
+    await runBatch(this.prisma, (db) => [
+      db.cycleScheduledWorkout.deleteMany({
         where: { userId: this.userId, program, cycleNum },
       }),
-      this.prisma.cycleScheduledWorkout.createMany({
+      db.cycleScheduledWorkout.createMany({
         data: workouts.map((w) => ({
           userId: this.userId,
           program,

@@ -8,8 +8,9 @@ import {
   ILiftingProgramSpecRepository,
   SaveProgramSpecResult,
 } from '../../ports/ILiftingProgramSpecRepository';
+import { PrismaClient } from '@prisma/client';
 import { InMemoryLiftingProgramSpecRepository } from '../in-memory/lifting-program-spec.adapter';
-import { PrismaService } from './prisma.service';
+import { runInteractive } from './prisma-tx.util';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -50,7 +51,7 @@ export class HybridLiftingProgramSpecRepository implements ILiftingProgramSpecRe
   // repo for standalone construction (tests), but the factory injects a shared
   // instance so the seed map is built once per process rather than per request.
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly prisma: PrismaClient,
     private readonly userId: string,
     private readonly inMemory: ILiftingProgramSpecRepository = new InMemoryLiftingProgramSpecRepository(),
   ) {}
@@ -88,7 +89,7 @@ export class HybridLiftingProgramSpecRepository implements ILiftingProgramSpecRe
       throw new BadRequestException('Program spec import requires a custom program');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    return runInteractive(this.prisma, async (tx) => {
       const owner = await tx.customProgram.findFirst({
         where: { id: program, userId: this.userId },
         select: { id: true },
