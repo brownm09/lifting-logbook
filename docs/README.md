@@ -137,16 +137,16 @@ monorepo/
 | [ADR-003](adr/ADR-003-per-user-data-store-config.md)          | Per-User Data Store Configuration                             | Accepted |
 | [ADR-004](adr/ADR-004-multi-data-store-adapters.md)           | Multi-Data-Store Adapter Strategy                             | Accepted |
 | [ADR-005](adr/ADR-005-authentication-strategy.md)             | Authentication Strategy                                       | Accepted |
-| [ADR-006](adr/ADR-006-rest-and-graphql-dual-transport.md)     | Dual Transport Layer — REST and GraphQL                       | Accepted |
+| [ADR-006](adr/ADR-006-rest-and-graphql-dual-transport.md)     | Dual Transport Layer — REST and GraphQL                       | Accepted · GraphQL not implemented |
 | [ADR-007](adr/ADR-007-nextjs-app-router-web-frontend.md)      | Next.js App Router for Web Frontend                           | Accepted |
 | [ADR-008](adr/ADR-008-mobile-strategy.md)                     | Mobile Client Strategy — React Native to Native Kotlin        | Accepted |
-| [ADR-009](adr/ADR-009-infrastructure-kubernetes-cloud-run.md) | Infrastructure — GKE Autopilot Primary, Cloud Run Comparison  | Accepted |
-| [ADR-010](adr/ADR-010-multi-tenancy-data-isolation.md)        | Multi-Tenancy Data Isolation Strategy                         | Accepted |
+| [ADR-009](adr/ADR-009-infrastructure-kubernetes-cloud-run.md) | Infrastructure — GKE Autopilot Primary, Cloud Run Comparison  | Accepted · 90/10 split not wired |
+| [ADR-010](adr/ADR-010-multi-tenancy-data-isolation.md)        | Multi-Tenancy Data Isolation Strategy                         | Accepted · RLS not implemented ([#511](https://github.com/brownm09/lifting-logbook/issues/511)) |
 | [ADR-011](adr/ADR-011-api-server-nestjs-and-express.md)       | API Server — NestJS Primary with Express Legacy Comparison    | Accepted |
 | [ADR-012](adr/ADR-012-analytics-and-ab-testing.md)            | Analytics and A/B Testing — Firebase Analytics and Optimizely | Accepted |
 | [ADR-013](adr/ADR-013-testing-strategy.md)                    | Testing Strategy                                              | Accepted |
 | [ADR-014](adr/ADR-014-credential-encryption-at-rest.md)       | Credential Encryption at Rest                                 | Accepted |
-| [ADR-015](adr/ADR-015-graphql-dataloader-design.md)           | GraphQL DataLoader Design                                     | Accepted |
+| [ADR-015](adr/ADR-015-graphql-dataloader-design.md)           | GraphQL DataLoader Design                                     | Accepted · deferred (no GraphQL yet) |
 | [ADR-016](adr/ADR-016-cycle-planning-agent.md)                | Cycle Planning Agent                                          | Accepted |
 | [ADR-017](adr/ADR-017-training-max-history-table.md)          | Training Max History — Dedicated Table vs. Derived            | Accepted |
 | [ADR-018](adr/ADR-018-observability-stack.md)                 | Observability Stack — OpenTelemetry + Grafana Cloud           | Accepted |

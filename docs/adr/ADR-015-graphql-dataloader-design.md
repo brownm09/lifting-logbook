@@ -3,6 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-04-09
 **Closes:** [#40](https://github.com/brownm09/lifting-logbook/issues/40)
+**Implementation status (2026-06-10):** Deferred — no GraphQL resolvers or DataLoaders exist in the codebase (the API is REST-only; see [ADR-006](ADR-006-rest-and-graphql-dual-transport.md)). This document is a prerequisite *design spec* that intentionally predates implementation: it fixes the required request-scoped lifecycle before any resolver is written. It applies once the GraphQL transport is built. Reconciled in [#495](https://github.com/brownm09/lifting-logbook/issues/495).
 
 ---
 
