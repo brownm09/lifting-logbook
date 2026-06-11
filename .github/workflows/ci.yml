@@ -125,12 +125,14 @@ jobs:
       - name: Build workspace packages
         run: npx turbo run build --filter=@lifting-logbook/web
         env:
-          # @clerk/testing@2+ upgraded @clerk/clerk-react to a version that validates
-          # the publishable key format during /_not-found static prerendering.
-          # This key is pk_test_ + base64("example.clerk.accounts.dev$") — a
-          # validly formatted but non-functional test key. Dev auth (DEV_AUTH_TOKEN)
-          # is used at runtime so this value is never actually sent to Clerk's API.
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_ZXhhbXBsZS5jbGVyay5hY2NvdW50cy5kZXYk
+          # Belt-and-suspenders for any residual build-time @clerk/clerk-react publishable-
+          # key validation. The root layout now renders dynamically (force-dynamic) and
+          # passes the key to <ClerkProvider> as a runtime prop from CLERK_PUBLISHABLE_KEY
+          # (no NEXT_PUBLIC_ prefix, not bundle-inlined — #396 / ADR-028), so the build no
+          # longer prerenders /_not-found through ClerkProvider. This validly-formatted but
+          # non-functional test key (pk_test_ + base64("example.clerk.accounts.dev$")) is
+          # kept so any build-time Clerk import that still reads the key sees a valid format.
+          CLERK_PUBLISHABLE_KEY: pk_test_ZXhhbXBsZS5jbGVyay5hY2NvdW50cy5kZXYk
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium

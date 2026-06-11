@@ -45,8 +45,16 @@ import type {
 // ---------------------------------------------------------------------------
 
 export interface ApiClientConfig {
-  /** Absolute API base URL, e.g. `https://api.example.com` or `http://localhost:3004`. */
-  baseUrl: string;
+  /**
+   * Absolute API base URL, e.g. `https://api.example.com` or `http://localhost:3004`.
+   *
+   * Accepts a thunk (`() => string`) as well as a literal string so the base URL can be
+   * resolved **per request at runtime** rather than captured once at construction. The
+   * browser client uses this to read a runtime-injected value (`window.__PUBLIC_CONFIG__`)
+   * that is not known when this module first evaluates — see issue #396 / ADR-028. Server
+   * callers continue to pass a literal string.
+   */
+  baseUrl: string | (() => string);
   /**
    * Resolves the auth headers for a single request. The returned map is merged
    * into every request with **auth-wins precedence** (see {@link createApiClient}),
@@ -97,6 +105,9 @@ async function extractErrorMessage(res: Response, path: string): Promise<string>
 
 export function createApiClient(config: ApiClientConfig) {
   const { baseUrl, getAuthHeaders } = config;
+  // Resolve per request so a thunk baseUrl picks up a runtime-injected value
+  // (e.g. window.__PUBLIC_CONFIG__) that was not available at construction (#396).
+  const resolveBaseUrl = (): string => (typeof baseUrl === 'function' ? baseUrl() : baseUrl);
 
   async function rawFetch(path: string, init: FetchInit = {}): Promise<Response> {
     const authHeaders = await getAuthHeaders();
@@ -106,7 +117,7 @@ export function createApiClient(config: ApiClientConfig) {
       // never override Authorization / X-Clerk-Authorization.
       headers: { ...(init.headers as Record<string, string> | undefined), ...authHeaders },
     };
-    return fetch(`${baseUrl}${path}`, finalInit as RequestInit);
+    return fetch(`${resolveBaseUrl()}${path}`, finalInit as RequestInit);
   }
 
   // Throws a rich error on !ok; returns undefined on 204; otherwise parses JSON.

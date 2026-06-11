@@ -53,6 +53,25 @@ describe('createApiClient', () => {
       expect((init.headers as Record<string, string>).Authorization).toBe('Bearer WINS');
     });
 
+    it('resolves a thunk baseUrl per request (runtime-injected URL — #396)', async () => {
+      // Fresh Response per call: a Response body can only be read once.
+      mockFetch.mockImplementation(async () => new Response(JSON.stringify([]), { status: 200 }));
+      // The browser client passes a getter so the base URL can change after construction
+      // (e.g. once window.__PUBLIC_CONFIG__ is populated). Each request re-reads it.
+      let current = 'http://first.test';
+      const client = createApiClient({
+        baseUrl: () => current,
+        getAuthHeaders: async () => ({ ...AUTH }),
+      });
+
+      await client.fetchTrainingMaxes('5-3-1');
+      expect(lastCall()[0]).toBe('http://first.test/programs/5-3-1/training-maxes');
+
+      current = 'http://second.test';
+      await client.fetchTrainingMaxes('5-3-1');
+      expect(lastCall()[0]).toBe('http://second.test/programs/5-3-1/training-maxes');
+    });
+
     it('encodes path segments', async () => {
       mockFetch.mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
       const client = makeClient();

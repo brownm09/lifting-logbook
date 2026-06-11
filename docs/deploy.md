@@ -381,95 +381,82 @@ gh api repos/brownm09/lifting-logbook/actions/runs/$RUNID/pending_deployments \
 
 The `production` environment id is `15694632193`. To **reject** instead, use `-f state=rejected`.
 
-### Web image: per-env build (ADR-025)
+### Web image: single build, runtime public config (ADR-028)
 
-The `apps/web` image is built **twice per pipeline run** when staging is enabled:
+The `apps/web` image is built **once per commit** (`web:<sha>`, also `:latest`) and the same
+artifact is deployed to staging and production — restoring build-once / promote-everywhere.
+Public config is injected at **runtime**, not baked into the bundle at build time:
 
-- `web:<sha>-staging` — built with staging `NEXT_PUBLIC_API_URL` and
-  `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`. Deployed exclusively by `deploy-staging`.
-- `web:<sha>-prod` — built with production values. Deployed exclusively by `deploy-production`.
-  Also tagged `:latest`.
+- **Cloud Run:** the deploy step sets `--set-env-vars="API_URL=...,PUBLIC_API_URL=..."` and
+  `--update-secrets="CLERK_SECRET_KEY=...,CLERK_PUBLISHABLE_KEY=..."`. On Cloud Run the browser
+  reaches the same external API URL as the server, so `PUBLIC_API_URL == API_URL`.
+- **GKE:** `API_URL` (cluster-internal, SSR) and `PUBLIC_API_URL` (external, browser) come from
+  the web ConfigMap; `CLERK_PUBLISHABLE_KEY` from the web Secret.
 
-In production-only mode (no staging configured), only the `-prod` image is built.
+The root layout reads these at request time and injects them via `window.__PUBLIC_CONFIG__` (for
+`lib/client-api.ts`) and the `<ClerkProvider publishableKey>` prop. See
+[ADR-028](adr/ADR-028-web-runtime-public-config.md) for the design (supersedes ADR-025).
 
-See [ADR-025](adr/ADR-025-web-image-per-env-build.md) for the rationale and the explicit
-trade — the staging gate validates image structure and boot behavior, **not** the embedded
-production `NEXT_PUBLIC_*` values.
+#### Adding a new public config value
 
-#### Adding a new `NEXT_PUBLIC_*` variable
+Runtime injection makes this a single wiring point per environment — no Dockerfile `ARG`, no
+build-time secret resolution. Checklist:
 
-Every new `NEXT_PUBLIC_*` value must be wired into **both** web-image build invocations in
-`.github/workflows/deploy.yml` → `build-images`. Checklist:
+1. Add the field to `PublicConfig` and `readServerPublicConfig()` in
+   `apps/web/lib/public-config.ts` (browser values), or read it directly in the server module
+   that needs it (server-only values). **Do not** use a `NEXT_PUBLIC_` prefix — that re-inlines
+   it at build time.
+2. Add the env var to the Cloud Run deploy steps (`--set-env-vars` for plain values,
+   `--update-secrets` for Secret Manager values) in both `deploy.yml` and `staging.yml`.
+3. For GKE, add it to the web chart (`configmap.yaml` + `values/*.yaml` for plain values, or the
+   `-secrets` Secret + `deployment.yaml` env for secret values) and the Helm `--set` flags.
+4. Update the declarative reference (`infra/cloud-run/web-service.yaml`,
+   `infra/terraform/cloud-run.tf`) to keep it accurate.
 
-1. Add `ARG <NAME>` to `apps/web/Dockerfile` builder stage.
-2. Add staging value resolution as a new step alongside `clerk-pub-staging` (gated on
-   `staging_enabled == true`). Use `gcloud secrets versions access` for secret-store values
-   or a Terraform output for infra-derived values.
-3. Add production value resolution as a new step alongside `clerk-pub-prod`.
-4. Wire both into the `build-args:` block of `Build and push web image (staging)` and
-   `Build and push web image (production)`.
-5. Mask secret-store values with `::add-mask::` before writing to `GITHUB_OUTPUT`.
-6. Update this section if the variable affects deploy behavior at runtime as well.
+#### Verifying runtime public config
 
-Forgetting any of the above resurrects the bug ADR-025 was written to fix.
-
-#### Verifying per-env web image build (deliberate dry-run)
-
-After a deploy completes, confirm each environment's bundle contains only its own
-`NEXT_PUBLIC_*` values. From a workstation with both env's Clerk publishable-key prefixes
-known (e.g., `pk_test_...` for staging, `pk_live_...` for production):
+After a deploy completes, confirm two things: (1) **neither** environment's values are baked
+into the JS bundle (they are injected at runtime), and (2) each served page emits the correct
+`window.__PUBLIC_CONFIG__`.
 
 ```bash
-# Production must NOT contain staging Clerk key prefix or staging API hostname.
 PROD_WEB="$(gcloud run services describe lifting-logbook-prod-web \
   --region=us-central1 --project=lifting-logbook-prod --format='value(status.url)')"
+# Resolve the ACTUAL API host injected at deploy time rather than assuming a *.run.app suffix:
+# a custom-domain or GKE-ingress API URL would not match a hardcoded `run.app` literal, so the
+# grep below would pass while a value was in fact embedded. Capture both env hosts.
+PROD_API_HOST="$(gcloud run services describe lifting-logbook-prod-api \
+  --region=us-central1 --project=lifting-logbook-prod --format='value(status.url)' | sed -E 's#^https?://##')"
 STG_API_HOST="$(gcloud run services describe lifting-logbook-stg-api \
-  --region=us-central1 --project=lifting-logbook-stg --format='value(status.url)' \
-  | sed -e 's#^https\?://##' -e 's#/.*##')"
-STG_PK_PREFIX="pk_test_"  # adjust to actual staging key's distinguishing prefix
+  --region=us-central1 --project=lifting-logbook-staging --format='value(status.url)' | sed -E 's#^https?://##')"
 
-curl -sL "$PROD_WEB" -o /tmp/prod-index.html
-# Pull each referenced /_next/static/chunks/*.js and grep
-for chunk in $(grep -oE '/_next/static/chunks/[a-zA-Z0-9_./-]+\.js' /tmp/prod-index.html | sort -u); do
-  curl -sL "${PROD_WEB}${chunk}" | grep -E "($STG_API_HOST|$STG_PK_PREFIX)" \
-    && { echo "FAIL: staging value found in $chunk"; exit 1; }
+# (1) The bundle must NOT contain any embedded API host (either env) or Clerk key.
+#     (Runtime injection means no NEXT_PUBLIC_* value is in the static chunks at all.)
+INDEX_HTML="$(mktemp ./prod-index.XXXXXX.html)"   # workdir temp — /tmp is unusable on the Windows dev env
+curl -sL "$PROD_WEB" -o "$INDEX_HTML"
+EMBED_RE="pk_test_|pk_live_|$(printf '%s' "$PROD_API_HOST" | sed 's/[.]/\\./g')|$(printf '%s' "$STG_API_HOST" | sed 's/[.]/\\./g')"
+for chunk in $(grep -oE '/_next/static/chunks/[a-zA-Z0-9_./-]+\.js' "$INDEX_HTML" | sort -u); do
+  curl -sL "${PROD_WEB}${chunk}" | grep -E "$EMBED_RE" \
+    && { echo "FAIL: a public value is embedded in $chunk (expected runtime injection)"; rm -f "$INDEX_HTML"; exit 1; }
 done
-echo "OK: production bundle is free of staging values"
+rm -f "$INDEX_HTML"
+echo "OK: bundle carries no embedded public config"
+
+# (2) The served HTML must carry the env-correct runtime config.
+curl -sL "$PROD_WEB" | grep -o 'window.__PUBLIC_CONFIG__=[^<]*'
+# → expect the production apiUrl and (in HTML head, not the bundle) the production Clerk key.
 ```
 
-Run the symmetric check against staging for the production values. Both must produce
-`OK:` to satisfy the verification gate from
-[#388](https://github.com/brownm09/lifting-logbook/issues/388).
+Run the symmetric `window.__PUBLIC_CONFIG__` check against staging and confirm it carries the
+**staging** apiUrl. The same `web:<sha>` image backs both, so any difference is purely the
+runtime env.
 
-#### First-time prod bootstrap
-
-The `build-images` job's `Resolve production API URL` step calls
-`gcloud run services describe lifting-logbook-prod-api` before
-`terraform-production` has had a chance to create that service. On the very
-first deploy to a new prod project this aborts `build-images` and (in
-staging-enabled mode) also blocks the staging deploy. Recovery:
-
-1. From a workstation with prod credentials, run `terraform apply` against
-   the production workspace manually:
-   ```bash
-   cd infra/terraform
-   terraform init -backend-config="bucket=<TF_STATE_BUCKET>" \
-                  -backend-config="prefix=terraform/state"
-   terraform workspace select production || terraform workspace new production
-   terraform apply -var-file=terraform.tfvars.production \
-                   -var="billing_account=<billing-account-id>"
-   ```
-2. Confirm the prod Cloud Run API service now exists:
-   ```bash
-   gcloud run services describe lifting-logbook-prod-api \
-     --region=us-central1 --project=<prod-project>
-   ```
-3. Re-run the failed CI pipeline. `Resolve production API URL` now succeeds
-   and the rest of `build-images` and the downstream deploys proceed.
-
-This is a one-time bootstrap concern per prod project. The long-term fix
-(hoisting `terraform-production` to its own job so `build-images` can
-depend on its outputs) is documented in ADR-025 as a deferred follow-up.
+> **First-time prod bootstrap (resolved by ADR-028):** ADR-025's `build-images` step
+> `Resolve production API URL` — which called `gcloud run services describe lifting-logbook-prod-api`
+> before `terraform-production` created that service, aborting the first prod deploy — has been
+> removed. The browser-facing URL is now resolved at deploy time from `terraform-production`
+> outputs within `deploy-production`, after the service is created in the same job, so the
+> bootstrap ordering hazard no longer exists.
 
 ### Recovering from CI/CD IAM errors
 

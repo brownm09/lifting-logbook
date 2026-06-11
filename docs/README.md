@@ -156,9 +156,10 @@ monorepo/
 | [ADR-022](adr/ADR-022-monorepo-docker-build-strategy.md)     | Monorepo Docker Build Strategy — Full Copy Over Turbo Prune         | Accepted |
 | [ADR-023](adr/ADR-023-staging-integration-test-design.md)   | Staging Integration Test Design                                     | Accepted |
 | [ADR-024](adr/ADR-024-prisma-otel-sdk-override.md)          | Prisma OTel SDK Version Conflict — postinstall Cleanup              | Accepted |
-| [ADR-025](adr/ADR-025-web-image-per-env-build.md)           | Per-Environment Web Image Build                                     | Accepted |
+| [ADR-025](adr/ADR-025-web-image-per-env-build.md)           | Per-Environment Web Image Build                                     | Superseded by ADR-028 |
 | [ADR-026](adr/ADR-026-ci-action-version-pinning.md)         | CI Action Version Pinning                                           | Accepted |
 | [ADR-027](adr/ADR-027-deploy-pipeline-migrations.md)        | Database Migrations via In-VPC Cloud Run Job in the Deploy Pipeline | Accepted |
+| [ADR-028](adr/ADR-028-web-runtime-public-config.md)         | Runtime Injection of apps/web Public Config                         | Accepted |
 
 ---
 

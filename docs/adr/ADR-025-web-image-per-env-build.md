@@ -1,9 +1,16 @@
 # ADR-025: Per-Environment Web Image Build
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-028](ADR-028-web-runtime-public-config.md) (2026-06-11)
 **Date:** 2026-05-31
 **Closes:** [#388](https://github.com/brownm09/lifting-logbook/issues/388)
-**Related:** [ADR-022](ADR-022-monorepo-docker-build-strategy.md) (web Dockerfile structure), [ADR-009](ADR-009-infrastructure-kubernetes-cloud-run.md) (deploy targets), [#383](https://github.com/brownm09/lifting-logbook/pull/383), [#387](https://github.com/brownm09/lifting-logbook/pull/387), [#382](https://github.com/brownm09/lifting-logbook/issues/382)
+**Related:** [ADR-028](ADR-028-web-runtime-public-config.md) (supersedes — runtime injection), [ADR-022](ADR-022-monorepo-docker-build-strategy.md) (web Dockerfile structure), [ADR-009](ADR-009-infrastructure-kubernetes-cloud-run.md) (deploy targets), [#383](https://github.com/brownm09/lifting-logbook/pull/383), [#387](https://github.com/brownm09/lifting-logbook/pull/387), [#382](https://github.com/brownm09/lifting-logbook/issues/382)
+
+> **Superseded (2026-06-11):** [ADR-028](ADR-028-web-runtime-public-config.md) eliminates the
+> build-time embedding entirely by injecting public config at runtime, restoring the
+> single build-once / promote-everywhere web image this ADR's per-env builds gave up.
+> The Phase-2 follow-up named below is that work ([#396](https://github.com/brownm09/lifting-logbook/issues/396)).
+> The per-env build steps, the `-staging` / `-prod` image tags, and the bundle-grep
+> verification described here no longer reflect the pipeline.
 
 ---
 
