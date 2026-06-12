@@ -23,6 +23,16 @@ export interface CyclePlanResult {
   partialReason?: PartialReason;
 }
 
+/**
+ * Runs a unit of DB work within an RLS context, returning the repositories scoped to the caller.
+ * The agent calls this around each tool dispatch so the DB work runs inside a short-lived
+ * RLS transaction while the LLM round-trips happen outside any transaction (issue #518). The
+ * controller supplies the implementation (in production it wraps `RlsContextService`).
+ */
+export type WithRlsContext = <T>(
+  fn: (repos: RepositoryBundle) => Promise<T>,
+) => Promise<T>;
+
 export interface ICyclePlanningAgent {
-  plan(repos: RepositoryBundle, request: CyclePlanRequest): Promise<CyclePlanResult>;
+  plan(request: CyclePlanRequest, withContext: WithRlsContext): Promise<CyclePlanResult>;
 }

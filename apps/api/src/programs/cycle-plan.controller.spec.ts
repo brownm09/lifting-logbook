@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { IRepositoryFactory, RepositoryBundle } from '../ports/factory';
-import { ICyclePlanningAgent } from '../ports/ICyclePlanningAgent';
+import { ICyclePlanningAgent, WithRlsContext } from '../ports/ICyclePlanningAgent';
 import { CYCLE_PLANNING_AGENT, REPOSITORY_FACTORY } from '../ports/tokens';
+import { RlsContextService } from '../adapters/prisma/rls-context.service';
 import { CyclePlanController } from './cycle-plan.controller';
 
 const MOCK_USER = { id: 'test-user', email: 'test@example.com', provider: 'dev' };
@@ -11,18 +12,25 @@ describe('CyclePlanController', () => {
   let controller: CyclePlanController;
   let agent: jest.Mocked<ICyclePlanningAgent>;
   let factory: jest.Mocked<IRepositoryFactory>;
+  // Passthrough RlsContextService stub: runs the callback directly (in-memory mode behaviour),
+  // so the controller's withContext resolves repos via factory.forUser and forwards them.
+  const rlsContext = {
+    withUserContext: jest.fn((fn: () => Promise<unknown>) => fn()),
+  };
 
   beforeEach(async () => {
     agent = { plan: jest.fn() };
     factory = {
       forUser: jest.fn().mockResolvedValue(MOCK_BUNDLE),
     };
+    rlsContext.withUserContext.mockClear();
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [CyclePlanController],
       providers: [
         { provide: CYCLE_PLANNING_AGENT, useValue: agent },
         { provide: REPOSITORY_FACTORY, useValue: factory },
+        { provide: RlsContextService, useValue: rlsContext },
       ],
     }).compile();
 
@@ -49,11 +57,18 @@ describe('CyclePlanController', () => {
       cycleNum: 2,
     }, MOCK_USER);
 
-    expect(factory.forUser).toHaveBeenCalledWith(MOCK_USER);
     expect(agent.plan).toHaveBeenCalledTimes(1);
-    const [repos, request] = agent.plan.mock.calls[0]!;
+    const [request, withContext] = agent.plan.mock.calls[0]!;
     expect(request).toEqual({ program: '5-3-1', goal: 'peak my squat', cycleNum: 2 });
-    expect(repos).toBe(MOCK_BUNDLE);
+
+    // withContext must resolve the per-user repository bundle inside the RLS context and pass it
+    // to the callback. forUser is only called when the agent actually invokes withContext.
+    expect(factory.forUser).not.toHaveBeenCalled();
+    const received = await (withContext as WithRlsContext)((repos) => Promise.resolve(repos));
+    expect(rlsContext.withUserContext).toHaveBeenCalledTimes(1);
+    expect(factory.forUser).toHaveBeenCalledWith(MOCK_USER);
+    expect(received).toBe(MOCK_BUNDLE);
+
     expect(result).toEqual({
       proposedChanges: [
         {

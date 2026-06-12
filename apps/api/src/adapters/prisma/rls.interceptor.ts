@@ -13,8 +13,10 @@ import { Observable, defaultIfEmpty, from, lastValueFrom } from 'rxjs';
 import { PrismaService } from './prisma.service';
 import {
   DEFAULT_RLS_TX_TIMEOUT_MS,
+  RLS_SKIP_TX,
   RLS_TX_CLIENT,
   RLS_TX_TIMEOUT_KEY,
+  RLS_USER_ID_KEY,
 } from './rls-context';
 
 /**
@@ -57,6 +59,24 @@ export class RlsInterceptor implements NestInterceptor {
     const userId = request?.user?.id;
     if (!userId) {
       return next.handle();
+    }
+
+    // `@SkipRlsTransaction()` handlers opt out of the per-request transaction (e.g. cycle-plan,
+    // which calls an LLM between DB reads). The userId is stashed in CLS so RlsContextService can
+    // open a short-lived transaction per DB operation instead of pinning a connection for the
+    // whole request. See issue #518.
+    const skipTx =
+      this.reflector.getAllAndOverride<boolean>(RLS_SKIP_TX, [
+        context.getHandler(),
+        context.getClass(),
+      ]) ?? false;
+    if (skipTx) {
+      return from(
+        this.cls.run(() => {
+          this.cls.set(RLS_USER_ID_KEY, userId);
+          return lastValueFrom(next.handle().pipe(defaultIfEmpty(undefined)));
+        }),
+      );
     }
 
     const timeoutMs =

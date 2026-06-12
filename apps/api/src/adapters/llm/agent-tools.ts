@@ -1,5 +1,9 @@
 import { RepositoryBundle } from '../../ports/factory';
-import { CyclePlanRequest, CyclePlanResult } from '../../ports/ICyclePlanningAgent';
+import {
+  CyclePlanRequest,
+  CyclePlanResult,
+  WithRlsContext,
+} from '../../ports/ICyclePlanningAgent';
 
 // ---------------------------------------------------------------------------
 // Prompts
@@ -256,7 +260,7 @@ export interface AgentLogger {
 
 export async function runAgentLoop(
   callbacks: AgentLoopCallbacks,
-  repos: RepositoryBundle,
+  withContext: WithRlsContext,
   request: CyclePlanRequest,
   signal: AbortSignal,
   logger: AgentLogger,
@@ -307,7 +311,12 @@ export async function runAgentLoop(
 
     const results: Array<{ id: string; name: string; result: ToolResult }> = [];
     for (const call of calls) {
-      const result = await dispatchTool(call.name, call.args, repos, request);
+      // Each tool dispatch runs inside its own short-lived RLS transaction (withContext); the
+      // repositories are built inside that transaction so they bind to the RLS-scoped client. The
+      // LLM round-trips (callbacks.runTurn) deliberately happen OUTSIDE any transaction. See #518.
+      const result = await withContext((repos) =>
+        dispatchTool(call.name, call.args, repos, request),
+      );
       logger.log(`round ${round + 1}: ${call.name} => ok:${result.ok}`);
       results.push({ id: call.id, name: call.name, result });
     }
@@ -327,7 +336,7 @@ export async function runAgentLoop(
 // partialReason to 'deadline' when the abort signal fired before the loop ended.
 export async function runPlan(
   makeCallbacks: (signal: AbortSignal) => AgentLoopCallbacks,
-  repos: RepositoryBundle,
+  withContext: WithRlsContext,
   request: CyclePlanRequest,
   logger: AgentLogger,
 ): Promise<CyclePlanResult> {
@@ -336,7 +345,7 @@ export async function runPlan(
   try {
     const result = await runAgentLoop(
       makeCallbacks(ctrl.signal),
-      repos,
+      withContext,
       request,
       ctrl.signal,
       logger,

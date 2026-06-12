@@ -2,16 +2,21 @@
 
 // Prevent direct .$transaction() calls outside the two designated files.
 //
-// The RLS interceptor (rls.interceptor.ts) owns the one per-request interactive transaction;
-// callers that need transactional behaviour must use runBatch/runInteractive from
-// prisma-tx.util.ts. A raw .$transaction() call outside these two files would bypass the
-// RLS GUC setup and either silently run without row-level security or open a nested
-// transaction that Prisma does not support on an interactive-transaction client.
+// The RLS interceptor (rls.interceptor.ts) owns the one per-request interactive transaction, and
+// rls-context.service.ts owns the short-lived per-operation transaction for @SkipRlsTransaction()
+// handlers. Callers that need transactional behaviour must use runBatch/runInteractive from
+// prisma-tx.util.ts. A raw .$transaction() call outside these files would bypass the RLS GUC setup
+// and either silently run without row-level security or open a nested transaction that Prisma does
+// not support on an interactive-transaction client.
 //
-// Allowlist: any filename ending with 'prisma-tx.util.ts' or 'rls.interceptor.ts'.
-// (rls-context.service.ts will be added when PR B lands.)
+// Allowlist: any filename ending with 'prisma-tx.util.ts', 'rls.interceptor.ts', or
+// 'rls-context.service.ts'.
 
-const ALLOWLISTED_SUFFIXES = ['prisma-tx.util.ts', 'rls.interceptor.ts'];
+const ALLOWLISTED_SUFFIXES = [
+  'prisma-tx.util.ts',
+  'rls.interceptor.ts',
+  'rls-context.service.ts',
+];
 
 function isAllowlisted(filename) {
   if (!filename) return false;
@@ -29,8 +34,8 @@ module.exports = {
     schema: [],
     messages: {
       noDirectTransaction:
-        'Call `.$transaction()` directly only in `prisma-tx.util.ts` or `rls.interceptor.ts`. ' +
-        'Use `runBatch` or `runInteractive` from `prisma-tx.util.ts` instead.',
+        'Call `.$transaction()` directly only in `prisma-tx.util.ts`, `rls.interceptor.ts`, or ' +
+        '`rls-context.service.ts`. Use `runBatch` or `runInteractive` from `prisma-tx.util.ts` instead.',
     },
   },
   create(context) {
