@@ -49,9 +49,11 @@ export class RlsInterceptor implements NestInterceptor {
     if (!prisma || context.getType() !== 'http') {
       return next.handle();
     }
+    // routerPath is the Fastify property for the matched route pattern (e.g. /programs/:id).
+    // request.url is the full URL with query params — used as fallback only.
     const request = context
       .switchToHttp()
-      .getRequest<{ user?: { id?: string }; route?: { path?: string }; url?: string }>();
+      .getRequest<{ user?: { id?: string }; routerPath?: string; url?: string }>();
     const userId = request?.user?.id;
     if (!userId) {
       return next.handle();
@@ -63,7 +65,7 @@ export class RlsInterceptor implements NestInterceptor {
         context.getClass(),
       ]) ?? DEFAULT_RLS_TX_TIMEOUT_MS;
 
-    const route = request?.route?.path ?? request?.url ?? 'unknown';
+    const route = request?.routerPath ?? request?.url ?? 'unknown';
     return from(this.cls.run(() => this.runWithRlsContext(prisma, userId, timeoutMs, route, next)));
   }
 
