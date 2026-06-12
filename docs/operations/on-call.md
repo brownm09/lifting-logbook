@@ -27,7 +27,8 @@ to under-respond.
 | Alert | Default severity | Escalate to SEV1 if |
 |---|---|---|
 | `APIHighErrorRate` | SEV2 | Error rate sustained above 10% for > 5 minutes |
-| `APIHighP95Latency` | SEV3 | Latency sustained above 3 s for > 15 minutes, or accompanied by `APIHighErrorRate` |
+| `APIRouteHighErrorRate` | SEV1 | N/A — fires as SEV1 by default (critical); page immediately. Suppress co-firing `APIHighErrorRate` (alertmanager inhibition rule already in place). |
+| `APIHighP95Latency` | SEV2 | Latency sustained above 1 s for > 15 minutes, or accompanied by `APIHighErrorRate` |
 | `APINoRequests` | SEV3 | Known false-positive risk (see [ADR-018](../adr/ADR-018-observability-stack.md)); confirm in Grafana before acting |
 
 A burn-rate alert (when implemented — see [ADR-019](../adr/ADR-019-slo-methodology.md)) at
