@@ -6,6 +6,7 @@ import { SystemDbRepositoryFactory } from './system-db-repository-factory';
 import { PrismaRepositoryFactory } from '../prisma/prisma-repository-factory';
 import { PrismaService } from '../prisma/prisma.service';
 import { RlsInterceptor } from '../prisma/rls.interceptor';
+import { RlsContextService } from '../prisma/rls-context.service';
 import { REPOSITORY_FACTORY } from '../../ports/tokens';
 
 @Global()
@@ -37,7 +38,16 @@ import { REPOSITORY_FACTORY } from '../../ports/tokens';
     // transaction and routes repositories through it). No-ops on the in-memory/SystemDb paths
     // and on unauthenticated routes. See rls.interceptor.ts.
     { provide: APP_INTERCEPTOR, useClass: RlsInterceptor },
+    // Opens a short-lived per-operation RLS transaction for @SkipRlsTransaction() handlers
+    // (cycle-plan). PrismaService is optional — null on the in-memory/SystemDb paths, where
+    // withUserContext runs its callback directly. See rls-context.service.ts (#518).
+    {
+      provide: RlsContextService,
+      useFactory: (cls: ClsService, prisma: PrismaService | null) =>
+        new RlsContextService(cls, prisma),
+      inject: [ClsService, { token: PrismaService, optional: true }],
+    },
   ],
-  exports: [REPOSITORY_FACTORY, PrismaService],
+  exports: [REPOSITORY_FACTORY, PrismaService, RlsContextService],
 })
 export class RepositoryFactoryModule {}

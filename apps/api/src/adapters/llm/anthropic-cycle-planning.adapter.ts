@@ -4,8 +4,8 @@ import {
   CyclePlanRequest,
   CyclePlanResult,
   ICyclePlanningAgent,
+  WithRlsContext,
 } from '../../ports/ICyclePlanningAgent';
-import { RepositoryBundle } from '../../ports/factory';
 import {
   AgentLoopCallbacks,
   SYSTEM_PROMPT,
@@ -30,12 +30,12 @@ export class AnthropicCyclePlanningAdapter implements ICyclePlanningAgent {
   }
 
   async plan(
-    repos: RepositoryBundle,
     request: CyclePlanRequest,
+    withContext: WithRlsContext,
   ): Promise<CyclePlanResult> {
     return runPlan(
       () => this.makeCallbacks(request),
-      repos,
+      withContext,
       request,
       { log: (m) => this.logger.log(m), warn: (m) => this.logger.warn(m) },
     );

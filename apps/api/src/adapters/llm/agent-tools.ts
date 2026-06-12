@@ -1,5 +1,9 @@
 import { RepositoryBundle } from '../../ports/factory';
-import { CyclePlanRequest, CyclePlanResult } from '../../ports/ICyclePlanningAgent';
+import {
+  CyclePlanRequest,
+  CyclePlanResult,
+  WithRlsContext,
+} from '../../ports/ICyclePlanningAgent';
 
 // ---------------------------------------------------------------------------
 // Prompts
@@ -256,7 +260,7 @@ export interface AgentLogger {
 
 export async function runAgentLoop(
   callbacks: AgentLoopCallbacks,
-  repos: RepositoryBundle,
+  withContext: WithRlsContext,
   request: CyclePlanRequest,
   signal: AbortSignal,
   logger: AgentLogger,
@@ -307,7 +311,23 @@ export async function runAgentLoop(
 
     const results: Array<{ id: string; name: string; result: ToolResult }> = [];
     for (const call of calls) {
-      const result = await dispatchTool(call.name, call.args, repos, request);
+      // Each tool dispatch runs inside its own short-lived RLS transaction (withContext); the
+      // repositories are built inside that transaction so they bind to the RLS-scoped client. The
+      // LLM round-trips (callbacks.runTurn) deliberately happen OUTSIDE any transaction. See #518.
+      //
+      // dispatchTool catches its own DB errors and returns {ok:false}, but the withContext wrapper
+      // (transaction open/commit, set_config, the short-tx timeout) can still reject ABOVE that
+      // catch. Treat such failures as a failed tool result rather than letting them crash the whole
+      // plan — the agent then sees the error and can retry or propose with partial information,
+      // matching dispatchTool's existing error contract.
+      let result: ToolResult;
+      try {
+        result = await withContext((repos) =>
+          dispatchTool(call.name, call.args, repos, request),
+        );
+      } catch (err) {
+        result = { ok: false, error: err instanceof Error ? err.message : String(err) };
+      }
       logger.log(`round ${round + 1}: ${call.name} => ok:${result.ok}`);
       results.push({ id: call.id, name: call.name, result });
     }
@@ -327,7 +347,7 @@ export async function runAgentLoop(
 // partialReason to 'deadline' when the abort signal fired before the loop ended.
 export async function runPlan(
   makeCallbacks: (signal: AbortSignal) => AgentLoopCallbacks,
-  repos: RepositoryBundle,
+  withContext: WithRlsContext,
   request: CyclePlanRequest,
   logger: AgentLogger,
 ): Promise<CyclePlanResult> {
@@ -336,7 +356,7 @@ export async function runPlan(
   try {
     const result = await runAgentLoop(
       makeCallbacks(ctrl.signal),
-      repos,
+      withContext,
       request,
       ctrl.signal,
       logger,

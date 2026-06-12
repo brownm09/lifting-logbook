@@ -27,6 +27,11 @@ test('no-direct-prisma-transaction', () => {
         code: 'await prisma.$transaction(async (tx) => {});',
         filename: 'apps/api/src/adapters/prisma/rls.interceptor.ts',
       },
+      // Allowlisted: rls-context.service.ts owns the per-operation short-lived transaction (#518).
+      {
+        code: 'await this.prisma.$transaction(async (tx) => {}, { timeout: 5000 });',
+        filename: 'apps/api/src/adapters/prisma/rls-context.service.ts',
+      },
       // Non-$transaction member calls are unaffected.
       {
         code: 'prisma.$connect();',

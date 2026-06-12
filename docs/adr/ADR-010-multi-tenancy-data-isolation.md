@@ -80,9 +80,17 @@ Implemented in [#511](https://github.com/brownm09/lifting-logbook/issues/511) (2
   and proves unscoped-read isolation, fail-closed-on-unset-GUC, `WITH CHECK` rejection, the
   `custom_program_spec` FK policy, that the test role is genuinely non-superuser/non-`BYPASSRLS`,
   and that the interceptor wires the GUC end to end.
-- **Known limitation** — `cycle-plan` calls an LLM between DB reads, so it holds its RLS transaction
-  (and a DB connection) for the model-call duration via a raised per-handler timeout. Moving the
-  LLM call outside the transaction is a tracked follow-up.
+- **Per-operation user context (`@SkipRlsTransaction()`)** — `cycle-plan` calls an LLM between DB
+  reads. Holding one request-level transaction across the model call would pin a DB connection for
+  its full duration, so that handler opts out via `@SkipRlsTransaction()`
+  ([#518](https://github.com/brownm09/lifting-logbook/issues/518)). The interceptor then stores only
+  the userId in CLS (`RLS_USER_ID_KEY`) without opening a transaction; the handler wraps each unit
+  of DB work in `RlsContextService.withUserContext` (`rls-context.service.ts`), which opens a
+  short-lived (5 s) transaction, sets the GUC, and **builds the repositories inside that
+  transaction** so they bind to the RLS-scoped client. The LLM round-trips happen outside any
+  transaction, so a connection is held only for the brief span of each DB operation. The
+  short-transaction `set_config` is wrapped in the same manual OpenTelemetry span as the
+  per-request path.
 
 ---
 

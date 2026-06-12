@@ -6,15 +6,17 @@ import {
   Optional,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Prisma } from '@prisma/client';
 import { ClsService } from 'nestjs-cls';
 import { SpanStatusCode, trace } from '@opentelemetry/api';
 import { Observable, defaultIfEmpty, from, lastValueFrom } from 'rxjs';
 import { PrismaService } from './prisma.service';
 import {
   DEFAULT_RLS_TX_TIMEOUT_MS,
+  RLS_SKIP_TX,
   RLS_TX_CLIENT,
   RLS_TX_TIMEOUT_KEY,
+  RLS_USER_ID_KEY,
+  setRlsUserContext,
 } from './rls-context';
 
 /**
@@ -59,6 +61,24 @@ export class RlsInterceptor implements NestInterceptor {
       return next.handle();
     }
 
+    // `@SkipRlsTransaction()` handlers opt out of the per-request transaction (e.g. cycle-plan,
+    // which calls an LLM between DB reads). The userId is stashed in CLS so RlsContextService can
+    // open a short-lived transaction per DB operation instead of pinning a connection for the
+    // whole request. See issue #518.
+    const skipTx =
+      this.reflector.getAllAndOverride<boolean>(RLS_SKIP_TX, [
+        context.getHandler(),
+        context.getClass(),
+      ]) ?? false;
+    if (skipTx) {
+      return from(
+        this.cls.run(() => {
+          this.cls.set(RLS_USER_ID_KEY, userId);
+          return lastValueFrom(next.handle().pipe(defaultIfEmpty(undefined)));
+        }),
+      );
+    }
+
     const timeoutMs =
       this.reflector.getAllAndOverride<number>(RLS_TX_TIMEOUT_KEY, [
         context.getHandler(),
@@ -82,7 +102,7 @@ export class RlsInterceptor implements NestInterceptor {
       try {
         return await prisma.$transaction(
           async (tx) => {
-            await this.setUserContext(tx, userId);
+            await setRlsUserContext(this.tracer, tx, userId);
             this.cls.set(RLS_TX_CLIENT, tx);
             return lastValueFrom(next.handle().pipe(defaultIfEmpty(undefined)));
           },
@@ -95,18 +115,6 @@ export class RlsInterceptor implements NestInterceptor {
         span.recordException(err as Error);
         span.setStatus({ code: SpanStatusCode.ERROR });
         throw err;
-      } finally {
-        span.end();
-      }
-    });
-  }
-
-  private async setUserContext(tx: Prisma.TransactionClient, userId: string): Promise<void> {
-    // Raw SQL is not auto-traced (ADR-024) — wrap it in a manual span. `set_config(_, _, true)`
-    // is the transaction-local (SET LOCAL) form and, unlike `SET LOCAL`, accepts a bind parameter.
-    await this.tracer.startActiveSpan('rls.set_user_context', async (span) => {
-      try {
-        await tx.$executeRaw`SELECT set_config('app.current_user_id', ${userId}, true)`;
       } finally {
         span.end();
       }
