@@ -38,7 +38,7 @@ provider "google-beta" {
 }
 
 locals {
-  env_suffix = var.environment == "production" ? "prod" : "stg"
+  env_suffix  = var.environment == "production" ? "prod" : "stg"
   name_prefix = "${var.app_name}-${local.env_suffix}"
 }
 
@@ -46,15 +46,15 @@ locals {
 
 resource "google_project_service" "required_apis" {
   for_each = toset([
-    "container.googleapis.com",          # GKE
-    "run.googleapis.com",                # Cloud Run
-    "sqladmin.googleapis.com",           # Cloud SQL
-    "cloudkms.googleapis.com",           # Cloud KMS (ADR-014)
-    "artifactregistry.googleapis.com",   # Artifact Registry
-    "compute.googleapis.com",            # VPC, Load Balancer
-    "servicenetworking.googleapis.com",  # Private service networking (Cloud SQL)
-    "secretmanager.googleapis.com",      # Secret Manager
-    "vpcaccess.googleapis.com",          # Serverless VPC Access (Cloud Run connector)
+    "container.googleapis.com",         # GKE
+    "run.googleapis.com",               # Cloud Run
+    "sqladmin.googleapis.com",          # Cloud SQL
+    "cloudkms.googleapis.com",          # Cloud KMS (ADR-014)
+    "artifactregistry.googleapis.com",  # Artifact Registry
+    "compute.googleapis.com",           # VPC, Load Balancer
+    "servicenetworking.googleapis.com", # Private service networking (Cloud SQL)
+    "secretmanager.googleapis.com",     # Secret Manager
+    "vpcaccess.googleapis.com",         # Serverless VPC Access (Cloud Run connector)
     "iam.googleapis.com",
     "cloudresourcemanager.googleapis.com",
   ])
@@ -208,7 +208,7 @@ resource "google_secret_manager_secret" "database_url" {
 }
 
 resource "google_secret_manager_secret_version" "database_url" {
-  secret = google_secret_manager_secret.database_url.id
+  secret      = google_secret_manager_secret.database_url.id
   secret_data = "postgresql://${google_sql_user.app.name}:${random_password.db_password.result}@${google_sql_database_instance.main.private_ip_address}:5432/${var.db_name}"
 }
 
@@ -221,7 +221,7 @@ resource "google_secret_manager_secret" "system_database_url" {
 }
 
 resource "google_secret_manager_secret_version" "system_database_url" {
-  secret = google_secret_manager_secret.system_database_url.id
+  secret      = google_secret_manager_secret.system_database_url.id
   secret_data = "postgresql://${google_sql_user.app.name}:${random_password.db_password.result}@${google_sql_database_instance.main.private_ip_address}:5432/${var.db_name}_system"
 }
 

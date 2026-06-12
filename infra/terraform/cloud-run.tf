@@ -9,8 +9,8 @@ locals {
   # CI/CD overwrites this via gcloud run deploy; lifecycle.ignore_changes prevents Terraform
   # from reverting it on subsequent applies.
   placeholder_image = "us-docker.pkg.dev/cloudrun/container/hello:latest"
-  api_image = var.image_tag == "bootstrap" ? local.placeholder_image : "${var.artifact_registry_region}-docker.pkg.dev/${var.project_id}/${var.app_name}/api:${local.image_tag}"
-  web_image = var.image_tag == "bootstrap" ? local.placeholder_image : "${var.artifact_registry_region}-docker.pkg.dev/${var.project_id}/${var.app_name}/web:${local.image_tag}"
+  api_image         = var.image_tag == "bootstrap" ? local.placeholder_image : "${var.artifact_registry_region}-docker.pkg.dev/${var.project_id}/${var.app_name}/api:${local.image_tag}"
+  web_image         = var.image_tag == "bootstrap" ? local.placeholder_image : "${var.artifact_registry_region}-docker.pkg.dev/${var.project_id}/${var.app_name}/web:${local.image_tag}"
 
   # Cloud Run min instances. var.cloud_run_min_instances overrides the per-environment
   # default when set (use 0 in production for scale-to-zero / single-user deploys).
