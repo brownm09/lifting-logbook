@@ -1,4 +1,6 @@
 import { SetMetadata } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import { Tracer } from '@opentelemetry/api';
 
 /**
  * CLS key under which the per-request RLS interactive-transaction client is stored.
@@ -44,3 +46,24 @@ export const RLS_USER_ID_KEY = 'rls.userId';
  * the whole request. The motivating case is `cycle-plan`. See issue #518.
  */
 export const SkipRlsTransaction = () => SetMetadata(RLS_SKIP_TX, true);
+
+/**
+ * Set the transaction-local `app.current_user_id` GUC so RLS policies resolve to `userId`, wrapped
+ * in a manual OpenTelemetry span. Raw SQL is not auto-traced (ADR-024), hence the explicit span.
+ * `set_config(_, _, true)` is the transaction-local (SET LOCAL) form and, unlike `SET LOCAL`,
+ * accepts a bind parameter. Shared by the per-request interceptor and the per-operation
+ * {@link RlsContextService}; the caller passes its own tracer so spans keep their source identity.
+ */
+export async function setRlsUserContext(
+  tracer: Tracer,
+  tx: Prisma.TransactionClient,
+  userId: string,
+): Promise<void> {
+  await tracer.startActiveSpan('rls.set_user_context', async (span) => {
+    try {
+      await tx.$executeRaw`SELECT set_config('app.current_user_id', ${userId}, true)`;
+    } finally {
+      span.end();
+    }
+  });
+}

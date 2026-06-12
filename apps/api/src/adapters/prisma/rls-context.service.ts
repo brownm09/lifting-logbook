@@ -1,9 +1,8 @@
 import { Injectable, Optional } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { ClsService } from 'nestjs-cls';
 import { trace } from '@opentelemetry/api';
 import { PrismaService } from './prisma.service';
-import { RLS_TX_CLIENT, RLS_USER_ID_KEY } from './rls-context';
+import { RLS_TX_CLIENT, RLS_USER_ID_KEY, setRlsUserContext } from './rls-context';
 
 /**
  * Opens a short-lived, per-operation Postgres RLS transaction for `@SkipRlsTransaction()` handlers
@@ -54,7 +53,7 @@ export class RlsContextService {
     }
     return this.prisma.$transaction(
       async (tx) => {
-        await this.setUserContext(tx, userId);
+        await setRlsUserContext(this.tracer, tx, userId);
         this.cls.set(RLS_TX_CLIENT, tx);
         try {
           return await fn();
@@ -66,17 +65,5 @@ export class RlsContextService {
       },
       { timeout: RlsContextService.SHORT_TX_TIMEOUT_MS },
     );
-  }
-
-  private async setUserContext(tx: Prisma.TransactionClient, userId: string): Promise<void> {
-    // Raw SQL is not auto-traced (ADR-024) — wrap it in a manual span. `set_config(_, _, true)`
-    // is the transaction-local (SET LOCAL) form and, unlike `SET LOCAL`, accepts a bind parameter.
-    await this.tracer.startActiveSpan('rls.set_user_context', async (span) => {
-      try {
-        await tx.$executeRaw`SELECT set_config('app.current_user_id', ${userId}, true)`;
-      } finally {
-        span.end();
-      }
-    });
   }
 }

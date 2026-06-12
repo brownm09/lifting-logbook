@@ -314,9 +314,20 @@ export async function runAgentLoop(
       // Each tool dispatch runs inside its own short-lived RLS transaction (withContext); the
       // repositories are built inside that transaction so they bind to the RLS-scoped client. The
       // LLM round-trips (callbacks.runTurn) deliberately happen OUTSIDE any transaction. See #518.
-      const result = await withContext((repos) =>
-        dispatchTool(call.name, call.args, repos, request),
-      );
+      //
+      // dispatchTool catches its own DB errors and returns {ok:false}, but the withContext wrapper
+      // (transaction open/commit, set_config, the short-tx timeout) can still reject ABOVE that
+      // catch. Treat such failures as a failed tool result rather than letting them crash the whole
+      // plan — the agent then sees the error and can retry or propose with partial information,
+      // matching dispatchTool's existing error contract.
+      let result: ToolResult;
+      try {
+        result = await withContext((repos) =>
+          dispatchTool(call.name, call.args, repos, request),
+        );
+      } catch (err) {
+        result = { ok: false, error: err instanceof Error ? err.message : String(err) };
+      }
       logger.log(`round ${round + 1}: ${call.name} => ok:${result.ok}`);
       results.push({ id: call.id, name: call.name, result });
     }
