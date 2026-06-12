@@ -113,11 +113,23 @@ jobs:
 
       - name: Terraform init (staging)
         working-directory: ${{ env.TF_DIR }}
+        # Bounded retry absorbs transient GCP API 5xx / GCS backend
+        # eventual-consistency blips on init and workspace select (issue #509).
         run: |
-          terraform init \
-            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
-            -backend-config="prefix=terraform/state"
-          terraform workspace select staging || terraform workspace new staging
+          for attempt in 1 2; do
+            if terraform init \
+                 -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+                 -backend-config="prefix=terraform/state" && \
+               (terraform workspace select staging || terraform workspace new staging); then
+              exit 0
+            fi
+            if [ "${attempt}" -lt 2 ]; then
+              echo "Terraform init/workspace attempt ${attempt} failed; retrying in 20s..."
+              sleep 20
+            fi
+          done
+          echo "::error title=Terraform init failed::terraform init/workspace select (staging) failed on both attempts."
+          exit 1
 
       - name: Terraform apply (staging)
         working-directory: ${{ env.TF_DIR }}
@@ -707,19 +719,33 @@ jobs:
           terraform_version: "~> 1.7"
           terraform_wrapper: false
 
+      - name: Terraform init (production)
+        working-directory: ${{ env.TF_DIR }}
+        # Bounded retry absorbs transient GCP API 5xx / GCS backend
+        # eventual-consistency blips on init and workspace select (issue #509).
+        run: |
+          for attempt in 1 2; do
+            if terraform init \
+                 -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+                 -backend-config="prefix=terraform/state" && \
+               (terraform workspace select production || terraform workspace new production); then
+              exit 0
+            fi
+            if [ "${attempt}" -lt 2 ]; then
+              echo "Terraform init/workspace attempt ${attempt} failed; retrying in 20s..."
+              sleep 20
+            fi
+          done
+          echo "::error title=Terraform init failed::terraform init/workspace select (production) failed on both attempts."
+          exit 1
+
       - name: Terraform apply (production)
         working-directory: ${{ env.TF_DIR }}
         # Bounded retry absorbs transient GCP API 5xx / eventual-consistency
         # during apply (the same real CI driver as staging — #498 / #504,
-        # docs/runbooks/staging-ci-flakiness.md). init + workspace select run
-        # once; only the re-runnable apply retries. A genuine config error
-        # fails both attempts and hard-fails the prod deploy — failure
-        # semantics unchanged (AC #3 of #504).
+        # docs/runbooks/staging-ci-flakiness.md). A genuine config error
+        # fails both attempts and hard-fails the prod deploy.
         run: |
-          terraform init \
-            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
-            -backend-config="prefix=terraform/state"
-          terraform workspace select production || terraform workspace new production
           for attempt in 1 2; do
             if terraform apply -auto-approve \
                  -var-file=terraform.tfvars.production \
