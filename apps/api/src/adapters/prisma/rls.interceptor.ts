@@ -8,7 +8,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { Prisma } from '@prisma/client';
 import { ClsService } from 'nestjs-cls';
-import { trace } from '@opentelemetry/api';
+import { SpanStatusCode, trace } from '@opentelemetry/api';
 import { Observable, defaultIfEmpty, from, lastValueFrom } from 'rxjs';
 import { PrismaService } from './prisma.service';
 import {
@@ -49,7 +49,11 @@ export class RlsInterceptor implements NestInterceptor {
     if (!prisma || context.getType() !== 'http') {
       return next.handle();
     }
-    const request = context.switchToHttp().getRequest<{ user?: { id?: string } }>();
+    // routerPath is the Fastify property for the matched route pattern (e.g. /programs/:id).
+    // request.url is the full URL with query params — used as fallback only.
+    const request = context
+      .switchToHttp()
+      .getRequest<{ user?: { id?: string }; routerPath?: string; url?: string }>();
     const userId = request?.user?.id;
     if (!userId) {
       return next.handle();
@@ -61,23 +65,40 @@ export class RlsInterceptor implements NestInterceptor {
         context.getClass(),
       ]) ?? DEFAULT_RLS_TX_TIMEOUT_MS;
 
-    return from(this.cls.run(() => this.runWithRlsContext(prisma, userId, timeoutMs, next)));
+    const route = request?.routerPath ?? request?.url ?? 'unknown';
+    return from(this.cls.run(() => this.runWithRlsContext(prisma, userId, timeoutMs, route, next)));
   }
 
   private runWithRlsContext(
     prisma: PrismaService,
     userId: string,
     timeoutMs: number,
+    route: string,
     next: CallHandler,
   ): Promise<unknown> {
-    return prisma.$transaction(
-      async (tx) => {
-        await this.setUserContext(tx, userId);
-        this.cls.set(RLS_TX_CLIENT, tx);
-        return lastValueFrom(next.handle().pipe(defaultIfEmpty(undefined)));
-      },
-      { timeout: timeoutMs },
-    );
+    return this.tracer.startActiveSpan('rls.transaction', async (span) => {
+      span.setAttribute('rls.userId', userId);
+      span.setAttribute('rls.route', route);
+      try {
+        return await prisma.$transaction(
+          async (tx) => {
+            await this.setUserContext(tx, userId);
+            this.cls.set(RLS_TX_CLIENT, tx);
+            return lastValueFrom(next.handle().pipe(defaultIfEmpty(undefined)));
+          },
+          { timeout: timeoutMs },
+        );
+      } catch (err) {
+        if ((err as { code?: string })?.code === 'P2028') {
+          span.setAttribute('rls.transaction.timeout', true);
+        }
+        span.recordException(err as Error);
+        span.setStatus({ code: SpanStatusCode.ERROR });
+        throw err;
+      } finally {
+        span.end();
+      }
+    });
   }
 
   private async setUserContext(tx: Prisma.TransactionClient, userId: string): Promise<void> {

@@ -51,4 +51,14 @@ module.exports = [
       'lifting-logbook/no-uncovered-error-fallback': 'error',
     },
   },
+  // Forbid raw .$transaction() calls in the Prisma adapter layer outside the two designated
+  // files (prisma-tx.util.ts, rls.interceptor.ts). Direct calls bypass the RLS GUC setup or
+  // attempt to nest interactive transactions — both silently wrong. See issue #519 /
+  // tools/eslint-rules/no-direct-prisma-transaction.js.
+  {
+    files: ['apps/api/src/adapters/prisma/**/*.ts'],
+    ignores: ['**/*.spec.ts', '**/*.test.ts'],
+    plugins: { 'lifting-logbook': localRules },
+    rules: { 'lifting-logbook/no-direct-prisma-transaction': 'error' },
+  },
 ];
