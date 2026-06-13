@@ -557,15 +557,23 @@ export interface ImportPreviewResponse {
   errors: ImportError[];
 }
 
-/** Response for `POST /programs/:program/import?mode=commit`. */
-export interface ImportCommitResponse {
-  destination: ImportKind;
+/**
+ * Counts returned by an idempotent batch import write — shared by every commit
+ * destination and by the per-kind repository write methods (so commit counts come
+ * from the write result itself, not a separate pre-read).
+ */
+export interface ImportWriteResult {
   /** Rows newly inserted. Re-running the same file yields 0 (idempotent). */
   created: number;
   /** Rows whose prior value was overwritten (upsert kinds only; 0 for append-only lift records). */
   updated: number;
   /** Rows skipped because they were identical to the stored value / a duplicate. */
   skipped: number;
+}
+
+/** Response for `POST /programs/:program/import?mode=commit`. */
+export interface ImportCommitResponse extends ImportWriteResult {
+  destination: ImportKind;
 }
 
 // ---------------------------------------------------------------------------

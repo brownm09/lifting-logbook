@@ -92,6 +92,8 @@ const _trainingMaxRepo: ITrainingMaxRepository = {
     Promise.resolve([]),
   saveTrainingMaxes: (): Promise<void> =>
     Promise.resolve(),
+  importTrainingMaxes: () =>
+    Promise.resolve({ created: 0, updated: 0, skipped: 0 }),
 };
 
 // ---------------------------------------------------------------------------
@@ -140,6 +142,7 @@ const _strengthGoalRepo: IStrengthGoalRepository = {
   getGoals: () => Promise.resolve([]),
   upsertGoal: (_program, goal) => Promise.resolve(goal),
   deleteGoal: () => Promise.resolve(),
+  importGoals: () => Promise.resolve({ created: 0, updated: 0, skipped: 0 }),
 };
 
 const _workoutLiftOverrideRepo: IWorkoutLiftOverrideRepository = {

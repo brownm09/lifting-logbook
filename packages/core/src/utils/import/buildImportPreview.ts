@@ -61,6 +61,37 @@ export function buildLiftRecordsPreview(
   return tally(deltas);
 }
 
+/**
+ * Outcome of importing a single (deduped) upsert-by-lift row against stored data.
+ * The create/update/skip *decision* lives here so the preview builders and the
+ * repository commit methods classify identically — preview and commit can never
+ * disagree on the counts (issue #488).
+ */
+export type ImportRowKind = 'create' | 'update' | 'skip';
+
+/** Classify one training-max row vs the stored maxes (keyed by lift). */
+export function trainingMaxRowKind(
+  m: TrainingMax,
+  existingByLift: Map<string, number>,
+): ImportRowKind {
+  const before = existingByLift.get(m.lift);
+  if (before === undefined) return 'create';
+  // Both sides are numeric weights (Float -> number); compare numerically rather
+  // than by string coercion, which would misclassify e.g. 300.10 vs 300.1 as an
+  // update. The string form is only needed for the before/after display values.
+  return before === m.weight ? 'skip' : 'update';
+}
+
+/** Classify one strength-goal row vs the stored goals (keyed by lift). */
+export function strengthGoalRowKind(
+  g: StrengthGoalEntry,
+  existingByLift: Map<string, StrengthGoalEntry>,
+): ImportRowKind {
+  const prior = existingByLift.get(g.lift);
+  if (!prior) return 'create';
+  return goalValue(prior) === goalValue(g) ? 'skip' : 'update';
+}
+
 /** Training maxes upsert by `lift`: create if absent, update if the weight differs, else skip. */
 export function buildTrainingMaxPreview(
   incoming: TrainingMax[],
@@ -74,18 +105,13 @@ export function buildTrainingMaxPreview(
     if (seen.has(m.lift)) continue;
     seen.add(m.lift);
     const after = `${m.weight}`;
-    if (!existingByLift.has(m.lift)) {
-      deltas.push({ key: m.lift, label: m.lift, kind: 'create', after });
-    } else {
-      const before = `${existingByLift.get(m.lift)}`;
-      deltas.push({
-        key: m.lift,
-        label: m.lift,
-        kind: before === after ? 'skip' : 'update',
-        before,
-        after,
-      });
-    }
+    const kind = trainingMaxRowKind(m, existingByLift);
+    const before = existingByLift.get(m.lift);
+    deltas.push(
+      before === undefined
+        ? { key: m.lift, label: m.lift, kind, after }
+        : { key: m.lift, label: m.lift, kind, before: `${before}`, after },
+    );
   }
   return tally(deltas);
 }
@@ -109,19 +135,13 @@ export function buildStrengthGoalPreview(
     if (seen.has(g.lift)) continue;
     seen.add(g.lift);
     const after = goalValue(g);
+    const kind = strengthGoalRowKind(g, existingByLift);
     const prior = existingByLift.get(g.lift);
-    if (!prior) {
-      deltas.push({ key: g.lift, label: g.lift, kind: 'create', after });
-    } else {
-      const before = goalValue(prior);
-      deltas.push({
-        key: g.lift,
-        label: g.lift,
-        kind: before === after ? 'skip' : 'update',
-        before,
-        after,
-      });
-    }
+    deltas.push(
+      prior
+        ? { key: g.lift, label: g.lift, kind, before: goalValue(prior), after }
+        : { key: g.lift, label: g.lift, kind, after },
+    );
   }
   return tally(deltas);
 }

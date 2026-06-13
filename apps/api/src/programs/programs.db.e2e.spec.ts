@@ -1154,6 +1154,35 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
       expect(otherSpec.statusCode).toBe(200);
       expect(otherSpec.json()).toEqual([]);
     });
+
+    it('enforces the customProgramSpec natural-key unique constraint (#488)', async () => {
+      // The migration adds @@unique([programId, week, offset, lift, order]); a second
+      // row on the same natural key must be rejected at the DB layer (P2002). That
+      // constraint is what makes saveProgramSpec's upsert race-safe against two
+      // concurrent imports both passing find-then-create.
+      const program = await prisma.customProgram.create({
+        data: { userId: USER_CUST, name: 'Dup Guard Program' },
+      });
+      const specRow = {
+        programId: program.id,
+        week: MINIMAL_SPEC.week,
+        offset: MINIMAL_SPEC.offset,
+        lift: MINIMAL_SPEC.lift,
+        increment: MINIMAL_SPEC.increment,
+        order: MINIMAL_SPEC.order,
+        sets: MINIMAL_SPEC.sets,
+        reps: MINIMAL_SPEC.reps,
+        amrap: MINIMAL_SPEC.amrap,
+        warmUpPct: MINIMAL_SPEC.warmUpPct,
+        wtDecrementPct: MINIMAL_SPEC.wtDecrementPct,
+        activation: MINIMAL_SPEC.activation,
+      };
+      await prisma.customProgramSpec.create({ data: specRow });
+      // Same natural key, different config → unique violation, not a duplicate row.
+      await expect(
+        prisma.customProgramSpec.create({ data: { ...specRow, increment: 99 } }),
+      ).rejects.toMatchObject({ code: 'P2002' });
+    });
   });
 
   // ---------------------------------------------------------------------------

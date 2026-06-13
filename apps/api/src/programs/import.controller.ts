@@ -156,19 +156,17 @@ export class ImportController {
       }
       case 'training-maxes': {
         const valid = this.parseAndValidateOrThrow('training-maxes', table) as TrainingMax[];
-        const existing = await repos.trainingMax.getTrainingMaxes(program);
-        const { creates, updates, skips } = buildTrainingMaxPreview(valid, existing);
-        await repos.trainingMax.saveTrainingMaxes(program, valid);
-        return { destination, created: creates, updated: updates, skipped: skips };
+        // Atomic read+classify+write returning its own counts (#488): no separate
+        // pre-read a concurrent edit could desync the reported counts from.
+        const result = await repos.trainingMax.importTrainingMaxes(program, valid);
+        return { destination, ...result };
       }
       case 'strength-goals': {
         const valid = this.parseAndValidateOrThrow('strength-goals', table) as StrengthGoalEntry[];
-        const existing = await repos.strengthGoal.getGoals(program);
-        const { creates, updates, skips } = buildStrengthGoalPreview(valid, existing);
-        for (const goal of dedupeByLift(valid)) {
-          await repos.strengthGoal.upsertGoal(program, goal);
-        }
-        return { destination, created: creates, updated: updates, skipped: skips };
+        // Single transaction for the whole batch (#488): rolls back on a mid-batch
+        // failure instead of leaving a partial commit, and returns its own counts.
+        const result = await repos.strengthGoal.importGoals(program, valid);
+        return { destination, ...result };
       }
       case 'program-spec': {
         const valid = this.parseAndValidateOrThrow('program-spec', table) as LiftingProgramSpec[];
@@ -237,11 +235,4 @@ export class ImportController {
         throw new BadRequestException(`Unsupported import destination: ${destination}`);
     }
   }
-}
-
-/** Keeps the last entry per lift so a re-import with edits applies the latest value. */
-function dedupeByLift<T extends { lift: string }>(rows: T[]): T[] {
-  const byLift = new Map<string, T>();
-  for (const r of rows) byLift.set(r.lift, r);
-  return [...byLift.values()];
 }

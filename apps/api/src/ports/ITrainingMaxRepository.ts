@@ -1,4 +1,5 @@
 import { TrainingMax } from '@lifting-logbook/core';
+import { ImportWriteResult } from '@lifting-logbook/types';
 
 export interface ITrainingMaxRepository {
   getTrainingMaxes(program: string): Promise<TrainingMax[]>;
@@ -15,4 +16,14 @@ export interface ITrainingMaxRepository {
    * intentionally no delete-via-save path.
    */
   saveTrainingMaxes(program: string, maxes: TrainingMax[]): Promise<void>;
+
+  /**
+   * Smart Import commit (#488): atomically upsert `maxes` by lift and return the
+   * own `{created, updated, skipped}` counts of the write — so commit counts come
+   * from the write itself, not a separate pre-read that a concurrent edit could
+   * invalidate. Duplicate lifts within the batch collapse to the first occurrence
+   * (matching the preview). The whole batch runs in one transaction; a partial
+   * failure rolls back.
+   */
+  importTrainingMaxes(program: string, maxes: TrainingMax[]): Promise<ImportWriteResult>;
 }
