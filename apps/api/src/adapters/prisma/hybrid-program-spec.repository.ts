@@ -151,6 +151,11 @@ export class HybridLiftingProgramSpecRepository implements ILiftingProgramSpecRe
             create: data,
             update: data,
           });
+          // Counts are best-effort under a same-program concurrent-import race: if the
+          // loser's upsert updated a row a racing import just created, this still tallies
+          // it as `created`. The data outcome is correct (no duplicate); only the
+          // created/updated split can skew in that rare window. Same property applies to
+          // importTrainingMaxes/importGoals, which classify from their in-tx read snapshot.
           created++;
         } else if (programSpecComparable(toSpec(existing)) === programSpecComparable(r)) {
           skipped++;

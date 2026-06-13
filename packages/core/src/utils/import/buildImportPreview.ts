@@ -76,7 +76,10 @@ export function trainingMaxRowKind(
 ): ImportRowKind {
   const before = existingByLift.get(m.lift);
   if (before === undefined) return 'create';
-  return `${before}` === `${m.weight}` ? 'skip' : 'update';
+  // Both sides are numeric weights (Float -> number); compare numerically rather
+  // than by string coercion, which would misclassify e.g. 300.10 vs 300.1 as an
+  // update. The string form is only needed for the before/after display values.
+  return before === m.weight ? 'skip' : 'update';
 }
 
 /** Classify one strength-goal row vs the stored goals (keyed by lift). */

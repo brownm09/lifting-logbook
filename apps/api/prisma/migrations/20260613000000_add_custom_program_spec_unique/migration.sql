@@ -4,6 +4,12 @@
 
 -- De-duplicate first: a UNIQUE INDEX fails if duplicates already exist. Keep the
 -- lowest id per natural key and drop the rest. No-op on a clean table.
+-- DESTRUCTIVE on a table that already holds duplicates: the *oldest* (lowest-id) row
+-- wins, so a duplicate carrying newer config is dropped, and Prisma has no down path.
+-- Verify production has zero duplicates before deploy:
+--   SELECT "programId","week","offset","lift","order", count(*)
+--   FROM "custom_program_spec"
+--   GROUP BY 1,2,3,4,5 HAVING count(*) > 1;
 DELETE FROM "custom_program_spec" a
 USING "custom_program_spec" b
 WHERE a."id" > b."id"
