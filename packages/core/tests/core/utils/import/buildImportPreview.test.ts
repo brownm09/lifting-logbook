@@ -4,6 +4,8 @@ import {
   buildStrengthGoalPreview,
   buildProgramSpecPreview,
   programSpecNaturalKey,
+  trainingMaxRowKind,
+  strengthGoalRowKind,
 } from "@src/core";
 import type {
   LiftRecord,
@@ -101,5 +103,38 @@ describe("buildProgramSpecPreview", () => {
   it("treats an identical row as a skip", () => {
     const preview = buildProgramSpecPreview([spec()], [spec()]);
     expect(preview).toMatchObject({ creates: 0, updates: 0, skips: 1 });
+  });
+});
+
+// The shared create/update/skip decision used by BOTH the preview builders above
+// and the import-commit repository methods (issue #488), so the two can never
+// disagree on a row's classification.
+describe("trainingMaxRowKind", () => {
+  it("returns create when the lift is absent", () => {
+    expect(trainingMaxRowKind({ dateUpdated: new Date(), lift: "squat", weight: 300 }, new Map())).toBe("create");
+  });
+  it("returns skip when the weight is unchanged and update when it differs", () => {
+    const existing = new Map([["squat", 300]]);
+    expect(trainingMaxRowKind({ dateUpdated: new Date(), lift: "squat", weight: 300 }, existing)).toBe("skip");
+    expect(trainingMaxRowKind({ dateUpdated: new Date(), lift: "squat", weight: 305 }, existing)).toBe("update");
+  });
+});
+
+describe("strengthGoalRowKind", () => {
+  const goal = (target: number): StrengthGoalEntry => ({
+    lift: "squat",
+    goalType: "absolute",
+    target,
+    unit: "lbs",
+    updatedAt: new Date(),
+  });
+
+  it("returns create when the lift is absent", () => {
+    expect(strengthGoalRowKind(goal(400), new Map())).toBe("create");
+  });
+  it("returns skip when the goal value is unchanged and update when it differs", () => {
+    const existing = new Map([["squat", goal(400)]]);
+    expect(strengthGoalRowKind(goal(400), existing)).toBe("skip");
+    expect(strengthGoalRowKind(goal(410), existing)).toBe("update");
   });
 });

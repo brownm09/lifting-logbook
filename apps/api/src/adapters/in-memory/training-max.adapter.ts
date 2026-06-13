@@ -1,4 +1,5 @@
-import { TrainingMax } from '@lifting-logbook/core';
+import { TrainingMax, trainingMaxRowKind } from '@lifting-logbook/core';
+import { ImportWriteResult } from '@lifting-logbook/types';
 import { ITrainingMaxRepository } from '../../ports/ITrainingMaxRepository';
 import { SEED_PROGRAM, seedTrainingMaxes } from './fixtures';
 
@@ -23,5 +24,36 @@ export class InMemoryTrainingMaxRepository implements ITrainingMaxRepository {
     const byLift = new Map((this.maxesByProgram.get(program) ?? []).map((m) => [m.lift, m]));
     for (const m of maxes) byLift.set(m.lift, m);
     this.maxesByProgram.set(program, [...byLift.values()]);
+  }
+
+  async importTrainingMaxes(
+    program: string,
+    maxes: TrainingMax[],
+  ): Promise<ImportWriteResult> {
+    const existing = this.maxesByProgram.get(program) ?? [];
+    const existingByLift = new Map(existing.map((m) => [m.lift, m.weight]));
+    const byLift = new Map(existing.map((m) => [m.lift, m]));
+
+    let created = 0;
+    let updated = 0;
+    let skipped = 0;
+    const seen = new Set<string>();
+
+    for (const m of maxes) {
+      if (seen.has(m.lift)) continue; // collapse duplicate lifts within the file
+      seen.add(m.lift);
+
+      const kind = trainingMaxRowKind(m, existingByLift);
+      if (kind === 'skip') {
+        skipped++;
+        continue;
+      }
+      byLift.set(m.lift, m);
+      if (kind === 'create') created++;
+      else updated++;
+    }
+
+    this.maxesByProgram.set(program, [...byLift.values()]);
+    return { created, updated, skipped };
   }
 }

@@ -77,9 +77,11 @@ export class HybridLiftingProgramSpecRepository implements ILiftingProgramSpecRe
    * Idempotently writes spec rows for a custom program (see interface docs).
    * Built-in templates are immutable seed data and are rejected.
    *
-   * Idempotency uses a find-then-write per row inside a transaction rather than a
-   * DB unique constraint, so re-running the same file yields `created: 0` without
-   * requiring a schema migration on `custom_program_spec`.
+   * Each row is classified by a find-then-write inside a transaction (so an
+   * identical re-import yields `created: 0`). The insert is an `upsert` on the
+   * `(programId, week, offset, lift, order)` unique constraint (issue #488) so two
+   * concurrent imports racing past the same `findFirst → null` cannot both create
+   * a duplicate row — the loser updates instead of hitting a unique violation.
    */
   async saveProgramSpec(
     program: string,
@@ -133,7 +135,22 @@ export class HybridLiftingProgramSpecRepository implements ILiftingProgramSpecRe
         });
 
         if (!existing) {
-          await tx.customProgramSpec.create({ data });
+          // upsert (not create) on the natural-key constraint: a concurrent import
+          // that created this row after our findFirst makes the loser update, not
+          // throw P2002 (issue #488).
+          await tx.customProgramSpec.upsert({
+            where: {
+              programId_week_offset_lift_order: {
+                programId: program,
+                week: r.week,
+                offset: r.offset,
+                lift: r.lift,
+                order: r.order,
+              },
+            },
+            create: data,
+            update: data,
+          });
           created++;
         } else if (programSpecComparable(toSpec(existing)) === programSpecComparable(r)) {
           skipped++;

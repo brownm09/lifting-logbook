@@ -1,7 +1,8 @@
 import { PrismaClient } from '@prisma/client';
-import { TrainingMax } from '@lifting-logbook/core';
+import { TrainingMax, trainingMaxRowKind } from '@lifting-logbook/core';
+import { ImportWriteResult } from '@lifting-logbook/types';
 import { ITrainingMaxRepository } from '../../ports/ITrainingMaxRepository';
-import { runBatch } from './prisma-tx.util';
+import { runBatch, runInteractive } from './prisma-tx.util';
 
 export class PrismaTrainingMaxRepository implements ITrainingMaxRepository {
   constructor(
@@ -42,5 +43,57 @@ export class PrismaTrainingMaxRepository implements ITrainingMaxRepository {
         }),
       ),
     );
+  }
+
+  async importTrainingMaxes(
+    program: string,
+    maxes: TrainingMax[],
+  ): Promise<ImportWriteResult> {
+    // One transaction for the whole batch: the existing read and every upsert
+    // share it, so the returned counts reflect exactly what was written and a
+    // mid-batch failure rolls the whole import back (issue #488). runInteractive
+    // reuses the per-request RLS transaction when present, opens one otherwise.
+    return runInteractive(this.prisma, async (tx) => {
+      const existing = await tx.trainingMax.findMany({
+        where: { userId: this.userId, program },
+        select: { lift: true, weight: true },
+      });
+      const existingByLift = new Map(existing.map((r) => [r.lift, r.weight]));
+
+      let created = 0;
+      let updated = 0;
+      let skipped = 0;
+      const seen = new Set<string>();
+
+      for (const m of maxes) {
+        if (seen.has(m.lift)) continue; // collapse duplicate lifts within the file
+        seen.add(m.lift);
+
+        const kind = trainingMaxRowKind(m, existingByLift);
+        if (kind === 'skip') {
+          skipped++;
+          continue;
+        }
+
+        await tx.trainingMax.upsert({
+          where: {
+            userId_program_lift: { userId: this.userId, program, lift: m.lift },
+          },
+          create: {
+            userId: this.userId,
+            program,
+            lift: m.lift,
+            weight: m.weight,
+            dateUpdated: m.dateUpdated,
+          },
+          update: { weight: m.weight, dateUpdated: m.dateUpdated },
+        });
+
+        if (kind === 'create') created++;
+        else updated++;
+      }
+
+      return { created, updated, skipped };
+    });
   }
 }
