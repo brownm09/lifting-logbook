@@ -39,15 +39,25 @@ export async function runBatch(
 }
 
 /**
- * Interactive-transaction options for batch import writes (#532). A large (but
- * within-limit) import can exceed Prisma's 5s default interactive-tx timeout and
- * throw P2028 — but only on the self-opened-tx path (the system-DB factory / unit
- * tests, where the repository holds the base client). On the request path
- * `runInteractive` reuses the RLS request transaction and these options are
- * ignored (the RLS interceptor owns that transaction's timeout). `maxWait` is
- * raised in step so a busy pool does not P2028 while acquiring the connection.
+ * Transaction budget for batch import writes (#532). A large (but within-limit)
+ * import can exceed Prisma's 5s default interactive-tx timeout and throw P2028, so
+ * imports get a wider window than the {@link DEFAULT_RLS_TX_TIMEOUT_MS} default.
+ *
+ * This single value governs **both** import paths so they can't drift:
+ * - **Request path** (the production HTTP import): `runInteractive` reuses the RLS
+ *   request transaction and ignores the options below, so `ImportController` carries
+ *   `@RlsTxTimeout(IMPORT_TX_TIMEOUT_MS)` to widen that enclosing transaction.
+ * - **Self-opened path** (system-DB factory / unit tests, where the repository holds
+ *   the base client): `runInteractive` opens its own transaction with the options below.
  */
-export const IMPORT_BATCH_TX_OPTIONS = { timeout: 30_000, maxWait: 5_000 } as const;
+export const IMPORT_TX_TIMEOUT_MS = 30_000;
+
+/**
+ * `runInteractive` options for the self-opened-tx path. `timeout` matches
+ * {@link IMPORT_TX_TIMEOUT_MS}; `maxWait` is raised in step so a busy pool does not
+ * P2028 while acquiring the connection.
+ */
+export const IMPORT_BATCH_TX_OPTIONS = { timeout: IMPORT_TX_TIMEOUT_MS, maxWait: 5_000 } as const;
 
 /**
  * Run an interactive transaction. With the base client this opens one; with a request-scoped
