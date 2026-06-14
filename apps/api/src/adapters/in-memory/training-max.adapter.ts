@@ -1,4 +1,4 @@
-import { TrainingMax, trainingMaxRowKind } from '@lifting-logbook/core';
+import { TrainingMax, classifyAndCount, trainingMaxRowKind } from '@lifting-logbook/core';
 import { ImportWriteResult } from '@lifting-logbook/types';
 import { ITrainingMaxRepository } from '../../ports/ITrainingMaxRepository';
 import { SEED_PROGRAM, seedTrainingMaxes } from './fixtures';
@@ -34,26 +34,18 @@ export class InMemoryTrainingMaxRepository implements ITrainingMaxRepository {
     const existingByLift = new Map(existing.map((m) => [m.lift, m.weight]));
     const byLift = new Map(existing.map((m) => [m.lift, m]));
 
-    let created = 0;
-    let updated = 0;
-    let skipped = 0;
-    const seen = new Set<string>();
-
-    for (const m of maxes) {
-      if (seen.has(m.lift)) continue; // collapse duplicate lifts within the file
-      seen.add(m.lift);
-
-      const kind = trainingMaxRowKind(m, existingByLift);
-      if (kind === 'skip') {
-        skipped++;
-        continue;
-      }
-      byLift.set(m.lift, m);
-      if (kind === 'create') created++;
-      else updated++;
-    }
+    // Shared classify/dedupe/tally loop (#532) so this adapter's counts match the
+    // Prisma adapter's and the preview path's for the same input.
+    const result = await classifyAndCount(
+      maxes,
+      (m) => m.lift,
+      (m) => trainingMaxRowKind(m, existingByLift),
+      (m) => {
+        byLift.set(m.lift, m);
+      },
+    );
 
     this.maxesByProgram.set(program, [...byLift.values()]);
-    return { created, updated, skipped };
+    return result;
   }
 }

@@ -1,4 +1,4 @@
-import { StrengthGoalEntry, strengthGoalRowKind } from '@lifting-logbook/core';
+import { StrengthGoalEntry, classifyAndCount, strengthGoalRowKind } from '@lifting-logbook/core';
 import { ImportWriteResult } from '@lifting-logbook/types';
 import { IStrengthGoalRepository } from '../../ports/IStrengthGoalRepository';
 import { StrengthGoalNotFoundError } from '../../ports/errors';
@@ -31,26 +31,16 @@ export class InMemoryStrengthGoalRepository implements IStrengthGoalRepository {
     const map = this.programMap(program);
     const existingByLift = new Map(map);
 
-    let created = 0;
-    let updated = 0;
-    let skipped = 0;
-    const seen = new Set<string>();
-
-    for (const g of goals) {
-      if (seen.has(g.lift)) continue; // collapse duplicate lifts within the file
-      seen.add(g.lift);
-
-      const kind = strengthGoalRowKind(g, existingByLift);
-      if (kind === 'skip') {
-        skipped++;
-        continue;
-      }
-      map.set(g.lift, g);
-      if (kind === 'create') created++;
-      else updated++;
-    }
-
-    return { created, updated, skipped };
+    // Shared classify/dedupe/tally loop (#532) so this adapter's counts match the
+    // Prisma adapter's and the preview path's for the same input.
+    return classifyAndCount(
+      goals,
+      (g) => g.lift,
+      (g) => strengthGoalRowKind(g, existingByLift),
+      (g) => {
+        map.set(g.lift, g);
+      },
+    );
   }
 
   async deleteGoal(program: string, lift: string): Promise<void> {

@@ -39,16 +39,31 @@ export async function runBatch(
 }
 
 /**
+ * Interactive-transaction options for batch import writes (#532). A large (but
+ * within-limit) import can exceed Prisma's 5s default interactive-tx timeout and
+ * throw P2028 — but only on the self-opened-tx path (the system-DB factory / unit
+ * tests, where the repository holds the base client). On the request path
+ * `runInteractive` reuses the RLS request transaction and these options are
+ * ignored (the RLS interceptor owns that transaction's timeout). `maxWait` is
+ * raised in step so a busy pool does not P2028 while acquiring the connection.
+ */
+export const IMPORT_BATCH_TX_OPTIONS = { timeout: 30_000, maxWait: 5_000 } as const;
+
+/**
  * Run an interactive transaction. With the base client this opens one; with a request-scoped
  * transaction client it reuses the current transaction (Prisma does not nest interactive
  * transactions, and reusing the request transaction keeps the RLS GUC in scope).
+ *
+ * `options` (timeout / maxWait) apply only when this opens its own transaction; on the
+ * reuse path the enclosing request transaction's own timeout governs.
  */
 export async function runInteractive<T>(
   client: PrismaExecutor,
   fn: (tx: PrismaExecutor) => Promise<T>,
+  options?: { timeout?: number; maxWait?: number },
 ): Promise<T> {
   if (canStartTransaction(client)) {
-    return client.$transaction((tx) => fn(tx));
+    return client.$transaction((tx) => fn(tx), options);
   }
   return fn(client);
 }

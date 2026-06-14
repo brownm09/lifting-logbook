@@ -1,8 +1,9 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import {
   LiftingProgramSpec,
-  programSpecComparable,
+  classifyAndCount,
   programSpecNaturalKey,
+  programSpecRowKind,
 } from '@lifting-logbook/core';
 import {
   ILiftingProgramSpecRepository,
@@ -10,7 +11,7 @@ import {
 } from '../../ports/ILiftingProgramSpecRepository';
 import { PrismaClient } from '@prisma/client';
 import { InMemoryLiftingProgramSpecRepository } from '../in-memory/lifting-program-spec.adapter';
-import { runInteractive } from './prisma-tx.util';
+import { IMPORT_BATCH_TX_OPTIONS, runInteractive } from './prisma-tx.util';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -77,11 +78,15 @@ export class HybridLiftingProgramSpecRepository implements ILiftingProgramSpecRe
    * Idempotently writes spec rows for a custom program (see interface docs).
    * Built-in templates are immutable seed data and are rejected.
    *
-   * Each row is classified by a find-then-write inside a transaction (so an
-   * identical re-import yields `created: 0`). The insert is an `upsert` on the
-   * `(programId, week, offset, lift, order)` unique constraint (issue #488) so two
-   * concurrent imports racing past the same `findFirst → null` cannot both create
-   * a duplicate row — the loser updates instead of hitting a unique violation.
+   * Classifies each row against a single up-front snapshot read and writes via an
+   * `upsert` on the `(programId, week, offset, lift, order)` unique constraint
+   * (issue #488), so an identical re-import yields `created: 0` and two concurrent
+   * imports racing past the same snapshot cannot both create a duplicate row — the
+   * loser updates instead of hitting a unique violation. Shares the classify/dedupe/
+   * tally loop and the program-spec classifier with the preview path and the
+   * in-memory adapter (issue #532), so preview and commit can never disagree on
+   * counts. Named `saveProgramSpec` (vs `importTrainingMaxes`/`importGoals`)
+   * intentionally — see the asymmetry note on the port interface.
    */
   async saveProgramSpec(
     program: string,
@@ -91,81 +96,67 @@ export class HybridLiftingProgramSpecRepository implements ILiftingProgramSpecRe
       throw new BadRequestException('Program spec import requires a custom program');
     }
 
-    return runInteractive(this.prisma, async (tx) => {
-      const owner = await tx.customProgram.findFirst({
-        where: { id: program, userId: this.userId },
-        select: { id: true },
-      });
-      if (!owner) throw new NotFoundException(`Custom program ${program} not found`);
-
-      let created = 0;
-      let updated = 0;
-      let skipped = 0;
-      const seen = new Set<string>();
-
-      for (const r of rows) {
-        const key = programSpecNaturalKey(r);
-        if (seen.has(key)) continue; // collapse duplicate keys within the file
-        seen.add(key);
-
-        const data = {
-          programId: program,
-          week: r.week,
-          offset: r.offset,
-          lift: r.lift,
-          increment: r.increment,
-          order: r.order,
-          sets: r.sets,
-          reps: r.reps,
-          amrap: r.amrap === true || r.amrap === 'TRUE',
-          warmUpPct: r.warmUpPct,
-          wtDecrementPct: r.wtDecrementPct,
-          activation: r.activation,
-          weekType: r.weekType ?? null,
-        };
-
-        const existing = await tx.customProgramSpec.findFirst({
-          where: {
-            programId: program,
-            week: r.week,
-            offset: r.offset,
-            lift: r.lift,
-            order: r.order,
-          },
+    return runInteractive(
+      this.prisma,
+      async (tx) => {
+        const owner = await tx.customProgram.findFirst({
+          where: { id: program, userId: this.userId },
+          select: { id: true },
         });
+        if (!owner) throw new NotFoundException(`Custom program ${program} not found`);
 
-        if (!existing) {
-          // upsert (not create) on the natural-key constraint: a concurrent import
-          // that created this row after our findFirst makes the loser update, not
-          // throw P2002 (issue #488).
-          await tx.customProgramSpec.upsert({
-            where: {
-              programId_week_offset_lift_order: {
-                programId: program,
-                week: r.week,
-                offset: r.offset,
-                lift: r.lift,
-                order: r.order,
+        // One up-front read instead of a per-row findFirst (#532): the natural-key
+        // unique index (#488) makes the upsert race-safe, so the find-then-write per
+        // row — and its hand-duplicated where-clause — is no longer needed.
+        const existingRows = await tx.customProgramSpec.findMany({
+          where: { programId: program },
+        });
+        const existingByKey = new Map(
+          existingRows.map((row) => [programSpecNaturalKey(row), toSpec(row)]),
+        );
+
+        // Counts are best-effort under a same-program concurrent-import race: a row the
+        // snapshot classified as `create` whose upsert actually updated a row a racing
+        // import just inserted still tallies as `created`. The data outcome is correct
+        // (the unique index prevents duplicates); only the created/updated split can skew
+        // in that rare window. importTrainingMaxes/importGoals share this property.
+        return classifyAndCount(
+          rows,
+          (r) => programSpecNaturalKey(r),
+          (r) => programSpecRowKind(r, existingByKey),
+          (r) => {
+            const data = {
+              programId: program,
+              week: r.week,
+              offset: r.offset,
+              lift: r.lift,
+              increment: r.increment,
+              order: r.order,
+              sets: r.sets,
+              reps: r.reps,
+              amrap: r.amrap === true || r.amrap === 'TRUE',
+              warmUpPct: r.warmUpPct,
+              wtDecrementPct: r.wtDecrementPct,
+              activation: r.activation,
+              weekType: r.weekType ?? null,
+            };
+            return tx.customProgramSpec.upsert({
+              where: {
+                programId_week_offset_lift_order: {
+                  programId: program,
+                  week: r.week,
+                  offset: r.offset,
+                  lift: r.lift,
+                  order: r.order,
+                },
               },
-            },
-            create: data,
-            update: data,
-          });
-          // Counts are best-effort under a same-program concurrent-import race: if the
-          // loser's upsert updated a row a racing import just created, this still tallies
-          // it as `created`. The data outcome is correct (no duplicate); only the
-          // created/updated split can skew in that rare window. Same property applies to
-          // importTrainingMaxes/importGoals, which classify from their in-tx read snapshot.
-          created++;
-        } else if (programSpecComparable(toSpec(existing)) === programSpecComparable(r)) {
-          skipped++;
-        } else {
-          await tx.customProgramSpec.update({ where: { id: existing.id }, data });
-          updated++;
-        }
-      }
-
-      return { created, updated, skipped };
-    });
+              create: data,
+              update: data,
+            });
+          },
+        );
+      },
+      IMPORT_BATCH_TX_OPTIONS,
+    );
   }
 }
