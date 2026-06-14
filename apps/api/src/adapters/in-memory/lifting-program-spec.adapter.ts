@@ -1,8 +1,9 @@
 import { BadRequestException } from '@nestjs/common';
 import {
   LiftingProgramSpec,
-  programSpecComparable,
+  classifyAndCount,
   programSpecNaturalKey,
+  programSpecRowKind,
 } from '@lifting-logbook/core';
 import {
   ILiftingProgramSpecRepository,
@@ -35,29 +36,21 @@ export class InMemoryLiftingProgramSpecRepository
     }
 
     const current = [...(this.specByProgram.get(program) ?? [])];
-    const byKey = new Map(current.map((r) => [programSpecNaturalKey(r), r]));
-    let created = 0;
-    let updated = 0;
-    let skipped = 0;
-    const seen = new Set<string>();
+    const existingByKey = new Map(current.map((r) => [programSpecNaturalKey(r), r]));
+    const byKey = new Map(existingByKey);
 
-    for (const r of rows) {
-      const key = programSpecNaturalKey(r);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      const prior = byKey.get(key);
-      if (!prior) {
-        byKey.set(key, r);
-        created++;
-      } else if (programSpecComparable(prior) === programSpecComparable(r)) {
-        skipped++;
-      } else {
-        byKey.set(key, r);
-        updated++;
-      }
-    }
+    // Shared classify/dedupe/tally loop + program-spec classifier (#532) so this
+    // adapter's counts match the Prisma adapter's and the preview path's.
+    const result = await classifyAndCount(
+      rows,
+      (r) => programSpecNaturalKey(r),
+      (r) => programSpecRowKind(r, existingByKey),
+      (r) => {
+        byKey.set(programSpecNaturalKey(r), r);
+      },
+    );
 
     this.specByProgram.set(program, [...byKey.values()]);
-    return { created, updated, skipped };
+    return result;
   }
 }

@@ -1,4 +1,5 @@
 export * from './buildImportPreview';
+export * from './classifyAndCount';
 export * from './classifyImport';
 export * from './importThresholds';
 export * from './liftRecordNaturalKey';
