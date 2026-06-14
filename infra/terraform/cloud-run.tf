@@ -300,11 +300,15 @@ resource "google_cloud_run_v2_job" "migrate" {
           "npx prisma migrate deploy --schema=prisma/schema.prisma && npx prisma migrate status --schema=prisma/schema.prisma"
         ]
 
+        # Migrator connection (#517): connects as the owner/superuser role via the
+        # dedicated migrator secret, NOT the runtime database_url (which now connects as
+        # the NOBYPASSRLS lifting_app role). Migrations run DDL + data migrations that
+        # FORCE ROW LEVEL SECURITY would otherwise block.
         env {
           name = "DATABASE_URL"
           value_source {
             secret_key_ref {
-              secret  = google_secret_manager_secret.database_url.secret_id
+              secret  = google_secret_manager_secret.migrator_database_url.secret_id
               version = "latest"
             }
           }

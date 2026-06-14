@@ -40,6 +40,21 @@ provider "google-beta" {
 locals {
   env_suffix  = var.environment == "production" ? "prod" : "stg"
   name_prefix = "${var.app_name}-${local.env_suffix}"
+
+  # ─── Prisma connection-pool sizing for the RLS cutover (#517) ────────────────
+  # Cap per-instance Prisma pool so the aggregate across every app instance stays
+  # well under Cloud SQL max_connections (which is the tier default — not a flag —
+  # so it is verified against `SHOW max_connections` at the staging gate before prod):
+  #   db-f1-micro (staging) ≈ 25 ; db-g1-small (prod) ≈ 50.
+  # api_max_instances mirrors the Cloud Run maxScale literal in cloud-run.tf.
+  # consumer_factor: staging runs BOTH Cloud Run and the GKE A/B deployment
+  # (ADR-009) against the same DATABASE_URL, so it shares the pool ×2; prod is
+  # Cloud-Run-only (enable_gke=false). The 0.8 factor reserves headroom for the
+  # migrator job, the system DB, and the superuser-reserved connections.
+  api_max_instances   = var.environment == "production" ? 10 : 3
+  db_max_connections  = var.environment == "production" ? 50 : 25
+  db_consumer_factor  = var.environment == "production" ? 1 : 2
+  db_connection_limit = floor(local.db_max_connections * 0.8 / (local.api_max_instances * local.db_consumer_factor))
 }
 
 # ─── GCP APIs ────────────────────────────────────────────────────────────────
@@ -197,6 +212,32 @@ resource "google_sql_user" "app" {
   password = random_password.db_password.result
 }
 
+# ─── Runtime (NOBYPASSRLS) application role — RLS cutover (#517) ───────────────
+# google_sql_user.app above is a Cloud SQL built-in user and therefore a member of
+# cloudsqlsuperuser, which BYPASSES Row-Level Security — so the policies shipped in
+# migration 20260611000000_enable_rls are inert while the app connects as that role.
+# This second role connects the *runtime* (Cloud Run + GKE) as a NOSUPERUSER /
+# NOBYPASSRLS login so the per-tenant policies actually enforce isolation. The
+# *migrator* (Cloud Run Job) keeps using google_sql_user.app — migrations run DDL and
+# data-migrations that RLS would otherwise block (FORCE ROW LEVEL SECURITY).
+#
+# The "lifting_app" role itself is created idempotently by the enable_rls migration
+# (with no password — none is in version control); Terraform owns only its password.
+# CONTINGENCY: because the SQL migration may have already created the role, the first
+# `terraform apply` per workspace can need a one-time
+#   terraform import google_sql_user.app_rls "<project>/<instance>/lifting_app"
+# before apply, so Terraform adopts the existing role instead of failing to re-create it.
+resource "random_password" "app_rls_password" {
+  length  = 32
+  special = false
+}
+
+resource "google_sql_user" "app_rls" {
+  name     = "lifting_app"
+  instance = google_sql_database_instance.main.name
+  password = random_password.app_rls_password.result
+}
+
 # ─── Secret Manager ──────────────────────────────────────────────────────────
 
 resource "google_secret_manager_secret" "database_url" {
@@ -207,9 +248,13 @@ resource "google_secret_manager_secret" "database_url" {
   depends_on = [google_project_service.required_apis]
 }
 
+# Runtime DATABASE_URL — connects as the NOBYPASSRLS lifting_app role (#517) so RLS
+# policies enforce, and caps the Prisma pool via ?connection_limit so the aggregate
+# across all app instances stays under Cloud SQL max_connections. The migrate Job uses
+# a SEPARATE secret (migrator_database_url, below) that still connects as the owner.
 resource "google_secret_manager_secret_version" "database_url" {
   secret      = google_secret_manager_secret.database_url.id
-  secret_data = "postgresql://${google_sql_user.app.name}:${random_password.db_password.result}@${google_sql_database_instance.main.private_ip_address}:5432/${var.db_name}"
+  secret_data = "postgresql://${google_sql_user.app_rls.name}:${random_password.app_rls_password.result}@${google_sql_database_instance.main.private_ip_address}:5432/${var.db_name}?connection_limit=${local.db_connection_limit}"
 }
 
 resource "google_secret_manager_secret" "system_database_url" {
@@ -223,6 +268,24 @@ resource "google_secret_manager_secret" "system_database_url" {
 resource "google_secret_manager_secret_version" "system_database_url" {
   secret      = google_secret_manager_secret.system_database_url.id
   secret_data = "postgresql://${google_sql_user.app.name}:${random_password.db_password.result}@${google_sql_database_instance.main.private_ip_address}:5432/${var.db_name}_system"
+}
+
+# Migrator DATABASE_URL — used ONLY by the migrate Cloud Run Job (#517). Connects as
+# the owner/superuser role (google_sql_user.app), which can run DDL and data migrations
+# that RLS would otherwise block. No connection_limit: the job runs once with a single
+# connection. The api workload SA already holds project-level secretmanager.secretAccessor
+# (gke.tf api_workload_roles), so no per-secret IAM grant is required.
+resource "google_secret_manager_secret" "migrator_database_url" {
+  secret_id = "${local.name_prefix}-migrator-database-url"
+  replication {
+    auto {}
+  }
+  depends_on = [google_project_service.required_apis]
+}
+
+resource "google_secret_manager_secret_version" "migrator_database_url" {
+  secret      = google_secret_manager_secret.migrator_database_url.id
+  secret_data = "postgresql://${google_sql_user.app.name}:${random_password.db_password.result}@${google_sql_database_instance.main.private_ip_address}:5432/${var.db_name}"
 }
 
 resource "google_secret_manager_secret" "clerk_secret_key" {
