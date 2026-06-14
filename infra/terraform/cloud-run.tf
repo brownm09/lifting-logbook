@@ -28,7 +28,9 @@ resource "google_cloud_run_v2_service" "api" {
 
     scaling {
       min_instance_count = local.cloud_run_min_instances
-      max_instance_count = var.environment == "production" ? 10 : 3
+      # Single source of truth shared with the RLS pool-sizing formula (main.tf
+      # local.db_connection_limit) so maxScale and connection_limit cannot drift (#517).
+      max_instance_count = local.api_max_instances
     }
 
     vpc_access {

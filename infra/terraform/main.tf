@@ -46,7 +46,9 @@ locals {
   # well under Cloud SQL max_connections (which is the tier default — not a flag —
   # so it is verified against `SHOW max_connections` at the staging gate before prod):
   #   db-f1-micro (staging) ≈ 25 ; db-g1-small (prod) ≈ 50.
-  # api_max_instances mirrors the Cloud Run maxScale literal in cloud-run.tf.
+  # api_max_instances is the single source of truth for the Cloud Run API maxScale:
+  # google_cloud_run_v2_service.api.scaling.max_instance_count references this local
+  # (cloud-run.tf), so the scaling cap and this pool-sizing formula cannot drift apart.
   # consumer_factor: staging runs BOTH Cloud Run and the GKE A/B deployment
   # (ADR-009) against the same DATABASE_URL, so it shares the pool ×2; prod is
   # Cloud-Run-only (enable_gke=false). The 0.8 factor reserves headroom for the

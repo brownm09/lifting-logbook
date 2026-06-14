@@ -540,20 +540,37 @@ tier's `max_connections` and the Cloud Run maxScale; staging divides by an extra
 ADR-009 GKE A/B deployment shares the same pool. `max_connections` is the tier default (not a flag)
 — verify it before prod with `SELECT setting FROM pg_settings WHERE name='max_connections';`.
 
-**First-apply contingency.** The `lifting_app` role is created idempotently by the enable_rls
-migration (with no password). The first `terraform apply` per workspace that adds
-`google_sql_user.app_rls` may need a one-time import so Terraform adopts the existing role instead
-of failing to recreate it:
+**First-apply: import is required, not optional.** The `lifting_app` role was already created by the
+`enable_rls` migration (with no password) in both staging and production — confirmed live before this
+change. So `terraform plan` will show a `create` for `google_sql_user.app_rls`, and an unguarded
+`terraform apply` will **fail** with `409 ALREADY_EXISTS` (the Cloud SQL API does not upsert users).
+The deploy pipeline's CI `terraform apply` has no path to recover from this on its own, so the import
+must be run **before** the first apply that introduces `app_rls`, once per workspace, against the same
+GCS-backed remote state the pipeline uses (not a throwaway local state):
 
 ```bash
-terraform import google_sql_user.app_rls "<project>/<instance>/lifting_app"   # per workspace
+cd infra/terraform
+terraform init -backend-config="bucket=lifting-logbook-tfstate" -backend-config="prefix=terraform/state"
+terraform workspace select staging   # then repeat for production before the prod cutover
+terraform import google_sql_user.app_rls "<project>/<instance>/lifting_app"
 ```
+
+After the import, `terraform plan` shows only a password set on the adopted role (no create), and the
+pipeline apply proceeds cleanly. (If a future fresh environment has *not* run `enable_rls` yet, the
+role won't exist and the import is skipped — but that is not the case for the current staging/prod
+cutover.)
 
 **Staging validation gate (run after the staging deploy, before any prod cutover):**
 
+`$STG_RUNTIME_URL` must point at the **proxy**, as the `lifting_app` role — the value stored in the
+`database-url` secret has the Cloud SQL **private IP** as its host, which is unreachable from a local
+machine, so do not use the raw secret value. Start the proxy with `scripts/migrate-staging-db.sh`
+(listens on `127.0.0.1:5434`), then construct the URL with the proxy host and the runtime password:
+
 ```bash
+# Password is the random_password.app_rls_password value; read it once from the secret and rewrite host:
+#   STG_RUNTIME_URL="postgresql://lifting_app:<password>@127.0.0.1:5434/<db_name>?sslmode=disable"
 # 1. App connects as the NOBYPASSRLS role (must print: lifting_app | f)
-#    via the Cloud SQL Auth Proxy (scripts/migrate-staging-db.sh sets one up on :5434)
 psql "$STG_RUNTIME_URL" -c "SELECT current_user, pg_has_role('lifting_app','cloudsqlsuperuser','member');"
 # 2. With the GUC unset, a userId table returns ZERO rows (fail-closed proof)
 psql "$STG_RUNTIME_URL" -c "SELECT count(*) FROM training_max;"   # expect 0
