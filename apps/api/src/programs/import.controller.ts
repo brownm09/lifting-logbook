@@ -45,6 +45,8 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthUser } from '../ports/auth';
 import { RepositoryBundle, IRepositoryFactory } from '../ports/factory';
 import { REPOSITORY_FACTORY } from '../ports/tokens';
+import { RlsTxTimeout } from '../adapters/prisma/rls-context';
+import { IMPORT_TX_TIMEOUT_MS } from '../adapters/prisma/prisma-tx.util';
 import { MAX_IMPORT_ROWS, readUploadedCsv } from './import-file.util';
 
 const IMPORT_KINDS: readonly ImportKind[] = [
@@ -75,6 +77,10 @@ export class ImportController {
 
   @Post('import')
   @HttpCode(HttpStatus.OK)
+  // Commit re-writes the whole import in one transaction; widen the RLS request-tx
+  // window to the import budget so a large (within-limit) file does not P2028 at the
+  // 15s default. Reuses the same constant the self-opened-tx path uses (#532).
+  @RlsTxTimeout(IMPORT_TX_TIMEOUT_MS)
   async import(
     @Param('program') program: string,
     @Req() req: FastifyRequest,
