@@ -443,8 +443,29 @@ jobs:
             --from-literal=clerk-secret-key="$CLERK_KEY" \
             --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: Helm deploy API (GKE staging)
+      # Same stuck-release self-heal as the web release below (#539), for the api release.
+      - name: Rollback stuck Helm API release (GKE staging)
         if: needs.terraform-staging.outputs.gke_enabled == 'true'
+        run: |
+          STATUS=$(helm status api --namespace=staging --output=json 2>/dev/null \
+            | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['status'])" 2>/dev/null || echo "not-found")
+          if [[ "$STATUS" == "pending-upgrade" || "$STATUS" == "pending-install" || "$STATUS" == "pending-rollback" ]]; then
+            echo "Rolling back stuck release: api (status=$STATUS)"
+            helm rollback api --namespace=staging || true
+          fi
+          # Pods carry `app: <fullname>` (chart sets fullnameOverride: "api"), not the
+          # app.kubernetes.io/* labels — select on app=api or this find-and-delete is a no-op.
+          kubectl get pods -n staging -l app=api -o json 2>/dev/null \
+            | python3 -c "import sys,json; [print(p['metadata']['name']) for p in json.load(sys.stdin).get('items',[]) if p.get('metadata',{}).get('deletionTimestamp')]" \
+            | xargs -r kubectl delete pod --force --grace-period=0 -n staging || true
+
+      - name: Helm deploy API (GKE staging)
+        id: helm-deploy-api
+        if: needs.terraform-staging.outputs.gke_enabled == 'true'
+        # GKE is the optional 10%-traffic A/B target (ADR-009); Cloud Run below is the
+        # real serving path. A GKE rollout problem must never fail this job — that would
+        # skip smoke-test and the (Cloud-Run-only) production gate. Matches staging.yml.
+        continue-on-error: true
         run: |
           helm upgrade --install api ./infra/kubernetes/charts/api \
             --namespace=staging \
@@ -455,10 +476,48 @@ jobs:
             --set gcp.kmsKeyName="${{ needs.terraform-staging.outputs.kms_key_name }}" \
             --set gcp.serviceAccountEmail="${{ needs.terraform-staging.outputs.api_wi_sa }}" \
             --set env.NODE_ENV=staging \
-            --wait --timeout=5m
+            --wait --timeout=10m --force
+
+      - name: Fetch GKE API pod logs on failure
+        if: steps.helm-deploy-api.outcome == 'failure'
+        run: |
+          echo "=== GKE API pod status ==="
+          kubectl get pods -n staging -l app=api 2>&1 || true
+          POD=$(kubectl get pods -n staging -l app=api \
+            --sort-by=.metadata.creationTimestamp \
+            -o jsonpath='{.items[-1].metadata.name}' 2>/dev/null || true)
+          if [[ -n "$POD" ]]; then
+            echo "=== Logs for pod: $POD ==="
+            kubectl logs -n staging "$POD" --tail=100 2>&1 || true
+            echo "=== Events for pod: $POD ==="
+            kubectl describe pod -n staging "$POD" 2>&1 | tail -40 || true
+          else
+            echo "No API pod found — Helm may have failed before pod creation"
+          fi
+
+      # A prior run can leave the `web` Helm release wedged in a pending-* state with a
+      # pod stuck in "Pending termination", which makes the next `helm upgrade --wait`
+      # deadline out (#539). Roll back a stuck release and force-delete any
+      # terminating pods first so the deploy below can proceed. Ported from staging.yml.
+      - name: Rollback stuck Helm web release (GKE staging)
+        if: needs.terraform-staging.outputs.gke_enabled == 'true'
+        run: |
+          STATUS=$(helm status web --namespace=staging --output=json 2>/dev/null \
+            | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['status'])" 2>/dev/null || echo "not-found")
+          if [[ "$STATUS" == "pending-upgrade" || "$STATUS" == "pending-install" || "$STATUS" == "pending-rollback" ]]; then
+            echo "Rolling back stuck release: web (status=$STATUS)"
+            helm rollback web --namespace=staging || true
+          fi
+          # Pods carry `app: <fullname>` (chart sets fullnameOverride: "web"), not the
+          # app.kubernetes.io/* labels — select on app=web or this find-and-delete is a no-op.
+          kubectl get pods -n staging -l app=web -o json 2>/dev/null \
+            | python3 -c "import sys,json; [print(p['metadata']['name']) for p in json.load(sys.stdin).get('items',[]) if p.get('metadata',{}).get('deletionTimestamp')]" \
+            | xargs -r kubectl delete pod --force --grace-period=0 -n staging || true
 
       - name: Helm deploy web (GKE staging)
         if: needs.terraform-staging.outputs.gke_enabled == 'true'
+        # Optional A/B target (see "Helm deploy API" above) — never gate the job on it.
+        continue-on-error: true
         run: |
           # API_URL is the cluster-internal endpoint for server-side calls; PUBLIC_API_URL
           # is the browser-facing (external) endpoint injected into window.__PUBLIC_CONFIG__
@@ -475,7 +534,7 @@ jobs:
             --set env.NODE_ENV=staging \
             --set env.API_URL="$API_CLUSTER_URL" \
             --set env.PUBLIC_API_URL="${{ needs.terraform-staging.outputs.cloud_run_api_url }}" \
-            --wait --timeout=5m
+            --wait --timeout=10m
 
       # Cloud Run: A/B comparison target (10% traffic — ADR-009)
       - name: Deploy API to Cloud Run (staging)
@@ -536,6 +595,8 @@ jobs:
 
       - name: Helm deploy otel-collector (GKE staging)
         if: needs.terraform-staging.outputs.gke_enabled == 'true'
+        # Telemetry must never gate serving traffic (see the OTel section header above).
+        continue-on-error: true
         run: |
           helm upgrade --install otel-collector ./infra/kubernetes/charts/otel-collector \
             --namespace=staging \
