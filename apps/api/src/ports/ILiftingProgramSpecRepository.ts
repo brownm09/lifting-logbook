@@ -18,6 +18,15 @@ export interface ILiftingProgramSpecRepository {
    *
    * Built-in template programs are immutable seed data — implementations throw
    * when `program` is not a custom (UUID) program id.
+   *
+   * Naming asymmetry (intentional, #532): the training-max and strength-goal
+   * repositories expose a pure write (`saveTrainingMaxes` / `upsertGoal`) **and**
+   * a separate import-commit method (`importTrainingMaxes` / `importGoals`).
+   * Program spec has only ever had one write path — `saveProgramSpec`, which is
+   * already idempotent and transactional — so it doubles as the import-commit
+   * method without a separate `importProgramSpec`. The shape is unified (returns
+   * the shared {@link SaveProgramSpecResult} = `ImportWriteResult`, classifies via
+   * the shared `programSpecRowKind` + `classifyAndCount`); only the name differs.
    */
   saveProgramSpec(
     program: string,

@@ -170,6 +170,16 @@ export function programSpecComparable(r: LiftingProgramSpec): string {
   });
 }
 
+/** Classify one program-spec row vs the stored rows (keyed by natural key). */
+export function programSpecRowKind(
+  r: LiftingProgramSpec,
+  existingByKey: Map<string, LiftingProgramSpec>,
+): ImportRowKind {
+  const prior = existingByKey.get(programSpecNaturalKey(r));
+  if (!prior) return 'create';
+  return programSpecComparable(prior) === programSpecComparable(r) ? 'skip' : 'update';
+}
+
 /** Program-spec rows upsert by natural key: create if absent, update if config differs, else skip. */
 export function buildProgramSpecPreview(
   incoming: LiftingProgramSpec[],
@@ -185,19 +195,13 @@ export function buildProgramSpecPreview(
     seen.add(key);
     const label = `Week ${r.week} · ${r.lift} (#${r.order})`;
     const after = specValue(r);
+    const kind = programSpecRowKind(r, existingByKey);
     const prior = existingByKey.get(key);
-    if (!prior) {
-      deltas.push({ key, label, kind: 'create', after });
-    } else {
-      const unchanged = programSpecComparable(prior) === programSpecComparable(r);
-      deltas.push({
-        key,
-        label,
-        kind: unchanged ? 'skip' : 'update',
-        before: specValue(prior),
-        after,
-      });
-    }
+    deltas.push(
+      prior
+        ? { key, label, kind, before: specValue(prior), after }
+        : { key, label, kind, after },
+    );
   }
   return tally(deltas);
 }

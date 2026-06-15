@@ -1,10 +1,10 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-import { StrengthGoalEntry, strengthGoalRowKind } from '@lifting-logbook/core';
+import { StrengthGoalEntry, classifyAndCount, strengthGoalRowKind } from '@lifting-logbook/core';
 import { ImportWriteResult } from '@lifting-logbook/types';
 import { IStrengthGoalRepository } from '../../ports/IStrengthGoalRepository';
 import { StrengthGoalNotFoundError } from '../../ports/errors';
-import { runInteractive } from './prisma-tx.util';
+import { IMPORT_BATCH_TX_OPTIONS, runInteractive } from './prisma-tx.util';
 
 type StrengthGoalRow = {
   lift: string;
@@ -67,39 +67,31 @@ export class PrismaStrengthGoalRepository implements IStrengthGoalRepository {
     // One transaction for the whole batch (issue #488): replaces the controller's
     // unwrapped per-row upsert loop, so a mid-batch failure rolls back instead of
     // leaving a partial commit. Counts come from the write, not a separate pre-read.
-    return runInteractive(this.prisma, async (tx) => {
-      const existing = await tx.strengthGoal.findMany({
-        where: { userId: this.userId, program },
-      });
-      const existingByLift = new Map(existing.map((r) => [r.lift, rowToEntry(r)]));
-
-      let created = 0;
-      let updated = 0;
-      let skipped = 0;
-      const seen = new Set<string>();
-
-      for (const g of goals) {
-        if (seen.has(g.lift)) continue; // collapse duplicate lifts within the file
-        seen.add(g.lift);
-
-        const kind = strengthGoalRowKind(g, existingByLift);
-        if (kind === 'skip') {
-          skipped++;
-          continue;
-        }
-
-        await tx.strengthGoal.upsert({
-          where: { userId_program_lift: { userId: this.userId, program, lift: g.lift } },
-          update: entryToData(g),
-          create: { userId: this.userId, program, lift: g.lift, ...entryToData(g) },
+    // runInteractive reuses the per-request RLS transaction when present, opens one
+    // otherwise (with a batch-sized timeout — IMPORT_BATCH_TX_OPTIONS, #532).
+    return runInteractive(
+      this.prisma,
+      async (tx) => {
+        const existing = await tx.strengthGoal.findMany({
+          where: { userId: this.userId, program },
         });
+        const existingByLift = new Map(existing.map((r) => [r.lift, rowToEntry(r)]));
 
-        if (kind === 'create') created++;
-        else updated++;
-      }
-
-      return { created, updated, skipped };
-    });
+        // Shared classify/dedupe/tally loop (#532); decision is strengthGoalRowKind.
+        return classifyAndCount(
+          goals,
+          (g) => g.lift,
+          (g) => strengthGoalRowKind(g, existingByLift),
+          (g) =>
+            tx.strengthGoal.upsert({
+              where: { userId_program_lift: { userId: this.userId, program, lift: g.lift } },
+              update: entryToData(g),
+              create: { userId: this.userId, program, lift: g.lift, ...entryToData(g) },
+            }),
+        );
+      },
+      IMPORT_BATCH_TX_OPTIONS,
+    );
   }
 
   async deleteGoal(program: string, lift: string): Promise<void> {

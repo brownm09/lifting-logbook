@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { LiftingProgramSpec } from '@lifting-logbook/core';
 import { HybridLiftingProgramSpecRepository } from './hybrid-program-spec.repository';
 
 const CUSTOM_PROGRAM_ID = '11111111-1111-4111-8111-111111111111';
@@ -9,6 +10,41 @@ function makePrisma(): PrismaClient {
       findMany: jest.fn().mockResolvedValue([]),
     },
   } as unknown as PrismaClient;
+}
+
+const spec = (lift: string, sets: number): LiftingProgramSpec => ({
+  week: 1,
+  offset: 0,
+  lift,
+  order: 1,
+  increment: 5,
+  sets,
+  reps: 5,
+  amrap: false,
+  warmUpPct: '0.65',
+  wtDecrementPct: 0,
+  activation: 'main',
+});
+
+/**
+ * Mock whose `$transaction` runs the callback against a stub tx client so the
+ * owner check, the single snapshot `findMany`, and the per-row `upsert` all run on
+ * it. `existing` seeds the snapshot read; `ownerExists` toggles the owner guard.
+ */
+function makeSavePrisma(
+  existing: Array<Record<string, unknown>> = [],
+  ownerExists = true,
+  upsert: jest.Mock = jest.fn().mockResolvedValue({}),
+) {
+  const findFirst = jest.fn().mockResolvedValue(ownerExists ? { id: CUSTOM_PROGRAM_ID } : null);
+  const findMany = jest.fn().mockResolvedValue(existing);
+  const tx = {
+    customProgram: { findFirst },
+    customProgramSpec: { findMany, upsert },
+  };
+  const $transaction = jest.fn((cb: (t: typeof tx) => unknown) => cb(tx));
+  const prisma = { $transaction } as unknown as PrismaClient;
+  return { prisma, findFirst, findMany, upsert, $transaction };
 }
 
 describe('HybridLiftingProgramSpecRepository', () => {
@@ -49,5 +85,53 @@ describe('HybridLiftingProgramSpecRepository', () => {
         where: { programId: CUSTOM_PROGRAM_ID, program: { userId: 'attacker' } },
       }),
     );
+  });
+});
+
+describe('HybridLiftingProgramSpecRepository.saveProgramSpec', () => {
+  it('rejects a built-in (non-UUID) program before touching the DB', async () => {
+    const { prisma, $transaction } = makeSavePrisma();
+    const repo = new HybridLiftingProgramSpecRepository(prisma, 'user-1');
+
+    await expect(repo.saveProgramSpec('5-3-1', [spec('Squat', 5)])).rejects.toThrow(
+      'requires a custom program',
+    );
+    expect($transaction).not.toHaveBeenCalled();
+  });
+
+  it('throws NotFound when the custom program is not owned by the user', async () => {
+    const { prisma, findMany } = makeSavePrisma([], /* ownerExists */ false);
+    const repo = new HybridLiftingProgramSpecRepository(prisma, 'user-1');
+
+    await expect(repo.saveProgramSpec(CUSTOM_PROGRAM_ID, [spec('Squat', 5)])).rejects.toThrow(
+      `Custom program ${CUSTOM_PROGRAM_ID} not found`,
+    );
+    // The owner guard short-circuits before the snapshot read.
+    expect(findMany).not.toHaveBeenCalled();
+  });
+
+  it('classifies create/update/skip from one snapshot read and dedupes within the batch', async () => {
+    const toRow = (s: LiftingProgramSpec) => ({ ...s, weekType: null });
+    const { prisma, findFirst, findMany, upsert, $transaction } = makeSavePrisma([
+      toRow(spec('Squat', 5)),
+      toRow(spec('Bench', 5)),
+    ]);
+    const repo = new HybridLiftingProgramSpecRepository(prisma, 'user-1');
+
+    const result = await repo.saveProgramSpec(CUSTOM_PROGRAM_ID, [
+      spec('Squat', 5), // identical → skip
+      spec('Bench', 3), // sets differ → update
+      spec('Deadlift', 5), // absent → create
+      spec('Squat', 9), // duplicate natural key → collapsed
+    ]);
+
+    expect(result).toEqual({ created: 1, updated: 1, skipped: 1 });
+    expect($transaction).toHaveBeenCalledTimes(1);
+    expect(findFirst).toHaveBeenCalledTimes(1); // owner guard
+    // One up-front snapshot read (not a per-row findFirst), scoped to the program.
+    expect(findMany).toHaveBeenCalledTimes(1);
+    expect(findMany).toHaveBeenCalledWith({ where: { programId: CUSTOM_PROGRAM_ID } });
+    // Only the non-skip, non-duplicate rows are written, via upsert on the natural key.
+    expect(upsert).toHaveBeenCalledTimes(2);
   });
 });
