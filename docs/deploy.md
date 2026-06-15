@@ -522,6 +522,75 @@ The non-Prisma `user_data_source` table (managed outside Prisma) lives in
 `infra/migrations/`; both scripts apply `infra/migrations/001_create_user_data_source.sql`
 after the Prisma migrations.
 
+### Row-Level Security cutover — two-role split (#517)
+
+The app database enforces per-tenant isolation with Postgres Row-Level Security (migration
+`20260611000000_enable_rls`, ADR-010). RLS is **bypassed by `cloudsqlsuperuser` members**, so the
+runtime and the migrator connect as **different roles**:
+
+- **Runtime** (`google_sql_user.app_rls`, `lifting_app`) — `NOSUPERUSER NOBYPASSRLS`. The Cloud
+  Run services and the GKE API pods read `lifting-logbook-<env>-database-url`, which connects as
+  this role (so the policies enforce) and carries `?connection_limit=N` to cap the Prisma pool.
+- **Migrator** (`google_sql_user.app`, `lifting-logbook-app`) — the owner/superuser. The migrate
+  Cloud Run Job reads the separate `lifting-logbook-<env>-migrator-database-url` so it can run DDL
+  and data migrations (which `FORCE ROW LEVEL SECURITY` would otherwise filter to zero rows).
+
+`connection_limit` is derived in `infra/terraform/main.tf` (`local.db_connection_limit`) from the
+tier's `max_connections` and the Cloud Run maxScale; staging divides by an extra factor because the
+ADR-009 GKE A/B deployment shares the same pool. `max_connections` is the tier default (not a flag)
+— verify it before prod with `SELECT setting FROM pg_settings WHERE name='max_connections';`.
+
+**First-apply: import is required, not optional.** The `lifting_app` role was already created by the
+`enable_rls` migration (with no password) in both staging and production — confirmed live before this
+change. So `terraform plan` will show a `create` for `google_sql_user.app_rls`, and an unguarded
+`terraform apply` will **fail** with `409 ALREADY_EXISTS` (the Cloud SQL API does not upsert users).
+The deploy pipeline's CI `terraform apply` has no path to recover from this on its own, so the import
+must be run **before** the first apply that introduces `app_rls`, once per workspace, against the same
+GCS-backed remote state the pipeline uses (not a throwaway local state):
+
+```bash
+cd infra/terraform
+terraform init -backend-config="bucket=lifting-logbook-tfstate" -backend-config="prefix=terraform/state"
+terraform workspace select staging   # then repeat for production before the prod cutover
+terraform import google_sql_user.app_rls "<project>/<instance>/lifting_app"
+```
+
+After the import, `terraform plan` shows only a password set on the adopted role (no create), and the
+pipeline apply proceeds cleanly. (If a future fresh environment has *not* run `enable_rls` yet, the
+role won't exist and the import is skipped — but that is not the case for the current staging/prod
+cutover.)
+
+**Staging validation gate (run after the staging deploy, before any prod cutover):**
+
+`$STG_RUNTIME_URL` must point at the **proxy**, as the `lifting_app` role — the value stored in the
+`database-url` secret has the Cloud SQL **private IP** as its host, which is unreachable from a local
+machine, so do not use the raw secret value. Start the proxy with `scripts/migrate-staging-db.sh`
+(listens on `127.0.0.1:5434`), then construct the URL with the proxy host and the runtime password:
+
+```bash
+# Password is the random_password.app_rls_password value; read it once from the secret and rewrite host:
+#   STG_RUNTIME_URL="postgresql://lifting_app:<password>@127.0.0.1:5434/<db_name>?sslmode=disable"
+# 1. App connects as the NOBYPASSRLS role (must print: lifting_app | f)
+psql "$STG_RUNTIME_URL" -c "SELECT current_user, pg_has_role('lifting_app','cloudsqlsuperuser','member');"
+# 2. With the GUC unset, a userId table returns ZERO rows (fail-closed proof)
+psql "$STG_RUNTIME_URL" -c "SELECT count(*) FROM training_max;"   # expect 0
+# 3. Connection count stays within the pool budget under load
+psql "$STG_RUNTIME_URL" -c "SELECT count(*) FROM pg_stat_activity;"
+```
+
+Then soak staging ≥24h before approving the production deploy.
+
+**Rolling back the cutover.** Re-point the runtime back to the owner role by adding a new version of
+the `database-url` secret with the old `postgresql://lifting-logbook-app:…` value, then redeploy the
+API (Cloud Run resolves `:latest` at deploy time):
+
+```bash
+gcloud secrets versions add lifting-logbook-prod-database-url --data-file=- --project=lifting-logbook-prod   # paste owner URL
+# then redeploy the API revision (see Rolling back, above)
+```
+
+The migrate Job is unaffected by a rollback (it uses the separate migrator secret).
+
 ### OTel Collector / Grafana Cloud telemetry
 
 **The deploy pipeline deploys the OTel Collector DaemonSet automatically (#474).** On every

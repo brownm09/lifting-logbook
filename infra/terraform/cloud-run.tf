@@ -28,7 +28,9 @@ resource "google_cloud_run_v2_service" "api" {
 
     scaling {
       min_instance_count = local.cloud_run_min_instances
-      max_instance_count = var.environment == "production" ? 10 : 3
+      # Single source of truth shared with the RLS pool-sizing formula (main.tf
+      # local.db_connection_limit) so maxScale and connection_limit cannot drift (#517).
+      max_instance_count = local.api_max_instances
     }
 
     vpc_access {
@@ -300,11 +302,15 @@ resource "google_cloud_run_v2_job" "migrate" {
           "npx prisma migrate deploy --schema=prisma/schema.prisma && npx prisma migrate status --schema=prisma/schema.prisma"
         ]
 
+        # Migrator connection (#517): connects as the owner/superuser role via the
+        # dedicated migrator secret, NOT the runtime database_url (which now connects as
+        # the NOBYPASSRLS lifting_app role). Migrations run DDL + data migrations that
+        # FORCE ROW LEVEL SECURITY would otherwise block.
         env {
           name = "DATABASE_URL"
           value_source {
             secret_key_ref {
-              secret  = google_secret_manager_secret.database_url.secret_id
+              secret  = google_secret_manager_secret.migrator_database_url.secret_id
               version = "latest"
             }
           }
