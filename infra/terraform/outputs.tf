@@ -38,6 +38,11 @@ output "cicd_service_account_email" {
   value       = google_service_account.cicd.email
 }
 
+output "cicd_plan_service_account_email" {
+  description = "Read-only plan service account email (#545) — set as the GCP_PROD_PLAN_SERVICE_ACCOUNT secret so the plan-production CI job authenticates with least privilege."
+  value       = google_service_account.cicd_plan.email
+}
+
 output "workload_identity_provider" {
   description = "Workload Identity Federation provider resource name (used in GitHub Actions)"
   value       = google_iam_workload_identity_pool_provider.github.name
