@@ -134,6 +134,14 @@ gcloud storage buckets add-iam-policy-binding gs://lifting-logbook-prod-tfstate 
 gcloud storage buckets add-iam-policy-binding gs://lifting-logbook-prod-tfstate \
   --member="serviceAccount:lifting-logbook-prod-cicd@lifting-logbook-prod.iam.gserviceaccount.com" \
   --role="roles/storage.objectAdmin"
+
+# Grant the production read-only PLAN SA access (#545) — run after the production
+# terraform apply that creates lifting-logbook-prod-plan. objectViewer (not
+# objectAdmin): plan-production reads state to compute the diff but runs
+# `terraform plan -lock=false`, so it never writes the state lock.
+gcloud storage buckets add-iam-policy-binding gs://lifting-logbook-prod-tfstate \
+  --member="serviceAccount:lifting-logbook-prod-plan@lifting-logbook-prod.iam.gserviceaccount.com" \
+  --role="roles/storage.objectViewer"
 ```
 
 These grants are idempotent — safe to re-run. They persist independently of Terraform state.
@@ -287,6 +295,7 @@ In the GitHub repository → **Settings → Secrets and variables → Actions**:
 | `GCP_STAGING_SERVICE_ACCOUNT` | staging `terraform output cicd_service_account_email` |
 | `GCP_PROD_WORKLOAD_IDENTITY_PROVIDER` | production `terraform output workload_identity_provider` |
 | `GCP_PROD_SERVICE_ACCOUNT` | production `terraform output cicd_service_account_email` |
+| `GCP_PROD_PLAN_SERVICE_ACCOUNT` | production `terraform output cicd_plan_service_account_email` (#545 — read-only SA for the `plan-production` job; set after the apply that creates it, then wire it in via #545 Phase 2) |
 | `GCP_BILLING_ACCOUNT` | your billing account ID (used by terraform apply in CI) |
 | `TF_STATE_BUCKET` | `lifting-logbook-prod-tfstate` |
 

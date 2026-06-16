@@ -460,3 +460,48 @@ resource "google_service_account_iam_member" "cicd_wif_binding" {
   role               = "roles/iam.workloadIdentityUser"
   member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/brownm09/lifting-logbook"
 }
+
+# ─── IAM — read-only plan service account (#545) ─────────────────────────────
+#
+# A least-privilege identity for the read-only `plan-production` CI job, which
+# runs `terraform plan` against prod on every merge to surface the blast radius
+# before the production approval gate (#542 / #544). It deliberately lacks the
+# write/apply authority of `cicd` (roles/owner): it can refresh state and read,
+# but cannot mutate prod or change IAM.
+#
+# Caveat — this is NOT a zero-secret identity. Prod manages
+# google_secret_manager_secret_version resources (database_url, clerk keys, …),
+# and `terraform plan` refreshes them by reading the version payload — which
+# roles/viewer does not grant, hence roles/secretmanager.secretAccessor below.
+# So this SA can still READ prod secret values during a plan refresh; it simply
+# cannot write anything. A truly secretless plan is not achievable while the
+# config manages secret versions in state.
+#
+# Created in both workspaces for parity; currently consumed only by prod's
+# plan-production job (the staging copy is unused — there is no plan-staging
+# job). The CI cutover that points plan-production at this SA lands separately
+# (#545 Phase 2), after the SA exists in prod and its secret is set.
+resource "google_service_account" "cicd_plan" {
+  account_id   = "${local.name_prefix}-plan"
+  display_name = "${var.app_name} CI/CD plan, read-only (${var.environment})"
+}
+
+resource "google_project_iam_member" "cicd_plan_roles" {
+  for_each = toset([
+    # Broad read for `terraform plan` to refresh every managed resource.
+    "roles/viewer",
+    # Required so plan can refresh google_secret_manager_secret_version
+    # resources (roles/viewer covers metadata but not versions.access). See
+    # the caveat above — this is the one grant that lets the SA read secrets.
+    "roles/secretmanager.secretAccessor",
+  ])
+  project = var.project_id
+  role    = each.value
+  member  = "serviceAccount:${google_service_account.cicd_plan.email}"
+}
+
+resource "google_service_account_iam_member" "cicd_plan_wif_binding" {
+  service_account_id = google_service_account.cicd_plan.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/brownm09/lifting-logbook"
+}
