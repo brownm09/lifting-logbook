@@ -1,0 +1,29 @@
+# Terraform working files — never commit these (#549).
+# Surfaced while implementing #545: `terraform init`/`plan` leaves an untracked
+# `.terraform/` provider-plugin dir that a stray `git add -A` could commit.
+#
+# Deliberately NOT ignored (must stay tracked):
+#   - .terraform.lock.hcl        provider lock file (Terraform best practice)
+#   - terraform.tfvars.staging   committed env config, referenced by deploy.yml
+#   - terraform.tfvars.production committed env config, referenced by deploy.yml
+
+# Local provider plugins / module cache
+.terraform/
+
+# State (this project uses a remote GCS backend, but guard against local state)
+*.tfstate
+*.tfstate.*
+
+# Crash logs
+crash.log
+crash.*.log
+
+# Local override files (not used by CI; ignore if present)
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Terraform CLI config
+.terraformrc
+terraform.rc
