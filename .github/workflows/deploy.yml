@@ -736,6 +736,18 @@ jobs:
               sleep 20
             fi
           done
+          # Init failure is the one path that stops before the plan step writes
+          # its summary, so emit the same heading + advisory banner here — the
+          # approver must never face the gate with a silently-empty summary
+          # (#544 review). Still exit 1: init failure is a real auth/backend
+          # fault worth a red job, and is advisory to the deploy regardless
+          # (deploy-production's `if:` does not reference plan-production).
+          {
+            echo "## Production Terraform plan (read-only — review before approving)"
+            echo ""
+            echo ":warning: \`terraform init (production)\` failed on both attempts — no blast-radius summary is available for this run."
+            echo "This is advisory and does **not** block \`deploy-production\`. Inspect the \"Terraform init (production)\" step log, and review the apply output during the gated deploy before approving."
+          } >> "$GITHUB_STEP_SUMMARY"
           echo "::error title=Terraform init failed::terraform init/workspace select (production) failed on both attempts."
           exit 1
 
