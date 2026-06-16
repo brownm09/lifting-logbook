@@ -105,31 +105,11 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_STAGING_SERVICE_ACCOUNT }}
 
-      - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v4
+      - name: Terraform setup + init (staging)
+        uses: ./.github/actions/tf-init
         with:
-          terraform_version: "~> 1.7"
-          terraform_wrapper: false
-
-      - name: Terraform init (staging)
-        working-directory: ${{ env.TF_DIR }}
-        # Bounded retry absorbs transient GCP API 5xx / GCS backend
-        # eventual-consistency blips on init and workspace select (issue #509).
-        run: |
-          for attempt in 1 2; do
-            if terraform init \
-                 -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
-                 -backend-config="prefix=terraform/state" && \
-               (terraform workspace select staging || terraform workspace new staging); then
-              exit 0
-            fi
-            if [ "${attempt}" -lt 2 ]; then
-              echo "Terraform init/workspace attempt ${attempt} failed; retrying in 20s..."
-              sleep 20
-            fi
-          done
-          echo "::error title=Terraform init failed::terraform init/workspace select (staging) failed on both attempts."
-          exit 1
+          workspace: staging
+          state-bucket: ${{ secrets.TF_STATE_BUCKET }}
 
       - name: Terraform apply (staging)
         working-directory: ${{ env.TF_DIR }}
@@ -713,43 +693,26 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_PROD_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_PROD_SERVICE_ACCOUNT }}
 
-      - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v4
+      - name: Terraform setup + init (production)
+        uses: ./.github/actions/tf-init
         with:
-          terraform_version: "~> 1.7"
-          terraform_wrapper: false
+          workspace: production
+          state-bucket: ${{ secrets.TF_STATE_BUCKET }}
 
-      - name: Terraform init (production)
-        working-directory: ${{ env.TF_DIR }}
-        # Same bounded-retry init + workspace select as deploy-production
-        # (absorbs transient GCP 5xx / GCS backend eventual-consistency, #509).
+      - name: Note setup/init failure in the run summary
+        if: failure()
+        # plan-production is advisory: even when setup/init fails, the approver
+        # must get a heading + note in the run summary (never a silently-empty
+        # one) before reaching the gate (#544 review). tf-init still exits 1, so
+        # the job ends red — advisory to the deploy (deploy-production's `if:`
+        # does not reference plan-production).
         run: |
-          for attempt in 1 2; do
-            if terraform init \
-                 -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
-                 -backend-config="prefix=terraform/state" && \
-               (terraform workspace select production || terraform workspace new production); then
-              exit 0
-            fi
-            if [ "${attempt}" -lt 2 ]; then
-              echo "Terraform init/workspace attempt ${attempt} failed; retrying in 20s..."
-              sleep 20
-            fi
-          done
-          # Init failure is the one path that stops before the plan step writes
-          # its summary, so emit the same heading + advisory banner here — the
-          # approver must never face the gate with a silently-empty summary
-          # (#544 review). Still exit 1: init failure is a real auth/backend
-          # fault worth a red job, and is advisory to the deploy regardless
-          # (deploy-production's `if:` does not reference plan-production).
           {
             echo "## Production Terraform plan (read-only — review before approving)"
             echo ""
-            echo ":warning: \`terraform init (production)\` failed on both attempts — no blast-radius summary is available for this run."
+            echo ":warning: \`terraform setup/init (production)\` failed — no blast-radius summary is available for this run."
             echo "This is advisory and does **not** block \`deploy-production\`. Inspect the \"Terraform init (production)\" step log, and review the apply output during the gated deploy before approving."
           } >> "$GITHUB_STEP_SUMMARY"
-          echo "::error title=Terraform init failed::terraform init/workspace select (production) failed on both attempts."
-          exit 1
 
       - name: Terraform plan (production)
         working-directory: ${{ env.TF_DIR }}
@@ -917,31 +880,11 @@ jobs:
           fi
           echo "Production auth secrets present and non-placeholder — proceeding."
 
-      - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v4
+      - name: Terraform setup + init (production)
+        uses: ./.github/actions/tf-init
         with:
-          terraform_version: "~> 1.7"
-          terraform_wrapper: false
-
-      - name: Terraform init (production)
-        working-directory: ${{ env.TF_DIR }}
-        # Bounded retry absorbs transient GCP API 5xx / GCS backend
-        # eventual-consistency blips on init and workspace select (issue #509).
-        run: |
-          for attempt in 1 2; do
-            if terraform init \
-                 -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
-                 -backend-config="prefix=terraform/state" && \
-               (terraform workspace select production || terraform workspace new production); then
-              exit 0
-            fi
-            if [ "${attempt}" -lt 2 ]; then
-              echo "Terraform init/workspace attempt ${attempt} failed; retrying in 20s..."
-              sleep 20
-            fi
-          done
-          echo "::error title=Terraform init failed::terraform init/workspace select (production) failed on both attempts."
-          exit 1
+          workspace: production
+          state-bucket: ${{ secrets.TF_STATE_BUCKET }}
 
       - name: Terraform apply (production)
         working-directory: ${{ env.TF_DIR }}
