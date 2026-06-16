@@ -34,42 +34,75 @@ async function globalSetup() {
       `Test user ${email} not found in Clerk. Create the account in the staging Clerk dashboard first.`,
     );
   }
-  const { token } = await clerkBackend.signInTokens.createSignInToken({
-    userId: users[0].id,
-    expiresInSeconds: 60,
-  });
+  const userId = users[0].id;
 
   fs.mkdirSync(path.dirname(AUTH_FILE), { recursive: true });
 
-  const browser = await chromium.launch();
-  const page = await browser.newPage();
+  // A cold Cloud Run web revision plus hosted Clerk SDK init routinely exceeds the
+  // 30s `waitForFunction` default, and playwright's `retries` covers tests only — a
+  // transient miss in globalSetup fails the entire run with no retry (#541). So retry
+  // the browser auth-bootstrap explicitly here, with a generous Clerk-load budget and
+  // a fresh sign-in token per attempt (tokens are short-lived, so reusing one across a
+  // slow retry would itself fail).
+  const CLERK_LOAD_TIMEOUT_MS = 90_000;
+  const SETUP_ATTEMPTS = 3;
 
-  // Inject Clerk testing token to bypass bot-detection in this browser context.
-  await setupClerkTestingToken({ page });
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= SETUP_ATTEMPTS; attempt++) {
+    const browser = await chromium.launch();
+    try {
+      const page = await browser.newPage();
 
-  // Navigate to /sign-in to load Clerk's JS SDK into the page context.
-  await page.goto(`${stagingUrl}/sign-in`);
+      // Inject Clerk testing token to bypass bot-detection in this browser context.
+      await setupClerkTestingToken({ page });
 
-  // Wait for Clerk to finish initializing before calling client-side SDK methods.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await page.waitForFunction(() => !!(window as any).Clerk?.loaded);
+      // Navigate to /sign-in to load Clerk's JS SDK into the page context.
+      await page.goto(`${stagingUrl}/sign-in`, { waitUntil: 'domcontentloaded' });
 
-  // Sign in using the ticket strategy — no UI interaction, no factor-two required.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await page.evaluate(async (ticket: string) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const cl = (window as any).Clerk;
-    const result = await cl.client.signIn.create({ strategy: 'ticket', ticket });
-    await cl.setActive({ session: result.createdSessionId });
-  }, token);
+      // Wait for Clerk to finish initializing before calling client-side SDK methods.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await page.waitForFunction(() => !!(window as any).Clerk?.loaded, undefined, {
+        timeout: CLERK_LOAD_TIMEOUT_MS,
+      });
 
-  // Navigate to the home page to confirm the session cookie is persisted and
-  // the user is no longer redirected to sign-in.
-  await page.goto(`${stagingUrl}/`);
-  await expect(page).not.toHaveURL(/\/sign-in/, { timeout: 15_000 });
+      // Create the sign-in token fresh per attempt. Sign-in tokens bypass all auth
+      // factors including MFA — the UI email/password flow cannot complete when the
+      // account has factor-two (TOTP/SMS) enabled.
+      const { token } = await clerkBackend.signInTokens.createSignInToken({
+        userId,
+        expiresInSeconds: 60,
+      });
 
-  await page.context().storageState({ path: AUTH_FILE });
-  await browser.close();
+      // Sign in using the ticket strategy — no UI interaction, no factor-two required.
+      await page.evaluate(async (ticket: string) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const cl = (window as any).Clerk;
+        const result = await cl.client.signIn.create({ strategy: 'ticket', ticket });
+        await cl.setActive({ session: result.createdSessionId });
+      }, token);
+
+      // Navigate to the home page to confirm the session cookie is persisted and
+      // the user is no longer redirected to sign-in.
+      await page.goto(`${stagingUrl}/`);
+      await expect(page).not.toHaveURL(/\/sign-in/, { timeout: 15_000 });
+
+      await page.context().storageState({ path: AUTH_FILE });
+      await browser.close();
+      return;
+    } catch (err) {
+      lastErr = err;
+      await browser.close();
+      if (attempt < SETUP_ATTEMPTS) {
+        console.warn(
+          `[staging.setup] auth bootstrap attempt ${attempt}/${SETUP_ATTEMPTS} failed: ${(err as Error).message} — retrying`,
+        );
+      }
+    }
+  }
+
+  throw new Error(
+    `[staging.setup] auth bootstrap failed after ${SETUP_ATTEMPTS} attempts: ${(lastErr as Error)?.message}`,
+  );
 }
 
 export default globalSetup;
