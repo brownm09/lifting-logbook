@@ -347,6 +347,22 @@ pending Prisma migrations to prod — it sits in front of the in-VPC migrate job
 DB-backed `/readyz` smoke ([ADR-027](adr/ADR-027-deploy-pipeline-migrations.md)) — so approve
 it deliberately, after sanity-checking staging.
 
+**Read the production plan before approving.** Open the **`plan-production`** job in the run
+and read its job summary — a read-only `terraform plan` against the production workspace,
+finished before the gate prompts. The summary shows either **`No changes`** or a non-empty
+`Plan: N to add, N to change, N to destroy.` with the affected resource addresses. That is the
+exact blast radius `terraform apply (production)` will apply the moment you approve. **A
+prod-affecting Terraform diff can ride in on an unrelated merge** — the RLS database-role
+cutover ([#517](https://github.com/brownm09/lifting-logbook/issues/517)) applied on
+2026-06-15 behind a context-free one-click approval triggered by an unrelated CI-fix merge
+([#540](https://github.com/brownm09/lifting-logbook/issues/540)), because the cutover config
+([#533](https://github.com/brownm09/lifting-logbook/issues/533)) had sat dormant in `main`
+while `deploy-production` was skipped. If `plan-production` shows resources you did not expect,
+**do not approve** — investigate first. See
+[#542](https://github.com/brownm09/lifting-logbook/issues/542). (`plan-production` is advisory:
+if it fails transiently the deploy is not blocked, but no summary is available — review the
+apply output during the gated deploy instead.)
+
 Once approved, `deploy-production` self-guards at two boundaries (issue
 [#490](https://github.com/brownm09/lifting-logbook/issues/490)):
 

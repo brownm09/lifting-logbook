@@ -677,6 +677,131 @@ jobs:
             echo "API smoke test failed: expected 200 or 403, got $STATUS" && exit 1
           fi
 
+  # ── 4b. Plan production (read-only — surfaces the prod blast radius) ─────
+  # Runs `terraform plan` against the PRODUCTION workspace and writes the
+  # add/change/destroy counts + resource addresses to the run's job summary,
+  # BEFORE the gated deploy-production job. This closes the "context-free
+  # one-click approval" gap that let the RLS prod cutover (#517) apply unseen on
+  # 2026-06-15: an unrelated CI-fix merge (#540) made deploy-production reachable
+  # and a single approval applied a dormant prod-affecting Terraform diff (#533)
+  # whose blast radius was invisible at the gate. See #542.
+  #
+  # Safety: `terraform plan` is READ-ONLY — it refreshes state via GCP APIs and
+  # computes a diff; it cannot mutate prod even on failure. Un-gated (no
+  # `environment:`) so it never prompts and always runs ahead of the gate. Prod
+  # WIF creds are exposed only here on `push: main` (deploy.yml's sole trigger),
+  # never on untrusted PR runs — there is no `pull_request` trigger. No secret is
+  # echoed; only non-sensitive counts + resource addresses reach the summary.
+  plan-production:
+    name: Plan (production)
+    runs-on: ubuntu-latest
+    needs: [preflight, build-images]
+    # Mirror deploy-production's readiness: run whenever build-images succeeded,
+    # in both staging-enabled and production-only modes (always() tolerates the
+    # skipped staging chain).
+    if: always() && needs.build-images.result == 'success'
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Authenticate to GCP (production)
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_PROD_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_PROD_SERVICE_ACCOUNT }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "~> 1.7"
+          terraform_wrapper: false
+
+      - name: Terraform init (production)
+        working-directory: ${{ env.TF_DIR }}
+        # Same bounded-retry init + workspace select as deploy-production
+        # (absorbs transient GCP 5xx / GCS backend eventual-consistency, #509).
+        run: |
+          for attempt in 1 2; do
+            if terraform init \
+                 -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+                 -backend-config="prefix=terraform/state" && \
+               (terraform workspace select production || terraform workspace new production); then
+              exit 0
+            fi
+            if [ "${attempt}" -lt 2 ]; then
+              echo "Terraform init/workspace attempt ${attempt} failed; retrying in 20s..."
+              sleep 20
+            fi
+          done
+          echo "::error title=Terraform init failed::terraform init/workspace select (production) failed on both attempts."
+          exit 1
+
+      - name: Terraform plan (production)
+        working-directory: ${{ env.TF_DIR }}
+        # Read-only plan against the production workspace. Bounded retry absorbs
+        # transient GCP 5xx during the refresh phase (same driver as the apply
+        # retries — #498 / #504). On success the plan output is parsed and the
+        # add/change/destroy summary + resource addresses are written to the run
+        # summary so the approver can read the prod blast radius before approving
+        # (#542). Never echoes a secret; -input=false avoids any prompt hang.
+        run: |
+          PLAN_OUT="$RUNNER_TEMP/prod-plan.txt"
+          PLANNED=0
+          for attempt in 1 2; do
+            if terraform plan -no-color -input=false \
+                 -var-file=terraform.tfvars.production \
+                 -var="billing_account=${{ secrets.GCP_BILLING_ACCOUNT }}" \
+                 > "$PLAN_OUT" 2>&1; then
+              PLANNED=1
+              break
+            fi
+            if [ "${attempt}" -lt 2 ]; then
+              echo "Terraform plan attempt ${attempt} failed; retrying in 20s..."
+              sleep 20
+            fi
+          done
+
+          {
+            echo "## Production Terraform plan (read-only — review before approving)"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$PLANNED" -ne 1 ]; then
+            {
+              echo ":warning: \`terraform plan (production)\` failed on both attempts — no blast-radius summary is available for this run."
+              echo "This is advisory and does **not** block \`deploy-production\`. Inspect the \"Terraform plan (production)\" step log, and review the apply output during the gated deploy before approving."
+            } >> "$GITHUB_STEP_SUMMARY"
+            # Surface the tail of the failure for quick triage, then stop here
+            # without failing the job (advisory by design — see job header).
+            echo "::warning title=Prod plan unavailable::terraform plan (production) failed; deploy-production is unaffected (advisory)."
+            tail -n 30 "$PLAN_OUT" || true
+            exit 0
+          fi
+
+          # `Plan: N to add, N to change, N to destroy.` — present only when the
+          # plan is non-empty; "No changes" otherwise.
+          SUMMARY_LINE=$(grep -E '^Plan: [0-9]+ to add' "$PLAN_OUT" | tail -n 1 || true)
+          {
+            if [ -n "$SUMMARY_LINE" ]; then
+              echo "**${SUMMARY_LINE}**"
+              echo ""
+              echo ":rotating_light: This plan is **non-empty** — approving the \`production\` gate will \`terraform apply\` these changes to prod. A prod-affecting Terraform diff can ride in on an unrelated merge (the #542 / #517 incident). Confirm every address below is intended before approving."
+              echo ""
+              echo "<details><summary>Resource addresses</summary>"
+              echo ""
+              echo '```'
+              grep -E '^  # ' "$PLAN_OUT" || echo "(plan reported changes but no resource-address lines were parsed — read the full step log)"
+              echo '```'
+              echo ""
+              echo "</details>"
+            else
+              echo "**No changes.** The production Terraform state already matches \`main\`; approving will apply no infra changes."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
   # ── 5. Deploy to production (requires manual approval) ───────────────────
   # The `environment: production` reference below is the manual approval gate.
   # GitHub raises one required-reviewer prompt per job that targets a protected
@@ -694,7 +819,13 @@ jobs:
   deploy-production:
     name: Deploy (production)
     runs-on: ubuntu-latest
-    needs: [preflight, build-images, deploy-staging, smoke-test]
+    # plan-production is a needs (not just an upstream job) so the production
+    # approval gate does not prompt until the read-only prod plan summary exists
+    # in the run — the approver always sees the blast radius before clicking
+    # approve (#542). It is intentionally advisory: the `if:` below does NOT
+    # require plan-production to succeed, so a transient plan failure removes the
+    # summary for that run but never blocks the deploy.
+    needs: [preflight, build-images, deploy-staging, smoke-test, plan-production]
     # Only deploy when the pipeline is actually ready: build succeeded and,
     # when staging is enabled, the staging smoke test passed. `always()` lets
     # this run even though deploy-staging/smoke-test are skipped in
