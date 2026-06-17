@@ -43,11 +43,8 @@ spec:
                 secretKeyRef:
                   name: {{ include "lifting-logbook-api.fullname" . }}-secrets
                   key: database-url
-            - name: SYSTEM_DATABASE_URL
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "lifting-logbook-api.fullname" . }}-secrets
-                  key: system-database-url
+            # SYSTEM_DATABASE_URL (owner/superuser cred) intentionally omitted (#534):
+            # unused on the Prisma runtime path after the RLS cutover (#517).
             - name: CLERK_SECRET_KEY
               valueFrom:
                 secretKeyRef:

@@ -68,15 +68,16 @@ resource "google_cloud_run_v2_service" "api" {
         }
       }
 
-      env {
-        name = "SYSTEM_DATABASE_URL"
-        value_source {
-          secret_key_ref {
-            secret  = google_secret_manager_secret.system_database_url.secret_id
-            version = "latest"
-          }
-        }
-      }
+      # SYSTEM_DATABASE_URL is intentionally NOT injected (#534). After the RLS
+      # cutover (#517) the runtime connects as the NOBYPASSRLS lifting_app role via
+      # DATABASE_URL; the SystemDbRepositoryFactory (the only reader) is constructed
+      # only when DATABASE_URL is unset, which never happens on this service. The
+      # owner/superuser credential bypasses RLS on every DB in the instance, so it is
+      # kept out of the runtime env. The google_secret_manager_secret.system_database_url
+      # resource is retained (deleting it is the destructive action; an unreferenced
+      # secret has zero runtime exposure). The deploy pipeline also passes
+      # --remove-secrets=SYSTEM_DATABASE_URL to strip it from the already-running
+      # service, since this template is lifecycle.ignore_changes and is not reconciled.
 
       env {
         name = "CLERK_SECRET_KEY"
