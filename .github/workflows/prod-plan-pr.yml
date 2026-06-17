@@ -176,10 +176,15 @@ jobs:
               body = `${MARKER}\n## Production Terraform plan (read-only — review before merging)\n\n:warning: The prod-plan job failed before producing output. This is **advisory** and does **not** block merge — inspect the [workflow run](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}).`;
             }
 
-            const { data: comments } = await github.rest.issues.listComments({
+            // Paginate: listComments returns only the first 30 by default, so on a
+            // chatty PR (>30 comments) the sticky prod-plan comment could fall off
+            // page 1 and we'd stack a duplicate on every re-push instead of updating
+            // in place. github.paginate walks every page.
+            const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
+              per_page: 100,
             });
             const existing = comments.find(c => c.body && c.body.includes(MARKER));
             if (existing) {
