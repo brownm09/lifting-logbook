@@ -691,7 +691,11 @@ jobs:
         uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ secrets.GCP_PROD_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_PROD_SERVICE_ACCOUNT }}
+          # Least-privilege read-only identity for the advisory plan (#545): viewer
+          # + secretmanager.secretAccessor + storage.objectViewer on the state bucket
+          # — no write/apply/setIamPolicy. The write-capable GCP_PROD_SERVICE_ACCOUNT
+          # is used only by deploy-production's gated apply.
+          service_account: ${{ secrets.GCP_PROD_PLAN_SERVICE_ACCOUNT }}
 
       - name: Terraform setup + init (production)
         uses: ./.github/actions/tf-init
@@ -722,11 +726,15 @@ jobs:
         # add/change/destroy summary + resource addresses are written to the run
         # summary so the approver can read the prod blast radius before approving
         # (#542). Never echoes a secret; -input=false avoids any prompt hang.
+        # -lock=false: the read-only plan SA (#545) has no state-bucket write, so it
+        # cannot acquire the .tflock. plan-production runs early (needs build-images
+        # only) with no concurrent prod-state writer, so skipping the advisory lock
+        # is safe and keeps the identity strictly read-only.
         run: |
           PLAN_OUT="$RUNNER_TEMP/prod-plan.txt"
           PLANNED=0
           for attempt in 1 2; do
-            if terraform plan -no-color -input=false \
+            if terraform plan -no-color -input=false -lock=false \
                  -var-file=terraform.tfvars.production \
                  -var="billing_account=${{ secrets.GCP_BILLING_ACCOUNT }}" \
                  > "$PLAN_OUT" 2>&1; then
