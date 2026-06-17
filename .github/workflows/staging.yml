@@ -393,16 +393,15 @@ jobs:
           DB_URL=$(gcloud secrets versions access latest \
             --secret="lifting-logbook-stg-database-url" \
             --project="${{ vars.GCP_STAGING_PROJECT_ID }}")
-          SYS_DB_URL=$(gcloud secrets versions access latest \
-            --secret="lifting-logbook-stg-system-database-url" \
-            --project="${{ vars.GCP_STAGING_PROJECT_ID }}")
+          # system-database-url is no longer synced into the cluster Secret (#534):
+          # the owner/superuser cred is unused on the runtime Prisma path, so it is
+          # kept out of the GKE runtime surface entirely, not just the pod env.
           CLERK_KEY=$(gcloud secrets versions access latest \
             --secret="lifting-logbook-stg-clerk-secret-key" \
             --project="${{ vars.GCP_STAGING_PROJECT_ID }}")
           kubectl create secret generic api-secrets \
             --namespace=staging \
             --from-literal=database-url="$DB_URL" \
-            --from-literal=system-database-url="$SYS_DB_URL" \
             --from-literal=clerk-secret-key="$CLERK_KEY" \
             --dry-run=client -o yaml | kubectl apply -f -
 
