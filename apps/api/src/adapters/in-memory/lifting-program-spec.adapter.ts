@@ -40,13 +40,15 @@ export class InMemoryLiftingProgramSpecRepository
     const byKey = new Map(existingByKey);
 
     // Shared classify/dedupe/tally loop + program-spec classifier (#532) so this
-    // adapter's counts match the Prisma adapter's and the preview path's.
+    // adapter's counts match the Prisma adapter's and the preview path's. The
+    // deduped key is handed back by the shared loop, so it is reused here rather
+    // than recomputed (#537).
     const result = await classifyAndCount(
       rows,
       (r) => programSpecNaturalKey(r),
       (r) => programSpecRowKind(r, existingByKey),
-      (r) => {
-        byKey.set(programSpecNaturalKey(r), r);
+      (r, _kind, key) => {
+        byKey.set(key, r);
       },
     );
 

@@ -1,7 +1,61 @@
-import { classifyAndCount } from './classifyAndCount';
+import { classifyAndCount, classifyImportRows } from './classifyAndCount';
 import { ImportRowKind } from './buildImportPreview';
 
 type Row = { k: string };
+
+describe('classifyImportRows', () => {
+  it('yields each unique row with its key and classification', () => {
+    const kindOf = (k: string): ImportRowKind =>
+      k === 'a' ? 'create' : k === 'b' ? 'update' : 'skip';
+
+    const out = [
+      ...classifyImportRows<Row>([{ k: 'a' }, { k: 'b' }, { k: 'c' }], (r) => r.k, (r) =>
+        kindOf(r.k),
+      ),
+    ];
+
+    expect(out).toEqual([
+      { row: { k: 'a' }, kind: 'create', key: 'a' },
+      { row: { k: 'b' }, kind: 'update', key: 'b' },
+      { row: { k: 'c' }, kind: 'skip', key: 'c' },
+    ]);
+  });
+
+  it('collapses duplicate keys within the batch (first occurrence wins)', () => {
+    const seen: Array<{ k: string }> = [];
+    const out = [
+      ...classifyImportRows<Row>(
+        [{ k: 'x' }, { k: 'x' }, { k: 'y' }],
+        (r) => r.k,
+        (r) => {
+          seen.push(r);
+          return 'create';
+        },
+      ),
+    ];
+
+    // The duplicate 'x' is neither yielded nor re-classified.
+    expect(out.map((c) => c.key)).toEqual(['x', 'y']);
+    expect(seen).toEqual([{ k: 'x' }, { k: 'y' }]);
+  });
+
+  it('passes the deduped key to the classifier so it need not recompute it', () => {
+    const keysSeenByClassifier: string[] = [];
+    const consumed = [
+      ...classifyImportRows<Row>(
+        [{ k: 'p' }, { k: 'q' }],
+        (r) => `key:${r.k}`,
+        (_r, key) => {
+          keysSeenByClassifier.push(key);
+          return 'create';
+        },
+      ),
+    ];
+
+    expect(consumed.map((c) => c.key)).toEqual(['key:p', 'key:q']);
+    expect(keysSeenByClassifier).toEqual(['key:p', 'key:q']);
+  });
+});
 
 describe('classifyAndCount', () => {
   it('tallies create/update/skip and writes only the non-skip rows', async () => {
