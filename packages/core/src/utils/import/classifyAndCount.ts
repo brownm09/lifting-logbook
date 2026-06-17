@@ -1,49 +1,80 @@
 import { ImportWriteResult } from '@lifting-logbook/types';
-import { ImportRowKind } from './buildImportPreview';
+import type { ImportRowKind } from './buildImportPreview';
+
+/** One deduped import row with its computed natural key and classification. */
+export interface ClassifiedRow<T> {
+  row: T;
+  kind: ImportRowKind;
+  key: string;
+}
+
+/**
+ * Shared dedupe + classify core for the Smart Import paths (#537).
+ *
+ * Both the count-only commit path (`classifyAndCount`) and the delta-producing
+ * preview path (`buildImportPreview`) walk the incoming rows the same way: collapse
+ * duplicate natural keys within the batch (first occurrence wins) and classify each
+ * unique row as create / update / skip. That loop used to be copy-pasted in both
+ * places, so a change to the dedupe semantics (e.g. first-wins → last-wins, or key
+ * normalization) had to be made twice or the two paths would silently disagree.
+ * Centralising it here makes that a one-place change — the per-row create/update/skip
+ * *decision* is already shared via the `*RowKind` predicates, this shares the
+ * surrounding dedupe loop too.
+ *
+ * `keyOf` produces the per-row dedupe/natural key; `rowKind` decides
+ * create/update/skip (the key is passed through so a classifier can reuse it
+ * instead of recomputing). Each yielded row carries the key it was deduped on so
+ * consumers never recompute it.
+ */
+export function* classifyImportRows<T>(
+  rows: readonly T[],
+  keyOf: (row: T) => string,
+  rowKind: (row: T, key: string) => ImportRowKind,
+): Generator<ClassifiedRow<T>> {
+  const seen = new Set<string>();
+  for (const row of rows) {
+    const key = keyOf(row);
+    if (seen.has(key)) continue; // collapse duplicate keys within the batch
+    seen.add(key);
+    yield { row, kind: rowKind(row, key), key };
+  }
+}
 
 /**
  * Shared classify-and-count loop for the Smart Import commit path (#532).
  *
- * Every per-kind commit method (training maxes, strength goals, program spec) and
- * every adapter (in-memory + Prisma) walks the incoming rows the same way:
- * collapse duplicate keys within the batch, classify each unique row as
- * create / update / skip against the existing snapshot, apply the write for the
- * non-skip rows, and tally the result. That loop was copy-pasted across the
- * adapters; a change to the dedupe or tally semantics in one place could silently
- * desync the counts another adapter reports. Centralising it here keeps the count
- * contract identical across adapters — the classification *decision* is already
- * shared via the `*RowKind` predicates, this shares the surrounding loop too.
+ * Walks the deduped/classified rows from {@link classifyImportRows}, applies the
+ * write for each non-skip row, and tallies the result, so every per-kind commit
+ * method (training maxes, strength goals, program spec) and every adapter
+ * (in-memory + Prisma) reports identical counts for the same input.
  *
- * `keyOf` produces the per-row dedupe/natural key. `rowKind` decides
- * create/update/skip (typically one of `trainingMaxRowKind` /
- * `strengthGoalRowKind` / `programSpecRowKind`). `applyWrite` performs the write
- * for a non-skip row and is awaited so callers can run it inside a transaction;
- * a throw propagates (the caller's transaction rolls back) and the counts are not
- * advanced for the failed row.
+ * `applyWrite` performs the write for a non-skip row and is awaited so callers can
+ * run it inside a transaction; a throw propagates (the caller's transaction rolls
+ * back) and the counts are not advanced for the failed row. The deduped natural
+ * `key` is passed as the third argument so an adapter that stores by key need not
+ * recompute it.
  */
 export async function classifyAndCount<T>(
   rows: readonly T[],
   keyOf: (row: T) => string,
   rowKind: (row: T) => ImportRowKind,
-  applyWrite: (row: T, kind: 'create' | 'update') => void | Promise<unknown>,
+  applyWrite: (
+    row: T,
+    kind: 'create' | 'update',
+    key: string,
+  ) => void | Promise<unknown>,
 ): Promise<ImportWriteResult> {
   let created = 0;
   let updated = 0;
   let skipped = 0;
-  const seen = new Set<string>();
 
-  for (const row of rows) {
-    const key = keyOf(row);
-    if (seen.has(key)) continue; // collapse duplicate keys within the batch
-    seen.add(key);
-
-    const kind = rowKind(row);
+  for (const { row, kind, key } of classifyImportRows(rows, keyOf, (r) => rowKind(r))) {
     if (kind === 'skip') {
       skipped++;
       continue;
     }
 
-    await applyWrite(row, kind);
+    await applyWrite(row, kind, key);
     if (kind === 'create') created++;
     else updated++;
   }

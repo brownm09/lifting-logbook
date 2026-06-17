@@ -5,6 +5,7 @@ import {
   StrengthGoalEntry,
   TrainingMax,
 } from '../../models';
+import { classifyImportRows } from './classifyAndCount';
 import { liftRecordNaturalKey } from './liftRecordNaturalKey';
 
 /**
@@ -43,20 +44,20 @@ export function buildLiftRecordsPreview(
   existing: LiftRecord[],
 ): ImportPreview {
   const existingKeys = new Set(existing.map(liftRecordNaturalKey));
-  const seen = new Set<string>();
   const deltas: ImportDelta[] = [];
 
-  for (const r of incoming) {
-    const key = liftRecordNaturalKey(r);
-    if (seen.has(key)) continue;
-    seen.add(key);
+  for (const { row: r, kind, key } of classifyImportRows(
+    incoming,
+    liftRecordNaturalKey,
+    (_r, k) => (existingKeys.has(k) ? 'skip' : 'create'),
+  )) {
     const label = `${r.lift} · cycle ${r.cycleNum} workout ${r.workoutNum} set ${r.setNum}`;
     const value = `${r.weight} × ${r.reps}`;
-    if (existingKeys.has(key)) {
-      deltas.push({ key, label, kind: 'skip', before: value, after: value });
-    } else {
-      deltas.push({ key, label, kind: 'create', after: value });
-    }
+    deltas.push(
+      kind === 'skip'
+        ? { key, label, kind, before: value, after: value }
+        : { key, label, kind, after: value },
+    );
   }
   return tally(deltas);
 }
@@ -98,19 +99,19 @@ export function buildTrainingMaxPreview(
   existing: TrainingMax[],
 ): ImportPreview {
   const existingByLift = new Map(existing.map((m) => [m.lift, m.weight]));
-  const seen = new Set<string>();
   const deltas: ImportDelta[] = [];
 
-  for (const m of incoming) {
-    if (seen.has(m.lift)) continue;
-    seen.add(m.lift);
+  for (const { row: m, kind, key } of classifyImportRows(
+    incoming,
+    (m) => m.lift,
+    (m) => trainingMaxRowKind(m, existingByLift),
+  )) {
     const after = `${m.weight}`;
-    const kind = trainingMaxRowKind(m, existingByLift);
     const before = existingByLift.get(m.lift);
     deltas.push(
       before === undefined
-        ? { key: m.lift, label: m.lift, kind, after }
-        : { key: m.lift, label: m.lift, kind, before: `${before}`, after },
+        ? { key, label: m.lift, kind, after }
+        : { key, label: m.lift, kind, before: `${before}`, after },
     );
   }
   return tally(deltas);
@@ -128,19 +129,19 @@ export function buildStrengthGoalPreview(
   existing: StrengthGoalEntry[],
 ): ImportPreview {
   const existingByLift = new Map(existing.map((g) => [g.lift, g]));
-  const seen = new Set<string>();
   const deltas: ImportDelta[] = [];
 
-  for (const g of incoming) {
-    if (seen.has(g.lift)) continue;
-    seen.add(g.lift);
+  for (const { row: g, kind, key } of classifyImportRows(
+    incoming,
+    (g) => g.lift,
+    (g) => strengthGoalRowKind(g, existingByLift),
+  )) {
     const after = goalValue(g);
-    const kind = strengthGoalRowKind(g, existingByLift);
     const prior = existingByLift.get(g.lift);
     deltas.push(
       prior
-        ? { key: g.lift, label: g.lift, kind, before: goalValue(prior), after }
-        : { key: g.lift, label: g.lift, kind, after },
+        ? { key, label: g.lift, kind, before: goalValue(prior), after }
+        : { key, label: g.lift, kind, after },
     );
   }
   return tally(deltas);
@@ -186,16 +187,15 @@ export function buildProgramSpecPreview(
   existing: LiftingProgramSpec[],
 ): ImportPreview {
   const existingByKey = new Map(existing.map((r) => [programSpecNaturalKey(r), r]));
-  const seen = new Set<string>();
   const deltas: ImportDelta[] = [];
 
-  for (const r of incoming) {
-    const key = programSpecNaturalKey(r);
-    if (seen.has(key)) continue;
-    seen.add(key);
+  for (const { row: r, kind, key } of classifyImportRows(
+    incoming,
+    programSpecNaturalKey,
+    (r) => programSpecRowKind(r, existingByKey),
+  )) {
     const label = `Week ${r.week} · ${r.lift} (#${r.order})`;
     const after = specValue(r);
-    const kind = programSpecRowKind(r, existingByKey);
     const prior = existingByKey.get(key);
     deltas.push(
       prior
