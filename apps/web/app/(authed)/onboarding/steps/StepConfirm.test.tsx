@@ -23,7 +23,7 @@ describe('StepConfirm — training-max method', () => {
     render(
       <StepConfirm
         method="tm"
-        maxes={[{ lift: 'Squat', oneRm: 0, trainingMax: 315 }]}
+        maxes={[{ lift: 'Squat', oneRm: null, trainingMax: 315 }]}
       />,
     );
     expect(screen.getByText('Squat')).toBeInTheDocument();

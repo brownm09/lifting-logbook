@@ -3,7 +3,7 @@
 import styles from '../onboarding.module.css';
 import type { DiscoveryMethod } from '../lib';
 
-type Max = { lift: string; oneRm: number; trainingMax: number };
+type Max = { lift: string; oneRm: number | null; trainingMax: number };
 
 type Props = {
   maxes: Max[];
@@ -33,8 +33,8 @@ export function StepConfirm({ maxes, method }: Props) {
                 trainingMax > 0 ? `TM ${trainingMax} lb` : '—'
               ) : (
                 <>
-                  {oneRm > 0 ? `${oneRm} lb` : '—'}
-                  {oneRm > 0 && (
+                  {oneRm != null && oneRm > 0 ? `${oneRm} lb` : '—'}
+                  {oneRm != null && oneRm > 0 && (
                     <span
                       className={styles.unitLabel}
                       style={{ marginLeft: 'var(--space-2)' }}

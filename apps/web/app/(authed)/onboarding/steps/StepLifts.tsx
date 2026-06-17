@@ -2,7 +2,7 @@
 
 import { useId, useState } from 'react';
 import styles from '../onboarding.module.css';
-import type { DiscoveryMethod, LiftRow } from '../lib';
+import { isWeightOnly, type DiscoveryMethod, type LiftRow } from '../lib';
 
 type Props = {
   method: DiscoveryMethod;
@@ -37,9 +37,7 @@ export function StepLifts({ method, lifts, catalog, onChange, onAdd, onRemove }:
     setQuery('');
   }
 
-  // `manual` (1RM) and `tm` (training max) both take a single weight per lift
-  // with no reps; the estimate/test methods take a full weight × reps set.
-  const weightOnly = method === 'manual' || method === 'tm';
+  const weightOnly = isWeightOnly(method);
   const hint =
     method === 'tm'
       ? 'Enter your current training max for each lift.'
