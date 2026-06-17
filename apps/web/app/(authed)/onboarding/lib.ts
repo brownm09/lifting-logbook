@@ -1,4 +1,4 @@
-export type DiscoveryMethod = 'estimate' | 'test' | 'manual';
+export type DiscoveryMethod = 'estimate' | 'test' | 'manual' | 'tm';
 
 /** A single lift the user is entering a max for during onboarding. */
 export type LiftRow = { lift: string; weight: string; reps: string };

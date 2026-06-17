@@ -37,14 +37,20 @@ export function StepLifts({ method, lifts, catalog, onChange, onAdd, onRemove }:
     setQuery('');
   }
 
+  // `manual` (1RM) and `tm` (training max) both take a single weight per lift
+  // with no reps; the estimate/test methods take a full weight × reps set.
+  const weightOnly = method === 'manual' || method === 'tm';
+  const hint =
+    method === 'tm'
+      ? 'Enter your current training max for each lift.'
+      : method === 'manual'
+        ? 'Enter your current 1-rep max for each lift.'
+        : 'Enter a recent heavy set (weight × reps) for each lift.';
+
   return (
     <>
       <h2 className={styles.stepTitle}>Enter your lifts</h2>
-      <p className={styles.stepHint}>
-        {method === 'manual'
-          ? 'Enter your current 1-rep max for each lift.'
-          : 'Enter a recent heavy set (weight × reps) for each lift.'}
-      </p>
+      <p className={styles.stepHint}>{hint}</p>
       <div className={styles.dataRows}>
         {lifts.map((row, index) => (
           <div key={row.lift} className={styles.dataRow}>
@@ -60,7 +66,7 @@ export function StepLifts({ method, lifts, catalog, onChange, onAdd, onRemove }:
               aria-label={`${row.lift} weight`}
             />
             <span className={styles.unitLabel}>lb</span>
-            {method !== 'manual' && (
+            {!weightOnly && (
               <>
                 <span className={styles.unitLabel}>×</span>
                 <input
@@ -137,10 +143,12 @@ export function StepLifts({ method, lifts, catalog, onChange, onAdd, onRemove }:
         )}
       </div>
 
-      <p className={styles.infoBox}>
-        We use the Brzycki formula:{' '}
-        <strong>1RM = weight × 36 ÷ (37 − reps)</strong>. Stay under 10 reps for accuracy.
-      </p>
+      {!weightOnly && (
+        <p className={styles.infoBox}>
+          We use the Brzycki formula:{' '}
+          <strong>1RM = weight × 36 ÷ (37 − reps)</strong>. Stay under 10 reps for accuracy.
+        </p>
+      )}
     </>
   );
 }
