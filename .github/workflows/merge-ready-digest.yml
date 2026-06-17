@@ -1,0 +1,76 @@
+name: Merge-ready digest
+
+# Surfaces the deployment queue (#538): which open PRs are green + mergeable and
+# waiting only on a deliberate in-session merge. Auto-merge is off by design
+# (ADR-031), so this replaces hand-polling. GitHub-Actions-based (not a Claude
+# scheduled task) so it has no dependency on a local OAuth token — it keeps
+# working regardless of .credentials.json state.
+#
+# Delivery: a single sticky comment (found by an HTML-comment marker) is upserted
+# on the pinned "Deployment queue" tracking issue (#552). Editing a comment in
+# place sends no notifications, so this is quiet even when it runs hourly; when the
+# queue is clear the comment says so rather than going stale.
+
+on:
+  schedule:
+    # Hourly 09:00–18:00 ET, Mon–Fri. GitHub cron is UTC-only: 13:00–22:00 UTC is
+    # the EDT (summer) window. During EST (Nov–Mar) the same cron fires at
+    # 14:00–23:00 UTC / 10:00–19:00 ET — a one-hour DST shift that is acceptable
+    # for a passive digest.
+    - cron: '0 13-22 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: write
+
+# Serialize so a schedule tick and a manual dispatch cannot both create the
+# sticky comment before either has found the other's. cancel-in-progress: false —
+# the second run still needs to finish its upsert.
+concurrency:
+  group: merge-ready-digest
+  cancel-in-progress: false
+
+env:
+  QUEUE_ISSUE: '552'
+  MARKER: '<!-- merge-ready-digest -->'
+
+jobs:
+  digest:
+    name: Upsert deployment-queue digest
+    runs-on: ubuntu-latest
+    # The whole pipeline runs in <30s; 5 minutes bounds transient GitHub API hangs
+    # without burning the default 6h timeout.
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Compute merge-ready PRs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh pr list --repo "${{ github.repository }}" --state open --limit 100 \
+            --json number,title,isDraft,mergeable,mergeStateStatus,statusCheckRollup \
+            > prs.json
+          node .github/scripts/merge-ready-digest.mjs prs.json > body.md
+          echo '--- digest body ---'
+          cat body.md
+
+      - name: Upsert sticky comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Find an existing digest comment by marker (last one wins if somehow >1).
+          CID=$(gh api "repos/${{ github.repository }}/issues/${QUEUE_ISSUE}/comments?per_page=100" \
+            --jq "[.[] | select(.body | contains(\"${MARKER}\")) | .id] | last // empty")
+          if [ -n "$CID" ]; then
+            echo "Updating existing digest comment $CID"
+            node -e "const fs=require('fs');process.stdout.write(JSON.stringify({body:fs.readFileSync('body.md','utf8')}))" > payload.json
+            gh api -X PATCH "repos/${{ github.repository }}/issues/comments/${CID}" --input payload.json > /dev/null
+          else
+            echo "Creating new digest comment"
+            gh issue comment "${QUEUE_ISSUE}" --repo "${{ github.repository }}" --body-file body.md
+          fi
