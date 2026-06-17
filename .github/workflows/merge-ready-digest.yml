@@ -63,9 +63,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          # Find an existing digest comment by marker (last one wins if somehow >1).
+          # Find this workflow's own sticky comment by marker. Pick `first` (oldest):
+          # the digest comment is created on the first run when the issue has no
+          # comments, so it is comment #1 and stays on page 1 of the ascending-order
+          # listing forever. `first` also makes the upsert immune to a later human
+          # comment that happens to quote the marker (which `last` would hijack).
           CID=$(gh api "repos/${{ github.repository }}/issues/${QUEUE_ISSUE}/comments?per_page=100" \
-            --jq "[.[] | select(.body | contains(\"${MARKER}\")) | .id] | last // empty")
+            --jq "[.[] | select(.body | contains(\"${MARKER}\")) | .id] | first // empty")
           if [ -n "$CID" ]; then
             echo "Updating existing digest comment $CID"
             node -e "const fs=require('fs');process.stdout.write(JSON.stringify({body:fs.readFileSync('body.md','utf8')}))" > payload.json

@@ -28,9 +28,12 @@ const FAIL = new Set([
   'STARTUP_FAILURE',
 ]);
 
-function rollup(checks = []) {
+function rollup(checks) {
   const c = { ok: 0, pending: 0, fail: 0 };
-  for (const x of checks) {
+  // `?? []` (not a default param) so a `statusCheckRollup: null` — which gh can emit
+  // for a degenerate head-ref state — counts as zero checks instead of throwing and
+  // killing the whole digest run.
+  for (const x of checks ?? []) {
     const s = x.conclusion || x.status || x.state || '';
     if (PASS.has(s)) c.ok++;
     else if (FAIL.has(s)) c.fail++;
