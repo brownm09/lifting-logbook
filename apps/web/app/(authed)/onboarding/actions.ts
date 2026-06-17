@@ -10,7 +10,7 @@ export type CreateFirstCycleResult = { ok: false; error: string };
 
 export async function createFirstCycle(
   programId: string,
-  maxes: { lift: string; oneRm: number }[] = [],
+  maxes: { lift: string; trainingMax: number }[] = [],
 ): Promise<CreateFirstCycleResult | never> {
   const allowed = PROGRAMS.filter((p) => p.available).map((p) => p.id);
   if (!allowed.includes(programId)) {
@@ -18,10 +18,13 @@ export async function createFirstCycle(
   }
   try {
     await initializeCycle(programId);
-    // Persist the confirmed maxes as training maxes (90% of the estimated 1RM,
-    // matching the value shown on the Confirm step). Runs after initializeCycle
-    // so it overrides any maxes the cycle seeded. The PATCH endpoint merges and
-    // appends unknown lifts, so any catalog or custom lift name is accepted.
+    // Persist the confirmed training maxes exactly as shown on the Confirm step.
+    // The caller (OnboardingFlow) already resolved each lift to its final training
+    // max — deriving it at 90% of the 1RM for the estimate/test/manual methods, or
+    // taking the entered value as-is for the "enter training maxes" method — so this
+    // action persists the value verbatim and does no further adjustment. Runs after
+    // initializeCycle so it overrides any maxes the cycle seeded. The PATCH endpoint
+    // merges and appends unknown lifts, so any catalog or custom lift name is accepted.
     //
     // Best-effort by design: initializeCycle has already created the cycle, so a
     // max-persistence failure must not strand the user on the program-selection
@@ -39,7 +42,7 @@ export async function createFirstCycle(
         await updateTrainingMaxes(programId, {
           maxes: maxes.map((m) => ({
             lift: m.lift,
-            weight: Math.round(m.oneRm * 0.9),
+            weight: m.trainingMax,
             unit: 'lbs',
           })),
         });

@@ -22,6 +22,12 @@ const METHOD_OPTIONS: { id: DiscoveryMethod; title: string; description: string 
     description:
       'You already know your 1RMs. Enter them directly and we’ll set training maxes at 90%.',
   },
+  {
+    id: 'tm',
+    title: 'Enter training maxes',
+    description:
+      'You already train off fixed training maxes. Enter them directly — we’ll use them as-is, no 90% adjustment.',
+  },
 ];
 
 type Props = {

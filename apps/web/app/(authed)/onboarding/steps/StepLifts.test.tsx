@@ -162,3 +162,14 @@ describe('StepLifts — manual method', () => {
     expect(screen.queryByLabelText('Bench Press reps')).not.toBeInTheDocument();
   });
 });
+
+describe('StepLifts — training-max method', () => {
+  it('hides the reps input and shows the training-max hint when method is tm', () => {
+    render(<Harness method="tm" />);
+    expect(screen.getByLabelText('Bench Press weight')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Bench Press reps')).not.toBeInTheDocument();
+    expect(screen.getByText(/enter your current training max/i)).toBeInTheDocument();
+    // The Brzycki helper text references reps and must not show for a TM entry.
+    expect(screen.queryByText(/brzycki formula/i)).not.toBeInTheDocument();
+  });
+});
