@@ -393,16 +393,15 @@ jobs:
           DB_URL=$(gcloud secrets versions access latest \
             --secret="lifting-logbook-stg-database-url" \
             --project="${{ vars.GCP_STAGING_PROJECT_ID }}")
-          SYS_DB_URL=$(gcloud secrets versions access latest \
-            --secret="lifting-logbook-stg-system-database-url" \
-            --project="${{ vars.GCP_STAGING_PROJECT_ID }}")
+          # system-database-url is no longer synced into the cluster Secret (#534):
+          # the owner/superuser cred is unused on the runtime Prisma path, so it is
+          # kept out of the GKE runtime surface entirely, not just the pod env.
           CLERK_KEY=$(gcloud secrets versions access latest \
             --secret="lifting-logbook-stg-clerk-secret-key" \
             --project="${{ vars.GCP_STAGING_PROJECT_ID }}")
           kubectl create secret generic api-secrets \
             --namespace=staging \
             --from-literal=database-url="$DB_URL" \
-            --from-literal=system-database-url="$SYS_DB_URL" \
             --from-literal=clerk-secret-key="$CLERK_KEY" \
             --dry-run=client -o yaml | kubectl apply -f -
 
@@ -519,12 +518,19 @@ jobs:
       # Cloud Run: A/B comparison target (10% traffic — ADR-009)
       - name: Deploy API to Cloud Run (staging)
         run: |
+          # --remove-secrets strips the unused owner/superuser SYSTEM_DATABASE_URL
+          # from the running service (#534). The deployed Prisma path never reads it
+          # (DATABASE_URL is always set → PrismaRepositoryFactory; SystemDbRepositoryFactory
+          # is only constructed when DATABASE_URL is unset), and the Terraform service
+          # template is lifecycle.ignore_changes, so this is the only place the env can be
+          # removed. Removing an already-absent secret is a no-op on subsequent deploys.
           gcloud run deploy lifting-logbook-stg-api \
             --image="${{ needs.build-images.outputs.ar_repo }}/api:${{ github.sha }}" \
             --region="${{ env.REGION }}" \
             --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
             --platform=managed \
             --no-allow-unauthenticated \
+            --remove-secrets=SYSTEM_DATABASE_URL \
             --quiet
 
       - name: Deploy web to Cloud Run (staging)
@@ -976,16 +982,15 @@ jobs:
           DB_URL=$(gcloud secrets versions access latest \
             --secret="lifting-logbook-prod-database-url" \
             --project="${{ vars.GCP_PROD_PROJECT_ID }}")
-          SYS_DB_URL=$(gcloud secrets versions access latest \
-            --secret="lifting-logbook-prod-system-database-url" \
-            --project="${{ vars.GCP_PROD_PROJECT_ID }}")
+          # system-database-url is no longer synced into the cluster Secret (#534) —
+          # see the staging step. (Production is Cloud-Run-only / enable_gke=false, so
+          # this step is normally skipped; cleaned up for consistency.)
           CLERK_KEY=$(gcloud secrets versions access latest \
             --secret="lifting-logbook-prod-clerk-secret-key" \
             --project="${{ vars.GCP_PROD_PROJECT_ID }}")
           kubectl create secret generic api-secrets \
             --namespace=production \
             --from-literal=database-url="$DB_URL" \
-            --from-literal=system-database-url="$SYS_DB_URL" \
             --from-literal=clerk-secret-key="$CLERK_KEY" \
             --dry-run=client -o yaml | kubectl apply -f -
 
@@ -1040,12 +1045,18 @@ jobs:
 
       - name: Deploy API to Cloud Run (production)
         run: |
+          # --remove-secrets strips the unused owner/superuser SYSTEM_DATABASE_URL
+          # from the running service (#534) — see the staging step for the full
+          # rationale. After the RLS cutover (#517) the runtime connects as the
+          # NOBYPASSRLS lifting_app role via DATABASE_URL; the owner credential is
+          # never read on the Prisma path, so it should not sit in the runtime env.
           gcloud run deploy lifting-logbook-prod-api \
             --image="${{ steps.tf-prod.outputs.ar_repo }}/api:${{ github.sha }}" \
             --region="${{ env.REGION }}" \
             --project="${{ vars.GCP_PROD_PROJECT_ID }}" \
             --platform=managed \
             --no-allow-unauthenticated \
+            --remove-secrets=SYSTEM_DATABASE_URL \
             --quiet
 
       # ── Production DB-backed smoke test (#460) ─────────────────────────────

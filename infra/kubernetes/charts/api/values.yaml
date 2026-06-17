@@ -44,7 +44,6 @@ gcp:
 # Secret Manager secret IDs (not the secret values)
 secrets:
   databaseUrl: ""
-  systemDatabaseUrl: ""
   clerkSecretKey: ""
 
 livenessProbe:

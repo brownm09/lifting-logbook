@@ -48,11 +48,8 @@ spec:
                 secretKeyRef:
                   name: lifting-logbook-prod-database-url
                   key: latest
-            - name: SYSTEM_DATABASE_URL
-              valueFrom:
-                secretKeyRef:
-                  name: lifting-logbook-prod-system-database-url
-                  key: latest
+            # SYSTEM_DATABASE_URL (owner/superuser cred) intentionally omitted (#534):
+            # unused on the Prisma runtime path after the RLS cutover (#517).
             - name: CLERK_SECRET_KEY
               valueFrom:
                 secretKeyRef:
