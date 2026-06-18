@@ -823,15 +823,28 @@ jobs:
               body = `⚠️ **Staging integration tests did not run** (status: ${testResult})`;
             }
 
-            // Find and update an existing bot comment, or create a new one
-            const { data: comments } = await github.rest.issues.listComments({
+            // Find and update an existing bot comment, or create a new one.
+            // Paginate: listComments returns only the first 30 by default, so on a
+            // chatty PR (>30 comments) the sticky staging-result comment could fall
+            // off page 1 and we'd stack a duplicate on every re-push instead of
+            // updating in place. github.paginate walks every page. Mirrors the fix
+            // in prod-plan-pr.yml (#559).
+            const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
+              per_page: 100,
             });
+            // Bot-guard BOTH arms. Without the parentheses, JS operator precedence
+            // makes this `(Bot && integration-tests) || skipped`, so any comment —
+            // including a human's — whose body contains "Staging skipped" would match
+            // and be overwritten by the status updater. The skipped-state sticky
+            // comment body is `⚪ **Staging skipped** …` (no "integration tests"
+            // substring), so that arm is required to find it — it just needs to be
+            // scoped to bot-authored comments. (#564)
             const existing = comments.find(c =>
-              c.user.type === 'Bot' && c.body.includes('Staging integration tests') ||
-              c.body.includes('Staging skipped')
+              c.user.type === 'Bot' && c.body &&
+              (c.body.includes('Staging integration tests') || c.body.includes('Staging skipped'))
             );
             if (existing) {
               await github.rest.issues.updateComment({
