@@ -372,6 +372,20 @@ while `deploy-production` was skipped. If `plan-production` shows resources you 
 if it fails transiently the deploy is not blocked, but no summary is available — review the
 apply output during the gated deploy instead.)
 
+**See the prod plan one step earlier — on the PR (Layer B).** The
+[`prod-plan-pr.yml`](../.github/workflows/prod-plan-pr.yml) workflow runs the same read-only
+`terraform plan (production)` on every PR that touches `infra/terraform/**` and posts the
+`add/change/destroy` summary + resource addresses as a sticky PR comment, so the prod blast radius
+is visible at **review/merge time**, not just at the approval gate. It authenticates as the
+least-privilege read-only plan service account (`GCP_PROD_PLAN_SERVICE_ACCOUNT`, see
+[Step 5](#step-5--add-github-repository-secrets-and-variables) / [#545](https://github.com/brownm09/lifting-logbook/issues/545))
+— `terraform plan -lock=false`, never an apply — and only loads prod creds on same-repo PRs that
+change `infra/terraform/**` (`pull_request`, not `pull_request_target`; fork PRs are skipped). It is
+**advisory** — a non-empty plan does not block merge and is not a required check — but a reviewer who
+sees an unexpected prod resource address in the comment should **not merge** until they understand
+why. This is Layer B of [#542](https://github.com/brownm09/lifting-logbook/issues/542); `plan-production`
+above is the Layer A backstop at the gate.
+
 Once approved, `deploy-production` self-guards at two boundaries (issue
 [#490](https://github.com/brownm09/lifting-logbook/issues/490)):
 

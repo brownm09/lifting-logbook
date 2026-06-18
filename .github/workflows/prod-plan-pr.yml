@@ -1,0 +1,204 @@
+name: Prod Plan (PR)
+
+# Layer B of the #542 defense-in-depth fix ("a routine merge can silently execute
+# a prod Terraform cutover behind a context-free approval"). Layer A (#544) surfaces
+# the production `terraform plan` in the deploy.yml run *before the approval gate*;
+# this workflow surfaces it one step earlier — on the PR itself, *before merge* — so
+# a reviewer sees the prod blast radius at review time, not just at the gate. A
+# prod-affecting Terraform diff can otherwise sit dormant in `main` and ride in on an
+# unrelated merge (the #517/#533/#540 incident). Read-only and advisory: it never
+# applies anything and never blocks merge.
+#
+# Security: this is the deferred tradeoff from #542 — prod *read* creds load on PR
+# runs. Four mitigations bound it:
+#   1. Least-privilege read-only plan SA (#545): viewer + secretmanager.secretAccessor
+#      + storage.objectViewer — no write/apply/setIamPolicy. The write-capable
+#      GCP_PROD_SERVICE_ACCOUNT is never referenced here.
+#   2. `pull_request` (not `pull_request_target`) + the same-repo `if:` guard below —
+#      fork PRs get no secrets and the job is skipped outright.
+#   3. `paths:` filter — prod creds load ONLY when infra/terraform/** actually changes.
+#   4. `-lock=false` — the plan SA has no state-bucket write, so the identity stays
+#      strictly read-only.
+# Residual risk: a same-repo PR author could craft a malicious Terraform external data
+# source to exfiltrate prod secrets the plan SA can read during refresh — accepted for a
+# single-owner, required-review repo; the identical exposure already exists in
+# deploy.yml's plan-production on `main`.
+#
+# Advisory, never a required check: because the trigger is paths-filtered this check
+# does not run on non-infra PRs, so it must NOT be added to
+# .github/expected-required-checks.json (a path-filtered required check would block
+# every non-infra PR).
+#
+# Required GitHub repository secrets (already set; shared with deploy.yml plan-production):
+#   GCP_PROD_WORKLOAD_IDENTITY_PROVIDER
+#   GCP_PROD_PLAN_SERVICE_ACCOUNT   (#545 — read-only)
+#   TF_STATE_BUCKET
+#   GCP_BILLING_ACCOUNT
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'infra/terraform/**'
+
+# Cancel superseded plans for the same PR.
+concurrency:
+  group: prod-plan-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  TF_DIR: infra/terraform
+
+jobs:
+  plan-production-pr:
+    name: Plan (production)
+    runs-on: ubuntu-latest
+    # Same-repo guard: fork PRs never get prod creds (belt-and-suspenders on top of
+    # `pull_request` already withholding secrets from forks). Mirrors staging.yml.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write   # to post/update the plan comment
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Authenticate to GCP (production, read-only)
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_PROD_WORKLOAD_IDENTITY_PROVIDER }}
+          # Least-privilege read-only identity (#545) — see the security note in the
+          # workflow header. Never the write-capable GCP_PROD_SERVICE_ACCOUNT.
+          service_account: ${{ secrets.GCP_PROD_PLAN_SERVICE_ACCOUNT }}
+
+      - name: Terraform setup + init (production)
+        uses: ./.github/actions/tf-init   # #546 composite — init parity with plan-production
+        with:
+          workspace: production
+          state-bucket: ${{ secrets.TF_STATE_BUCKET }}
+
+      - name: Note setup/init failure for the PR comment
+        if: failure()
+        # If tf-init fails the plan step below is skipped, but the PR must still get an
+        # advisory comment (never a silently-absent one) — write its body here. tf-init
+        # still exits 1, so the job ends red; that is advisory only (not a required check).
+        run: |
+          {
+            echo "<!-- prod-plan-pr -->"
+            echo "## Production Terraform plan (read-only — review before merging)"
+            echo ""
+            echo ":warning: \`terraform setup/init (production)\` failed — no blast-radius summary is available for this PR."
+            echo "This is **advisory** and does **not** block merge. Inspect the \"Terraform setup + init (production)\" step log. Do not treat the absence of a diff as proof there are no prod changes — the gated \`plan-production\` job in the Deploy run (Layer A, #544) is the backstop before \`terraform apply\`."
+          } > "$RUNNER_TEMP/prod-plan-comment.md"
+
+      - name: Terraform plan (production)
+        working-directory: ${{ env.TF_DIR }}
+        # Read-only plan against the production workspace — identical command to
+        # deploy.yml's plan-production (#544). Bounded retry absorbs transient GCP 5xx
+        # during refresh. The add/change/destroy summary + resource addresses are written
+        # to a markdown file the next step posts as a PR comment. Never echoes a secret;
+        # -input=false avoids any prompt hang. -lock=false: the read-only plan SA (#545)
+        # cannot write the .tflock — safe here, a PR plan has no concurrent prod-state writer.
+        run: |
+          PLAN_OUT="$RUNNER_TEMP/prod-plan.txt"
+          COMMENT="$RUNNER_TEMP/prod-plan-comment.md"
+          PLANNED=0
+          for attempt in 1 2; do
+            if terraform plan -no-color -input=false -lock=false \
+                 -var-file=terraform.tfvars.production \
+                 -var="billing_account=${{ secrets.GCP_BILLING_ACCOUNT }}" \
+                 > "$PLAN_OUT" 2>&1; then
+              PLANNED=1
+              break
+            fi
+            if [ "${attempt}" -lt 2 ]; then
+              echo "Terraform plan attempt ${attempt} failed; retrying in 20s..."
+              sleep 20
+            fi
+          done
+
+          {
+            echo "<!-- prod-plan-pr -->"
+            echo "## Production Terraform plan (read-only — review before merging)"
+            echo ""
+          } > "$COMMENT"
+
+          if [ "$PLANNED" -ne 1 ]; then
+            {
+              echo ":warning: \`terraform plan (production)\` failed on both attempts — no blast-radius summary is available for this PR."
+              echo "This is **advisory** and does **not** block merge. Inspect the \"Terraform plan (production)\" step log. Do not treat the absence of a diff as proof there are no prod changes — the gated \`plan-production\` job in the Deploy run (Layer A, #544) is the backstop before \`terraform apply\`."
+            } >> "$COMMENT"
+            # Surface the tail for quick triage, then stop WITHOUT failing the job
+            # (advisory by design — the comment is still posted by the next step).
+            echo "::warning title=Prod plan unavailable::terraform plan (production) failed; this is advisory and does not block the PR."
+            tail -n 30 "$PLAN_OUT" || true
+            exit 0
+          fi
+
+          # `Plan: N to add, N to change, N to destroy.` — present only when the plan is
+          # non-empty; "No changes" otherwise.
+          SUMMARY_LINE=$(grep -E '^Plan: [0-9]+ to add' "$PLAN_OUT" | tail -n 1 || true)
+          {
+            if [ -n "$SUMMARY_LINE" ]; then
+              echo ":rotating_light: **${SUMMARY_LINE}**"
+              echo ""
+              echo "This PR's prod Terraform plan is **non-empty** — merging it makes these changes part of \`main\`, and approving the next \`production\` gate will \`terraform apply\` them to prod. A prod-affecting diff can ride in on an unrelated merge (the #542 / #517 incident). **Confirm every address below is intended before merging.**"
+              echo ""
+              echo "<details><summary>Resource addresses</summary>"
+              echo ""
+              echo '```'
+              grep -E '^  # ' "$PLAN_OUT" || echo "(plan reported changes but no resource-address lines were parsed — read the full step log)"
+              echo '```'
+              echo ""
+              echo "</details>"
+            else
+              echo ":white_check_mark: **No changes.** This PR does not change production Terraform state; merging applies no prod infra changes."
+            fi
+          } >> "$COMMENT"
+
+      - name: Post/update the prod plan PR comment
+        if: always()
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require('fs');
+            const MARKER = '<!-- prod-plan-pr -->';
+            const commentPath = `${process.env.RUNNER_TEMP}/prod-plan-comment.md`;
+            let body;
+            try {
+              body = fs.readFileSync(commentPath, 'utf8');
+            } catch {
+              // No comment file means the job died before any plan/init step ran
+              // (e.g. checkout or GCP auth failed). Post a generic advisory so the PR
+              // is never left with a stale or missing prod-plan comment.
+              body = `${MARKER}\n## Production Terraform plan (read-only — review before merging)\n\n:warning: The prod-plan job failed before producing output. This is **advisory** and does **not** block merge — inspect the [workflow run](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}).`;
+            }
+
+            // Paginate: listComments returns only the first 30 by default, so on a
+            // chatty PR (>30 comments) the sticky prod-plan comment could fall off
+            // page 1 and we'd stack a duplicate on every re-push instead of updating
+            // in place. github.paginate walks every page.
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            const existing = comments.find(c => c.body && c.body.includes(MARKER));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
