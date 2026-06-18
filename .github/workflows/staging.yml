@@ -835,9 +835,16 @@ jobs:
               issue_number: context.issue.number,
               per_page: 100,
             });
+            // Bot-guard BOTH arms. Without the parentheses, JS operator precedence
+            // makes this `(Bot && integration-tests) || skipped`, so any comment —
+            // including a human's — whose body contains "Staging skipped" would match
+            // and be overwritten by the status updater. The skipped-state sticky
+            // comment body is `⚪ **Staging skipped** …` (no "integration tests"
+            // substring), so that arm is required to find it — it just needs to be
+            // scoped to bot-authored comments. (#564)
             const existing = comments.find(c =>
-              c.user.type === 'Bot' && c.body.includes('Staging integration tests') ||
-              c.body.includes('Staging skipped')
+              c.user.type === 'Bot' && c.body &&
+              (c.body.includes('Staging integration tests') || c.body.includes('Staging skipped'))
             );
             if (existing) {
               await github.rest.issues.updateComment({
