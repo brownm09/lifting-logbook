@@ -843,7 +843,7 @@ jobs:
             // substring), so that arm is required to find it — it just needs to be
             // scoped to bot-authored comments. (#564)
             const existing = comments.find(c =>
-              c.user.type === 'Bot' &&
+              c.user.type === 'Bot' && c.body &&
               (c.body.includes('Staging integration tests') || c.body.includes('Staging skipped'))
             );
             if (existing) {
