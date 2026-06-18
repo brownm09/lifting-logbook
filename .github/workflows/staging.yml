@@ -45,6 +45,7 @@ jobs:
   preflight:
     name: Preflight
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       should_run: ${{ steps.check.outputs.should_run }}
       ar_repo: ${{ steps.check.outputs.ar_repo }}
@@ -91,6 +92,7 @@ jobs:
   terraform-staging:
     name: Terraform (staging)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: [preflight]
     if: needs.preflight.outputs.should_run == 'true'
     permissions:
@@ -159,6 +161,7 @@ jobs:
   build-images:
     name: Build & Push Images
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     needs: [preflight, terraform-staging]
     if: |
       needs.preflight.outputs.should_run == 'true' &&
@@ -303,6 +306,7 @@ jobs:
   deploy-api:
     name: Deploy API (staging)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [preflight, terraform-staging, build-images]
     if: |
       needs.preflight.outputs.should_run == 'true' &&
@@ -516,6 +520,7 @@ jobs:
   deploy-web:
     name: Deploy web (staging)
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     needs: [preflight, terraform-staging, build-images]
     if: |
       needs.preflight.outputs.should_run == 'true' &&
@@ -643,6 +648,7 @@ jobs:
   staging-integration-tests:
     name: Staging Integration Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     needs: [preflight, terraform-staging, deploy-api, deploy-web]
     # Only skip when staging is not configured at all (no GCP credentials).
     # When staging IS configured, always() ensures the job runs even when a
@@ -779,6 +785,7 @@ jobs:
   report-status:
     name: Report Staging Status
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: [preflight, terraform-staging, deploy-api, deploy-web, staging-integration-tests]
     if: always()
     permissions:
