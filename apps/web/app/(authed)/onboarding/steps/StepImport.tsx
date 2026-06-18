@@ -79,9 +79,18 @@ export function StepImport({ onImported }: Props) {
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     setError(null);
     setSummary(null);
-    const file = e.target.files?.[0];
+    const input = e.currentTarget;
+    const file = input.files?.[0];
     if (!file) return;
+    // Clear the input's value so re-selecting the *same* file (e.g. the user
+    // fixed a malformed export on disk and picked it again) still fires
+    // onChange. `file` is already captured above, so this is safe.
+    input.value = '';
 
+    // On any failure below we leave a prior successful import staged: the error
+    // is shown but `onImported` is not re-called, so OnboardingFlow keeps the
+    // last good rows and Next stays enabled. This is intentional — a fat-finger
+    // re-upload after a good import should not discard the valid data.
     if (file.size > MAX_IMPORT_BYTES) {
       setError('That file is larger than 5 MB. Export a smaller training-maxes file and try again.');
       return;
@@ -164,7 +173,11 @@ export function StepImport({ onImported }: Props) {
         />
       </div>
       {error && (
-        <p id={`${inputId}-error`} role="alert" className={styles.infoBox}>
+        <p
+          id={`${inputId}-error`}
+          role="alert"
+          className={`${styles.infoBox} ${styles.infoBoxError}`}
+        >
           {error}
         </p>
       )}
