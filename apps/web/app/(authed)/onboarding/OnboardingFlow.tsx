@@ -5,6 +5,7 @@ import styles from './onboarding.module.css';
 import {
   brzycki1RM,
   DEFAULT_LIFTS,
+  isWeightOnly,
   type DiscoveryMethod,
   type LiftRow,
 } from './lib';
@@ -33,19 +34,31 @@ export function OnboardingFlow({ catalog }: { catalog: string[] }) {
   const [isPending, startTransition] = useTransition();
   const [cycleError, setCycleError] = useState<string | null>(null);
 
+  // `manual` (1RM) and `tm` (training max) both capture a single weight per lift
+  // with no reps; the estimate/test methods capture a weight × reps set.
+  const weightOnly = isWeightOnly(method);
+
   const canAdvanceFromLifts =
     lifts.length > 0 &&
     lifts.every((row) => {
-      if (method === 'manual') return Number(row.weight) > 0;
+      if (weightOnly) return Number(row.weight) > 0;
       return Number(row.weight) > 0 && Number(row.reps) > 0;
     });
 
+  // Each row resolves to a 1RM (for display) and the training max actually
+  // persisted. `estimate`/`test` estimate the 1RM from a set; `manual` takes the
+  // entered 1RM; both derive the TM at 90%. `tm` skips that derivation — the
+  // entered value *is* the training max, so `oneRm` is N/A (null): there is no
+  // 1RM to show, and the null forces every read site to handle the absence.
   const computedMaxes = useMemo(() => {
     return lifts.map((row) => {
       const w = Number(row.weight);
       const r = Number(row.reps);
+      if (method === 'tm') {
+        return { lift: row.lift, oneRm: null, trainingMax: Math.round(w) };
+      }
       const oneRm = method === 'manual' ? Math.round(w) : brzycki1RM(w, r);
-      return { lift: row.lift, oneRm };
+      return { lift: row.lift, oneRm, trainingMax: Math.round(oneRm * 0.9) };
     });
   }, [lifts, method]);
 
@@ -78,7 +91,9 @@ export function OnboardingFlow({ catalog }: { catalog: string[] }) {
   function handleConfirm() {
     if (!selectedProgramId) return;
     setCycleError(null);
-    const maxes = computedMaxes.filter((m) => m.oneRm > 0);
+    const maxes = computedMaxes
+      .filter((m) => m.trainingMax > 0)
+      .map((m) => ({ lift: m.lift, trainingMax: m.trainingMax }));
     startTransition(async () => {
       const result = await createFirstCycle(selectedProgramId, maxes);
       if (result && !result.ok) {
@@ -128,7 +143,7 @@ export function OnboardingFlow({ catalog }: { catalog: string[] }) {
               onRemove={removeLift}
             />
           )}
-          {step === 2 && <StepConfirm maxes={computedMaxes} />}
+          {step === 2 && <StepConfirm maxes={computedMaxes} method={method} />}
           {step === 3 && (
             <StepProgram
               experience={experience}

@@ -2,7 +2,7 @@
 
 import { useId, useState } from 'react';
 import styles from '../onboarding.module.css';
-import type { DiscoveryMethod, LiftRow } from '../lib';
+import { isWeightOnly, type DiscoveryMethod, type LiftRow } from '../lib';
 
 type Props = {
   method: DiscoveryMethod;
@@ -37,14 +37,18 @@ export function StepLifts({ method, lifts, catalog, onChange, onAdd, onRemove }:
     setQuery('');
   }
 
+  const weightOnly = isWeightOnly(method);
+  const hint =
+    method === 'tm'
+      ? 'Enter your current training max for each lift.'
+      : method === 'manual'
+        ? 'Enter your current 1-rep max for each lift.'
+        : 'Enter a recent heavy set (weight × reps) for each lift.';
+
   return (
     <>
       <h2 className={styles.stepTitle}>Enter your lifts</h2>
-      <p className={styles.stepHint}>
-        {method === 'manual'
-          ? 'Enter your current 1-rep max for each lift.'
-          : 'Enter a recent heavy set (weight × reps) for each lift.'}
-      </p>
+      <p className={styles.stepHint}>{hint}</p>
       <div className={styles.dataRows}>
         {lifts.map((row, index) => (
           <div key={row.lift} className={styles.dataRow}>
@@ -60,7 +64,7 @@ export function StepLifts({ method, lifts, catalog, onChange, onAdd, onRemove }:
               aria-label={`${row.lift} weight`}
             />
             <span className={styles.unitLabel}>lb</span>
-            {method !== 'manual' && (
+            {!weightOnly && (
               <>
                 <span className={styles.unitLabel}>×</span>
                 <input
@@ -137,10 +141,12 @@ export function StepLifts({ method, lifts, catalog, onChange, onAdd, onRemove }:
         )}
       </div>
 
-      <p className={styles.infoBox}>
-        We use the Brzycki formula:{' '}
-        <strong>1RM = weight × 36 ÷ (37 − reps)</strong>. Stay under 10 reps for accuracy.
-      </p>
+      {!weightOnly && (
+        <p className={styles.infoBox}>
+          We use the Brzycki formula:{' '}
+          <strong>1RM = weight × 36 ÷ (37 − reps)</strong>. Stay under 10 reps for accuracy.
+        </p>
+      )}
     </>
   );
 }
