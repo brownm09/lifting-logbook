@@ -90,6 +90,14 @@
   color: var(--color-text);
 }
 
+/* Error variant of .infoBox — applied alongside it so a failure reads as an
+   error at a glance, not just by its text (the success summary uses .infoBox
+   alone). role="alert" handles assistive tech; this is the visual cue. */
+.infoBoxError {
+  border-left-color: var(--color-error, #dc2626);
+  color: var(--color-error-text);
+}
+
 .optionList {
   display: flex;
   flex-direction: column;
