@@ -817,7 +817,12 @@ jobs:
     # timeout-minutes bounds only execution time after the job starts running;
     # time spent waiting at the `environment: production` approval gate is
     # "waiting" status and does NOT count against it (#566).
-    timeout-minutes: 30
+    # Higher than deploy-staging's 30: this job does strictly more (secret
+    # validation + `terraform apply` on top of the same migrate + 3× Helm
+    # upgrade + Cloud Run) and, being human-gated and infrequent, has no
+    # measured runtime to back a tighter bound — so it gets build-images-level
+    # headroom to avoid a false-trip mid-prod-deploy, the costliest failure mode.
+    timeout-minutes: 45
     # plan-production is a needs (not just an upstream job) so the production
     # approval gate does not prompt until the read-only prod plan summary exists
     # in the run — the approver always sees the blast radius before clicking
