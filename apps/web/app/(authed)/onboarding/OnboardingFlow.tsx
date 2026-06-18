@@ -6,12 +6,14 @@ import {
   brzycki1RM,
   DEFAULT_LIFTS,
   isWeightOnly,
+  valuesAreTrainingMax,
   type DiscoveryMethod,
   type LiftRow,
 } from './lib';
 import type { Experience } from '@/lib/programs';
 import { StepMethod } from './steps/StepMethod';
 import { StepLifts } from './steps/StepLifts';
+import { StepImport } from './steps/StepImport';
 import { StepConfirm } from './steps/StepConfirm';
 import { StepProgram } from './steps/StepProgram';
 import { createFirstCycle } from './actions';
@@ -47,14 +49,15 @@ export function OnboardingFlow({ catalog }: { catalog: string[] }) {
 
   // Each row resolves to a 1RM (for display) and the training max actually
   // persisted. `estimate`/`test` estimate the 1RM from a set; `manual` takes the
-  // entered 1RM; both derive the TM at 90%. `tm` skips that derivation — the
-  // entered value *is* the training max, so `oneRm` is N/A (null): there is no
-  // 1RM to show, and the null forces every read site to handle the absence.
+  // entered 1RM; all three derive the TM at 90%. `tm`/`import` skip that
+  // derivation — the entered/imported value *is* the training max, so `oneRm` is
+  // N/A (null): there is no 1RM to show, and the null forces every read site to
+  // handle the absence.
   const computedMaxes = useMemo(() => {
     return lifts.map((row) => {
       const w = Number(row.weight);
       const r = Number(row.reps);
-      if (method === 'tm') {
+      if (valuesAreTrainingMax(method)) {
         return { lift: row.lift, oneRm: null, trainingMax: Math.round(w) };
       }
       const oneRm = method === 'manual' ? Math.round(w) : brzycki1RM(w, r);
@@ -78,6 +81,13 @@ export function OnboardingFlow({ catalog }: { catalog: string[] }) {
 
   function removeLift(index: number) {
     setLifts((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  // The `import` method pre-fills the lift rows from a training-maxes CSV
+  // (one row per lift, weight = the training max, no reps). Replacing `lifts`
+  // enables the advance gate (every weight > 0) so the user continues to Confirm.
+  function handleImported(rows: LiftRow[]) {
+    setLifts(rows);
   }
 
   function goNext() {
@@ -133,16 +143,19 @@ export function OnboardingFlow({ catalog }: { catalog: string[] }) {
 
         <section className={styles.body}>
           {step === 0 && <StepMethod method={method} onSelect={setMethod} />}
-          {step === 1 && (
-            <StepLifts
-              method={method}
-              lifts={lifts}
-              catalog={catalog}
-              onChange={updateLift}
-              onAdd={addLift}
-              onRemove={removeLift}
-            />
-          )}
+          {step === 1 &&
+            (method === 'import' ? (
+              <StepImport onImported={handleImported} />
+            ) : (
+              <StepLifts
+                method={method}
+                lifts={lifts}
+                catalog={catalog}
+                onChange={updateLift}
+                onAdd={addLift}
+                onRemove={removeLift}
+              />
+            ))}
           {step === 2 && <StepConfirm maxes={computedMaxes} method={method} />}
           {step === 3 && (
             <StepProgram

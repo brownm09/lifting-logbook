@@ -28,6 +28,12 @@ const METHOD_OPTIONS: { id: DiscoveryMethod; title: string; description: string 
     description:
       'You already train off fixed training maxes. Enter them directly — we’ll use them as-is, no 90% adjustment.',
   },
+  {
+    id: 'import',
+    title: 'Import from a file',
+    description:
+      'Upload a training-maxes CSV (exported from a spreadsheet or another app) and we’ll fill these in for you.',
+  },
 ];
 
 type Props = {

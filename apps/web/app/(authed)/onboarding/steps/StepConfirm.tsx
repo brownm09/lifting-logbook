@@ -1,7 +1,7 @@
 'use client';
 
 import styles from '../onboarding.module.css';
-import type { DiscoveryMethod } from '../lib';
+import { valuesAreTrainingMax, type DiscoveryMethod } from '../lib';
 
 type Max = { lift: string; oneRm: number | null; trainingMax: number };
 
@@ -11,10 +11,10 @@ type Props = {
 };
 
 export function StepConfirm({ maxes, method }: Props) {
-  // For `tm` the entered value is already the training max, so there is no 1RM
+  // For `tm`/`import` the value is already the training max, so there is no 1RM
   // to show and no 90% derivation; the other methods display the 1RM with the
   // derived training max alongside it.
-  const tmDirect = method === 'tm';
+  const tmDirect = valuesAreTrainingMax(method);
 
   return (
     <>
