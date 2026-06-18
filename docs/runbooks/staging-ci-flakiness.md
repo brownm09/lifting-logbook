@@ -84,6 +84,30 @@ The pipeline now self-heals the transient classes; manual action is the exceptio
 4. If AR 504s become frequent/sustained (not transient), check Artifact Registry status and the
    repo's region health; consider raising the retry attempt limit as a stopgap.
 
+## No-timeout job hang (6-hour default)
+
+A distinct failure class from the transient build/Terraform causes above: a job **wedges with
+no progress** and, lacking a `timeout-minutes`, runs until GitHub's **6-hour default** cancels
+it (or someone force-cancels it manually).
+
+- **Symptom:** a single job (e.g. `Staging Integration Tests`) shows as running for *hours* with
+  the live log stalled on one step — commonly a network-bound step like
+  `npx playwright install --with-deps chromium` (~6.5 min when healthy) or an image pull. The
+  rest of the run is otherwise normal; re-running goes green.
+- **Cause:** a runner-level wedge (a hung apt/network fetch, a stuck process), **not** a code or
+  config failure. The 6h fallback applies to any job with no explicit `timeout-minutes`.
+- **Mitigation (in place):** every job in `staging.yml`, `ci.yml`, and `deploy.yml` now sets an
+  explicit `timeout-minutes` sized to ~2–4× its normal runtime (see [#566](https://github.com/brownm09/lifting-logbook/issues/566)).
+  A wedge now auto-cancels in minutes instead of consuming a 6h slot. If you add a **new** job to
+  any of these workflows, give it a `timeout-minutes` too.
+- **If it recurs anyway:** cancel the run, then `gh run rerun <run-id> --failed`. If the same
+  step wedges repeatedly (not a one-off), investigate that step's network dependency rather than
+  raising the timeout.
+
+**Motivating incident:** 2026-06-18, PR #562 run `27772616067` — the `staging-integration-tests`
+job (then with no `timeout-minutes`) wedged on the Playwright `--with-deps` install and ran 3+
+hours before being force-cancelled.
+
 ## Escalation
 
 - Sustained (non-transient) Artifact Registry failures → GCP support / status page; this is
