@@ -13,6 +13,7 @@
     "lint": "turbo run lint",
     "dev": "turbo run dev"
   },
+  "//clerk-pins": "@clerk/backend and @clerk/testing are exact-pinned (not caret) in apps/api and apps/web to stop the recurring lockfile float (#572; prior floats #432/#433/#501/#516/#520/#570). Each @clerk/backend version raises the floor of its own ^@clerk/shared range, so a direct caret re-resolving backend to a newer patch dragged @clerk/shared up and reddened open PRs; freezing the direct version freezes the whole v4 chain. The @clerk/nextjs@6 v2/v3 sub-tree is intentionally left on a caret — it has never been an incident. Bump these deliberately when upgrading clerk.",
   "devDependencies": {
     "@types/jest": "^30.0.0",
     "@types/node": "^25.0.9",
