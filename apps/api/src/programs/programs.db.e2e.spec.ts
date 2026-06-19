@@ -218,7 +218,7 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
     await app?.close();
     await cleanTestUsers(prisma);
     await prisma?.$disconnect();
-  });
+  }, DB_E2E_HOOK_TIMEOUT_MS);
 
   it('GET /health returns ok without auth', async () => {
     const res = await app

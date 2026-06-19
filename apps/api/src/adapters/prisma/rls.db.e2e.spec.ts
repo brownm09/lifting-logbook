@@ -125,7 +125,7 @@ describeOrSkip('Row-Level Security (e2e, lifting_app role)', () => {
     await cleanup().catch(() => undefined);
     await appDb?.$disconnect().catch(() => undefined);
     await owner?.$disconnect().catch(() => undefined);
-  });
+  }, DB_E2E_HOOK_TIMEOUT_MS);
 
   it('the app-role connection is NOT a superuser and does NOT bypass RLS', async () => {
     // Guards against a future regression where this suite silently reconnects as a superuser
