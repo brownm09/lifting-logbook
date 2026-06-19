@@ -30,6 +30,15 @@ const describeOrSkip = TC_DATABASE_URL ? describe : describe.skip;
 // assertion and keeps Prisma's `url: string` type satisfied).
 const OWNER_URL = TC_DATABASE_URL ?? '';
 
+// The beforeAll below connects an owner PrismaClient, runs ALTER ROLE, and seeds
+// fixtures. In isolation it finishes in ~2s, but under a full-suite Windows
+// `turbo run test` it contends with the CSV-fixture-heavy web/core suites and
+// intermittently blows past Jest's 5s default hook timeout (an isolation-only
+// flake — apps/api/jest.config.js does not extend the win32-capped base config).
+// 30s gives ample headroom over the contended case while still failing fast on a
+// genuine hang (Testcontainers readiness is already bounded in jest.global-setup.js). See #567.
+const DB_E2E_HOOK_TIMEOUT_MS = 30_000;
+
 const APP_ROLE = 'lifting_app';
 const APP_ROLE_PASSWORD = 'lifting_app';
 
@@ -110,7 +119,7 @@ describeOrSkip('Row-Level Security (e2e, lifting_app role)', () => {
         activation: 'standard',
       },
     });
-  });
+  }, DB_E2E_HOOK_TIMEOUT_MS);
 
   afterAll(async () => {
     await cleanup().catch(() => undefined);
