@@ -28,6 +28,15 @@ import {
 import { DomainNotFoundFilter } from './not-found.filter';
 import { DomainConflictFilter } from './conflict.filter';
 
+// The main beforeAll below connects Prisma, seeds many tables, AND bootstraps a
+// full Nest app. In isolation that finishes well under Jest's 5s default hook
+// timeout, but under a full-suite Windows `turbo run test` it contends with the
+// CSV-fixture-heavy web/core suites and intermittently trips the deadline (an
+// isolation-only flake — apps/api/jest.config.js does not extend the win32-capped
+// base config). 30s gives ample headroom while still failing fast on a genuine
+// hang (Testcontainers readiness is already bounded in jest.global-setup.js). See #567.
+const DB_E2E_HOOK_TIMEOUT_MS = 30_000;
+
 const TEST_USER = 'db-e2e-primary';
 const USER_ALICE = 'db-e2e-alice';
 const USER_BOB = 'db-e2e-bob';
@@ -203,13 +212,13 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
     app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
-  });
+  }, DB_E2E_HOOK_TIMEOUT_MS);
 
   afterAll(async () => {
     await app?.close();
     await cleanTestUsers(prisma);
     await prisma?.$disconnect();
-  });
+  }, DB_E2E_HOOK_TIMEOUT_MS);
 
   it('GET /health returns ok without auth', async () => {
     const res = await app
