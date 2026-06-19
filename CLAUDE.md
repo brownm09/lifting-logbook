@@ -264,6 +264,15 @@ npm install
 **Symptom if skipped:** `Lint failed. Commit aborted.` or a Node.js `EUNKNOWN` crash on the first
 `git commit`.
 
+**Recovery after a failed `npm ci` (EUSAGE) + `npm install`:** when a lockfile-drift `npm ci`
+fails mid-install and you recover with `npm install`, the worktree-local `node_modules/turbo` can
+be left **missing or incomplete** — the test suite may have kept running via the *global* `turbo`,
+masking the gap. The next `git commit` then fails the `.husky/pre-commit` lint hook with
+`Lint failed. Commit aborted.` **even though `npx turbo run lint` passes standalone** (the hook
+requires the worktree-local `turbo` via `TURBO_BINARY_PATH`, not the global one). The fix is a
+clean **`npm ci`** once the lockfile is back in sync — *not* another `npm install`, which can
+leave the same partial-extract state. Motivating incident: the #570/#571 session (Windows, Node 20).
+
 ---
 
 ## CLI Scripting Checklist
