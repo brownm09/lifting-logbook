@@ -25,8 +25,8 @@
     "server-only": "^0.0.1"
   },
   "devDependencies": {
-    "@clerk/backend": "^3.4.13",
-    "@clerk/testing": "^2.0.33",
+    "@clerk/backend": "3.8.1",
+    "@clerk/testing": "2.0.33",
     "@playwright/test": "^1.60.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
