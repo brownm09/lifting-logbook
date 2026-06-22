@@ -322,6 +322,11 @@
   color: var(--color-on-accent);
 }
 
+.availabilityToggleRow {
+  display: flex;
+  margin-bottom: var(--space-3);
+}
+
 .programList {
   display: flex;
   flex-direction: column;

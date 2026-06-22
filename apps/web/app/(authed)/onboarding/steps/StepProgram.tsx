@@ -49,27 +49,51 @@ export function StepProgram({
 }: Props) {
   const [view, setView] = useState<View>('list');
   const [goalFilter, setGoalFilter] = useState<'all' | Goal>('all');
+  // Unavailable ("coming soon") presets are hidden by default; this toggle reveals
+  // them. Revealed presets stay non-selectable — see the detail view's availability
+  // gate (Choose This Program is disabled when !isAvailable).
+  const [showUnavailable, setShowUnavailable] = useState(false);
 
   const selectedProgram: Program | null =
     PROGRAMS.find((p) => p.id === selectedProgramId) ?? null;
 
-  function filterByGoal(programs: Program[]): Program[] {
-    if (goalFilter === 'all') return programs;
-    return programs.filter((p) => p.goals.includes(goalFilter));
+  function applyFilters(programs: Program[]): Program[] {
+    return programs.filter((p) => {
+      if (!showUnavailable && !p.available) return false;
+      if (goalFilter !== 'all' && !p.goals.includes(goalFilter)) return false;
+      return true;
+    });
   }
 
   const visiblePrograms = useMemo(
-    () => filterByGoal(PROGRAMS.filter((p) => p.experience === experience)),
-    [experience, goalFilter],
+    () => applyFilters(PROGRAMS.filter((p) => p.experience === experience)),
+    [experience, goalFilter, showUnavailable],
   );
 
   const catalogByTier = useMemo(
     () => ({
-      beginner: filterByGoal(PROGRAMS.filter((p) => p.experience === 'beginner')),
-      intermediate: filterByGoal(PROGRAMS.filter((p) => p.experience === 'intermediate')),
-      advanced: filterByGoal(PROGRAMS.filter((p) => p.experience === 'advanced')),
+      beginner: applyFilters(PROGRAMS.filter((p) => p.experience === 'beginner')),
+      intermediate: applyFilters(PROGRAMS.filter((p) => p.experience === 'intermediate')),
+      advanced: applyFilters(PROGRAMS.filter((p) => p.experience === 'advanced')),
     }),
-    [goalFilter],
+    [goalFilter, showUnavailable],
+  );
+
+  // When the default-on availability filter hides every match for the current
+  // experience/goal, the empty state points at the toggle instead of implying no
+  // program exists (the onboarding default tier is 'beginner', whose presets are
+  // all unavailable today).
+  const hiddenUnavailableCount = useMemo(
+    () =>
+      showUnavailable
+        ? 0
+        : PROGRAMS.filter(
+            (p) =>
+              p.experience === experience &&
+              !p.available &&
+              (goalFilter === 'all' || p.goals.includes(goalFilter)),
+          ).length,
+    [experience, goalFilter, showUnavailable],
   );
 
   function handleSelectProgram(id: string) {
@@ -113,6 +137,22 @@ export function StepProgram({
           </button>
         );
       })}
+    </div>
+  );
+
+  // --- Availability toggle (shared between list and catalog views) ---
+  const availabilityToggle = (
+    <div className={styles.availabilityToggleRow}>
+      <button
+        type="button"
+        className={[styles.filterChip, showUnavailable ? styles.filterChipActive : '']
+          .filter(Boolean)
+          .join(' ')}
+        aria-pressed={showUnavailable}
+        onClick={() => setShowUnavailable((v) => !v)}
+      >
+        Show coming soon
+      </button>
     </div>
   );
 
@@ -251,6 +291,8 @@ export function StepProgram({
 
         {goalFilterBar}
 
+        {availabilityToggle}
+
         {EXPERIENCE_LEVELS.map((tier) => {
           const tierPrograms = catalogByTier[tier];
           if (tierPrograms.length === 0) return null;
@@ -318,6 +360,9 @@ export function StepProgram({
       {/* Goal filter */}
       {goalFilterBar}
 
+      {/* Availability toggle */}
+      {availabilityToggle}
+
       {/* Program list */}
       <div className={styles.programList}>
         {visiblePrograms.length > 0 ? (
@@ -326,7 +371,9 @@ export function StepProgram({
           )
         ) : (
           <p className={`${styles.stepHint} ${styles.emptyState}`}>
-            No programs match this filter.
+            {hiddenUnavailableCount > 0
+              ? `No available programs match this filter. Turn on “Show coming soon” to preview ${hiddenUnavailableCount} in development.`
+              : 'No programs match this filter.'}
           </p>
         )}
       </div>

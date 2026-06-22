@@ -34,6 +34,10 @@ describe('StepProgram — goal filter', () => {
     const user = userEvent.setup();
     render(<Harness />);
 
+    // Unavailable presets are hidden by default; reveal them so this test
+    // exercises goal-filtering across the full intermediate set.
+    await user.click(screen.getByRole('button', { name: /show coming soon/i }));
+
     // Before filtering: all intermediate programs should be visible
     const intermediatePrograms = PROGRAMS.filter((p) => p.experience === 'intermediate');
     for (const p of intermediatePrograms) {
@@ -77,6 +81,9 @@ describe('StepProgram — coming soon overlay', () => {
     }
 
     render(<Harness />);
+
+    // Unavailable presets are hidden by default; reveal them to open this one's detail.
+    await user.click(screen.getByRole('button', { name: /show coming soon/i }));
 
     // Click on the unavailable program to enter detail view
     await user.click(screen.getByText(unavailableProgram.name));
@@ -159,5 +166,42 @@ describe('StepProgram — confirm wiring', () => {
     const confirmBtn = screen.getByRole('button', { name: /starting/i });
     expect(confirmBtn).toBeDisabled();
     expect(confirmBtn).toHaveTextContent('Starting…');
+  });
+});
+
+describe('StepProgram — availability toggle', () => {
+  it('hides unavailable programs by default and reveals them via the toggle', async () => {
+    const user = userEvent.setup();
+    const unavailable = PROGRAMS.find(
+      (p) => p.experience === 'intermediate' && !p.available,
+    );
+    if (!unavailable) {
+      throw new Error('Test setup: expected ≥1 unavailable intermediate program in PROGRAMS');
+    }
+
+    render(<Harness />);
+
+    // Hidden by default (the availability filter defaults on).
+    expect(screen.queryByText(unavailable.name)).not.toBeInTheDocument();
+
+    const toggle = screen.getByRole('button', { name: /show coming soon/i });
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+
+    // Revealing the toggle surfaces the unavailable program.
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText(unavailable.name)).toBeInTheDocument();
+  });
+
+  it('keeps the available RPT program visible regardless of toggle state', async () => {
+    const user = userEvent.setup();
+    const rpt = PROGRAMS.find((p) => p.id === 'rpt');
+    if (!rpt) throw new Error('Test setup: expected RPT program in PROGRAMS');
+
+    render(<Harness experience={rpt.experience} />);
+
+    expect(screen.getByText(rpt.name)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /show coming soon/i }));
+    expect(screen.getByText(rpt.name)).toBeInTheDocument();
   });
 });

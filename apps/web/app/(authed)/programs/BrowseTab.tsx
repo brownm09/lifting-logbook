@@ -39,16 +39,21 @@ type Props = {
 export default function BrowseTab({ activeProgram, workoutSchedule }: Props) {
   const [experienceFilter, setExperienceFilter] = useState<Experience | 'all'>('all');
   const [goalFilter, setGoalFilter] = useState<'all' | Goal>('all');
+  // Unavailable ("coming soon") presets are hidden by default; this toggle reveals
+  // them. Revealed presets remain non-selectable — see renderProgram's availability
+  // gate (Choose This Program only renders when p.available).
+  const [showUnavailable, setShowUnavailable] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [switchTarget, setSwitchTarget] = useState<Program | null>(null);
 
   const filteredPrograms = useMemo(() => {
     return PROGRAMS.filter((p) => {
+      if (!showUnavailable && !p.available) return false;
       if (experienceFilter !== 'all' && p.experience !== experienceFilter) return false;
       if (goalFilter !== 'all' && !p.goals.includes(goalFilter)) return false;
       return true;
     });
-  }, [experienceFilter, goalFilter]);
+  }, [experienceFilter, goalFilter, showUnavailable]);
 
   const grouped = useMemo(() => {
     const tiers: Record<Experience, Program[]> = { beginner: [], intermediate: [], advanced: [] };
@@ -180,6 +185,18 @@ export default function BrowseTab({ activeProgram, workoutSchedule }: Props) {
             {label}
           </button>
         ))}
+      </div>
+
+      {/* Availability toggle */}
+      <div className={styles.filterRow}>
+        <button
+          type="button"
+          className={`${styles.chip} ${showUnavailable ? styles.chipActive : ''}`}
+          aria-pressed={showUnavailable}
+          onClick={() => setShowUnavailable((v) => !v)}
+        >
+          Show coming soon
+        </button>
       </div>
 
       {/* Program list */}
