@@ -1,7 +1,25 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import BrowseTab from './BrowseTab';
-import { PROGRAMS } from '@/lib/programs';
+import { PROGRAMS, type Goal } from '@/lib/programs';
+
+/** A goal that no *available* preset satisfies, so selecting it empties the default
+ *  (availability-filtered) view. Derived from data + guarded so a future change that
+ *  makes every goal available fails loudly here instead of silently passing. */
+function findEmptyingGoal(): { goal: Goal; label: RegExp } {
+  const availableGoals = new Set(PROGRAMS.filter((p) => p.available).flatMap((p) => p.goals));
+  const candidates: { goal: Goal; label: RegExp }[] = [
+    { goal: 'fat-loss', label: /fat loss/i },
+    { goal: 'body-composition', label: /body composition/i },
+  ];
+  const emptying = candidates.find((c) => !availableGoals.has(c.goal));
+  if (!emptying) {
+    throw new Error(
+      'Test setup: expected ≥1 goal with no available preset (the empty-tier-view path is unreachable otherwise — update this test if the available set changed)',
+    );
+  }
+  return emptying;
+}
 
 // BrowseTab statically imports SwitchProgramDialog, which transitively pulls in
 // the server-only `./actions` module (switchProgram). The dialog only renders
@@ -41,5 +59,28 @@ describe('BrowseTab — availability toggle', () => {
     expect(screen.getByText(available.name)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /show coming soon/i }));
     expect(screen.getByText(available.name)).toBeInTheDocument();
+  });
+});
+
+describe('BrowseTab — empty state', () => {
+  it('shows a toggle-aware empty state when the active goal hides every available program', async () => {
+    const user = userEvent.setup();
+    const emptying = findEmptyingGoal();
+
+    render(<BrowseTab activeProgram={null} workoutSchedule={null} />);
+
+    // Default "All Levels" view (the tier-grouped render) shows only available
+    // presets; selecting a goal none of them satisfy empties every tier.
+    await user.click(screen.getByRole('button', { name: emptying.label }));
+
+    // The empty tier view explains itself and points at the reveal toggle, rather
+    // than rendering a blank area below the filters.
+    expect(screen.getByText(/turn on .*show coming soon.* to preview/i)).toBeInTheDocument();
+
+    // Revealing unavailable presets clears the hint (matching coming-soon presets appear).
+    await user.click(screen.getByRole('button', { name: /show coming soon/i }));
+    expect(
+      screen.queryByText(/turn on .*show coming soon.* to preview/i),
+    ).not.toBeInTheDocument();
   });
 });

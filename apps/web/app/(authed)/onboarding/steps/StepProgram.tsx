@@ -96,6 +96,18 @@ export function StepProgram({
     [experience, goalFilter, showUnavailable],
   );
 
+  // Catalog-view variant of the count above: it spans every experience tier, so
+  // it must not be scoped to the current `experience` (unlike the list view).
+  const catalogHiddenUnavailableCount = useMemo(
+    () =>
+      showUnavailable
+        ? 0
+        : PROGRAMS.filter(
+            (p) => !p.available && (goalFilter === 'all' || p.goals.includes(goalFilter)),
+          ).length,
+    [goalFilter, showUnavailable],
+  );
+
   function handleSelectProgram(id: string) {
     onSelectProgram(id);
     setView('detail');
@@ -293,22 +305,30 @@ export function StepProgram({
 
         {availabilityToggle}
 
-        {EXPERIENCE_LEVELS.map((tier) => {
-          const tierPrograms = catalogByTier[tier];
-          if (tierPrograms.length === 0) return null;
-          return (
-            <div key={tier}>
-              <p className={styles.catalogTierLabel}>
-                {tier.charAt(0).toUpperCase() + tier.slice(1)}
-              </p>
-              <div className={styles.programList}>
-                {tierPrograms.map((p) =>
-                  programListItem(p, () => handleSelectProgram(p.id)),
-                )}
+        {EXPERIENCE_LEVELS.every((tier) => catalogByTier[tier].length === 0) ? (
+          <p className={`${styles.stepHint} ${styles.emptyState}`}>
+            {catalogHiddenUnavailableCount > 0
+              ? `No available programs match this filter. Turn on “Show coming soon” to preview ${catalogHiddenUnavailableCount} in development.`
+              : 'No programs match this filter.'}
+          </p>
+        ) : (
+          EXPERIENCE_LEVELS.map((tier) => {
+            const tierPrograms = catalogByTier[tier];
+            if (tierPrograms.length === 0) return null;
+            return (
+              <div key={tier}>
+                <p className={styles.catalogTierLabel}>
+                  {tier.charAt(0).toUpperCase() + tier.slice(1)}
+                </p>
+                <div className={styles.programList}>
+                  {tierPrograms.map((p) =>
+                    programListItem(p, () => handleSelectProgram(p.id)),
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
 
         <button
           type="button"
