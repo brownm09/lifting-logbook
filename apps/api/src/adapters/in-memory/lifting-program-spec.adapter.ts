@@ -9,7 +9,7 @@ import {
   ILiftingProgramSpecRepository,
   SaveProgramSpecResult,
 } from '../../ports/ILiftingProgramSpecRepository';
-import { SEED_PROGRAM, seedProgramSpec } from './fixtures';
+import { SEED_PROGRAM, seedProgramSpec, SEED_LEANGAINS, seedLeangainsSpec } from './fixtures';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -20,7 +20,10 @@ export class InMemoryLiftingProgramSpecRepository
 
   constructor(_preSeed = false) {
     // Program specs are global (not per-user), so always seed them.
-    this.specByProgram = new Map([[SEED_PROGRAM, seedProgramSpec()]]);
+    this.specByProgram = new Map([
+      [SEED_PROGRAM, seedProgramSpec()],
+      [SEED_LEANGAINS, seedLeangainsSpec()],
+    ]);
   }
 
   async getProgramSpec(program: string): Promise<LiftingProgramSpec[]> {

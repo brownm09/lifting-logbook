@@ -206,36 +206,31 @@ describe('StepProgram — availability toggle', () => {
   });
 });
 
-describe('StepProgram — catalog empty state', () => {
-  it('shows a toggle-aware empty state in the full catalog when a goal hides every available program', async () => {
+describe('StepProgram — leangains availability', () => {
+  it('shows leangains without enabling the coming-soon toggle', async () => {
     const user = userEvent.setup();
+    // Leangains is intermediate; default Harness experience is intermediate.
+    render(<Harness />);
 
-    // A goal that no available preset satisfies (RPT is the only available preset
-    // today: strength/muscle-gain). Derived from data + guarded so a future change
-    // that makes every goal available fails loudly here instead of silently passing.
+    // Leangains visible in the default tier view without touching the toggle.
+    expect(screen.getByText('Leangains (Berkhan)')).toBeInTheDocument();
+
+    // Also visible in the full catalog.
+    await user.click(screen.getByRole('button', { name: /view full catalog/i }));
+    expect(screen.getByText('Leangains (Berkhan)')).toBeInTheDocument();
+  });
+});
+
+describe('StepProgram — goal coverage guard', () => {
+  it('every goal has at least one available program', () => {
+    // Guard: if a new goal is added to the Goal type without a matching available program,
+    // this test fails loudly. Update the available set or this assertion when goals expand.
     const availableGoals = new Set(
       PROGRAMS.filter((p) => p.available).flatMap((p) => p.goals),
     );
-    const candidates: { goal: Goal; label: RegExp }[] = [
-      { goal: 'fat-loss', label: /fat loss/i },
-      { goal: 'body-composition', label: /body composition/i },
-    ];
-    const emptying = candidates.find((c) => !availableGoals.has(c.goal));
-    if (!emptying) {
-      throw new Error(
-        'Test setup: expected a goal with no available preset (catalog empty-state path is otherwise unreachable — update this test if the available set changed)',
-      );
+    const ALL_GOALS: Goal[] = ['strength', 'muscle-gain', 'fat-loss', 'body-composition'];
+    for (const g of ALL_GOALS) {
+      expect(availableGoals.has(g)).toBe(true);
     }
-
-    render(<Harness />);
-
-    // Open the full catalog (spans every experience tier), then filter to the
-    // emptying goal so every tier is empty under the default availability filter.
-    await user.click(screen.getByRole('button', { name: /view full catalog/i }));
-    await user.click(screen.getByRole('button', { name: emptying.label }));
-
-    // The catalog explains the empty result and points at the reveal toggle, rather
-    // than showing nothing but a "Back" button on blank space.
-    expect(screen.getByText(/turn on .*show coming soon.* to preview/i)).toBeInTheDocument();
   });
 });

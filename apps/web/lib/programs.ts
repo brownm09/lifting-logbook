@@ -28,6 +28,7 @@ export type Program = {
 };
 
 export const SEED_PROGRAM = '5-3-1';
+export const SEED_LEANGAINS = 'leangains';
 
 export type SeedSpec = {
   week: number; offset: number; lift: string; increment: number; order: number;
@@ -49,6 +50,26 @@ export function seedProgramSpec(): SeedSpec[] {
     { week: 3, offset: 0, lift: 'Bench Press',    increment: 5,  order: 2, sets: 3, reps: 1, amrap: true, warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
     { week: 3, offset: 3, lift: 'Deadlift',       increment: 10, order: 1, sets: 3, reps: 1, amrap: true, warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
     { week: 3, offset: 3, lift: 'Overhead Press', increment: 5,  order: 2, sets: 3, reps: 1, amrap: true, warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
+  ];
+}
+
+export function seedLeangainsSpec(): SeedSpec[] {
+  return [
+    // Day A — offset 0 (Mon: Chest / Back)
+    { week: 1, offset: 0, lift: 'Bench Press',       order: 1, sets: 3, reps: 6,  amrap: true,  increment: 5,   warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
+    { week: 1, offset: 0, lift: 'Weighted Pull-ups', order: 2, sets: 3, reps: 6,  amrap: true,  increment: 2.5, warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
+    { week: 1, offset: 0, lift: 'Incline DB Press',  order: 3, sets: 3, reps: 8,  amrap: false, increment: 5,   warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0,   activation: 'compound' },
+    { week: 1, offset: 0, lift: 'Cable Row',         order: 4, sets: 3, reps: 10, amrap: false, increment: 5,   warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0,   activation: 'compound' },
+    // Day B — offset 2 (Wed: Legs)
+    { week: 1, offset: 2, lift: 'Squat',             order: 1, sets: 3, reps: 6,  amrap: true,  increment: 10,  warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
+    { week: 1, offset: 2, lift: 'Romanian Deadlift', order: 2, sets: 3, reps: 8,  amrap: false, increment: 10,  warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0,   activation: 'compound' },
+    { week: 1, offset: 2, lift: 'Leg Curl',          order: 3, sets: 3, reps: 10, amrap: false, increment: 5,   warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0,   activation: 'isolation' },
+    { week: 1, offset: 2, lift: 'Calf Raises',       order: 4, sets: 4, reps: 12, amrap: false, increment: 5,   warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0,   activation: 'isolation' },
+    // Day C — offset 4 (Fri: Shoulders / Arms)
+    { week: 1, offset: 4, lift: 'Overhead Press',    order: 1, sets: 3, reps: 6,  amrap: true,  increment: 5,   warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
+    { week: 1, offset: 4, lift: 'Deadlift',          order: 2, sets: 1, reps: 5,  amrap: false, increment: 10,  warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0,   activation: 'compound' },
+    { week: 1, offset: 4, lift: 'Lateral Raises',    order: 3, sets: 4, reps: 12, amrap: false, increment: 5,   warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0,   activation: 'isolation' },
+    { week: 1, offset: 4, lift: 'Dips',              order: 4, sets: 3, reps: 8,  amrap: false, increment: 5,   warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0,   activation: 'compound' },
   ];
 }
 
@@ -283,7 +304,7 @@ export const PROGRAMS: Program[] = [
       { day: 'Wednesday (Legs)', lifts: ['Squat RPT', 'Romanian Deadlift 3×8', 'Leg Curl 3×10', 'Calf Raises 4×12'] },
       { day: 'Friday (Shoulders/Arms)', lifts: ['Overhead Press RPT', 'Deadlift 1×5', 'Lateral Raises 4×12', 'Dips 3×8'] },
     ],
-    available: false,
+    available: true,
   },
   {
     id: 'conjugate',
