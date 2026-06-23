@@ -12,6 +12,16 @@ import type {
 import { commitImport, previewImport } from '@/lib/client-api';
 import styles from './import.module.css';
 
+type EditableMax = { lift: string; weight: string };
+
+function buildTrainingMaxesCsv(rows: EditableMax[]): string {
+  const today = new Date().toISOString().slice(0, 10);
+  const lines = rows
+    .filter((r) => Number(r.weight) > 0)
+    .map((r) => `${today},"${r.lift.replace(/"/g, '""')}",${Math.round(Number(r.weight))}`);
+  return ['Date Updated,Lift,Weight', ...lines].join('\n');
+}
+
 const STEP_LABELS = [
   'Source',
   'Analyzing',
@@ -53,6 +63,9 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
   const [commitErrors, setCommitErrors] = useState<ImportError[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // For training-maxes: user-editable rows populated from previewBody.deltas when
+  // entering the Preview step. Null for all other destination kinds.
+  const [editedMaxes, setEditedMaxes] = useState<EditableMax[] | null>(null);
 
   const destination = preview?.destination ?? null;
   const previewBody = preview?.preview ?? null;
@@ -89,8 +102,17 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
     if (!programId || !file || !destination) return;
     setCommitErrors(null);
     setBusy(true);
+
+    // For training-maxes, rebuild a minimal CSV from the edited rows so the
+    // commit reflects any weight corrections or row removals the user made.
+    let commitFile = file;
+    if (destination === 'training-maxes' && editedMaxes !== null) {
+      const csv = buildTrainingMaxesCsv(editedMaxes);
+      commitFile = new File([csv], file.name, { type: 'text/csv' });
+    }
+
     try {
-      const result = await commitImport(programId, file, destination);
+      const result = await commitImport(programId, commitFile, destination);
       if (result.ok) {
         setCommitResult(result.data);
         setStep(6);
@@ -115,6 +137,7 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
     setCommitResult(null);
     setCommitErrors(null);
     setError(null);
+    setEditedMaxes(null);
   }
 
   return (
@@ -314,29 +337,73 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
                   <span className={styles.countLabel}>Skip</span>
                 </div>
               </div>
-              <ul className={styles.deltaList}>
-                {previewBody.deltas.slice(0, 200).map((d) => (
-                  <li
-                    key={d.key}
-                    className={`${styles.deltaRow} ${
-                      d.kind === 'create'
-                        ? styles.deltaKindCreate
-                        : d.kind === 'update'
-                          ? styles.deltaKindUpdate
-                          : styles.deltaKindSkip
-                    }`}
-                  >
-                    <span className={styles.deltaLabel}>{d.label}</span>
-                    <span className={styles.deltaChange}>
-                      {d.kind === 'update'
-                        ? `${d.before} → ${d.after}`
-                        : d.kind === 'create'
-                          ? d.after
-                          : 'unchanged'}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              {destination === 'training-maxes' && editedMaxes !== null ? (
+                <>
+                  <p className={styles.stepHint}>
+                    Edit weights or remove rows before committing.
+                  </p>
+                  <ul className={styles.maxEditList} aria-label="Training maxes to import">
+                    {editedMaxes.map((row, i) => (
+                      <li key={row.lift} className={styles.maxEditRow}>
+                        <span className={styles.maxEditLift}>{row.lift}</span>
+                        <input
+                          type="number"
+                          className={styles.maxEditWeight}
+                          value={row.weight}
+                          min={1}
+                          aria-label={`Weight for ${row.lift}`}
+                          onChange={(e) =>
+                            setEditedMaxes((prev) =>
+                              prev
+                                ? prev.map((r, j) =>
+                                    j === i ? { ...r, weight: e.target.value } : r,
+                                  )
+                                : prev,
+                            )
+                          }
+                        />
+                        <span className={styles.stepHint}>lbs</span>
+                        <button
+                          type="button"
+                          className={styles.maxEditRemove}
+                          onClick={() =>
+                            setEditedMaxes((prev) =>
+                              prev ? prev.filter((_, j) => j !== i) : prev,
+                            )
+                          }
+                          aria-label={`Remove ${row.lift}`}
+                        >
+                          ×
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                <ul className={styles.deltaList}>
+                  {previewBody.deltas.slice(0, 200).map((d) => (
+                    <li
+                      key={d.key}
+                      className={`${styles.deltaRow} ${
+                        d.kind === 'create'
+                          ? styles.deltaKindCreate
+                          : d.kind === 'update'
+                            ? styles.deltaKindUpdate
+                            : styles.deltaKindSkip
+                      }`}
+                    >
+                      <span className={styles.deltaLabel}>{d.label}</span>
+                      <span className={styles.deltaChange}>
+                        {d.kind === 'update'
+                          ? `${d.before} → ${d.after}`
+                          : d.kind === 'create'
+                            ? d.after
+                            : 'unchanged'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
               {commitErrors && (
                 <div className={styles.errorBox}>
                   <strong>Commit failed:</strong>
@@ -402,7 +469,16 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
             <button
               type="button"
               className={styles.btnPrimary}
-              onClick={() => setStep(5)}
+              onClick={() => {
+                if (destination === 'training-maxes' && previewBody) {
+                  setEditedMaxes(
+                    previewBody.deltas
+                      .filter((d) => d.kind === 'create' || d.kind === 'update')
+                      .map((d) => ({ lift: d.label, weight: d.after ?? '' })),
+                  );
+                }
+                setStep(5);
+              }}
               disabled={!previewBody}
             >
               Next
@@ -414,7 +490,13 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
               type="button"
               className={styles.btnSuccess}
               onClick={handleCommit}
-              disabled={busy || !previewBody}
+              disabled={
+                busy ||
+                !previewBody ||
+                (destination === 'training-maxes' &&
+                  editedMaxes !== null &&
+                  editedMaxes.length === 0)
+              }
             >
               {busy ? 'Importing…' : 'Commit import'}
             </button>

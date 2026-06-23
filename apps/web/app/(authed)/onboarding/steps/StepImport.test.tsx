@@ -8,7 +8,7 @@ function csvFile(content: string, name = 'maxes.csv') {
 }
 
 describe('StepImport', () => {
-  it('parses a training-maxes CSV and pre-fills the latest training max per lift', async () => {
+  it('parses a training-maxes CSV, shows editable list, and calls onImported', async () => {
     const user = userEvent.setup();
     const onImported = jest.fn();
     render(<StepImport onImported={onImported} />);
@@ -23,12 +23,64 @@ describe('StepImport', () => {
     await user.upload(screen.getByLabelText(/training-maxes csv/i), csvFile(csv));
 
     await waitFor(() => expect(onImported).toHaveBeenCalledTimes(1));
-    // One row per lift, latest TM, no reps; persisted later as the training max.
+    // One row per lift, latest TM, no reps.
     expect(onImported).toHaveBeenCalledWith([
       { lift: 'Squat', weight: '315', reps: '' },
       { lift: 'Bench Press', weight: '225', reps: '' },
     ]);
     expect(screen.getByText(/loaded 2 training maxes/i)).toBeInTheDocument();
+    // Editable list is rendered.
+    expect(screen.getByLabelText('Weight for Squat')).toBeInTheDocument();
+    expect(screen.getByLabelText('Weight for Bench Press')).toBeInTheDocument();
+  });
+
+  it('reflects an edited weight in the onImported payload', async () => {
+    const user = userEvent.setup();
+    const onImported = jest.fn();
+    render(<StepImport onImported={onImported} />);
+
+    const csv = [
+      'Date Updated,Lift,Weight',
+      '2026-01-01,Squat,300',
+      '2026-01-01,Bench Press,225',
+    ].join('\n');
+
+    await user.upload(screen.getByLabelText(/training-maxes csv/i), csvFile(csv));
+    await waitFor(() => expect(onImported).toHaveBeenCalledTimes(1));
+
+    const weightInput = screen.getByLabelText('Weight for Squat');
+    await user.clear(weightInput);
+    await user.type(weightInput, '320');
+
+    // Each keystroke fires onChange, so onImported is called multiple times; the
+    // last call reflects the fully-typed value.
+    await waitFor(() => {
+      const lastCall = onImported.mock.calls.at(-1)![0] as { lift: string; weight: string }[];
+      expect(lastCall.find(r => r.lift === 'Squat')?.weight).toBe('320');
+    });
+  });
+
+  it('excludes a removed row from the onImported payload', async () => {
+    const user = userEvent.setup();
+    const onImported = jest.fn();
+    render(<StepImport onImported={onImported} />);
+
+    const csv = [
+      'Date Updated,Lift,Weight',
+      '2026-01-01,Squat,300',
+      '2026-01-01,Bench Press,225',
+    ].join('\n');
+
+    await user.upload(screen.getByLabelText(/training-maxes csv/i), csvFile(csv));
+    await waitFor(() => expect(onImported).toHaveBeenCalledTimes(1));
+
+    await user.click(screen.getByRole('button', { name: 'Remove Bench Press' }));
+
+    await waitFor(() => {
+      const lastCall = onImported.mock.calls.at(-1)![0] as { lift: string }[];
+      expect(lastCall).toHaveLength(1);
+      expect(lastCall[0]?.lift).toBe('Squat');
+    });
   });
 
   it('redirects to the full import tool when the file is not training maxes', async () => {
