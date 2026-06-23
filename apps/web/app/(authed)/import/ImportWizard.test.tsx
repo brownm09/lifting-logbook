@@ -149,8 +149,9 @@ describe('ImportWizard', () => {
     await user.click(screen.getByRole('button', { name: 'Next' })); // Map → Review
     await user.click(screen.getByRole('button', { name: 'Next' })); // Review → Preview
 
-    // Remove the bench row.
+    // Remove the bench row — live count must decrement immediately.
     await user.click(screen.getByRole('button', { name: 'Remove bench' }));
+    expect(screen.getByText('1 max will be imported.')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Commit import' }));
     await waitFor(() => expect(mockCommit).toHaveBeenCalledTimes(1));
