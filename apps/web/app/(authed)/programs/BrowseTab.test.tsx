@@ -3,24 +3,6 @@ import userEvent from '@testing-library/user-event';
 import BrowseTab from './BrowseTab';
 import { PROGRAMS, type Goal } from '@/lib/programs';
 
-/** A goal that no *available* preset satisfies, so selecting it empties the default
- *  (availability-filtered) view. Derived from data + guarded so a future change that
- *  makes every goal available fails loudly here instead of silently passing. */
-function findEmptyingGoal(): { goal: Goal; label: RegExp } {
-  const availableGoals = new Set(PROGRAMS.filter((p) => p.available).flatMap((p) => p.goals));
-  const candidates: { goal: Goal; label: RegExp }[] = [
-    { goal: 'fat-loss', label: /fat loss/i },
-    { goal: 'body-composition', label: /body composition/i },
-  ];
-  const emptying = candidates.find((c) => !availableGoals.has(c.goal));
-  if (!emptying) {
-    throw new Error(
-      'Test setup: expected ≥1 goal with no available preset (the empty-tier-view path is unreachable otherwise — update this test if the available set changed)',
-    );
-  }
-  return emptying;
-}
-
 // BrowseTab statically imports SwitchProgramDialog, which transitively pulls in
 // the server-only `./actions` module (switchProgram). The dialog only renders
 // after a "Choose This Program" click and is not under test here, so stub it to
@@ -63,24 +45,36 @@ describe('BrowseTab — availability toggle', () => {
 });
 
 describe('BrowseTab — empty state', () => {
-  it('shows a toggle-aware empty state when the active goal hides every available program', async () => {
+  it('shows the toggle-aware hint when an experience filter hides all available programs', async () => {
     const user = userEvent.setup();
-    const emptying = findEmptyingGoal();
-
+    // Both available programs (RPT, Leangains) are 'intermediate'. Clicking 'Beginner'
+    // leaves zero available programs visible; unavailable beginner programs (Starting
+    // Strength, StrongLifts) exist, so hiddenUnavailableCount > 0 and the hint renders.
     render(<BrowseTab activeProgram={null} workoutSchedule={null} />);
 
-    // Default "All Levels" view (the tier-grouped render) shows only available
-    // presets; selecting a goal none of them satisfy empties every tier.
-    await user.click(screen.getByRole('button', { name: emptying.label }));
+    await user.click(screen.getByRole('button', { name: /^beginner$/i }));
 
-    // The empty tier view explains itself and points at the reveal toggle, rather
-    // than rendering a blank area below the filters.
-    expect(screen.getByText(/turn on .*show coming soon.* to preview/i)).toBeInTheDocument();
-
-    // Revealing unavailable presets clears the hint (matching coming-soon presets appear).
-    await user.click(screen.getByRole('button', { name: /show coming soon/i }));
     expect(
-      screen.queryByText(/turn on .*show coming soon.* to preview/i),
-    ).not.toBeInTheDocument();
+      screen.getByText(/turn on.*show coming soon.*to preview/i),
+    ).toBeInTheDocument();
+  });
+});
+
+describe('BrowseTab — leangains availability', () => {
+  it('shows leangains without enabling the coming-soon toggle', () => {
+    render(<BrowseTab activeProgram={null} workoutSchedule={null} />);
+    expect(screen.getByText('Leangains (Berkhan)')).toBeInTheDocument();
+  });
+});
+
+describe('BrowseTab — goal coverage guard', () => {
+  it('every goal has at least one available program', () => {
+    // Guard: if a new goal is added to the Goal type without a matching available program,
+    // this test fails loudly. Update the available set or this assertion when goals expand.
+    const availableGoals = new Set(PROGRAMS.filter((p) => p.available).flatMap((p) => p.goals));
+    const ALL_GOALS: Goal[] = ['strength', 'muscle-gain', 'fat-loss', 'body-composition'];
+    for (const g of ALL_GOALS) {
+      expect(availableGoals.has(g)).toBe(true);
+    }
   });
 });

@@ -73,8 +73,8 @@ test('selecting a program with schedule set shows schedule-info step', async ({ 
 
   await page.goto('/programs');
 
-  // Open the switch dialog
-  await page.getByRole('button', { name: 'Choose This Program' }).click();
+  // Open the switch dialog (multiple programs available; pick the first)
+  await page.getByRole('button', { name: 'Choose This Program' }).first().click();
   await expect(page.getByRole('dialog')).toBeVisible();
 
   // Confirm switch
@@ -94,7 +94,7 @@ test('selecting a program without schedule skips the schedule-info step', async 
   // Default reset has workoutSchedule: null
   await page.goto('/programs');
 
-  await page.getByRole('button', { name: 'Choose This Program' }).click();
+  await page.getByRole('button', { name: 'Choose This Program' }).first().click();
   await expect(page.getByRole('dialog')).toBeVisible();
 
   await page.getByRole('button', { name: 'Confirm Switch' }).click();

@@ -5,7 +5,7 @@ import { LIFT_CATALOG } from '@lifting-logbook/core';
 import { useRouter } from 'next/navigation';
 import type { CustomProgramResponse, CustomProgramSpecRow } from '@lifting-logbook/types';
 import { createCustomProgram, updateCustomProgram, switchProgram } from './actions';
-import { seedProgramSpec, SEED_PROGRAM } from '@/lib/programs';
+import { seedProgramSpec, SEED_PROGRAM, seedLeangainsSpec, SEED_LEANGAINS } from '@/lib/programs';
 import styles from './programs.module.css';
 
 type Mode = 'new' | 'clone' | 'edit';
@@ -52,10 +52,21 @@ function buildDefaultSpecs(lifts: string[]): CustomProgramSpecRow[] {
 }
 
 function buildSpecsFromTemplate(templateId: string, lifts: string[]): CustomProgramSpecRow[] {
-  if (templateId === SEED_PROGRAM) {
-    const seeded = seedProgramSpec();
+  const seeded =
+    templateId === SEED_PROGRAM ? seedProgramSpec() :
+    templateId === SEED_LEANGAINS ? seedLeangainsSpec() :
+    null;
+  if (seeded) {
+    // Single-week repeating templates (maxWeek === 1) define one week's structure that
+    // repeats unchanged. Expand to all three editor weeks so weeks 2 and 3 don't fall
+    // through to DEFAULT_ROW when the user clones the template.
+    const maxWeek = Math.max(...seeded.map((s) => s.week));
+    const expanded =
+      maxWeek === 1
+        ? [1, 2, 3].flatMap((w) => seeded.map((s) => ({ ...s, week: w })))
+        : seeded;
     const seededLifts = new Set(lifts);
-    const filtered = seeded.filter((s) => seededLifts.has(s.lift));
+    const filtered = expanded.filter((s) => seededLifts.has(s.lift));
     if (filtered.length > 0) return filtered.map((s) => ({ ...s, amrap: Boolean(s.amrap) }));
   }
   return buildDefaultSpecs(lifts);

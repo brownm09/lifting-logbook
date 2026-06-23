@@ -150,9 +150,8 @@ test('programs page catalog loads and switch dialog can be opened', async ({ pag
 
   await expect(page.getByRole('heading', { name: 'Programs' })).toBeVisible();
 
-  // RPT is the only available program. "Choose This Program" is always visible in the
-  // collapsed card actions row — no need to expand "View Details" first.
-  await page.getByRole('button', { name: 'Choose This Program' }).click();
+  // Multiple programs are available; click the first card's action button.
+  await page.getByRole('button', { name: 'Choose This Program' }).first().click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Confirm Switch' })).toBeVisible();
 

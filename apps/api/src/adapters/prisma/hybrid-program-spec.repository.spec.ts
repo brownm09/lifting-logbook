@@ -59,6 +59,16 @@ describe('HybridLiftingProgramSpecRepository', () => {
     expect(prisma.customProgramSpec.findMany).not.toHaveBeenCalled();
   });
 
+  it('resolves leangains spec from the in-memory adapter', async () => {
+    const prisma = makePrisma();
+    const repo = new HybridLiftingProgramSpecRepository(prisma, 'user-1');
+
+    const leangainsSpec = await repo.getProgramSpec('leangains');
+
+    expect(leangainsSpec.length).toBeGreaterThan(0);
+    expect(prisma.customProgramSpec.findMany).not.toHaveBeenCalled();
+  });
+
   it('scopes custom-program lookups to the requesting user (isolation guard)', async () => {
     const prisma = makePrisma();
     const repo = new HybridLiftingProgramSpecRepository(prisma, 'user-1');
