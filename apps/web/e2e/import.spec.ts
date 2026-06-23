@@ -27,9 +27,9 @@ test('import wizard: Source → Classify → Preview → Done', async ({ page })
   await page.getByRole('button', { name: 'Next', exact: true }).click(); // → Review
   await page.getByRole('button', { name: 'Next', exact: true }).click(); // → Preview
 
-  // Preview step: create/update/skip counts and the commit action.
+  // Preview step: live summary (training-maxes editable list) and the commit action.
   await expect(page.getByRole('heading', { name: 'Preview changes' })).toBeVisible();
-  await expect(page.getByText('Create', { exact: true })).toBeVisible();
+  await expect(page.getByText('2 maxes will be imported.')).toBeVisible();
 
   await page.getByRole('button', { name: 'Commit import' }).click();
 

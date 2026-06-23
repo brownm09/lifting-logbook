@@ -323,20 +323,26 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
           {step === 5 && previewBody && (
             <>
               <h2 className={styles.stepTitle}>Preview changes</h2>
-              <div className={styles.countRow}>
-                <div className={styles.countPill}>
-                  <span className={styles.countValue}>{previewBody.creates}</span>
-                  <span className={styles.countLabel}>Create</span>
+              {destination === 'training-maxes' && editedMaxes !== null ? (
+                <p className={styles.infoBox}>
+                  {editedMaxes.length} max{editedMaxes.length !== 1 ? 'es' : ''} will be imported.
+                </p>
+              ) : (
+                <div className={styles.countRow}>
+                  <div className={styles.countPill}>
+                    <span className={styles.countValue}>{previewBody.creates}</span>
+                    <span className={styles.countLabel}>Create</span>
+                  </div>
+                  <div className={styles.countPill}>
+                    <span className={styles.countValue}>{previewBody.updates}</span>
+                    <span className={styles.countLabel}>Update</span>
+                  </div>
+                  <div className={styles.countPill}>
+                    <span className={styles.countValue}>{previewBody.skips}</span>
+                    <span className={styles.countLabel}>Skip</span>
+                  </div>
                 </div>
-                <div className={styles.countPill}>
-                  <span className={styles.countValue}>{previewBody.updates}</span>
-                  <span className={styles.countLabel}>Update</span>
-                </div>
-                <div className={styles.countPill}>
-                  <span className={styles.countValue}>{previewBody.skips}</span>
-                  <span className={styles.countLabel}>Skip</span>
-                </div>
-              </div>
+              )}
               {destination === 'training-maxes' && editedMaxes !== null ? (
                 <>
                   <p className={styles.stepHint}>
