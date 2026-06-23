@@ -76,6 +76,9 @@ export function StepImport({ onImported }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [rows, setRows] = useState<LiftRow[] | null>(null);
+  // Always-current ref so event handlers never capture a stale rows snapshot.
+  const rowsRef = useRef<LiftRow[] | null>(null);
+  rowsRef.current = rows;
   // Stable counter so each uploaded file resets keyed inputs (avoids stale values).
   const uploadGen = useRef(0);
 
@@ -150,13 +153,15 @@ export function StepImport({ onImported }: Props) {
   }
 
   function updateWeight(index: number, weight: string) {
-    if (!rows) return;
-    applyRows(rows.map((r, i) => (i === index ? { ...r, weight } : r)));
+    const current = rowsRef.current;
+    if (!current) return;
+    applyRows(current.map((r, i) => (i === index ? { ...r, weight } : r)));
   }
 
   function removeRow(index: number) {
-    if (!rows) return;
-    applyRows(rows.filter((_, i) => i !== index));
+    const current = rowsRef.current;
+    if (!current) return;
+    applyRows(current.filter((_, i) => i !== index));
   }
 
   const summaryId = `${inputId}-summary`;

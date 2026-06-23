@@ -470,7 +470,8 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
               type="button"
               className={styles.btnPrimary}
               onClick={() => {
-                if (destination === 'training-maxes' && previewBody) {
+                // Only initialize when null — re-entering step 5 via Back preserves edits.
+                if (destination === 'training-maxes' && previewBody && editedMaxes === null) {
                   setEditedMaxes(
                     previewBody.deltas
                       .filter((d) => d.kind === 'create' || d.kind === 'update')
@@ -495,7 +496,8 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
                 !previewBody ||
                 (destination === 'training-maxes' &&
                   editedMaxes !== null &&
-                  editedMaxes.length === 0)
+                  (editedMaxes.length === 0 ||
+                    editedMaxes.some((r) => !r.weight || Number(r.weight) <= 0)))
               }
             >
               {busy ? 'Importing…' : 'Commit import'}

@@ -55,8 +55,9 @@ describe('StepImport', () => {
     // Each keystroke fires onChange, so onImported is called multiple times; the
     // last call reflects the fully-typed value.
     await waitFor(() => {
-      const lastCall = onImported.mock.calls.at(-1)![0] as { lift: string; weight: string }[];
-      expect(lastCall.find(r => r.lift === 'Squat')?.weight).toBe('320');
+      expect(onImported).toHaveBeenLastCalledWith(
+        expect.arrayContaining([expect.objectContaining({ lift: 'Squat', weight: '320' })]),
+      );
     });
   });
 
@@ -77,9 +78,9 @@ describe('StepImport', () => {
     await user.click(screen.getByRole('button', { name: 'Remove Bench Press' }));
 
     await waitFor(() => {
-      const lastCall = onImported.mock.calls.at(-1)![0] as { lift: string }[];
-      expect(lastCall).toHaveLength(1);
-      expect(lastCall[0]?.lift).toBe('Squat');
+      expect(onImported).toHaveBeenLastCalledWith([
+        expect.objectContaining({ lift: 'Squat' }),
+      ]);
     });
   });
 
