@@ -77,9 +77,9 @@ describe('ImportWizard', () => {
     await user.click(screen.getByRole('button', { name: 'Next' })); // Map → Review
     await user.click(screen.getByRole('button', { name: 'Next' })); // Review → Preview
 
-    // Preview step shows the create/update/skip counts and the editable list.
+    // Preview step shows the live summary (not stale pills) and the editable list.
     expect(screen.getByText('Preview changes')).toBeInTheDocument();
-    expect(screen.getByText('2')).toBeInTheDocument();
+    expect(screen.getByText('2 maxes will be imported.')).toBeInTheDocument();
     // Editable list is shown for training-maxes (from previewBody.deltas).
     expect(screen.getByLabelText('Weight for squat')).toBeInTheDocument();
     expect(screen.getByLabelText('Weight for bench')).toBeInTheDocument();
@@ -149,8 +149,9 @@ describe('ImportWizard', () => {
     await user.click(screen.getByRole('button', { name: 'Next' })); // Map → Review
     await user.click(screen.getByRole('button', { name: 'Next' })); // Review → Preview
 
-    // Remove the bench row.
+    // Remove the bench row — live count must decrement immediately.
     await user.click(screen.getByRole('button', { name: 'Remove bench' }));
+    expect(screen.getByText('1 max will be imported.')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Commit import' }));
     await waitFor(() => expect(mockCommit).toHaveBeenCalledTimes(1));
