@@ -39,22 +39,45 @@ type Props = {
 export default function BrowseTab({ activeProgram, workoutSchedule }: Props) {
   const [experienceFilter, setExperienceFilter] = useState<Experience | 'all'>('all');
   const [goalFilter, setGoalFilter] = useState<'all' | Goal>('all');
+  // Unavailable ("coming soon") presets are hidden by default; this toggle reveals
+  // them. Revealed presets remain non-selectable — see renderProgram's availability
+  // gate (Choose This Program only renders when p.available).
+  const [showUnavailable, setShowUnavailable] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [switchTarget, setSwitchTarget] = useState<Program | null>(null);
 
   const filteredPrograms = useMemo(() => {
     return PROGRAMS.filter((p) => {
+      if (!showUnavailable && !p.available) return false;
       if (experienceFilter !== 'all' && p.experience !== experienceFilter) return false;
       if (goalFilter !== 'all' && !p.goals.includes(goalFilter)) return false;
       return true;
     });
-  }, [experienceFilter, goalFilter]);
+  }, [experienceFilter, goalFilter, showUnavailable]);
 
   const grouped = useMemo(() => {
     const tiers: Record<Experience, Program[]> = { beginner: [], intermediate: [], advanced: [] };
     for (const p of filteredPrograms) tiers[p.experience].push(p);
     return tiers;
   }, [filteredPrograms]);
+
+  // Programs hidden purely by the default-on availability filter — i.e. would match
+  // the current experience/goal selection if revealed. Drives the empty-state hint so
+  // a user whose filter matches only "coming soon" presets is pointed at the toggle
+  // rather than left staring at a blank list (RPT is the only available preset today,
+  // so any goal it lacks empties the default tier view).
+  const hiddenUnavailableCount = useMemo(
+    () =>
+      showUnavailable
+        ? 0
+        : PROGRAMS.filter(
+            (p) =>
+              !p.available &&
+              (experienceFilter === 'all' || p.experience === experienceFilter) &&
+              (goalFilter === 'all' || p.goals.includes(goalFilter)),
+          ).length,
+    [experienceFilter, goalFilter, showUnavailable],
+  );
 
   const showTiers = experienceFilter === 'all';
 
@@ -145,6 +168,17 @@ export default function BrowseTab({ activeProgram, workoutSchedule }: Props) {
     );
   }
 
+  // Shared by both the tier-grouped and flat-list renders so an empty result set
+  // always explains itself (and points at the "Show coming soon" toggle when the
+  // availability filter is what hid every match).
+  const emptyState = (
+    <p className={styles.emptyState}>
+      {hiddenUnavailableCount > 0
+        ? `No available programs match this filter. Turn on “Show coming soon” to preview ${hiddenUnavailableCount} in development.`
+        : 'No programs match this filter.'}
+    </p>
+  );
+
   return (
     <>
       {/* Experience filter */}
@@ -182,27 +216,41 @@ export default function BrowseTab({ activeProgram, workoutSchedule }: Props) {
         ))}
       </div>
 
+      {/* Availability toggle */}
+      <div className={styles.filterRow}>
+        <button
+          type="button"
+          className={`${styles.chip} ${showUnavailable ? styles.chipActive : ''}`}
+          aria-pressed={showUnavailable}
+          onClick={() => setShowUnavailable((v) => !v)}
+        >
+          Show coming soon
+        </button>
+      </div>
+
       {/* Program list */}
       {showTiers ? (
-        EXPERIENCE_LEVELS.map((tier) => {
-          const programs = grouped[tier];
-          if (programs.length === 0) return null;
-          return (
-            <div key={tier}>
-              <p className={styles.catalogTierLabel}>
-                {tier.charAt(0).toUpperCase() + tier.slice(1)}
-              </p>
-              <div className={styles.programList}>
-                {programs.map(renderProgram)}
+        filteredPrograms.length > 0 ? (
+          EXPERIENCE_LEVELS.map((tier) => {
+            const programs = grouped[tier];
+            if (programs.length === 0) return null;
+            return (
+              <div key={tier}>
+                <p className={styles.catalogTierLabel}>
+                  {tier.charAt(0).toUpperCase() + tier.slice(1)}
+                </p>
+                <div className={styles.programList}>
+                  {programs.map(renderProgram)}
+                </div>
               </div>
-            </div>
-          );
-        })
+            );
+          })
+        ) : (
+          emptyState
+        )
       ) : (
         <div className={styles.programList}>
-          {filteredPrograms.length > 0
-            ? filteredPrograms.map(renderProgram)
-            : <p className={styles.emptyState}>No programs match this filter.</p>}
+          {filteredPrograms.length > 0 ? filteredPrograms.map(renderProgram) : emptyState}
         </div>
       )}
 
