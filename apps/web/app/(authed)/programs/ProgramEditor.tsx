@@ -57,8 +57,16 @@ function buildSpecsFromTemplate(templateId: string, lifts: string[]): CustomProg
     templateId === SEED_LEANGAINS ? seedLeangainsSpec() :
     null;
   if (seeded) {
+    // Single-week repeating templates (maxWeek === 1) define one week's structure that
+    // repeats unchanged. Expand to all three editor weeks so weeks 2 and 3 don't fall
+    // through to DEFAULT_ROW when the user clones the template.
+    const maxWeek = Math.max(...seeded.map((s) => s.week));
+    const expanded =
+      maxWeek === 1
+        ? [1, 2, 3].flatMap((w) => seeded.map((s) => ({ ...s, week: w })))
+        : seeded;
     const seededLifts = new Set(lifts);
-    const filtered = seeded.filter((s) => seededLifts.has(s.lift));
+    const filtered = expanded.filter((s) => seededLifts.has(s.lift));
     if (filtered.length > 0) return filtered.map((s) => ({ ...s, amrap: Boolean(s.amrap) }));
   }
   return buildDefaultSpecs(lifts);

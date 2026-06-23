@@ -44,6 +44,22 @@ describe('BrowseTab — availability toggle', () => {
   });
 });
 
+describe('BrowseTab — empty state', () => {
+  it('shows the toggle-aware hint when an experience filter hides all available programs', async () => {
+    const user = userEvent.setup();
+    // Both available programs (RPT, Leangains) are 'intermediate'. Clicking 'Beginner'
+    // leaves zero available programs visible; unavailable beginner programs (Starting
+    // Strength, StrongLifts) exist, so hiddenUnavailableCount > 0 and the hint renders.
+    render(<BrowseTab activeProgram={null} workoutSchedule={null} />);
+
+    await user.click(screen.getByRole('button', { name: /^beginner$/i }));
+
+    expect(
+      screen.getByText(/turn on.*show coming soon.*to preview/i),
+    ).toBeInTheDocument();
+  });
+});
+
 describe('BrowseTab — leangains availability', () => {
   it('shows leangains without enabling the coming-soon toggle', () => {
     render(<BrowseTab activeProgram={null} workoutSchedule={null} />);
