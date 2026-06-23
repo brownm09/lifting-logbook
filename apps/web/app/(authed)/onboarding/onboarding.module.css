@@ -186,6 +186,20 @@
   color: var(--color-text-muted);
 }
 
+/* ── Editable imported-maxes list ──────────────────────────── */
+
+/* Lift name spans available width inside a .dataRow, pushing inputs right. */
+.maxEditLiftName {
+  flex: 1;
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ── Add-a-lift picker (Enter Lifts step) ──────────────────── */
 
 .removeLiftBtn {

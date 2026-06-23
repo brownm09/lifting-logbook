@@ -4,6 +4,16 @@ import type { CustomProgramSummaryResponse, ImportPreviewResponse } from '@lifti
 import { ImportWizard } from './ImportWizard';
 import { commitImport, previewImport } from '@/lib/client-api';
 
+// File.text() is not implemented in jsdom; use FileReader instead.
+function readFileText(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ''));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsText(file);
+  });
+}
+
 jest.mock('@/lib/client-api', () => ({
   previewImport: jest.fn(),
   commitImport: jest.fn(),
@@ -67,14 +77,152 @@ describe('ImportWizard', () => {
     await user.click(screen.getByRole('button', { name: 'Next' })); // Map → Review
     await user.click(screen.getByRole('button', { name: 'Next' })); // Review → Preview
 
-    // Preview step shows the create/update/skip counts.
+    // Preview step shows the create/update/skip counts and the editable list.
     expect(screen.getByText('Preview changes')).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
+    // Editable list is shown for training-maxes (from previewBody.deltas).
+    expect(screen.getByLabelText('Weight for squat')).toBeInTheDocument();
+    expect(screen.getByLabelText('Weight for bench')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Commit import' }));
 
     await waitFor(() => expect(screen.getByText('Import complete')).toBeInTheDocument());
-    expect(mockCommit).toHaveBeenCalledWith('prog-1', file, 'training-maxes');
+    // Commit receives a rebuilt File (not the original), since the user may have
+    // edited maxes; verify it is still a File for training-maxes destination.
+    expect(mockCommit).toHaveBeenCalledWith('prog-1', expect.any(File), 'training-maxes');
+  });
+
+  it('training-maxes: edited weight is reflected in the commit payload', async () => {
+    const user = userEvent.setup();
+    mockPreview.mockResolvedValue(TM_PREVIEW);
+    mockCommit.mockResolvedValue({
+      ok: true,
+      data: { destination: 'training-maxes', created: 2, updated: 1, skipped: 0 },
+    });
+
+    render(<ImportWizard programs={PROGRAMS} />);
+
+    const file = new File(['Date Updated,Lift,Weight\n1/1/2026,Squat,300'], 'tm.csv', {
+      type: 'text/csv',
+    });
+    await user.upload(screen.getByLabelText('CSV file'), file);
+    await user.click(screen.getByRole('button', { name: 'Analyze' }));
+    await waitFor(() => expect(screen.getByText('Training Maxes')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: 'Next' })); // Classify → Map
+    await user.click(screen.getByRole('button', { name: 'Next' })); // Map → Review
+    await user.click(screen.getByRole('button', { name: 'Next' })); // Review → Preview
+
+    // Edit the squat weight from '300' to '325'.
+    const weightInput = screen.getByLabelText('Weight for squat');
+    await user.clear(weightInput);
+    await user.type(weightInput, '325');
+
+    await user.click(screen.getByRole('button', { name: 'Commit import' }));
+    await waitFor(() => expect(mockCommit).toHaveBeenCalledTimes(1));
+
+    const [, commitFile] = mockCommit.mock.calls[0] as [string, File, string];
+    const text = await readFileText(commitFile);
+    expect(text).toContain('squat');
+    expect(text).toContain('325');
+    expect(text).not.toContain(',300');
+  });
+
+  it('training-maxes: removed row is excluded from the commit payload', async () => {
+    const user = userEvent.setup();
+    mockPreview.mockResolvedValue(TM_PREVIEW);
+    mockCommit.mockResolvedValue({
+      ok: true,
+      data: { destination: 'training-maxes', created: 1, updated: 0, skipped: 0 },
+    });
+
+    render(<ImportWizard programs={PROGRAMS} />);
+
+    const file = new File(['Date Updated,Lift,Weight\n1/1/2026,Squat,300'], 'tm.csv', {
+      type: 'text/csv',
+    });
+    await user.upload(screen.getByLabelText('CSV file'), file);
+    await user.click(screen.getByRole('button', { name: 'Analyze' }));
+    await waitFor(() => expect(screen.getByText('Training Maxes')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: 'Next' })); // Classify → Map
+    await user.click(screen.getByRole('button', { name: 'Next' })); // Map → Review
+    await user.click(screen.getByRole('button', { name: 'Next' })); // Review → Preview
+
+    // Remove the bench row.
+    await user.click(screen.getByRole('button', { name: 'Remove bench' }));
+
+    await user.click(screen.getByRole('button', { name: 'Commit import' }));
+    await waitFor(() => expect(mockCommit).toHaveBeenCalledTimes(1));
+
+    const [, commitFile] = mockCommit.mock.calls[0] as [string, File, string];
+    const text = await readFileText(commitFile);
+    expect(text).toContain('squat');
+    expect(text).not.toContain('bench');
+  });
+
+  it('training-maxes: Back then Next preserves edits rather than resetting from preview', async () => {
+    const user = userEvent.setup();
+    mockPreview.mockResolvedValue(TM_PREVIEW);
+    mockCommit.mockResolvedValue({
+      ok: true,
+      data: { destination: 'training-maxes', created: 2, updated: 1, skipped: 0 },
+    });
+
+    render(<ImportWizard programs={PROGRAMS} />);
+
+    const file = new File(['Date Updated,Lift,Weight\n1/1/2026,Squat,300'], 'tm.csv', {
+      type: 'text/csv',
+    });
+    await user.upload(screen.getByLabelText('CSV file'), file);
+    await user.click(screen.getByRole('button', { name: 'Analyze' }));
+    await waitFor(() => expect(screen.getByText('Training Maxes')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: 'Next' })); // Classify → Map
+    await user.click(screen.getByRole('button', { name: 'Next' })); // Map → Review
+    await user.click(screen.getByRole('button', { name: 'Next' })); // Review → Preview (initializes editedMaxes)
+
+    // Edit squat weight on step 5.
+    const weightInput = screen.getByLabelText('Weight for squat');
+    await user.clear(weightInput);
+    await user.type(weightInput, '350');
+
+    // Navigate back to step 4, then forward again — edits must survive.
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+
+    // The weight should still be '350', not reset to the original '300'.
+    expect(screen.getByLabelText('Weight for squat')).toHaveValue(350);
+  });
+
+  it('training-maxes: commit is disabled when a weight field is cleared', async () => {
+    const user = userEvent.setup();
+    mockPreview.mockResolvedValue(TM_PREVIEW);
+    mockCommit.mockResolvedValue({
+      ok: true,
+      data: { destination: 'training-maxes', created: 2, updated: 1, skipped: 0 },
+    });
+
+    render(<ImportWizard programs={PROGRAMS} />);
+
+    const file = new File(['Date Updated,Lift,Weight\n1/1/2026,Squat,300'], 'tm.csv', {
+      type: 'text/csv',
+    });
+    await user.upload(screen.getByLabelText('CSV file'), file);
+    await user.click(screen.getByRole('button', { name: 'Analyze' }));
+    await waitFor(() => expect(screen.getByText('Training Maxes')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: 'Next' })); // Classify → Map
+    await user.click(screen.getByRole('button', { name: 'Next' })); // Map → Review
+    await user.click(screen.getByRole('button', { name: 'Next' })); // Review → Preview
+
+    // Clear one weight field — commit must become disabled.
+    const weightInput = screen.getByLabelText('Weight for squat');
+    await user.clear(weightInput);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Commit import' })).toBeDisabled();
+    });
   });
 
   it('shows a manual destination picker when classification is low-confidence', async () => {

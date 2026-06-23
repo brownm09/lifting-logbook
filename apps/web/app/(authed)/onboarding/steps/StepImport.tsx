@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import {
   parseCsvText,
   classifyImport,
@@ -74,23 +74,29 @@ function latestPerLift(maxes: TrainingMax[]): LiftRow[] {
 export function StepImport({ onImported }: Props) {
   const inputId = useId();
   const [error, setError] = useState<string | null>(null);
-  const [summary, setSummary] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [rows, setRows] = useState<LiftRow[] | null>(null);
+  // Always-current ref so event handlers never capture a stale rows snapshot.
+  const rowsRef = useRef<LiftRow[] | null>(null);
+  rowsRef.current = rows;
+  // Stable counter so each uploaded file resets keyed inputs (avoids stale values).
+  const uploadGen = useRef(0);
+
+  function applyRows(next: LiftRow[]) {
+    setRows(next);
+    onImported(next);
+  }
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     setError(null);
-    setSummary(null);
     const input = e.currentTarget;
     const file = input.files?.[0];
     if (!file) return;
-    // Clear the input's value so re-selecting the *same* file (e.g. the user
-    // fixed a malformed export on disk and picked it again) still fires
-    // onChange. `file` is already captured above, so this is safe.
+    // Clear so re-selecting the same file still fires onChange.
     input.value = '';
 
-    // On any failure below we leave a prior successful import staged: the error
-    // is shown but `onImported` is not re-called, so OnboardingFlow keeps the
-    // last good rows and Next stays enabled. This is intentional — a fat-finger
-    // re-upload after a good import should not discard the valid data.
+    // On any failure we leave a prior successful import staged so the advance
+    // gate stays open and the user can fix their export without losing progress.
     if (file.size > MAX_IMPORT_BYTES) {
       setError('That file is larger than 5 MB. Export a smaller training-maxes file and try again.');
       return;
@@ -101,7 +107,7 @@ export function StepImport({ onImported }: Props) {
       const text = await readFileText(file);
       table = parseCsvText(text);
     } catch {
-      setError('We couldn’t read that file. Make sure it’s a CSV exported from a spreadsheet.');
+      setError("We couldn't read that file. Make sure it's a CSV exported from a spreadsheet.");
       return;
     }
 
@@ -129,34 +135,43 @@ export function StepImport({ onImported }: Props) {
     try {
       maxes = parseTrainingMaxes(table);
     } catch {
-      // parseTrainingMaxes is all-or-nothing: a single malformed row (bad date,
-      // non-numeric weight, empty lift) rejects the whole file. Granular per-row
-      // repair lives in the full /import wizard; onboarding surfaces a clear
-      // file-level error and lets the user fix the export.
       setError(
-        'We found training-max columns but couldn’t read every row. Check that each row has a date, a lift name, and a numeric weight.',
+        "We found training-max columns but couldn't read every row. Check that each row has a date, a lift name, and a numeric weight.",
       );
       return;
     }
 
-    const rows = latestPerLift(maxes);
-    if (rows.length === 0) {
+    const parsed = latestPerLift(maxes);
+    if (parsed.length === 0) {
       setError('No training maxes were found in that file.');
       return;
     }
 
-    onImported(rows);
-    setSummary(
-      `Loaded ${rows.length} training max${rows.length === 1 ? '' : 'es'} from ${file.name}. Review them on the next step.`,
-    );
+    uploadGen.current += 1;
+    setFileName(file.name);
+    applyRows(parsed);
   }
+
+  function updateWeight(index: number, weight: string) {
+    const current = rowsRef.current;
+    if (!current) return;
+    applyRows(current.map((r, i) => (i === index ? { ...r, weight } : r)));
+  }
+
+  function removeRow(index: number) {
+    const current = rowsRef.current;
+    if (!current) return;
+    applyRows(current.filter((_, i) => i !== index));
+  }
+
+  const summaryId = `${inputId}-summary`;
 
   return (
     <>
       <h2 className={styles.stepTitle}>Import your training maxes</h2>
       <p className={styles.stepHint}>
-        Upload a training-maxes CSV (exported from a spreadsheet or another app) and we’ll fill
-        these in for you — no reps needed, we’ll use the values as-is.
+        Upload a training-maxes CSV (exported from a spreadsheet or another app) and we&apos;ll
+        fill these in for you &mdash; no reps needed, we&apos;ll use the values as-is.
       </p>
       <div className={styles.dataRows}>
         <label htmlFor={inputId} className={styles.dataRowLabel}>
@@ -167,9 +182,7 @@ export function StepImport({ onImported }: Props) {
           type="file"
           accept=".csv,text/csv"
           onChange={handleFile}
-          aria-describedby={
-            error ? `${inputId}-error` : summary ? `${inputId}-summary` : undefined
-          }
+          aria-describedby={error ? `${inputId}-error` : fileName ? summaryId : undefined}
         />
       </div>
       {error && (
@@ -181,10 +194,37 @@ export function StepImport({ onImported }: Props) {
           {error}
         </p>
       )}
-      {summary && (
-        <p id={`${inputId}-summary`} className={styles.infoBox}>
-          {summary}
-        </p>
+      {fileName && rows !== null && (
+        <>
+          <p id={summaryId} className={styles.infoBox}>
+            Loaded {rows.length} training max{rows.length === 1 ? '' : 'es'} from {fileName}.
+            Edit or remove any rows before continuing.
+          </p>
+          <div className={styles.dataRows} aria-label="Imported training maxes">
+            {rows.map((row, i) => (
+              <div key={`${uploadGen.current}-${row.lift}`} className={styles.dataRow}>
+                <span className={styles.maxEditLiftName}>{row.lift}</span>
+                <input
+                  type="number"
+                  className={styles.numberInput}
+                  value={row.weight}
+                  min={1}
+                  aria-label={`Weight for ${row.lift}`}
+                  onChange={(e) => updateWeight(i, e.target.value)}
+                />
+                <span className={styles.unitLabel}>lbs</span>
+                <button
+                  type="button"
+                  className={styles.removeLiftBtn}
+                  onClick={() => removeRow(i)}
+                  aria-label={`Remove ${row.lift}`}
+                >
+                  &times;
+                </button>
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </>
   );
