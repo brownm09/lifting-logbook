@@ -127,11 +127,15 @@ describe('inferProgramFromLiftRecords', () => {
     expect(inferProgramFromLiftRecords([...LIFTS_531, 'Barbell Row'])).toBe('5-3-1');
   });
 
+  it("returns 'leangains' when history covers all leangains lifts", () => {
+    expect(inferProgramFromLiftRecords(LIFTS_LEANGAINS)).toBe('leangains');
+  });
+
   it('returns null when history matches no preset', () => {
     expect(inferProgramFromLiftRecords(['Squat', 'Bench Press'])).toBeNull();
   });
 
-  it('returns null when history is empty even with a known lift', () => {
+  it('returns null for a single-lift history that matches no preset', () => {
     expect(inferProgramFromLiftRecords(['Squat'])).toBeNull();
   });
 });
