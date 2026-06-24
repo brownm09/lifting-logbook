@@ -48,10 +48,10 @@ const ALL_KINDS: ImportKind[] = [
 
 function bucketClass(bucket: 'high' | 'medium' | 'low'): string {
   return bucket === 'high'
-    ? styles.bucketHigh
+    ? styles.bucketHigh ?? ''
     : bucket === 'medium'
-      ? styles.bucketMedium
-      : styles.bucketLow;
+      ? styles.bucketMedium ?? ''
+      : styles.bucketLow ?? '';
 }
 
 export function ImportWizard({ programs }: { programs: CustomProgramSummaryResponse[] }) {
