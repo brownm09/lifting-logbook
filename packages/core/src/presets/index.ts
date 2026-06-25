@@ -68,6 +68,11 @@ export function parseProgramSpecFlexible(rows: unknown[]): LiftingProgramSpec[] 
   return result;
 }
 
+/**
+ * Returns true if every lift in the named preset appears in liftHistory.
+ * Lift name comparison is case-sensitive: names in liftHistory must match
+ * PRESET_BASE_SPECS casing exactly (e.g. 'Squat', 'Bench Press').
+ */
 export function detectPresetSuperset(liftHistory: string[], presetId: string): boolean {
   const spec = PRESET_BASE_SPECS[presetId];
   if (!spec) return false;
