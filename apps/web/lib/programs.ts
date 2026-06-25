@@ -33,11 +33,11 @@ export const SEED_PROGRAM = '5-3-1';
 export const SEED_LEANGAINS = 'leangains';
 
 export function seedProgramSpec(): LiftingProgramSpec[] {
-  return PRESET_BASE_SPECS['5-3-1'] ?? [];
+  return PRESET_BASE_SPECS['5-3-1']?.slice() ?? [];
 }
 
 export function seedLeangainsSpec(): LiftingProgramSpec[] {
-  return PRESET_BASE_SPECS['leangains'] ?? [];
+  return PRESET_BASE_SPECS['leangains']?.slice() ?? [];
 }
 
 export const PROGRAMS: Program[] = [

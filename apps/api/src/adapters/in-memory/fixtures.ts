@@ -69,6 +69,6 @@ export const seedLiftRecords = (): LiftRecord[] => [
   },
 ];
 
-export const seedLeangainsSpec = (): LiftingProgramSpec[] => PRESET_BASE_SPECS['leangains'] ?? [];
+export const seedLeangainsSpec = (): LiftingProgramSpec[] => PRESET_BASE_SPECS['leangains']?.slice() ?? [];
 
-export const seedProgramSpec = (): LiftingProgramSpec[] => PRESET_BASE_SPECS['5-3-1'] ?? [];
+export const seedProgramSpec = (): LiftingProgramSpec[] => PRESET_BASE_SPECS['5-3-1']?.slice() ?? [];
