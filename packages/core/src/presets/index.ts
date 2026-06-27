@@ -1,5 +1,13 @@
 import { LiftingProgramSpec } from '../models/LiftingProgramSpec';
 
+/**
+ * Built-in program specs, keyed by program ID.
+ *
+ * ADD AN ENTRY HERE when a new program is made available in onboarding.
+ * Also update PROGRAM_DEFAULTS in apps/api/src/programs/cycle-generation.service.ts.
+ * These two registries must stay in sync — a missing entry in either causes
+ * a broken or degraded experience for new users of that program.
+ */
 export const PRESET_BASE_SPECS: Record<string, LiftingProgramSpec[]> = {
   // leangains is defined first: it requires 12 unique lifts vs 5-3-1's 4, so inferProgramFromLiftRecords
   // checks the more-specific preset first and avoids misclassifying leangains users as 5-3-1.

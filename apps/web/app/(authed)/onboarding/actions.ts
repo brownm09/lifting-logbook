@@ -1,8 +1,6 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-// next/dist internal path — not a public API; validate on Next.js upgrades
-import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { initializeCycle, updateTrainingMaxes } from '@/lib/api';
 import { PROGRAMS } from '@/lib/programs';
 
@@ -53,9 +51,15 @@ export async function createFirstCycle(
         );
       }
     }
-    redirect('/cycle/1');
   } catch (e) {
-    if (isRedirectError(e)) throw e;
+    // redirect() must be called outside the try block (see below). Any error
+    // reaching here is a genuine failure — log it so it appears in Loki under
+    // the web-app service stream for diagnosis without a code change.
+    console.error(`[createFirstCycle] failed for program "${programId}":`, e);
     return { ok: false, error: 'Failed to start your program. Please try again.' };
   }
+  // redirect() throws NEXT_REDIRECT internally. Calling it outside the try block
+  // lets Next.js propagate it natively — no need for the internal isRedirectError
+  // guard, which is fragile across major Next.js versions.
+  redirect('/cycle/1');
 }
