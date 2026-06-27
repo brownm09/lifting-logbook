@@ -320,6 +320,23 @@ describe('CycleGenerationService', () => {
 
       expect(cycleScheduledWorkoutRepo.saveScheduledWorkouts).not.toHaveBeenCalled();
     });
+
+    it('skips scheduled dates without crashing when programSpec is empty and workoutSchedule is set', async () => {
+      cycleDashboardRepo.getCycleDashboard.mockRejectedValue(
+        new ProgramNotFoundError(PROGRAM),
+      );
+      programSpecRepo.getProgramSpec.mockResolvedValue([]);
+      userSettingsRepo.getSettings.mockResolvedValue({
+        activeProgram: null,
+        workoutSchedule: { type: 'fixed', days: [0, 2, 4] },
+      });
+
+      await expect(
+        service.initializeFirstCycle(repos, PROGRAM, { cycleDate: '2026-05-12' }),
+      ).resolves.not.toThrow();
+
+      expect(cycleScheduledWorkoutRepo.saveScheduledWorkouts).not.toHaveBeenCalled();
+    });
   });
 
   describe('recalculateMaxes', () => {
