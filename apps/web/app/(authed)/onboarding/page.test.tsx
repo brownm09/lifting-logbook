@@ -4,10 +4,17 @@ import { LIFT_NAMES } from '@lifting-logbook/types';
 
 jest.mock('@/lib/api', () => ({
   fetchLiftCatalog: jest.fn(),
+  fetchCycleDashboard: jest.fn(),
 }));
 
 jest.mock('@/lib/active-program', () => ({
   getActiveProgram: jest.fn().mockResolvedValue('5-3-1'),
+}));
+
+jest.mock('next/navigation', () => ({
+  redirect: jest.fn((url: string) => {
+    throw new Error(`REDIRECT:${url}`);
+  }),
 }));
 
 // Stub the client flow so the test isolates the page's catalog-fetch fallback.
@@ -18,14 +25,35 @@ jest.mock('./OnboardingFlow', () => ({
   ),
 }));
 
-import { fetchLiftCatalog } from '@/lib/api';
+import { fetchLiftCatalog, fetchCycleDashboard } from '@/lib/api';
 import OnboardingPage from './page';
 import { DEFAULT_LIFTS } from './lib';
 
 const mockedFetch = fetchLiftCatalog as unknown as jest.Mock;
+const mockedFetchDashboard = fetchCycleDashboard as unknown as jest.Mock;
+
+describe('OnboardingPage — existing-cycle guard', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('redirects to /cycle/1 when a cycle already exists', async () => {
+    mockedFetchDashboard.mockResolvedValue({ cycleNum: 1, program: '5-3-1' });
+
+    await expect(OnboardingPage()).rejects.toThrow('REDIRECT:/cycle/1');
+  });
+
+  it('redirects to /cycle/3 matching the existing cycleNum', async () => {
+    mockedFetchDashboard.mockResolvedValue({ cycleNum: 3, program: '5-3-1' });
+
+    await expect(OnboardingPage()).rejects.toThrow('REDIRECT:/cycle/3');
+  });
+});
 
 describe('OnboardingPage — catalog fetch fallback', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // No existing cycle — proceed to render the onboarding flow.
+    mockedFetchDashboard.mockResolvedValue(null);
+  });
 
   it('passes the fetched catalog to the flow on success', async () => {
     const fetched = ['Squat', 'Bench Press', 'My Custom Lift'];
@@ -72,5 +100,16 @@ describe('OnboardingPage — catalog fetch fallback', () => {
       expect.any(Error),
     );
     errSpy.mockRestore();
+  });
+
+  it('still renders the flow when the dashboard check itself throws (API unavailable)', async () => {
+    mockedFetchDashboard.mockRejectedValue(new Error('API down'));
+    const fetched = ['Squat'];
+    mockedFetch.mockResolvedValue(fetched);
+
+    const element = (await OnboardingPage()) as ReactElement;
+    const html = renderToStaticMarkup(element);
+
+    expect(html).toContain('onboarding-flow');
   });
 });

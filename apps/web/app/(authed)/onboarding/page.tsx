@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { LIFT_NAMES } from "@lifting-logbook/types";
-import { fetchLiftCatalog } from "@/lib/api";
+import { fetchCycleDashboard, fetchLiftCatalog } from "@/lib/api";
 import { getActiveProgram } from "@/lib/active-program";
 import { OnboardingFlow } from "./OnboardingFlow";
 
@@ -10,6 +11,16 @@ export const metadata: Metadata = {
 };
 
 export default async function OnboardingPage() {
+  const program = await getActiveProgram();
+
+  // Skip onboarding if a cycle already exists — send the user directly to their
+  // current cycle view. This handles users who land on /onboarding with an existing
+  // cycle (e.g. via the "Get Started" link, a browser back, or after the pre-#594
+  // redirect-swallow bug left them stuck here).
+  // fallback-covered-by: apps/web/app/(authed)/onboarding/page.test.tsx
+  const existingDashboard = await fetchCycleDashboard(program).catch(() => null);
+  if (existingDashboard) redirect(`/cycle/${existingDashboard.cycleNum}`);
+
   // The catalog (built-in + the user's custom lifts) powers the add-a-lift
   // picker on the "Enter Lifts" step. getLifts keys off the authenticated user
   // and ignores the :program param, so the active-program default is safe even
@@ -27,7 +38,6 @@ export default async function OnboardingPage() {
   // distinct from the pre-selected defaults.
   let catalog: string[];
   try {
-    const program = await getActiveProgram();
     catalog = await fetchLiftCatalog(program);
   } catch (e) {
     console.error(
