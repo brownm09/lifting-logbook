@@ -22,7 +22,8 @@ const RPT_LIFTS = [...new Set((PRESET_BASE_SPECS['rpt'] ?? []).map((r) => r.lift
 
 /** Navigate to the program step, select RPT in the detail view. */
 async function selectRpt(user: ReturnType<typeof userEvent.setup>) {
-  const rpt = PROGRAMS.find((p) => p.id === 'rpt')!;
+  const rpt = PROGRAMS.find((p) => p.id === 'rpt');
+  if (!rpt) throw new Error('Test setup: rpt missing from PROGRAMS catalog');
   await user.click(screen.getByRole('tab', { name: new RegExp(rpt.experience, 'i') }));
   await user.click(screen.getByText(rpt.name));
   await user.click(screen.getByRole('button', { name: /choose this program/i }));
@@ -35,7 +36,8 @@ describe('OnboardingFlow — persistence of confirmed maxes', () => {
 
   it('passes the computed maxes to createFirstCycle on completion (estimate method)', async () => {
     const user = userEvent.setup();
-    const rpt = PROGRAMS.find((p) => p.id === 'rpt')!;
+    const rpt = PROGRAMS.find((p) => p.id === 'rpt');
+    if (!rpt) throw new Error('Test setup: rpt missing from PROGRAMS catalog');
 
     render(<OnboardingFlow catalog={CATALOG} />);
 
@@ -66,7 +68,8 @@ describe('OnboardingFlow — persistence of confirmed maxes', () => {
 
   it('persists entered training maxes as-is when the "tm" method is used (no 90% derivation)', async () => {
     const user = userEvent.setup();
-    const rpt = PROGRAMS.find((p) => p.id === 'rpt')!;
+    const rpt = PROGRAMS.find((p) => p.id === 'rpt');
+    if (!rpt) throw new Error('Test setup: rpt missing from PROGRAMS catalog');
 
     render(<OnboardingFlow catalog={CATALOG} />);
 
@@ -96,7 +99,8 @@ describe('OnboardingFlow — persistence of confirmed maxes', () => {
 
   it('persists imported training maxes as-is when the "import" method is used (not seeded rows)', async () => {
     const user = userEvent.setup();
-    const rpt = PROGRAMS.find((p) => p.id === 'rpt')!;
+    const rpt = PROGRAMS.find((p) => p.id === 'rpt');
+    if (!rpt) throw new Error('Test setup: rpt missing from PROGRAMS catalog');
 
     render(<OnboardingFlow catalog={CATALOG} />);
 
@@ -144,7 +148,8 @@ describe('OnboardingFlow — lift seeding', () => {
 
   it('(a) seeds lifts from PRESET_BASE_SPECS when a mapped program is selected', async () => {
     const user = userEvent.setup();
-    const leangains = PROGRAMS.find((p) => p.id === 'leangains')!;
+    const leangains = PROGRAMS.find((p) => p.id === 'leangains');
+    if (!leangains) throw new Error('Test setup: leangains missing from PROGRAMS catalog');
     const leangainsLifts = [...new Set((PRESET_BASE_SPECS['leangains'] ?? []).map((r) => r.lift))];
 
     render(<OnboardingFlow catalog={CATALOG} />);
@@ -165,8 +170,10 @@ describe('OnboardingFlow — lift seeding', () => {
 
   it('(b) does not overwrite lifts when lifts are already non-empty (program switch)', async () => {
     const user = userEvent.setup();
-    const leangains = PROGRAMS.find((p) => p.id === 'leangains')!;
-    const rpt = PROGRAMS.find((p) => p.id === 'rpt')!;
+    const leangains = PROGRAMS.find((p) => p.id === 'leangains');
+    if (!leangains) throw new Error('Test setup: leangains missing from PROGRAMS catalog');
+    const rpt = PROGRAMS.find((p) => p.id === 'rpt');
+    if (!rpt) throw new Error('Test setup: rpt missing from PROGRAMS catalog');
     const leangainsLifts = [...new Set((PRESET_BASE_SPECS['leangains'] ?? []).map((r) => r.lift))];
 
     render(<OnboardingFlow catalog={CATALOG} />);
@@ -200,7 +207,8 @@ describe('OnboardingFlow — lift seeding', () => {
 
   it('(d) import path overwrites seeded rows — imported lifts are used for createFirstCycle', async () => {
     const user = userEvent.setup();
-    const rpt = PROGRAMS.find((p) => p.id === 'rpt')!;
+    const rpt = PROGRAMS.find((p) => p.id === 'rpt');
+    if (!rpt) throw new Error('Test setup: rpt missing from PROGRAMS catalog');
 
     render(<OnboardingFlow catalog={CATALOG} />);
 
