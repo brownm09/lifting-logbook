@@ -51,11 +51,14 @@ function buildDefaultSpecs(lifts: string[]): CustomProgramSpecRow[] {
   return rows;
 }
 
+const TEMPLATE_BUILDERS: Record<string, () => CustomProgramSpecRow[]> = {
+  [SEED_PROGRAM]: seedProgramSpec,
+  [SEED_LEANGAINS]: seedLeangainsSpec,
+};
+
 function buildSpecsFromTemplate(templateId: string, lifts: string[]): CustomProgramSpecRow[] {
-  const seeded =
-    templateId === SEED_PROGRAM ? seedProgramSpec() :
-    templateId === SEED_LEANGAINS ? seedLeangainsSpec() :
-    null;
+  const builder = TEMPLATE_BUILDERS[templateId];
+  const seeded = builder ? builder() : null;
   if (seeded) {
     // Single-week repeating templates (maxWeek === 1) define one week's structure that
     // repeats unchanged. Expand to all three editor weeks so weeks 2 and 3 don't fall
