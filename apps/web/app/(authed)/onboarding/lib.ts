@@ -1,3 +1,5 @@
+import { PRESET_BASE_SPECS } from '@lifting-logbook/core';
+
 export type DiscoveryMethod = 'estimate' | 'test' | 'manual' | 'tm' | 'import';
 
 /**
@@ -53,12 +55,10 @@ export function getSeedLifts(
 }
 
 /**
- * Convenience wrapper: looks up a program ID in PRESET_BASE_SPECS and returns
- * LiftRow seeds via getSeedLifts. Returns [] when programId is falsy or the
- * program has no spec entry.
+ * Looks up a program ID in PRESET_BASE_SPECS and returns LiftRow seeds.
+ * Centralises the lookup so callers don't need to import PRESET_BASE_SPECS.
+ * Returns [] when programId is falsy or the program has no spec entry.
  */
-import { PRESET_BASE_SPECS } from '@lifting-logbook/core';
-
 export function getSeedLiftsByProgramId(programId: string | null | undefined): LiftRow[] {
   if (!programId) return [];
   return getSeedLifts(PRESET_BASE_SPECS[programId]);

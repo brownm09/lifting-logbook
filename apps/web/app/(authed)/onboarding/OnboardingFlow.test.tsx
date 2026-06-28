@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { OnboardingFlow } from './OnboardingFlow';
 import { PROGRAMS } from '@/lib/programs';
 import { PRESET_BASE_SPECS } from '@lifting-logbook/core';
+import { getSeedLifts } from './lib';
 import { createFirstCycle } from './actions';
 
 jest.mock('./actions', () => ({
@@ -16,9 +17,8 @@ const mockCreateFirstCycle = createFirstCycle as jest.MockedFunction<
 const CATALOG = ['Bench Press', 'Squat', 'Deadlift', 'Overhead Press'];
 
 // RPT is the available intermediate program used for most flow tests.
-// It has 9 spec lifts: Bench Press, Barbell Row, Overhead Press, Squat,
-// Romanian Deadlift, Calf Raises, Deadlift, Weighted Pull-ups, Dips.
-const RPT_LIFTS = [...new Set((PRESET_BASE_SPECS['rpt'] ?? []).map((r) => r.lift))];
+const RPT_LIFTS = getSeedLifts(PRESET_BASE_SPECS['rpt']).map((r) => r.lift);
+if (!RPT_LIFTS.length) throw new Error("Test setup: rpt spec is empty — check PRESET_BASE_SPECS['rpt']");
 
 /** Navigate to the program step, select RPT in the detail view. */
 async function selectRpt(user: ReturnType<typeof userEvent.setup>) {
@@ -150,7 +150,8 @@ describe('OnboardingFlow — lift seeding', () => {
     const user = userEvent.setup();
     const leangains = PROGRAMS.find((p) => p.id === 'leangains');
     if (!leangains) throw new Error('Test setup: leangains missing from PROGRAMS catalog');
-    const leangainsLifts = [...new Set((PRESET_BASE_SPECS['leangains'] ?? []).map((r) => r.lift))];
+    const leangainsLifts = getSeedLifts(PRESET_BASE_SPECS['leangains']).map((r) => r.lift);
+    if (!leangainsLifts.length) throw new Error("Test setup: leangains spec is empty");
 
     render(<OnboardingFlow catalog={CATALOG} />);
 
@@ -174,7 +175,8 @@ describe('OnboardingFlow — lift seeding', () => {
     if (!leangains) throw new Error('Test setup: leangains missing from PROGRAMS catalog');
     const rpt = PROGRAMS.find((p) => p.id === 'rpt');
     if (!rpt) throw new Error('Test setup: rpt missing from PROGRAMS catalog');
-    const leangainsLifts = [...new Set((PRESET_BASE_SPECS['leangains'] ?? []).map((r) => r.lift))];
+    const leangainsLifts = getSeedLifts(PRESET_BASE_SPECS['leangains']).map((r) => r.lift);
+    if (!leangainsLifts.length) throw new Error("Test setup: leangains spec is empty");
 
     render(<OnboardingFlow catalog={CATALOG} />);
 
@@ -237,5 +239,66 @@ describe('OnboardingFlow — lift seeding', () => {
       { lift: 'Squat', trainingMax: 315 },
       { lift: 'Bench Press', trainingMax: 225 },
     ]);
+  });
+});
+
+describe('OnboardingFlow — navigation', () => {
+  beforeEach(() => {
+    mockCreateFirstCycle.mockClear();
+  });
+
+  it('Back button is present at step 1 (Program) and navigates back to step 0 (Method)', async () => {
+    const user = userEvent.setup();
+    render(<OnboardingFlow catalog={CATALOG} />);
+
+    // Step 0 → Step 1
+    await user.click(screen.getByRole('button', { name: /next/i }));
+
+    // Step 1 must show a Back button (this was missing before the bug fix)
+    const backBtn = screen.getByRole('button', { name: /back/i });
+    expect(backBtn).toBeInTheDocument();
+
+    // Press Back → should return to step 0 (Method step shows Next again)
+    await user.click(backBtn);
+    expect(screen.getByRole('button', { name: /next/i })).toBeInTheDocument();
+    // Step 0 has no Back button
+    expect(screen.queryByRole('button', { name: /back/i })).not.toBeInTheDocument();
+  });
+
+  it('Back button at step 3 (Confirm) navigates back to step 2 (Enter Lifts)', async () => {
+    const user = userEvent.setup();
+    render(<OnboardingFlow catalog={CATALOG} />);
+
+    // Navigate all the way to step 3
+    await user.click(screen.getByRole('button', { name: /next/i }));
+    await selectRpt(user);
+    for (const lift of RPT_LIFTS) {
+      await user.type(screen.getByLabelText(`${lift} weight`), '200');
+      await user.type(screen.getByLabelText(`${lift} reps`), '5');
+    }
+    await user.click(screen.getByRole('button', { name: /next/i }));
+
+    // On step 3 (Confirm) — press Back
+    await user.click(screen.getByRole('button', { name: /back/i }));
+
+    // Should be back on step 2: a lift weight input is visible
+    const firstLift = RPT_LIFTS[0];
+    if (!firstLift) throw new Error('Test setup: RPT_LIFTS is empty');
+    expect(screen.getByLabelText(`${firstLift} weight`)).toBeInTheDocument();
+  });
+
+  it('Next button is disabled on step 2 (import) before a file is uploaded', async () => {
+    const user = userEvent.setup();
+    render(<OnboardingFlow catalog={CATALOG} />);
+
+    // Step 0: pick import method
+    await user.click(screen.getByRole('button', { name: /import from a file/i }));
+    await user.click(screen.getByRole('button', { name: /next/i }));
+
+    // Step 1: choose RPT → Step 2 (Import view)
+    await selectRpt(user);
+
+    // On step 2 with no file uploaded, Next should be disabled
+    expect(screen.getByRole('button', { name: /next/i })).toBeDisabled();
   });
 });

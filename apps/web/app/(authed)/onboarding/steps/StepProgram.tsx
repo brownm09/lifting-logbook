@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import styles from '../onboarding.module.css';
 import { PROGRAMS, type Experience, type Goal, type Program, type Purpose } from '@/lib/programs';
 
@@ -53,17 +53,19 @@ export function StepProgram({
   const selectedProgram: Program | null =
     PROGRAMS.find((p) => p.id === selectedProgramId) ?? null;
 
-  function applyFilters(programs: Program[]): Program[] {
-    return programs.filter((p) => {
-      if (!showUnavailable && !p.available) return false;
-      if (goalFilter !== 'all' && !p.goals.includes(goalFilter)) return false;
-      return true;
-    });
-  }
+  const applyFilters = useCallback(
+    (programs: Program[]) =>
+      programs.filter((p) => {
+        if (!showUnavailable && !p.available) return false;
+        if (goalFilter !== 'all' && !p.goals.includes(goalFilter)) return false;
+        return true;
+      }),
+    [goalFilter, showUnavailable],
+  );
 
   const visiblePrograms = useMemo(
     () => applyFilters(PROGRAMS.filter((p) => p.experience === experience)),
-    [experience, goalFilter, showUnavailable],
+    [experience, applyFilters],
   );
 
   const catalogByTier = useMemo(
@@ -72,7 +74,7 @@ export function StepProgram({
       intermediate: applyFilters(PROGRAMS.filter((p) => p.experience === 'intermediate')),
       advanced: applyFilters(PROGRAMS.filter((p) => p.experience === 'advanced')),
     }),
-    [goalFilter, showUnavailable],
+    [applyFilters],
   );
 
   // When the default-on availability filter hides every match for the current

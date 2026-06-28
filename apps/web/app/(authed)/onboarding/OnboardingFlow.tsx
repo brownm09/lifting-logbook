@@ -1,11 +1,10 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useCallback, useMemo, useState, useTransition } from 'react';
 import styles from './onboarding.module.css';
-import { PRESET_BASE_SPECS } from '@lifting-logbook/core';
 import {
   brzycki1RM,
-  getSeedLifts,
+  getSeedLiftsByProgramId,
   isWeightOnly,
   valuesAreTrainingMax,
   type DiscoveryMethod,
@@ -25,6 +24,8 @@ const STEP_LABELS = [
   'Enter Lifts',
   'Confirm Maxes',
 ];
+
+const STEP = { METHOD: 0, PROGRAM: 1, LIFTS: 2, CONFIRM: 3 } as const;
 
 export function OnboardingFlow({ catalog }: { catalog: string[] }) {
   const [step, setStep] = useState(0);
@@ -82,11 +83,7 @@ export function OnboardingFlow({ catalog }: { catalog: string[] }) {
     setLifts((prev) => prev.filter((_, i) => i !== index));
   }
 
-  // The `import` method pre-fills the lift rows from a training-maxes CSV
-  // (one row per lift, weight = the training max, no reps). Replacing `lifts`
-  // enables the advance gate (every weight > 0) so the user continues to Confirm.
-  // This overwrites any program-seeded rows, which is intentional — the import
-  // is the user's explicit choice.
+  // Import replaces seeded rows — the user's file takes priority over program defaults.
   function handleImported(rows: LiftRow[]) {
     setLifts(rows);
   }
@@ -99,17 +96,16 @@ export function OnboardingFlow({ catalog }: { catalog: string[] }) {
     setStep((s) => Math.max(s - 1, 0));
   }
 
-  // Called by StepProgram when "Choose This Program" is clicked on an available
-  // program. Seeds the lifts panel from PRESET_BASE_SPECS when lifts are empty,
-  // then advances to the Enter Lifts step. The "only when empty" rule preserves
-  // any lifts the user added manually before the program was (re)selected.
-  function handleProgramAdvance() {
+  // Seeds lifts only on first arrival (lifts.length === 0) — preserves manual
+  // edits and retains the prior program's lifts when the user goes Back and
+  // re-selects (no affordance; the import path always overwrites instead).
+  const handleProgramAdvance = useCallback(() => {
     if (selectedProgramId && lifts.length === 0) {
-      const seeded = getSeedLifts(PRESET_BASE_SPECS[selectedProgramId]);
+      const seeded = getSeedLiftsByProgramId(selectedProgramId);
       if (seeded.length > 0) setLifts(seeded);
     }
-    goNext();
-  }
+    setStep((s) => Math.min(s + 1, STEP_LABELS.length - 1));
+  }, [selectedProgramId, lifts]);
 
   function handleConfirm() {
     if (!selectedProgramId) return;
@@ -155,8 +151,8 @@ export function OnboardingFlow({ catalog }: { catalog: string[] }) {
         </header>
 
         <section className={styles.body}>
-          {step === 0 && <StepMethod method={method} onSelect={setMethod} />}
-          {step === 1 && (
+          {step === STEP.METHOD && <StepMethod method={method} onSelect={setMethod} />}
+          {step === STEP.PROGRAM && (
             <StepProgram
               experience={experience}
               selectedProgramId={selectedProgramId}
@@ -171,7 +167,7 @@ export function OnboardingFlow({ catalog }: { catalog: string[] }) {
               onAdvance={handleProgramAdvance}
             />
           )}
-          {step === 2 &&
+          {step === STEP.LIFTS &&
             (method === 'import' ? (
               <StepImport onImported={handleImported} />
             ) : (
@@ -184,7 +180,7 @@ export function OnboardingFlow({ catalog }: { catalog: string[] }) {
                 onRemove={removeLift}
               />
             ))}
-          {step === 3 && (
+          {step === STEP.CONFIRM && (
             <StepConfirm
               maxes={computedMaxes}
               method={method}
@@ -196,17 +192,22 @@ export function OnboardingFlow({ catalog }: { catalog: string[] }) {
         </section>
 
         <div className={styles.actionRow}>
-          {step >= 2 && (
-            <button type="button" className={styles.btnSecondary} onClick={goBack}>
+          {step > STEP.METHOD && (
+            <button
+              type="button"
+              className={styles.btnSecondary}
+              onClick={goBack}
+              disabled={isPending}
+            >
               Back
             </button>
           )}
-          {step === 0 && (
+          {step === STEP.METHOD && (
             <button type="button" className={styles.btnPrimary} onClick={goNext}>
               Next
             </button>
           )}
-          {step === 2 && (
+          {step === STEP.LIFTS && (
             <button
               type="button"
               className={styles.btnPrimary}
