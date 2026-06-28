@@ -8,23 +8,20 @@ import { PROGRAMS, type Experience, type Goal } from '@/lib/programs';
  *  a program card actually switches to the detail view. */
 function Harness({
   experience = 'intermediate' as Experience,
-  isPending = false,
-  onConfirm = () => {},
+  onAdvance = () => {},
 }: {
   experience?: Experience;
-  isPending?: boolean;
-  onConfirm?: () => void;
+  onAdvance?: () => void;
 }) {
   const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
   return (
     <StepProgram
       experience={experience}
       selectedProgramId={selectedProgramId}
-      isPending={isPending}
       onExperienceChange={() => setSelectedProgramId(null)}
       onSelectProgram={(id) => setSelectedProgramId(id)}
       onClearSelection={() => setSelectedProgramId(null)}
-      onConfirm={onConfirm}
+      onAdvance={onAdvance}
     />
   );
 }
@@ -116,11 +113,11 @@ describe('StepProgram — coming soon overlay', () => {
   });
 });
 
-describe('StepProgram — confirm wiring', () => {
-  it('calls onConfirm when the RPT confirm button is clicked', async () => {
+describe('StepProgram — advance wiring', () => {
+  it('calls onAdvance when the RPT confirm button is clicked', async () => {
     const user = userEvent.setup();
-    const handleConfirm = jest.fn();
-    render(<Harness onConfirm={handleConfirm} />);
+    const handleAdvance = jest.fn();
+    render(<Harness onAdvance={handleAdvance} />);
 
     const rpt = PROGRAMS.find((p) => p.id === 'rpt');
     if (!rpt) throw new Error('Test setup: expected RPT program in PROGRAMS');
@@ -128,44 +125,7 @@ describe('StepProgram — confirm wiring', () => {
     await user.click(screen.getByText(rpt.name));
     await user.click(screen.getByRole('button', { name: /choose this program/i }));
 
-    expect(handleConfirm).toHaveBeenCalledTimes(1);
-  });
-
-  it('shows "Starting…" and disables the confirm button when isPending is true', async () => {
-    const user = userEvent.setup();
-    const rpt = PROGRAMS.find((p) => p.id === 'rpt');
-    if (!rpt) throw new Error('Test setup: expected RPT program in PROGRAMS');
-
-    // Use a Harness variant that exposes isPending as a prop
-    function PendingHarness({ isPending }: { isPending: boolean }) {
-      const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
-      return (
-        <StepProgram
-          experience={rpt!.experience}
-          selectedProgramId={selectedProgramId}
-          isPending={isPending}
-          onExperienceChange={() => {}}
-          onSelectProgram={(id) => setSelectedProgramId(id)}
-          onClearSelection={() => setSelectedProgramId(null)}
-          onConfirm={() => {}}
-        />
-      );
-    }
-
-    const { rerender } = render(<PendingHarness isPending={false} />);
-
-    // Click RPT to enter detail view
-    await user.click(screen.getByText(rpt.name));
-
-    // Button should be enabled before pending
-    expect(screen.getByRole('button', { name: /choose this program/i })).not.toBeDisabled();
-
-    // Simulate transition starting
-    rerender(<PendingHarness isPending={true} />);
-
-    const confirmBtn = screen.getByRole('button', { name: /starting/i });
-    expect(confirmBtn).toBeDisabled();
-    expect(confirmBtn).toHaveTextContent('Starting…');
+    expect(handleAdvance).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -29,23 +29,19 @@ type View = 'list' | 'detail' | 'catalog';
 type Props = {
   experience: Experience;
   selectedProgramId: string | null;
-  isPending: boolean;
-  cycleError?: string | null;
   onExperienceChange: (level: Experience) => void;
   onSelectProgram: (id: string) => void;
   onClearSelection: () => void;
-  onConfirm: () => void;
+  onAdvance: () => void;
 };
 
 export function StepProgram({
   experience,
   selectedProgramId,
-  isPending,
-  cycleError,
   onExperienceChange,
   onSelectProgram,
   onClearSelection,
-  onConfirm,
+  onAdvance,
 }: Props) {
   const [view, setView] = useState<View>('list');
   const [goalFilter, setGoalFilter] = useState<'all' | Goal>('all');
@@ -274,19 +270,16 @@ export function StepProgram({
             <button
               type="button"
               className={styles.btnSuccess}
-              onClick={isAvailable ? onConfirm : undefined}
-              disabled={!isAvailable || isPending}
-              aria-disabled={!isAvailable || isPending}
+              onClick={isAvailable ? onAdvance : undefined}
+              disabled={!isAvailable}
+              aria-disabled={!isAvailable}
             >
-              {isPending ? 'Starting…' : 'Choose This Program'}
+              Choose This Program
             </button>
           </div>
 
           {!isAvailable && (
             <p className={styles.comingSoonNote}>⏳ Coming soon — not yet available</p>
-          )}
-          {cycleError && (
-            <p className={styles.errorNote} role="alert">{cycleError}</p>
           )}
         </div>
       </>

@@ -35,6 +35,23 @@ export type LiftRow = { lift: string; weight: string; reps: string };
  */
 export const DEFAULT_LIFTS = ['Bench Press', 'Squat', 'Deadlift'] as const;
 
+/**
+ * Derives the ordered, deduplicated lift list for a program from its
+ * PRESET_BASE_SPECS entry and returns ready-to-use LiftRow seeds.
+ * Returns an empty array when the program has no spec (graceful fallback for
+ * unmapped programs — the lifts panel stays empty and the user adds manually).
+ */
+export function getSeedLifts(
+  spec: ReadonlyArray<{ lift: string }> | undefined,
+): LiftRow[] {
+  if (!spec || spec.length === 0) return [];
+  return [...new Set(spec.map((row) => row.lift))].map((lift) => ({
+    lift,
+    weight: '',
+    reps: '',
+  }));
+}
+
 export function brzycki1RM(weight: number, reps: number): number {
   if (reps <= 0 || weight <= 0) return 0;
   if (reps === 1) return Math.round(weight);

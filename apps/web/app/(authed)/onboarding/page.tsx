@@ -27,15 +27,12 @@ export default async function OnboardingPage() {
   // before a cycle exists.
   //
   // On fetch failure we fall back to the full built-in LIFT_NAMES rather than
-  // the three seeded DEFAULT_LIFTS: OnboardingFlow pre-selects those same three
-  // as the starting rows, so a DEFAULT_LIFTS fallback leaves the picker with
-  // nothing selectable for any query — every search collapses to the
-  // "add as a custom lift" option and the catalog search appears broken (#458).
-  // LIFT_NAMES keeps search functional offline. The failure is logged rather
-  // than swallowed so the upstream catalog-fetch failure is observable.
+  // a short default list: LIFT_NAMES keeps the add-a-lift picker fully searchable
+  // even when the API is down, so users can add any catalog lift while entering
+  // their training maxes. The failure is logged rather than swallowed so the
+  // upstream catalog-fetch failure is observable (#458).
   // Fallback coverage (docs/standards/error-fallback-test-coverage.md, option b):
-  // page.test.tsx asserts the fallback catalog is the full built-in list,
-  // distinct from the pre-selected defaults.
+  // page.test.tsx asserts the fallback catalog is the full built-in list.
   let catalog: string[];
   try {
     catalog = await fetchLiftCatalog(program);

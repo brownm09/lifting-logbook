@@ -8,9 +8,12 @@ type Max = { lift: string; oneRm: number | null; trainingMax: number };
 type Props = {
   maxes: Max[];
   method: DiscoveryMethod;
+  onConfirm: () => void;
+  isPending: boolean;
+  cycleError?: string | null;
 };
 
-export function StepConfirm({ maxes, method }: Props) {
+export function StepConfirm({ maxes, method, onConfirm, isPending, cycleError }: Props) {
   // For `tm`/`import` the value is already the training max, so there is no 1RM
   // to show and no 90% derivation; the other methods display the 1RM with the
   // derived training max alongside it.
@@ -21,7 +24,7 @@ export function StepConfirm({ maxes, method }: Props) {
       <h2 className={styles.stepTitle}>Confirm your training maxes</h2>
       <p className={styles.stepHint}>
         {tmDirect
-          ? 'Training maxes as entered — we’ll use these as-is.'
+          ? "Training maxes as entered — we'll use these as-is."
           : 'Estimated 1-rep maxes based on what you entered. Training maxes use 90% of the 1RM.'}
       </p>
       <div className={styles.maxesGrid}>
@@ -48,6 +51,20 @@ export function StepConfirm({ maxes, method }: Props) {
           </div>
         ))}
       </div>
+
+      <div className={styles.detailActions}>
+        <button
+          type="button"
+          className={styles.btnSuccess}
+          onClick={onConfirm}
+          disabled={isPending}
+        >
+          {isPending ? 'Starting…' : 'Start My Program'}
+        </button>
+      </div>
+      {cycleError && (
+        <p className={styles.errorNote} role="alert">{cycleError}</p>
+      )}
     </>
   );
 }
