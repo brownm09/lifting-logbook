@@ -1,6 +1,10 @@
 import {
   ImportError,
   ImportKind,
+  ImportPreviewResponse,
+  ImportCommitResponse,
+} from '@lifting-logbook/types';
+import {
   SpreadsheetCell,
   LiftRecord,
   TrainingMax,
@@ -21,7 +25,6 @@ import {
   liftRecordNaturalKey,
   DEFAULT_SLOT_MAP,
 } from '@lifting-logbook/core';
-import { ImportPreviewResponse, ImportCommitResponse } from '@lifting-logbook/types';
 import { RepositoryBundle } from '../ports/factory';
 
 export interface ImportHandler<T> {
