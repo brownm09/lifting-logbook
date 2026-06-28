@@ -154,6 +154,32 @@ describe('createApiClient', () => {
     });
   });
 
+  describe('conflict-tolerant POSTs (initializeCycle)', () => {
+    it('returns null on 409 Conflict instead of throwing', async () => {
+      mockFetch.mockResolvedValue(
+        new Response(JSON.stringify({ message: 'A cycle for "rpt" already exists.' }), { status: 409 }),
+      );
+      const client = makeClient();
+      await expect(client.initializeCycle('rpt')).resolves.toBeNull();
+    });
+
+    it('returns the parsed dashboard on 200', async () => {
+      mockFetch.mockResolvedValue(
+        new Response(JSON.stringify({ program: 'rpt', cycleNum: 1 }), { status: 200 }),
+      );
+      const client = makeClient();
+      await expect(client.initializeCycle('rpt')).resolves.toMatchObject({ program: 'rpt', cycleNum: 1 });
+    });
+
+    it('throws on a non-409 error', async () => {
+      mockFetch.mockResolvedValue(
+        new Response(JSON.stringify({ message: 'server exploded' }), { status: 500 }),
+      );
+      const client = makeClient();
+      await expect(client.initializeCycle('rpt')).rejects.toThrow('server exploded');
+    });
+  });
+
   describe('importLiftRecords', () => {
     const file = new File(['a,b\n1,2'], 'records.csv', { type: 'text/csv' });
 

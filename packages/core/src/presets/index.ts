@@ -1,8 +1,16 @@
 import { LiftingProgramSpec } from '../models/LiftingProgramSpec';
 
+/**
+ * Built-in program specs, keyed by program ID.
+ *
+ * ADD AN ENTRY HERE when a new program is made available in onboarding.
+ * Also update PROGRAM_DEFAULTS in apps/api/src/programs/cycle-generation.service.ts.
+ * These two registries must stay in sync — a missing entry in either causes
+ * a broken or degraded experience for new users of that program.
+ */
 export const PRESET_BASE_SPECS: Record<string, LiftingProgramSpec[]> = {
-  // leangains is defined first: it requires 12 unique lifts vs 5-3-1's 4, so inferProgramFromLiftRecords
-  // checks the more-specific preset first and avoids misclassifying leangains users as 5-3-1.
+  // Presets are ordered most-specific first so inferProgramFromLiftRecords returns the tightest match.
+  // leangains (12 unique lifts) > rpt (9 unique lifts) > 5-3-1 (4 lifts).
   leangains: [
     // Day A — offset 0 (Mon: Chest / Back)
     { week: 1, offset: 0, lift: 'Bench Press',       order: 1, sets: 3, reps: 6,  amrap: true,  increment: 5,   warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
@@ -19,6 +27,20 @@ export const PRESET_BASE_SPECS: Record<string, LiftingProgramSpec[]> = {
     { week: 1, offset: 4, lift: 'Deadlift',          order: 2, sets: 1, reps: 5,  amrap: false, increment: 10,  warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0,   activation: 'compound' },
     { week: 1, offset: 4, lift: 'Lateral Raises',    order: 3, sets: 4, reps: 12, amrap: false, increment: 5,   warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0,   activation: 'isolation' },
     { week: 1, offset: 4, lift: 'Dips',              order: 4, sets: 3, reps: 8,  amrap: false, increment: 5,   warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0,   activation: 'compound' },
+  ],
+  rpt: [
+    // Day A — offset 0 (Mon: Chest / Back / Shoulders)
+    { week: 1, offset: 0, lift: 'Bench Press',      order: 1, sets: 3, reps: 6, amrap: true,  increment: 5,   warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
+    { week: 1, offset: 0, lift: 'Barbell Row',       order: 2, sets: 3, reps: 6, amrap: true,  increment: 5,   warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
+    { week: 1, offset: 0, lift: 'Overhead Press',    order: 3, sets: 3, reps: 6, amrap: true,  increment: 5,   warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
+    // Day B — offset 2 (Wed: Legs)
+    { week: 1, offset: 2, lift: 'Squat',             order: 1, sets: 3, reps: 6, amrap: true,  increment: 10,  warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
+    { week: 1, offset: 2, lift: 'Romanian Deadlift', order: 2, sets: 3, reps: 6, amrap: true,  increment: 10,  warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
+    { week: 1, offset: 2, lift: 'Calf Raises',       order: 3, sets: 4, reps: 12, amrap: false, increment: 5,  warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0,   activation: 'isolation' },
+    // Day C — offset 4 (Fri: Back / Arms)
+    { week: 1, offset: 4, lift: 'Deadlift',          order: 1, sets: 3, reps: 6, amrap: true,  increment: 10,  warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
+    { week: 1, offset: 4, lift: 'Weighted Pull-ups', order: 2, sets: 3, reps: 6, amrap: true,  increment: 2.5, warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
+    { week: 1, offset: 4, lift: 'Dips',              order: 3, sets: 3, reps: 6, amrap: true,  increment: 5,   warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
   ],
   '5-3-1': [
     // Week 1: 3×5 (65/75/85% TM)

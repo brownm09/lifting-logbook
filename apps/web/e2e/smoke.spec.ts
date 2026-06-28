@@ -31,7 +31,10 @@ test('no active cycle redirects to onboarding', async ({ page, request }) => {
 // 3. Onboarding flow → lands on cycle dashboard
 // ---------------------------------------------------------------------------
 
-test('onboarding: enter lifts → confirm → choose program → lands on cycle', async ({ page }) => {
+test('onboarding: enter lifts → confirm → choose program → lands on cycle', async ({ page, request }) => {
+  // The onboarding guard redirects to /cycle/<N> when a cycle already exists,
+  // so this test must start from a no-cycle state.
+  await request.get(`${MOCK_API}/__reset?noCurrentCycle=true`);
   await page.goto('/onboarding');
   await expect(page.getByRole('heading', { name: 'Get Started' })).toBeVisible();
 

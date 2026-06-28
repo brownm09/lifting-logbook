@@ -136,6 +136,17 @@ export function createApiClient(config: ApiClientConfig) {
     return (await res.json()) as T;
   }
 
+  // Like request but returns null on 409 Conflict instead of throwing.
+  // Use for POST operations that are idempotent by intent — where a conflict
+  // means the resource already exists in the desired state.
+  async function requestOrConflict<T>(path: string, init?: FetchInit): Promise<T | null> {
+    const res = await rawFetch(path, init);
+    if (res.status === 409) return null;
+    if (res.status === 204) return undefined as T;
+    if (!res.ok) throw new Error(await extractErrorMessage(res, path));
+    return (await res.json()) as T;
+  }
+
   // Void request that treats 404 as success — for idempotent deletes, where an
   // already-absent resource is the desired end state.
   async function requestVoidIdempotent(path: string, init?: FetchInit): Promise<void> {
@@ -158,11 +169,13 @@ export function createApiClient(config: ApiClientConfig) {
         cache: 'no-store',
       });
     },
+    // Returns null when a cycle already exists (409) — the caller should treat
+    // null as "already initialized" and redirect rather than error.
     initializeCycle(
       programId: string,
       options: { cycleDate?: string } = {},
-    ): Promise<CycleDashboardResponse> {
-      return request(`/programs/${enc(programId)}/cycles/initialize`, {
+    ): Promise<CycleDashboardResponse | null> {
+      return requestOrConflict(`/programs/${enc(programId)}/cycles/initialize`, {
         method: 'POST',
         headers: JSON_HEADERS,
         body: JSON.stringify(options),

@@ -35,6 +35,12 @@ type CycleRepos = Pick<
  * Static metadata required to bootstrap cycle 1 for each supported program.
  * ADD AN ENTRY HERE when a new program is made available in onboarding —
  * omitting it causes 400 Bad Request for every first-time user of that program.
+ *
+ * ALSO add a spec entry to PRESET_BASE_SPECS in packages/core/src/presets/index.ts.
+ * Without a spec, getProgramSpec() returns [] for that program. Users with a
+ * workout schedule will have saveScheduledDates silently skipped (degraded but
+ * safe), and the cycle view will render with no program spec data.
+ * These two registries must stay in sync.
  */
 const PROGRAM_DEFAULTS: Record<string, { cycleUnit: string; programType: string }> = {
   '5-3-1': { cycleUnit: 'week', programType: '5-3-1' },
@@ -222,7 +228,9 @@ export class CycleGenerationService {
       repos.userSettings.getSettings(),
       repos.liftingProgramSpec.getProgramSpec(program),
     ]);
-    if (settings.workoutSchedule) {
+    // Skip workout-date distribution when the program has no seeded spec —
+    // Math.max(...[]) = -Infinity would crash distributeWorkouts.
+    if (settings.workoutSchedule && programSpec.length > 0) {
       await saveScheduledDates(repos, program, dashboard.cycleNum, dashboard.cycleDate, programSpec, settings.workoutSchedule);
     }
     await repos.cycleDashboard.saveCycleDashboard(dashboard);
