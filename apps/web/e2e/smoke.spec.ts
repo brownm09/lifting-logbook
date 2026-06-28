@@ -56,7 +56,7 @@ test('onboarding: choose program → enter lifts → confirm → lands on cycle'
     'Deadlift', 'Weighted Pull-ups', 'Dips',
   ];
   for (const lift of rptLifts) {
-    await page.getByLabel(`${lift} weight`).fill('225');
+    await page.getByLabel(`${lift} weight`, { exact: true }).fill('225');
   }
   await page.getByRole('button', { name: 'Next', exact: true }).click();
 
