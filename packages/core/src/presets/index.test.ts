@@ -11,11 +11,17 @@ const LIFTS_LEANGAINS = [
   'Squat', 'Romanian Deadlift', 'Leg Curl', 'Calf Raises',
   'Overhead Press', 'Deadlift', 'Lateral Raises', 'Dips',
 ];
+const LIFTS_RPT = [
+  'Bench Press', 'Barbell Row', 'Overhead Press',
+  'Squat', 'Romanian Deadlift', 'Calf Raises',
+  'Deadlift', 'Weighted Pull-ups', 'Dips',
+];
 
 describe('PRESET_BASE_SPECS', () => {
-  it('exposes 5-3-1 and leangains entries', () => {
+  it('exposes 5-3-1, leangains, and rpt entries', () => {
     expect(Object.keys(PRESET_BASE_SPECS)).toContain('5-3-1');
     expect(Object.keys(PRESET_BASE_SPECS)).toContain('leangains');
+    expect(Object.keys(PRESET_BASE_SPECS)).toContain('rpt');
   });
 
   it('5-3-1 covers the four main lifts across 3 weeks', () => {
@@ -34,6 +40,44 @@ describe('PRESET_BASE_SPECS', () => {
     if (!spec) return;
     const offsets = [...new Set(spec.map((r) => r.offset))].sort((a, b) => a - b);
     expect(offsets).toEqual([0, 2, 4]);
+  });
+
+  it('rpt covers three workout days (offsets 0, 2, 4)', () => {
+    const spec = PRESET_BASE_SPECS['rpt'];
+    expect(spec).toBeDefined();
+    if (!spec) return;
+    const offsets = [...new Set(spec.map((r) => r.offset))].sort((a, b) => a - b);
+    expect(offsets).toEqual([0, 2, 4]);
+  });
+
+  it('rpt includes all 9 expected lifts', () => {
+    const spec = PRESET_BASE_SPECS['rpt'];
+    expect(spec).toBeDefined();
+    if (!spec) return;
+    const lifts = [...new Set(spec.map((r) => r.lift))].sort();
+    expect(lifts).toEqual([...LIFTS_RPT].sort());
+  });
+
+  it('rpt compound RPT sets have amrap:true and wtDecrementPct:0.1', () => {
+    const spec = PRESET_BASE_SPECS['rpt'];
+    expect(spec).toBeDefined();
+    if (!spec) return;
+    const rptRows = spec.filter((r) => r.amrap === true);
+    expect(rptRows.length).toBeGreaterThan(0);
+    for (const row of rptRows) {
+      expect(row.wtDecrementPct).toBe(0.1);
+    }
+  });
+
+  it('rpt Calf Raises are isolation with no decrement', () => {
+    const spec = PRESET_BASE_SPECS['rpt'];
+    expect(spec).toBeDefined();
+    if (!spec) return;
+    const calf = spec.find((r) => r.lift === 'Calf Raises');
+    expect(calf).toBeDefined();
+    expect(calf?.activation).toBe('isolation');
+    expect(calf?.amrap).toBe(false);
+    expect(calf?.wtDecrementPct).toBe(0);
   });
 });
 
@@ -112,6 +156,15 @@ describe('detectPresetSuperset', () => {
     const withoutPullups = LIFTS_LEANGAINS.filter((l) => l !== 'Weighted Pull-ups');
     expect(detectPresetSuperset(withoutPullups, 'leangains')).toBe(false);
   });
+
+  it('returns true when liftHistory covers all rpt lifts', () => {
+    expect(detectPresetSuperset(LIFTS_RPT, 'rpt')).toBe(true);
+  });
+
+  it('returns false for rpt when Barbell Row is missing', () => {
+    const withoutRow = LIFTS_RPT.filter((l) => l !== 'Barbell Row');
+    expect(detectPresetSuperset(withoutRow, 'rpt')).toBe(false);
+  });
 });
 
 describe('inferProgramFromLiftRecords', () => {
@@ -129,6 +182,15 @@ describe('inferProgramFromLiftRecords', () => {
 
   it("returns 'leangains' when history covers all leangains lifts", () => {
     expect(inferProgramFromLiftRecords(LIFTS_LEANGAINS)).toBe('leangains');
+  });
+
+  it("returns 'rpt' when history covers exactly those lifts", () => {
+    expect(inferProgramFromLiftRecords(LIFTS_RPT)).toBe('rpt');
+  });
+
+  it("returns 'leangains' not 'rpt' when history has both rpt and leangains lifts", () => {
+    const combined = [...new Set([...LIFTS_LEANGAINS, ...LIFTS_RPT])];
+    expect(inferProgramFromLiftRecords(combined)).toBe('leangains');
   });
 
   it('returns null when history matches no preset', () => {
