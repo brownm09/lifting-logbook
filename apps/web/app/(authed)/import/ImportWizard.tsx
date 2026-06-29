@@ -81,13 +81,13 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
   async function handleAnalyze() {
     setStep(Step.ANALYZING);
     const res = await analyze();
-    setStep(res ? 2 : 0);
+    setStep(res ? Step.CLASSIFY : Step.SOURCE);
   }
 
   async function handlePickDestination(kind: ImportKind) {
     setStep(Step.ANALYZING);
     const res = await analyze(kind);
-    setStep(res ? 3 : 2);
+    setStep(res ? Step.MAP_COLUMNS : Step.CLASSIFY);
   }
 
   async function handleCommit() {
