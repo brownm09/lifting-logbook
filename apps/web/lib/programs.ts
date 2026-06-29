@@ -40,6 +40,11 @@ export function seedLeangainsSpec(): LiftingProgramSpec[] {
   return PRESET_BASE_SPECS['leangains']?.slice() ?? [];
 }
 
+export const TEMPLATE_BUILDERS: Record<string, () => LiftingProgramSpec[]> = {
+  [SEED_PROGRAM]: seedProgramSpec,
+  [SEED_LEANGAINS]: seedLeangainsSpec,
+};
+
 export const PROGRAMS: Program[] = [
   {
     id: 'starting-strength',
