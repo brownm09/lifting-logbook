@@ -400,12 +400,12 @@ When a PR adds or modifies a `.catch(() => default)`, `?? default`, or `try { �
 
 **Pattern:** A PR in `CONFLICTING` (merge conflict) state causes GitHub Actions `pull_request` events to never fire. GitHub cannot create the virtual merge commit at `refs/pull/N/merge`, so the event is silently dropped — no checks are queued, no runs appear.
 
-**Symptom:** `gh pr checks` returns "no checks reported" and `gh run list --branch <head>` shows only stale runs from before the conflict.
+**Symptom:** `gh pr checks` returns "no checks reported" and `gh run list --branch <branch-name>` shows only stale runs from before the conflict.
 
 **Diagnosis:**
 ```bash
 gh pr view <N> --json mergeable,mergeStateStatus
-# mergeStateStatus: "DIRTY" confirms the conflict
+# mergeable: "CONFLICTING" — direct conflict indicator; mergeStateStatus will also be "DIRTY"
 ```
 
 **Fix:** Rebase (or squash-rebase) the branch onto `origin/main` and force-push. Once the conflict is resolved, GitHub recreates the merge ref and CI fires normally on the next push.
