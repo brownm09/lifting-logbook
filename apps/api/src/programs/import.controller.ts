@@ -17,6 +17,7 @@ import {
 } from '@lifting-logbook/types';
 import {
   classifyImport,
+  fuzzyColumnMapper,
   parseCsvText,
 } from '@lifting-logbook/core';
 import type {
@@ -79,11 +80,12 @@ export class ImportController {
     const classification = classifyImport(table);
     const destination = override ?? classification.type;
     if (!destination) {
-      return { classification, destination: null, preview: null, errors: [] };
+      return { classification, destination: null, columnMappings: null, preview: null, errors: [] };
     }
+    const columnMappings = fuzzyColumnMapper(table[0] ?? [], destination);
     const repos = await this.factory.forUser(user);
     const { errors, preview } = await this.preview(program, destination, table, repos);
-    return { classification, destination, preview: errors.length ? null : preview, errors };
+    return { classification, destination, columnMappings, preview: errors.length ? null : preview, errors };
   }
 
   /** Parse + validate for a destination, then build a before→after preview (no writes). */

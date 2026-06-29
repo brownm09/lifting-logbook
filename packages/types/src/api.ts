@@ -549,9 +549,37 @@ export interface ImportPreview {
  * `null` when the result is low-confidence and no override was supplied (in which
  * case `preview` is also `null` and the wizard prompts for a manual pick).
  */
+/**
+ * A single column mapping from a source CSV header to a canonical destination field.
+ * Returned in `ImportPreviewResponse.columnMappings` when a destination is resolved.
+ */
+export interface ColumnMapping {
+  /** Original CSV column header from the uploaded file (empty string for unmapped required fields). */
+  sourceHeader: string;
+  /** Canonical destination field key (e.g., "lift", "weight", "date"); empty when no match found. */
+  destinationField: string;
+  /** Confidence score (0–1) that this mapping is correct. */
+  confidence: number;
+  /** True if this field must be mapped before the user can proceed to REVIEW. */
+  required: boolean;
+  /** Human-readable note about data transformations that will be applied (normalization, split, etc.). */
+  transformationNote?: string;
+  /** Up to 2 alternative field matches with lower confidence (omitted when no alternatives exist). */
+  alternatives?: Array<{
+    field: string;
+    confidence: number;
+  }>;
+}
+
 export interface ImportPreviewResponse {
   classification: ImportClassification;
   destination: ImportKind | null;
+  /**
+   * Column mappings computed for each source header, present only when destination is resolved.
+   * Each entry maps one CSV column to a canonical field with a confidence score.
+   * Unmapped required fields appear with `sourceHeader: ''` and `confidence: 0`.
+   */
+  columnMappings: ColumnMapping[] | null;
   preview: ImportPreview | null;
   /** Per-row validation errors for the resolved destination, surfaced as data (not a 400). */
   errors: ImportError[];
