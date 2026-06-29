@@ -7,6 +7,7 @@ import {
 } from '../../models';
 import { classifyImportRows } from './classifyAndCount';
 import { liftRecordNaturalKey } from './liftRecordNaturalKey';
+import { normalizeAmrap } from './normalize-amrap';
 
 /**
  * Pure before→after diff builders for the Smart Import preview step (#477).
@@ -148,7 +149,7 @@ export function buildStrengthGoalPreview(
 }
 
 function specValue(r: LiftingProgramSpec): string {
-  const amrap = r.amrap === true || r.amrap === 'TRUE' ? ' AMRAP' : '';
+  const amrap = normalizeAmrap(r.amrap) ? ' AMRAP' : '';
   return `${r.sets}×${r.reps}${amrap} @ ${r.warmUpPct}`;
 }
 
@@ -158,7 +159,7 @@ function specValue(r: LiftingProgramSpec): string {
  * "update vs skip" decision is identical in both places.
  */
 export function programSpecComparable(r: LiftingProgramSpec): string {
-  const amrap = r.amrap === true || r.amrap === 'TRUE';
+  const amrap = normalizeAmrap(r.amrap);
   return JSON.stringify({
     increment: r.increment,
     sets: r.sets,

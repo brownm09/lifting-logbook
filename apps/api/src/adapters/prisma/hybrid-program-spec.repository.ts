@@ -4,6 +4,7 @@ import {
   classifyAndCount,
   programSpecNaturalKey,
   programSpecRowKind,
+  normalizeAmrap,
 } from '@lifting-logbook/core';
 import {
   ILiftingProgramSpecRepository,
@@ -134,7 +135,7 @@ export class HybridLiftingProgramSpecRepository implements ILiftingProgramSpecRe
               order: r.order,
               sets: r.sets,
               reps: r.reps,
-              amrap: r.amrap === true || r.amrap === 'TRUE',
+              amrap: normalizeAmrap(r.amrap),
               warmUpPct: r.warmUpPct,
               wtDecrementPct: r.wtDecrementPct,
               activation: r.activation,

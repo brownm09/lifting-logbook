@@ -16,29 +16,11 @@ import {
   ImportPreviewResponse,
 } from '@lifting-logbook/types';
 import {
-  DEFAULT_SLOT_MAP,
-  buildLiftRecordsPreview,
-  buildProgramSpecPreview,
-  buildStrengthGoalPreview,
-  buildTrainingMaxPreview,
   classifyImport,
-  liftRecordNaturalKey,
   parseCsvText,
-  parseLiftRecords,
-  parseLiftingProgramSpec,
-  parseStrengthGoals,
-  parseTrainingMaxes,
-  validateLiftImport,
-  validateProgramSpecImport,
-  validateStrengthGoalImport,
-  validateTrainingMaxImport,
 } from '@lifting-logbook/core';
 import type {
-  LiftRecord,
-  LiftingProgramSpec,
   SpreadsheetCell,
-  StrengthGoalEntry,
-  TrainingMax,
 } from '@lifting-logbook/core';
 import { FastifyRequest } from 'fastify';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -48,17 +30,7 @@ import { REPOSITORY_FACTORY } from '../ports/tokens';
 import { RlsTxTimeout } from '../adapters/prisma/rls-context';
 import { IMPORT_TX_TIMEOUT_MS } from '../adapters/prisma/prisma-tx.util';
 import { MAX_IMPORT_ROWS, readUploadedCsv } from './import-file.util';
-
-const IMPORT_KINDS: readonly ImportKind[] = [
-  'lift-records',
-  'training-maxes',
-  'strength-goals',
-  'program-spec',
-];
-
-function asImportKind(value: unknown): ImportKind | null {
-  return IMPORT_KINDS.includes(value as ImportKind) ? (value as ImportKind) : null;
-}
+import { IMPORT_HANDLERS } from './import-handlers';
 
 /**
  * Unified Smart Import endpoint (#477).
@@ -90,7 +62,9 @@ export class ImportController {
   ): Promise<ImportPreviewResponse | ImportCommitResponse> {
     const csvText = await readUploadedCsv(req);
     const table = parseCsvText(csvText);
-    const override = asImportKind(destinationParam);
+    const override = destinationParam && (Object.keys(IMPORT_HANDLERS) as ImportKind[]).includes(
+      destinationParam as ImportKind,
+    ) ? (destinationParam as ImportKind) : null;
 
     if (mode === 'commit') {
       if (!override) {
@@ -122,27 +96,10 @@ export class ImportController {
     const { valid, errors } = this.parseAndValidate(destination, table);
     if (errors.length) return { errors, preview: null };
 
-    switch (destination) {
-      case 'lift-records': {
-        const records = (valid as LiftRecord[]).map((r) => ({ ...r, program }));
-        const existing = await repos.liftRecord.findExistingRecords(program, records);
-        return { errors, preview: buildLiftRecordsPreview(records, existing) };
-      }
-      case 'training-maxes': {
-        const existing = await repos.trainingMax.getTrainingMaxes(program);
-        return { errors, preview: buildTrainingMaxPreview(valid as TrainingMax[], existing) };
-      }
-      case 'strength-goals': {
-        const existing = await repos.strengthGoal.getGoals(program);
-        return { errors, preview: buildStrengthGoalPreview(valid as StrengthGoalEntry[], existing) };
-      }
-      case 'program-spec': {
-        const existing = await repos.liftingProgramSpec.getProgramSpec(program);
-        return { errors, preview: buildProgramSpecPreview(valid as LiftingProgramSpec[], existing) };
-      }
-      default:
-        throw new BadRequestException(`Unsupported import destination: ${destination}`);
-    }
+    const handler = IMPORT_HANDLERS[destination]!;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Handler signatures are generic across four types; type narrowing from destination covers safety
+    const previewResult = await handler.preview(valid as any, program, repos);
+    return { errors, preview: previewResult };
   }
 
   /** Re-parse + validate + write for a destination (400 on validation errors). */
@@ -152,36 +109,11 @@ export class ImportController {
     table: SpreadsheetCell[][],
     repos: RepositoryBundle,
   ): Promise<ImportCommitResponse> {
-    switch (destination) {
-      case 'lift-records': {
-        const valid = this.parseAndValidateOrThrow('lift-records', table) as LiftRecord[];
-        const records = valid.map((r) => ({ ...r, program }));
-        const uniqueKeys = new Set(records.map(liftRecordNaturalKey)).size;
-        const created = await repos.liftRecord.appendLiftRecords(program, records);
-        return { destination, created, updated: 0, skipped: uniqueKeys - created };
-      }
-      case 'training-maxes': {
-        const valid = this.parseAndValidateOrThrow('training-maxes', table) as TrainingMax[];
-        // Atomic read+classify+write returning its own counts (#488): no separate
-        // pre-read a concurrent edit could desync the reported counts from.
-        const result = await repos.trainingMax.importTrainingMaxes(program, valid);
-        return { destination, ...result };
-      }
-      case 'strength-goals': {
-        const valid = this.parseAndValidateOrThrow('strength-goals', table) as StrengthGoalEntry[];
-        // Single transaction for the whole batch (#488): rolls back on a mid-batch
-        // failure instead of leaving a partial commit, and returns its own counts.
-        const result = await repos.strengthGoal.importGoals(program, valid);
-        return { destination, ...result };
-      }
-      case 'program-spec': {
-        const valid = this.parseAndValidateOrThrow('program-spec', table) as LiftingProgramSpec[];
-        const result = await repos.liftingProgramSpec.saveProgramSpec(program, valid);
-        return { destination, ...result };
-      }
-      default:
-        throw new BadRequestException(`Unsupported import destination: ${destination}`);
-    }
+    const valid = this.parseAndValidateOrThrow(destination, table);
+    const handler = IMPORT_HANDLERS[destination]!;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Handler signatures are generic across four types; type narrowing from destination covers safety
+    const result = await handler.commit(valid as any, program, repos);
+    return { destination, ...result };
   }
 
   /**
@@ -193,9 +125,10 @@ export class ImportController {
     destination: ImportKind,
     table: SpreadsheetCell[][],
   ): { valid: unknown[]; errors: ImportError[] } {
+    const handler = IMPORT_HANDLERS[destination]!;
     let parsed: unknown[];
     try {
-      parsed = this.parseFor(destination, table);
+      parsed = handler.parse(table);
     } catch (err) {
       return { valid: [], errors: [{ row: 0, message: `Could not parse file: ${(err as Error).message}` }] };
     }
@@ -205,18 +138,8 @@ export class ImportController {
         errors: [{ row: 0, message: `Import exceeds the ${MAX_IMPORT_ROWS.toLocaleString()}-row limit. Split the file into smaller batches.` }],
       };
     }
-    switch (destination) {
-      case 'lift-records':
-        return validateLiftImport(parsed as LiftRecord[], DEFAULT_SLOT_MAP);
-      case 'training-maxes':
-        return validateTrainingMaxImport(parsed as TrainingMax[]);
-      case 'strength-goals':
-        return validateStrengthGoalImport(parsed as StrengthGoalEntry[]);
-      case 'program-spec':
-        return validateProgramSpecImport(parsed as LiftingProgramSpec[]);
-      default:
-        throw new BadRequestException(`Unsupported import destination: ${destination}`);
-    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Handler signatures are generic across four types; type narrowing from destination covers safety
+    return handler.validate(parsed as any);
   }
 
   private parseAndValidateOrThrow(destination: ImportKind, table: SpreadsheetCell[][]): unknown[] {
@@ -225,20 +148,5 @@ export class ImportController {
       throw new BadRequestException({ message: 'Validation failed', errors });
     }
     return valid;
-  }
-
-  private parseFor(destination: ImportKind, table: SpreadsheetCell[][]): unknown[] {
-    switch (destination) {
-      case 'lift-records':
-        return parseLiftRecords(table);
-      case 'training-maxes':
-        return parseTrainingMaxes(table);
-      case 'strength-goals':
-        return parseStrengthGoals(table);
-      case 'program-spec':
-        return parseLiftingProgramSpec(table);
-      default:
-        throw new BadRequestException(`Unsupported import destination: ${destination}`);
-    }
   }
 }

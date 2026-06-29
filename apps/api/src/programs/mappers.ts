@@ -5,6 +5,7 @@ import {
   StrengthGoalEntry,
   TrainingMax,
   TrainingMaxHistoryEntry,
+  normalizeAmrap,
 } from '@lifting-logbook/core';
 import {
   CycleDashboardResponse,
@@ -84,7 +85,7 @@ export const toLiftingProgramSpecResponse = (
   increment: s.increment,
   sets: s.sets,
   reps: s.reps,
-  amrap: typeof s.amrap === 'boolean' ? s.amrap : s.amrap === 'TRUE',
+  amrap: normalizeAmrap(s.amrap),
   warmUpPct: s.warmUpPct,
   wtDecrementPct: s.wtDecrementPct,
   activation: s.activation,

@@ -10,6 +10,7 @@ import type {
   ImportPreviewResponse,
 } from '@lifting-logbook/types';
 import { commitImport, previewImport } from '@/lib/client-api';
+import { Step, STEP_LABELS } from './steps';
 import styles from './import.module.css';
 
 type EditableMax = { lift: string; weight: string };
@@ -22,15 +23,6 @@ function buildTrainingMaxesCsv(rows: EditableMax[]): string {
   return ['Date Updated,Lift,Weight', ...lines].join('\n');
 }
 
-const STEP_LABELS = [
-  'Source',
-  'Analyzing',
-  'Classify',
-  'Map columns',
-  'Review',
-  'Preview',
-  'Done',
-];
 
 const KIND_LABEL: Record<ImportKind, string> = {
   'lift-records': 'Lift History',
@@ -55,7 +47,7 @@ function bucketClass(bucket: 'high' | 'medium' | 'low'): string {
 }
 
 export function ImportWizard({ programs }: { programs: CustomProgramSummaryResponse[] }) {
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState<typeof Step[keyof typeof Step]>(Step.SOURCE);
   const [programId, setProgramId] = useState<string>(programs[0]?.id ?? '');
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ImportPreviewResponse | null>(null);
@@ -87,15 +79,15 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
   }
 
   async function handleAnalyze() {
-    setStep(1);
+    setStep(Step.ANALYZING);
     const res = await analyze();
-    setStep(res ? 2 : 0);
+    setStep(res ? Step.CLASSIFY : Step.SOURCE);
   }
 
   async function handlePickDestination(kind: ImportKind) {
-    setStep(1);
+    setStep(Step.ANALYZING);
     const res = await analyze(kind);
-    setStep(res ? 3 : 2);
+    setStep(res ? Step.MAP_COLUMNS : Step.CLASSIFY);
   }
 
   async function handleCommit() {
@@ -115,7 +107,7 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
       const result = await commitImport(programId, commitFile, destination);
       if (result.ok) {
         setCommitResult(result.data);
-        setStep(6);
+        setStep(Step.DONE);
       } else {
         setCommitErrors(result.errors);
       }
@@ -131,7 +123,7 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
   }
 
   function reset() {
-    setStep(0);
+    setStep(Step.SOURCE);
     setFile(null);
     setPreview(null);
     setCommitResult(null);
@@ -167,7 +159,7 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
         </header>
 
         <section className={styles.body}>
-          {step === 0 && (
+          {step === Step.SOURCE && (
             <>
               <h2 className={styles.stepTitle}>Choose a file and program</h2>
               <p className={styles.stepHint}>
@@ -214,14 +206,14 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
             </>
           )}
 
-          {step === 1 && (
+          {step === Step.ANALYZING && (
             <div className={styles.analyzing}>
               <div className={styles.spinner} aria-hidden="true" />
               <p>Analyzing your file…</p>
             </div>
           )}
 
-          {step === 2 && preview && (
+          {step === Step.CLASSIFY && preview && (
             <>
               <h2 className={styles.stepTitle}>What we found</h2>
               {destination ? (
@@ -287,7 +279,7 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
             </>
           )}
 
-          {step === 3 && (
+          {step === Step.MAP_COLUMNS && (
             <>
               <h2 className={styles.stepTitle}>Map columns</h2>
               <p className={styles.infoBox}>
@@ -296,7 +288,7 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
             </>
           )}
 
-          {step === 4 && preview && (
+          {step === Step.REVIEW && preview && (
             <>
               <h2 className={styles.stepTitle}>Review</h2>
               {preview.errors.length > 0 ? (
@@ -320,7 +312,7 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
             </>
           )}
 
-          {step === 5 && previewBody && (
+          {step === Step.PREVIEW && previewBody && (
             <>
               <h2 className={styles.stepTitle}>Preview changes</h2>
               {destination === 'training-maxes' && editedMaxes !== null ? (
@@ -425,7 +417,7 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
             </>
           )}
 
-          {step === 6 && commitResult && (
+          {step === Step.DONE && commitResult && (
             <div className={styles.successBanner}>
               <p className={styles.successTitle}>Import complete</p>
               <p className={styles.successBody}>
@@ -441,14 +433,14 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
             <button
               type="button"
               className={styles.btnSecondary}
-              onClick={() => setStep(step === 2 ? 0 : step - 1)}
+              onClick={() => setStep((step === Step.CLASSIFY ? Step.SOURCE : step - 1) as typeof Step[keyof typeof Step])}
               disabled={busy}
             >
               Back
             </button>
           )}
 
-          {step === 0 && (
+          {step === Step.SOURCE && (
             <button
               type="button"
               className={styles.btnPrimary}
@@ -459,19 +451,19 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
             </button>
           )}
 
-          {step === 2 && destination && (
-            <button type="button" className={styles.btnPrimary} onClick={() => setStep(3)}>
+          {step === Step.CLASSIFY && destination && (
+            <button type="button" className={styles.btnPrimary} onClick={() => setStep(Step.MAP_COLUMNS)}>
               Next
             </button>
           )}
 
-          {step === 3 && (
-            <button type="button" className={styles.btnPrimary} onClick={() => setStep(4)}>
+          {step === Step.MAP_COLUMNS && (
+            <button type="button" className={styles.btnPrimary} onClick={() => setStep(Step.REVIEW)}>
               Next
             </button>
           )}
 
-          {step === 4 && (
+          {step === Step.REVIEW && (
             <button
               type="button"
               className={styles.btnPrimary}
@@ -484,7 +476,7 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
                       .map((d) => ({ lift: d.label, weight: d.after ?? '' })),
                   );
                 }
-                setStep(5);
+                setStep(Step.PREVIEW);
               }}
               disabled={!previewBody}
             >
@@ -492,7 +484,7 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
             </button>
           )}
 
-          {step === 5 && (
+          {step === Step.PREVIEW && (
             <button
               type="button"
               className={styles.btnSuccess}
@@ -510,7 +502,7 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
             </button>
           )}
 
-          {step === 6 && (
+          {step === Step.DONE && (
             <button type="button" className={styles.btnPrimary} onClick={reset}>
               Import another file
             </button>
