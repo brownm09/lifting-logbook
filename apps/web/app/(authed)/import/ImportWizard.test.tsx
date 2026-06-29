@@ -35,6 +35,11 @@ const TM_PREVIEW: ImportPreviewResponse = {
     alternatives: [{ type: 'lift-records', confidence: 0.4, closeCall: false }],
   },
   destination: 'training-maxes',
+  columnMappings: [
+    { sourceHeader: 'Date Updated', destinationField: 'dateUpdated', confidence: 1.0, required: true },
+    { sourceHeader: 'Lift', destinationField: 'lift', confidence: 1.0, required: true },
+    { sourceHeader: 'Weight', destinationField: 'weight', confidence: 1.0, required: true },
+  ],
   preview: {
     creates: 2,
     updates: 1,
@@ -231,6 +236,7 @@ describe('ImportWizard', () => {
     mockPreview.mockResolvedValue({
       classification: { type: null, confidence: 0.4, bucket: 'low', reasons: [], alternatives: [] },
       destination: null,
+      columnMappings: null,
       preview: null,
       errors: [],
     });

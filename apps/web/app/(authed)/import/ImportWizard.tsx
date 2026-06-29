@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import type {
+  ColumnMapping,
   CustomProgramSummaryResponse,
   ImportCommitResponse,
   ImportError,
@@ -38,6 +39,47 @@ const ALL_KINDS: ImportKind[] = [
   'program-spec',
 ];
 
+type FieldOption = { key: string; label: string };
+
+const KIND_FIELDS: Record<ImportKind, FieldOption[]> = {
+  'lift-records': [
+    { key: 'program', label: 'Program' },
+    { key: 'cycleNum', label: 'Cycle #' },
+    { key: 'workoutNum', label: 'Workout #' },
+    { key: 'date', label: 'Date' },
+    { key: 'lift', label: 'Lift' },
+    { key: 'setNum', label: 'Set #' },
+    { key: 'weight', label: 'Weight' },
+    { key: 'reps', label: 'Reps' },
+    { key: 'amrap', label: 'AMRAP' },
+    { key: 'notes', label: 'Notes' },
+  ],
+  'training-maxes': [
+    { key: 'lift', label: 'Lift' },
+    { key: 'weight', label: 'Weight' },
+    { key: 'dateUpdated', label: 'Date Updated' },
+  ],
+  'strength-goals': [],
+  'program-spec': [
+    { key: 'week', label: 'Week' },
+    { key: 'offset', label: 'Offset' },
+    { key: 'lift', label: 'Lift' },
+    { key: 'increment', label: 'Increment' },
+    { key: 'order', label: 'Order' },
+    { key: 'sets', label: 'Sets' },
+    { key: 'reps', label: 'Reps' },
+    { key: 'amrap', label: 'AMRAP?' },
+    { key: 'warmUpPct', label: 'Warm-Up %' },
+    { key: 'wtDecrementPct', label: 'WT Decrement %' },
+    { key: 'activation', label: 'Activation' },
+    { key: 'weekType', label: 'Week Type' },
+  ],
+};
+
+function getAllFieldsForKind(kind: ImportKind): FieldOption[] {
+  return KIND_FIELDS[kind] ?? [];
+}
+
 function bucketClass(bucket: 'high' | 'medium' | 'low'): string {
   return bucket === 'high'
     ? styles.bucketHigh ?? ''
@@ -58,9 +100,28 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
   // For training-maxes: user-editable rows populated from previewBody.deltas when
   // entering the Preview step. Null for all other destination kinds.
   const [editedMaxes, setEditedMaxes] = useState<EditableMax[] | null>(null);
+  // Map from sourceHeader → override destinationField (user-chosen via dropdown)
+  const [columnOverrides, setColumnOverrides] = useState<Map<string, string>>(new Map());
 
   const destination = preview?.destination ?? null;
   const previewBody = preview?.preview ?? null;
+
+  // Unmapped required sentinel rows have sourceHeader:''; use destinationField as key
+  // so multiple such rows can be assigned independently.
+  function mappingKey(m: ColumnMapping): string {
+    return m.sourceHeader || `__req__:${m.destinationField}`;
+  }
+
+  // Effective column mappings after applying user overrides
+  const effectiveMappings: ColumnMapping[] = (preview?.columnMappings ?? []).map((m) =>
+    columnOverrides.has(mappingKey(m))
+      ? { ...m, destinationField: columnOverrides.get(mappingKey(m)) ?? m.destinationField, confidence: 1 }
+      : m,
+  );
+
+  const allRequiredMapped = effectiveMappings
+    .filter((m) => m.required)
+    .every((m) => m.destinationField !== '' && m.confidence > 0);
 
   async function analyze(override?: ImportKind): Promise<ImportPreviewResponse | null> {
     if (!programId || !file) return null;
@@ -85,6 +146,7 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
   }
 
   async function handlePickDestination(kind: ImportKind) {
+    setColumnOverrides(new Map());
     setStep(Step.ANALYZING);
     const res = await analyze(kind);
     setStep(res ? Step.MAP_COLUMNS : Step.CLASSIFY);
@@ -130,6 +192,7 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
     setCommitErrors(null);
     setError(null);
     setEditedMaxes(null);
+    setColumnOverrides(new Map());
   }
 
   return (
@@ -279,12 +342,104 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
             </>
           )}
 
-          {step === Step.MAP_COLUMNS && (
+          {step === Step.MAP_COLUMNS && preview && destination && (
             <>
               <h2 className={styles.stepTitle}>Map columns</h2>
-              <p className={styles.infoBox}>
-                Columns were mapped automatically. Manual column mapping is coming soon.
-              </p>
+              {effectiveMappings.length > 0 ? (
+                <>
+                  <p className={styles.stepHint}>
+                    We matched your CSV columns to the expected fields. Required fields are
+                    marked <span className={styles.requiredStar}>★</span>. Override any mapping
+                    using the dropdowns below.
+                  </p>
+                  {!allRequiredMapped && (
+                    <div className={styles.unmappedAlert}>
+                      Some required fields are not yet mapped. Assign them before continuing.
+                    </div>
+                  )}
+                  <table className={styles.mappingTable} aria-label="Column mappings">
+                    <thead>
+                      <tr>
+                        <th>Your column</th>
+                        <th>Maps to</th>
+                        <th>Confidence</th>
+                        <th>Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {effectiveMappings.map((m, i) => {
+                        const allFields = getAllFieldsForKind(destination);
+                        const confPct = Math.round(m.confidence * 100);
+                        const confClass =
+                          m.confidence >= 0.7
+                            ? styles.confHigh
+                            : m.confidence >= 0.4
+                              ? styles.confMedium
+                              : styles.confLow;
+                        const isUnmappedRequired = m.required && (m.destinationField === '' || m.confidence === 0);
+
+                        return (
+                          <tr
+                            key={`${m.sourceHeader}-${i}`}
+                            className={isUnmappedRequired ? styles.unmappedRequired : ''}
+                          >
+                            <td>
+                              {m.sourceHeader ? (
+                                <span className={styles.sourceHeaderCell}>{m.sourceHeader}</span>
+                              ) : (
+                                <span className={styles.unmappedSourceCell}>(no match in CSV)</span>
+                              )}
+                              {m.required && (
+                                <span className={styles.requiredStar} aria-label="required">★</span>
+                              )}
+                            </td>
+                            <td>
+                              <select
+                                className={styles.mappingSelect}
+                                aria-label={`Map column ${m.sourceHeader || '(unmapped)'}`}
+                                value={columnOverrides.get(mappingKey(m)) ?? m.destinationField}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  const key = mappingKey(m);
+                                  setColumnOverrides((prev) => {
+                                    const next = new Map(prev);
+                                    if (val === m.destinationField) {
+                                      next.delete(key);
+                                    } else {
+                                      next.set(key, val);
+                                    }
+                                    return next;
+                                  });
+                                }}
+                              >
+                                <option value="">— unmapped —</option>
+                                {allFields.map(({ key, label }) => (
+                                  <option key={key} value={key}>{label}</option>
+                                ))}
+                              </select>
+                            </td>
+                            <td>
+                              <span className={`${styles.confidencePct} ${confClass}`}>
+                                {m.sourceHeader ? `${confPct}%` : '—'}
+                              </span>
+                            </td>
+                            <td>
+                              {m.transformationNote && (
+                                <span className={styles.transformNote}>{m.transformationNote}</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  <p className={styles.mappingLegend}>
+                    <span className={styles.requiredStar}>★</span> = required field
+                  </p>
+                </>
+              ) : (
+                <p className={styles.infoBox}>No column information available for this file.</p>
+              )}
             </>
           )}
 
@@ -458,7 +613,12 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
           )}
 
           {step === Step.MAP_COLUMNS && (
-            <button type="button" className={styles.btnPrimary} onClick={() => setStep(Step.REVIEW)}>
+            <button
+              type="button"
+              className={styles.btnPrimary}
+              disabled={!allRequiredMapped}
+              onClick={() => setStep(Step.REVIEW)}
+            >
               Next
             </button>
           )}

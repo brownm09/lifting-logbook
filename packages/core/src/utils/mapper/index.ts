@@ -1,3 +1,4 @@
+export * from './fuzzyColumnMapper';
 export * from './mapCycleDashboard';
 export * from './mapLiftingProgramSpec';
 export * from './mapLiftRecords';
