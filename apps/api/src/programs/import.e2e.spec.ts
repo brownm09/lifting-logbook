@@ -209,4 +209,154 @@ describe('Smart Import HTTP (e2e, in-memory adapters)', () => {
       expect(res.statusCode).toBe(400);
     });
   });
+
+  describe('Phase 3 — liftOverrides, excludeKeys, splitDest, and undo', () => {
+    const undoImport = (program: string, batchId: string) =>
+      app.getHttpAdapter().getInstance().inject({
+        method: 'POST',
+        url: `/programs/${encodeURIComponent(program)}/import/${batchId}/undo`,
+        headers: AUTH,
+      });
+
+    // Lift name not in DEFAULT_SLOT_MAP — strict validation rejects without an override
+    const AMBIGUOUS_LIFT_CSV = [
+      'Program,Cycle #,Workout #,Date,Lift,Set #,Weight,Reps,Notes',
+      '5-3-1,1,1,2026-01-01,NOT_IN_SLOT_MAP,1,180,5,',
+    ].join('\n');
+
+    // Two rows: one normal lift-record, one with a 1RM note → should route to training-maxes
+    const SPLIT_CSV = [
+      'Program,Cycle #,Workout #,Date,Lift,Set #,Weight,Reps,Notes',
+      '5-3-1,1,1,2026-01-01,Bench P.,1,180,5,',
+      '5-3-1,1,1,2026-01-01,Squat,1,250,1,1RM Test',
+    ].join('\n');
+
+    it('commits an ambiguous-lift row when liftOverrides remaps it before validation', async () => {
+      const overrides = encodeURIComponent(JSON.stringify({ '1': 'bench-press' }));
+      const res = (
+        await importCsv(
+          'p3-lr-override',
+          AMBIGUOUS_LIFT_CSV,
+          `?mode=commit&destination=lift-records&liftOverrides=${overrides}`,
+        )
+      ).json();
+      expect(res.created).toBe(1);
+
+      // Without the override the same row fails strict validation
+      const failRes = await importCsv(
+        'p3-lr-override-fail',
+        AMBIGUOUS_LIFT_CSV,
+        '?mode=commit&destination=lift-records',
+      );
+      expect(failRes.statusCode).toBe(400);
+    });
+
+    it('excludes rows whose natural key matches excludeKeys', async () => {
+      // Natural key for LIFT_CSV row: cycleNum:workoutNum:lift:setNum = 1:1:bench-press:1
+      const excludeParam = encodeURIComponent('1:1:bench-press:1');
+      const res = (
+        await importCsv(
+          'p3-lr-exclude',
+          LIFT_CSV,
+          `?mode=commit&destination=lift-records&excludeKeys=${excludeParam}`,
+        )
+      ).json();
+      // Row was excluded — nothing created and nothing skipped
+      expect(res.created).toBe(0);
+      expect(res.skipped).toBe(0);
+      expect(res.batchId).toBeTruthy();
+    });
+
+    it('routes 1RM rows to training-maxes without double-writing them as lift-records', async () => {
+      const res = (
+        await importCsv(
+          'p3-lr-split',
+          SPLIT_CSV,
+          '?mode=commit&destination=lift-records&splitDest=1',
+        )
+      ).json();
+      // Only the Bench P. row goes to lift-records; Squat 1RM goes to training-maxes only
+      expect(res.created).toBe(1);
+      expect(res.split).toMatchObject({ destination: 'training-maxes', created: 1 });
+
+      // Re-commit: Bench P. lift-record is skipped; Squat TM is also skipped — not created again
+      const reCommit = (
+        await importCsv(
+          'p3-lr-split',
+          SPLIT_CSV,
+          '?mode=commit&destination=lift-records&splitDest=1',
+        )
+      ).json();
+      expect(reCommit.skipped).toBe(1); // Bench P. as lift-record
+      expect(reCommit.split).toMatchObject({ destination: 'training-maxes', skipped: 1 });
+    });
+
+    it('undoes a created lift-record by deleting it', async () => {
+      const commitRes = (
+        await importCsv('p3-undo-lr', LIFT_CSV, '?mode=commit&destination=lift-records')
+      ).json();
+      expect(commitRes.created).toBe(1);
+      const { batchId } = commitRes;
+
+      const undoRes = (await undoImport('p3-undo-lr', batchId)).json();
+      expect(undoRes.restored).toBe(1);
+      expect(undoRes.skipped).toBe(0);
+      expect(undoRes.flagged).toEqual([]);
+
+      // After undo the row is gone — re-commit creates it again instead of skipping
+      const reCommit = (
+        await importCsv('p3-undo-lr', LIFT_CSV, '?mode=commit&destination=lift-records')
+      ).json();
+      expect(reCommit.created).toBe(1);
+    });
+
+    it('undoes an updated training max by restoring the prior weight', async () => {
+      const program = 'p3-undo-tm';
+      await importCsv(program, TM_CSV, '?mode=commit&destination=training-maxes');
+
+      const TM_CSV_185 = ['Date Updated,Lift,Weight', '1/2/2026,Bench P.,185'].join('\n');
+      const updateRes = (
+        await importCsv(program, TM_CSV_185, '?mode=commit&destination=training-maxes')
+      ).json();
+      expect(updateRes.updated).toBe(1);
+      const { batchId } = updateRes;
+
+      const undoRes = (await undoImport(program, batchId)).json();
+      expect(undoRes.restored).toBe(1);
+      expect(undoRes.skipped).toBe(0);
+
+      const maxes = (
+        await app.getHttpAdapter().getInstance().inject({
+          method: 'GET',
+          url: `/programs/${program}/training-maxes`,
+          headers: AUTH,
+        })
+      ).json() as Array<{ lift: string; weight: number }>;
+      const byLift = Object.fromEntries(maxes.map((m) => [m.lift, m.weight]));
+      expect(byLift['bench-press']).toBe(182.5); // restored to the value before the update
+    });
+
+    it('skips undo and flags when a training max was modified after the import', async () => {
+      const program = 'p3-undo-tm-guard';
+      // Step 1: create at 182.5
+      await importCsv(program, TM_CSV, '?mode=commit&destination=training-maxes');
+      // Step 2: update to 185 — this is the batch we will try to undo
+      const TM_CSV_185 = ['Date Updated,Lift,Weight', '1/2/2026,Bench P.,185'].join('\n');
+      const updateRes = (
+        await importCsv(program, TM_CSV_185, '?mode=commit&destination=training-maxes')
+      ).json();
+      const batchId = updateRes.batchId;
+      // Step 3: update to 190 — now the current value (190) no longer matches what
+      // batchId wrote (185), so the post-edit guard must fire on undo
+      const TM_CSV_190 = ['Date Updated,Lift,Weight', '1/3/2026,Bench P.,190'].join('\n');
+      await importCsv(program, TM_CSV_190, '?mode=commit&destination=training-maxes');
+
+      const undoRes = (await undoImport(program, batchId)).json();
+      expect(undoRes.restored).toBe(0);
+      expect(undoRes.skipped).toBe(1);
+      expect(undoRes.flagged).toHaveLength(1);
+      expect(undoRes.flagged[0].key).toBe('bench-press');
+      expect(undoRes.flagged[0].reason).toContain('modified after import');
+    });
+  });
 });

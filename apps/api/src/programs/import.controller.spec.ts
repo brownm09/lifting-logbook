@@ -12,4 +12,9 @@ describe('ImportController RLS transaction budget', () => {
     const timeout = Reflect.getMetadata(RLS_TX_TIMEOUT_KEY, ImportController.prototype.import);
     expect(timeout).toBe(IMPORT_TX_TIMEOUT_MS);
   });
+
+  it('annotates the undo handler with the import transaction budget', () => {
+    const timeout = Reflect.getMetadata(RLS_TX_TIMEOUT_KEY, ImportController.prototype.undoImport);
+    expect(timeout).toBe(IMPORT_TX_TIMEOUT_MS);
+  });
 });

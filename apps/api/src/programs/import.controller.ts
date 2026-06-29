@@ -127,6 +127,7 @@ export class ImportController {
 
   @Post('import/:batchId/undo')
   @HttpCode(HttpStatus.OK)
+  @RlsTxTimeout(IMPORT_TX_TIMEOUT_MS)
   async undoImport(
     @Param('program') program: string,
     @Param('batchId') batchId: string,
@@ -142,6 +143,14 @@ export class ImportController {
     let skipped = 0;
     const flagged: Array<{ key: string; reason: string }> = [];
 
+    // Hoist destination-specific reads before the loop to avoid N+1 per-key round-trips
+    const allMaxes = batch.destination === 'training-maxes'
+      ? await repos.trainingMax.getTrainingMaxes(program)
+      : [];
+    const allGoals = batch.destination === 'strength-goals'
+      ? await repos.strengthGoal.getGoals(program)
+      : [];
+
     for (const [key, entry] of Object.entries(batch.preImage)) {
       if (batch.destination === 'lift-records') {
         if (entry.kind === 'created') {
@@ -151,7 +160,6 @@ export class ImportController {
         }
       } else if (batch.destination === 'training-maxes') {
         const lift = key;
-        const allMaxes = await repos.trainingMax.getTrainingMaxes(program);
         const current = allMaxes.find((m) => m.lift === lift);
         const wrote = entry.wrote as { weight: number };
 
@@ -178,7 +186,6 @@ export class ImportController {
         }
       } else if (batch.destination === 'strength-goals') {
         const lift = key;
-        const allGoals = await repos.strengthGoal.getGoals(program);
         const current = allGoals.find((g) => g.lift === lift);
         const wrote = entry.wrote as Record<string, unknown>;
 
@@ -319,15 +326,36 @@ export class ImportController {
     liftOverrides: Record<string, string>,
     splitDest: boolean,
   ): Promise<ImportCommitResponse> {
-    let valid = this.parseAndValidateOrThrow(destination, table) as unknown[];
+    // Parse before any transforms: liftOverrides must remap before strict validation
+    // because the strict validator rejects unknown-lift rows outright.
+    const handler = IMPORT_HANDLERS[destination]!;
+    let parsed: unknown[];
+    try {
+      parsed = handler.parse(table);
+    } catch (err) {
+      throw new BadRequestException({ message: `Could not parse file: ${(err as Error).message}` });
+    }
+    if (parsed.length > MAX_IMPORT_ROWS) {
+      throw new BadRequestException({
+        message: `Import exceeds the ${MAX_IMPORT_ROWS.toLocaleString()}-row limit. Split the file into smaller batches.`,
+      });
+    }
 
-    // Apply lift overrides for ambiguous rows (rowIndex string → canonical lift id)
+    // Apply lift overrides BEFORE strict validation so remapped names pass the slot map check
     if (destination === 'lift-records' && Object.keys(liftOverrides).length > 0) {
-      valid = (valid as LiftRecord[]).map((r, i) => {
+      parsed = (parsed as LiftRecord[]).map((r, i) => {
         const canonical = liftOverrides[String(i + 1)];
         return canonical ? { ...r, lift: canonical } : r;
       });
     }
+
+    // Strict validation (with overrides applied)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Handler signatures are generic across four types; type narrowing from destination covers safety
+    const { valid: rawValid, errors } = handler.validate(parsed as any);
+    if (errors.length > 0) {
+      throw new BadRequestException({ message: 'Validation failed', errors });
+    }
+    let valid: unknown[] = rawValid;
 
     // Filter excluded keys
     if (excludeKeys.size > 0) {
@@ -340,11 +368,15 @@ export class ImportController {
       }
     }
 
-    const handler = IMPORT_HANDLERS[destination]!;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Handler signatures are generic across four types; type narrowing from destination covers safety
-    const { preImage, ...commitCounts } = await handler.commit(valid as any, program, repos);
+    // For splitDest, partition before committing to avoid double-writing 1RM rows as lift-records
+    const validToCommit = (destination === 'lift-records' && splitDest)
+      ? splitLiftRecordsByDestination(valid as LiftRecord[]).liftRecords
+      : valid;
 
-    // Phase 3: 1RM split for lift-records
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Handler signatures are generic across four types; type narrowing from destination covers safety
+    const { preImage, ...commitCounts } = await handler.commit(validToCommit as any, program, repos);
+
+    // Phase 3: 1RM split for lift-records — commit the TM partition after lift-records
     let splitResult: ImportCommitResponse['split'] | undefined;
     if (destination === 'lift-records' && splitDest) {
       const { trainingMaxes } = splitLiftRecordsByDestination(valid as LiftRecord[]);

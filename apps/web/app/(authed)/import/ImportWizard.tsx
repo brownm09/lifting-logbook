@@ -257,6 +257,7 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
           overrides: Object.keys(columnOverridesRecord).length > 0 ? columnOverridesRecord : undefined,
           excludeKeys: excludedKeys.size > 0 ? [...excludedKeys] : undefined,
           liftOverrides: liftOverrides.size > 0 ? liftOverridesRecord : undefined,
+          splitDest: preview?.split !== undefined,
         });
       }
 
