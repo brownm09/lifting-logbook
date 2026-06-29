@@ -41,6 +41,8 @@ describe('LiftRecordsController', () => {
       getLiftRecords: jest.fn(),
       appendLiftRecords: jest.fn(),
       updateLiftRecord: jest.fn(),
+      findExistingRecords: jest.fn().mockResolvedValue([]),
+      deleteLiftRecordsByNaturalKeys: jest.fn().mockResolvedValue(0),
     };
     dashboardRepo = {
       getCycleDashboard: jest.fn(),

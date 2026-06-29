@@ -2,6 +2,7 @@ import { AuthUser } from './auth';
 import { ICustomLiftRepository } from './ICustomLiftRepository';
 import { ICycleDashboardRepository } from './ICycleDashboardRepository';
 import { ICycleScheduledWorkoutRepository } from './ICycleScheduledWorkoutRepository';
+import { IImportBatchRepository } from './IImportBatchRepository';
 import { ILiftMetadataRepository } from './ILiftMetadataRepository';
 import { ILiftingProgramSpecRepository } from './ILiftingProgramSpecRepository';
 import { ILiftRecordRepository } from './ILiftRecordRepository';
@@ -19,6 +20,7 @@ export interface RepositoryBundle {
   customLift: ICustomLiftRepository;
   cycleDashboard: ICycleDashboardRepository;
   cycleScheduledWorkout: ICycleScheduledWorkoutRepository;
+  importBatch: IImportBatchRepository;
   liftMetadata: ILiftMetadataRepository;
   liftingProgramSpec: ILiftingProgramSpecRepository;
   liftRecord: ILiftRecordRepository;

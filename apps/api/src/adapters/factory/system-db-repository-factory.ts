@@ -5,6 +5,7 @@ import { LiftRecord } from '@lifting-logbook/core';
 import { AuthUser } from '../../ports/auth';
 import { IRepositoryFactory, RepositoryBundle } from '../../ports/factory';
 import { PrismaCustomLiftRepository } from '../prisma/custom-lift.repository';
+import { PrismaImportBatchRepository } from '../prisma/import-batch.repository';
 import { PrismaLiftRecordRepository } from '../prisma/lift-record.repository';
 import { PrismaStrengthGoalRepository } from '../prisma/strength-goal.repository';
 import { PrismaTrainingMaxRepository } from '../prisma/training-max.repository';
@@ -16,6 +17,7 @@ import { PrismaWorkoutLiftOverrideRepository } from '../prisma/workout-lift-over
 import { PrismaWorkoutRepository } from '../prisma/workout.repository';
 import { InMemoryCustomLiftRepository } from '../in-memory/custom-lift.adapter';
 import { InMemoryCycleDashboardRepository } from '../in-memory/cycle-dashboard.adapter';
+import { InMemoryImportBatchRepository } from '../in-memory/import-batch.adapter';
 import { InMemoryLiftMetadataRepository } from '../in-memory/lift-metadata.adapter';
 import { InMemoryLiftingProgramSpecRepository } from '../in-memory/lifting-program-spec.adapter';
 import { InMemoryLiftRecordRepository } from '../in-memory/lift-record.adapter';
@@ -90,6 +92,7 @@ export class SystemDbRepositoryFactory implements IRepositoryFactory, OnModuleDe
         customLift: new PrismaCustomLiftRepository(prisma, userId),
         cycleDashboard: new PrismaCycleDashboardRepository(prisma, userId),
         cycleScheduledWorkout: new PrismaCycleScheduledWorkoutRepository(prisma, userId),
+        importBatch: new PrismaImportBatchRepository(prisma, userId),
         liftMetadata: new PrismaLiftMetadataRepository(prisma, userId),
         liftRecord: new PrismaLiftRecordRepository(prisma, userId),
         programPhilosophy: this.philosophyRepo,
@@ -113,6 +116,7 @@ export class SystemDbRepositoryFactory implements IRepositoryFactory, OnModuleDe
       customLift: new InMemoryCustomLiftRepository(userId),
       cycleDashboard: new InMemoryCycleDashboardRepository(),
       cycleScheduledWorkout: new InMemoryCycleScheduledWorkoutRepository(),
+      importBatch: new InMemoryImportBatchRepository(),
       liftMetadata: new InMemoryLiftMetadataRepository(),
       liftingProgramSpec: this.programSpecRepo,
       liftRecord: new InMemoryLiftRecordRepository(sharedRecords),

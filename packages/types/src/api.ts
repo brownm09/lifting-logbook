@@ -520,6 +520,9 @@ export interface ImportClassification {
   alternatives: ImportAlternative[];
 }
 
+/** Row-level status for the interactive REVIEW step (Phase 3). */
+export type ImportRowStatus = 'ok' | 'incomplete' | 'ambiguous';
+
 /** A single before→after row in a preview diff, formatted for display. */
 export interface ImportDelta {
   /** Stable identity of the affected entity (lift id, spec-row natural key, …). */
@@ -531,6 +534,12 @@ export interface ImportDelta {
   before?: string;
   /** Incoming value from the imported file. */
   after?: string;
+  /** Phase 3: row health; undefined means 'ok'. */
+  status?: ImportRowStatus;
+  /** Phase 3: 1-based CSV data-row index (used by liftOverrides on commit). */
+  rowIndex?: number;
+  /** Phase 3: original unresolved lift name, populated on 'ambiguous' rows. */
+  originalLift?: string;
 }
 
 /** Aggregate counts plus per-row deltas for a previewed import. */
@@ -583,6 +592,14 @@ export interface ImportPreviewResponse {
   preview: ImportPreview | null;
   /** Per-row validation errors for the resolved destination, surfaced as data (not a 400). */
   errors: ImportError[];
+  /**
+   * Phase 3: split destination preview, populated when lift-records rows are
+   * automatically routed to a second destination (e.g. 1RM Test rows → Training Maxes).
+   */
+  split?: {
+    destination: ImportKind;
+    preview: ImportPreview;
+  };
 }
 
 /**
@@ -602,6 +619,24 @@ export interface ImportWriteResult {
 /** Response for `POST /programs/:program/import?mode=commit`. */
 export interface ImportCommitResponse extends ImportWriteResult {
   destination: ImportKind;
+  /** Phase 3: UUID of the ImportBatch record; present to support undo. */
+  batchId: string;
+  /**
+   * Phase 3: counts for rows automatically split to a second destination
+   * (e.g. 1RM Test lift-records rows committed to Training Maxes).
+   */
+  split?: { destination: ImportKind; created: number; updated: number; skipped: number };
+}
+
+/** Phase 3: Response for `POST /programs/:program/import/:batchId/undo`. */
+export interface ImportUndoResponse {
+  batchId: string;
+  /** Rows successfully restored to their pre-import state (or deleted if newly created). */
+  restored: number;
+  /** Rows skipped because they have been edited since the import (post-edit guard). */
+  skipped: number;
+  /** Detail on rows that were flagged (key + reason for each). */
+  flagged: Array<{ key: string; reason: string }>;
 }
 
 // ---------------------------------------------------------------------------

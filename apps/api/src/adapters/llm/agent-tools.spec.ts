@@ -45,6 +45,11 @@ const mkRepos = (): RepositoryBundle => ({
   workout: {} as RepositoryBundle['workout'],
   workoutDateOverride: {} as RepositoryBundle['workoutDateOverride'],
   workoutLiftOverride: {} as RepositoryBundle['workoutLiftOverride'],
+  customLift: {} as RepositoryBundle['customLift'],
+  cycleScheduledWorkout: {} as RepositoryBundle['cycleScheduledWorkout'],
+  importBatch: {} as RepositoryBundle['importBatch'],
+  userSettings: {} as RepositoryBundle['userSettings'],
+  workoutSkipOverride: {} as RepositoryBundle['workoutSkipOverride'],
 });
 
 describe('agent-tools', () => {

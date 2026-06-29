@@ -12,7 +12,7 @@ describe('ProgramSpecController', () => {
   let factory: jest.Mocked<IRepositoryFactory>;
 
   beforeEach(async () => {
-    repo = { getProgramSpec: jest.fn(), saveProgramSpec: jest.fn() };
+    repo = { getProgramSpec: jest.fn(), saveProgramSpec: jest.fn(), deleteSpecRows: jest.fn() };
     factory = {
       forUser: jest.fn().mockResolvedValue({ liftingProgramSpec: repo }),
     };

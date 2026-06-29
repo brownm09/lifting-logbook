@@ -53,4 +53,13 @@ export class InMemoryLiftRecordRepository implements ILiftRecordRepository {
     this.store.set(program, next);
     return updated;
   }
+
+  async deleteLiftRecordsByNaturalKeys(program: string, naturalKeys: string[]): Promise<number> {
+    if (naturalKeys.length === 0) return 0;
+    const keySet = new Set(naturalKeys);
+    const before = this.store.get(program) ?? [];
+    const after = before.filter((r) => !keySet.has(liftRecordNaturalKey(r)));
+    this.store.set(program, after);
+    return before.length - after.length;
+  }
 }

@@ -21,4 +21,11 @@ export interface ILiftRecordRepository {
     id: string,
     updates: Partial<Pick<LiftRecord, 'weight' | 'reps' | 'notes'>>,
   ): Promise<LiftRecord | null>;
+
+  /**
+   * Deletes lift records by natural key for undo support.
+   * Each key is encoded as `"cycleNum:workoutNum:lift:setNum"`.
+   * Returns the number of rows deleted.
+   */
+  deleteLiftRecordsByNaturalKeys(program: string, naturalKeys: string[]): Promise<number>;
 }

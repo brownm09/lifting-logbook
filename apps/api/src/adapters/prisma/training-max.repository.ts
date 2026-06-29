@@ -88,4 +88,11 @@ export class PrismaTrainingMaxRepository implements ITrainingMaxRepository {
       IMPORT_BATCH_TX_OPTIONS,
     );
   }
+
+  async deleteTrainingMaxes(program: string, lifts: string[]): Promise<void> {
+    if (lifts.length === 0) return;
+    await this.prisma.trainingMax.deleteMany({
+      where: { userId: this.userId, program, lift: { in: lifts } },
+    });
+  }
 }

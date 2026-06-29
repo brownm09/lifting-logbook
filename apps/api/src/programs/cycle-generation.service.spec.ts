@@ -88,10 +88,13 @@ describe('CycleGenerationService', () => {
     programSpecRepo = {
       getProgramSpec: jest.fn().mockResolvedValue(stubProgramSpec()),
       saveProgramSpec: jest.fn(),
+      deleteSpecRows: jest.fn(),
     };
     trainingMaxRepo = {
       getTrainingMaxes: jest.fn(),
       saveTrainingMaxes: jest.fn().mockResolvedValue(undefined),
+      importTrainingMaxes: jest.fn(),
+      deleteTrainingMaxes: jest.fn(),
     };
     trainingMaxHistoryRepo = {
       getHistory: jest.fn().mockResolvedValue([]),
@@ -101,6 +104,9 @@ describe('CycleGenerationService', () => {
     liftRecordRepo = {
       getLiftRecords: jest.fn(),
       appendLiftRecords: jest.fn().mockResolvedValue(undefined),
+      findExistingRecords: jest.fn(),
+      updateLiftRecord: jest.fn(),
+      deleteLiftRecordsByNaturalKeys: jest.fn(),
     };
     userSettingsRepo = {
       getSettings: jest.fn().mockResolvedValue({ activeProgram: null, workoutSchedule: null }),

@@ -35,3 +35,9 @@ export const DEFAULT_SLOT_MAP: Readonly<Record<string, string>> = {
   'C. Lat Raise': 'lateral-raise',
   'Lat Raise':    'lateral-raise',
 };
+
+/**
+ * Unique canonical lift IDs derived from DEFAULT_SLOT_MAP.
+ * Used by the REVIEW step's lift-catalog autocomplete datalist.
+ */
+export const CANONICAL_LIFT_IDS: string[] = [...new Set(Object.values(DEFAULT_SLOT_MAP))];

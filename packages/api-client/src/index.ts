@@ -11,6 +11,7 @@ import type {
   ImportKind,
   ImportLiftRecordsResponse,
   ImportPreviewResponse,
+  ImportUndoResponse,
   LiftMetadataResponse,
   LiftOverrideResponse,
   LiftingProgramSpecResponse,
@@ -83,10 +84,35 @@ function importPath(
   program: string,
   mode: 'preview' | 'commit',
   destination?: ImportKind,
+  opts?: CommitImportOpts,
 ): string {
   const params = new URLSearchParams({ mode });
   if (destination) params.set('destination', destination);
+  if (opts?.overrides && Object.keys(opts.overrides).length > 0) {
+    params.set('overrides', JSON.stringify(opts.overrides));
+  }
+  if (opts?.excludeKeys && opts.excludeKeys.length > 0) {
+    params.set('excludeKeys', opts.excludeKeys.join(','));
+  }
+  if (opts?.liftOverrides && Object.keys(opts.liftOverrides).length > 0) {
+    params.set('liftOverrides', JSON.stringify(opts.liftOverrides));
+  }
+  if (opts?.splitDest) {
+    params.set('splitDest', '1');
+  }
   return `/programs/${enc(program)}/import?${params.toString()}`;
+}
+
+/** Phase 3 options for commitImport. */
+export interface CommitImportOpts {
+  /** Map sourceHeader → destinationField to rename non-standard columns before parsing. */
+  overrides?: Record<string, string>;
+  /** Natural keys of rows to exclude from the commit. */
+  excludeKeys?: string[];
+  /** Map of 1-based CSV row index → canonical lift id for ambiguous rows. */
+  liftOverrides?: Record<number, string>;
+  /** When true, 1RM lift-record rows are split to Training Maxes. */
+  splitDest?: boolean;
 }
 
 // NestJS ValidationPipe returns { statusCode, message: string | string[], error }.
@@ -336,17 +362,20 @@ export function createApiClient(config: ApiClientConfig) {
      * Smart Import — commit a CSV to the chosen destination. The server re-parses the
      * file (never trusting any client payload) and writes idempotently. Returns a
      * discriminated union so callers handle validation errors without catching.
+     * Phase 3: pass `opts` for column overrides, row exclusions, lift remapping, or
+     * 1RM split routing.
      */
     async commitImport(
       program: string,
       file: File,
       destination: ImportKind,
+      opts?: CommitImportOpts,
     ): Promise<
       { ok: true; data: ImportCommitResponse } | { ok: false; errors: ImportError[] }
     > {
       const form = new FormData();
       form.append('file', file);
-      const res = await rawFetch(importPath(program, 'commit', destination), {
+      const res = await rawFetch(importPath(program, 'commit', destination, opts), {
         method: 'POST',
         body: form,
         cache: 'no-store',
@@ -359,6 +388,21 @@ export function createApiClient(config: ApiClientConfig) {
         ok: false,
         errors: body.errors ?? [{ row: 0, message: `Unexpected error (HTTP ${res.status})` }],
       };
+    },
+
+    /**
+     * Phase 3: Undo a committed import by its batch ID. Restores prior values for
+     * updated records, deletes newly created rows, and skips rows edited since import.
+     */
+    async undoImport(program: string, batchId: string): Promise<ImportUndoResponse> {
+      const res = await rawFetch(`/programs/${enc(program)}/import/${enc(batchId)}/undo`, {
+        method: 'POST',
+        cache: 'no-store',
+      });
+      if (!res.ok) {
+        throw new Error(`Undo import failed (HTTP ${res.status})`);
+      }
+      return (await res.json()) as ImportUndoResponse;
     },
 
     // -- Body weight -------------------------------------------------------

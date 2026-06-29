@@ -99,6 +99,28 @@ export class PrismaLiftRecordRepository implements ILiftRecordRepository {
       throw e;
     }
   }
+
+  async deleteLiftRecordsByNaturalKeys(program: string, naturalKeys: string[]): Promise<number> {
+    if (naturalKeys.length === 0) return 0;
+    const parsed = naturalKeys.flatMap((k) => {
+      const p = parseNaturalKey(k);
+      return p ? [p] : [];
+    });
+    if (parsed.length === 0) return 0;
+    const { count } = await this.prisma.liftRecord.deleteMany({
+      where: {
+        userId: this.userId,
+        program,
+        OR: parsed.map((p) => ({
+          cycleNum: p.cycleNum,
+          workoutNum: p.workoutNum,
+          lift: p.lift,
+          setNum: p.setNum,
+        })),
+      },
+    });
+    return count;
+  }
 }
 
 // ID format: ${program}-${cycleNum}-${workoutNum}-${lift}-${setNum}
@@ -118,6 +140,20 @@ function parseLiftRecordId(
   const setNum = parseInt(parts[parts.length - 1] ?? '', 10);
   const lift = parts.slice(2, parts.length - 1).join('-');
 
+  if (isNaN(cycleNum) || isNaN(workoutNum) || isNaN(setNum) || !lift) return null;
+  return { cycleNum, workoutNum, lift, setNum };
+}
+
+/** Decode a `liftRecordNaturalKey`-encoded string ("cycleNum:workoutNum:lift:setNum"). */
+function parseNaturalKey(
+  key: string,
+): { cycleNum: number; workoutNum: number; lift: string; setNum: number } | null {
+  const parts = key.split(':');
+  if (parts.length < 4) return null;
+  const cycleNum = parseInt(parts[0] ?? '', 10);
+  const workoutNum = parseInt(parts[1] ?? '', 10);
+  const setNum = parseInt(parts[parts.length - 1] ?? '', 10);
+  const lift = parts.slice(2, parts.length - 1).join(':');
   if (isNaN(cycleNum) || isNaN(workoutNum) || isNaN(setNum) || !lift) return null;
   return { cycleNum, workoutNum, lift, setNum };
 }

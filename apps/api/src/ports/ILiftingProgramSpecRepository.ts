@@ -32,4 +32,10 @@ export interface ILiftingProgramSpecRepository {
     program: string,
     rows: LiftingProgramSpec[],
   ): Promise<SaveProgramSpecResult>;
+
+  /**
+   * Deletes program-spec rows by natural key for undo support.
+   * Each key is encoded as `"week:offset:lift:order"`.
+   */
+  deleteSpecRows(program: string, naturalKeys: string[]): Promise<void>;
 }

@@ -160,4 +160,30 @@ export class HybridLiftingProgramSpecRepository implements ILiftingProgramSpecRe
       IMPORT_BATCH_TX_OPTIONS,
     );
   }
+
+  async deleteSpecRows(program: string, naturalKeys: string[]): Promise<void> {
+    if (naturalKeys.length === 0 || !UUID_PATTERN.test(program)) return;
+    const parsed = naturalKeys.flatMap((k) => {
+      const parts = k.split(':');
+      if (parts.length < 4) return [];
+      const week = parseInt(parts[0] ?? '', 10);
+      const offset = parseInt(parts[1] ?? '', 10);
+      const order = parseInt(parts[parts.length - 1] ?? '', 10);
+      const lift = parts.slice(2, parts.length - 1).join(':');
+      if (isNaN(week) || isNaN(offset) || isNaN(order) || !lift) return [];
+      return [{ week, offset, lift, order }];
+    });
+    if (parsed.length === 0) return;
+    await this.prisma.customProgramSpec.deleteMany({
+      where: {
+        programId: program,
+        OR: parsed.map((p) => ({
+          week: p.week,
+          offset: p.offset,
+          lift: p.lift,
+          order: p.order,
+        })),
+      },
+    });
+  }
 }
