@@ -59,14 +59,7 @@ const KIND_FIELDS: Record<ImportKind, FieldOption[]> = {
     { key: 'weight', label: 'Weight' },
     { key: 'dateUpdated', label: 'Date Updated' },
   ],
-  'strength-goals': [
-    { key: 'lift', label: 'Lift' },
-    { key: 'goalType', label: 'Goal Type' },
-    { key: 'unit', label: 'Unit' },
-    { key: 'target', label: 'Target' },
-    { key: 'ratio', label: 'Ratio' },
-    { key: 'updatedAt', label: 'Updated At' },
-  ],
+  'strength-goals': [],
   'program-spec': [
     { key: 'week', label: 'Week' },
     { key: 'offset', label: 'Offset' },
@@ -75,7 +68,11 @@ const KIND_FIELDS: Record<ImportKind, FieldOption[]> = {
     { key: 'order', label: 'Order' },
     { key: 'sets', label: 'Sets' },
     { key: 'reps', label: 'Reps' },
-    { key: 'wtDecrementPct', label: 'Wt Decrement %' },
+    { key: 'amrap', label: 'AMRAP?' },
+    { key: 'warmUpPct', label: 'Warm-Up %' },
+    { key: 'wtDecrementPct', label: 'WT Decrement %' },
+    { key: 'activation', label: 'Activation' },
+    { key: 'weekType', label: 'Week Type' },
   ],
 };
 
@@ -109,10 +106,16 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
   const destination = preview?.destination ?? null;
   const previewBody = preview?.preview ?? null;
 
+  // Unmapped required sentinel rows have sourceHeader:''; use destinationField as key
+  // so multiple such rows can be assigned independently.
+  function mappingKey(m: ColumnMapping): string {
+    return m.sourceHeader || `__req__:${m.destinationField}`;
+  }
+
   // Effective column mappings after applying user overrides
   const effectiveMappings: ColumnMapping[] = (preview?.columnMappings ?? []).map((m) =>
-    columnOverrides.has(m.sourceHeader)
-      ? { ...m, destinationField: columnOverrides.get(m.sourceHeader)!, confidence: 1 }
+    columnOverrides.has(mappingKey(m))
+      ? { ...m, destinationField: columnOverrides.get(mappingKey(m)) ?? m.destinationField, confidence: 1 }
       : m,
   );
 
@@ -143,6 +146,7 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
   }
 
   async function handlePickDestination(kind: ImportKind) {
+    setColumnOverrides(new Map());
     setStep(Step.ANALYZING);
     const res = await analyze(kind);
     setStep(res ? Step.MAP_COLUMNS : Step.CLASSIFY);
@@ -338,7 +342,7 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
             </>
           )}
 
-          {step === Step.MAP_COLUMNS && preview && (
+          {step === Step.MAP_COLUMNS && preview && destination && (
             <>
               <h2 className={styles.stepTitle}>Map columns</h2>
               {effectiveMappings.length > 0 ? (
@@ -364,7 +368,7 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
                     </thead>
                     <tbody>
                       {effectiveMappings.map((m, i) => {
-                        const allFields = getAllFieldsForKind(destination!);
+                        const allFields = getAllFieldsForKind(destination);
                         const confPct = Math.round(m.confidence * 100);
                         const confClass =
                           m.confidence >= 0.7
@@ -393,15 +397,16 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
                               <select
                                 className={styles.mappingSelect}
                                 aria-label={`Map column ${m.sourceHeader || '(unmapped)'}`}
-                                value={columnOverrides.get(m.sourceHeader) ?? m.destinationField}
+                                value={columnOverrides.get(mappingKey(m)) ?? m.destinationField}
                                 onChange={(e) => {
                                   const val = e.target.value;
+                                  const key = mappingKey(m);
                                   setColumnOverrides((prev) => {
                                     const next = new Map(prev);
-                                    if (val === m.destinationField && !prev.has(m.sourceHeader)) {
-                                      next.delete(m.sourceHeader);
+                                    if (val === m.destinationField) {
+                                      next.delete(key);
                                     } else {
-                                      next.set(m.sourceHeader, val);
+                                      next.set(key, val);
                                     }
                                     return next;
                                   });

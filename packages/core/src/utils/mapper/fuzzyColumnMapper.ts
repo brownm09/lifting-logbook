@@ -108,7 +108,7 @@ function getRequiredFields(kind: ImportKind): Set<string> {
     ['program-spec', new Set(['week', 'offset', 'lift', 'increment', 'order', 'sets', 'reps', 'wtDecrementPct'])],
     // Strength goals requires lift, goalType, unit, and either target or ratio
     // For now, mark lift, goalType, unit as required (target/ratio checked per-row)
-    ['strength-goals', new Set(['lift', 'goalType', 'unit'])],
+    ['strength-goals', new Set<string>()],
   ]);
 
   return required.get(kind) ?? new Set();
@@ -125,16 +125,6 @@ function getHeaderMapForKind(kind: ImportKind): Record<string, { key: string; ty
       return TRAINING_MAX_HEADER_MAP;
     case 'program-spec':
       return LIFTING_PROGRAM_SPEC_HEADER_MAP;
-    case 'strength-goals':
-      // Strength goals has special internal fields not in a header map
-      return {
-        Lift: { key: 'lift', type: 'string' },
-        'Goal Type': { key: 'goalType', type: 'string' },
-        Unit: { key: 'unit', type: 'string' },
-        Target: { key: 'target', type: 'number' },
-        Ratio: { key: 'ratio', type: 'number' },
-        'Updated At': { key: 'updatedAt', type: 'string' },
-      };
     default:
       return {};
   }
@@ -147,11 +137,15 @@ function getHeaderMapForKind(kind: ImportKind): Record<string, { key: string; ty
  * confidence score. Returns mappings for all source headers plus unmapped
  * required destination fields.
  *
+ * strength-goals uses a tier-ladder format parsed server-side (Lift / Current TM
+ * / tier columns); per-column mapping is not applicable and returns [].
+ *
  * @param sourceHeaders - First row of the CSV (column headers)
  * @param kind - Import destination type (lift-records, training-maxes, etc.)
- * @returns Array of column mappings with confidence scores
+ * @returns Array of column mappings with confidence scores, or [] when mapping is N/A
  */
 export function fuzzyColumnMapper(sourceHeaders: SpreadsheetCell[], kind: ImportKind): ColumnMapping[] {
+  if (kind === 'strength-goals') return [];
   const headerMap = getHeaderMapForKind(kind);
   const requiredFields = getRequiredFields(kind);
   const mappings: ColumnMapping[] = [];

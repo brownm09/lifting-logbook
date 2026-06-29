@@ -115,20 +115,12 @@ describe('fuzzyColumnMapper', () => {
   });
 
   describe('strength-goals', () => {
-    it('marks lift, goalType, unit as required', () => {
-      const headers = ['Lift', 'Goal Type', 'Unit', 'Target'];
+    it('returns [] because strength-goals uses a server-parsed tier-ladder format', () => {
+      // The real export is: Lift | Current TM | Intermediate | Advanced | Elite
+      // The parser auto-detects this layout; per-column mapping is not applicable.
+      const headers = ['Lift', 'Current TM', 'Intermediate', 'Advanced', 'Elite'];
       const result = fuzzyColumnMapper(headers, 'strength-goals');
-
-      const requiredFields = result.filter((m) => m.required).map((m) => m.destinationField);
-      expect(requiredFields).toEqual(expect.arrayContaining(['lift', 'goalType', 'unit']));
-    });
-
-    it('fuzzy-matches "Lift Name" → lift and "Wt Unit" → unit', () => {
-      const headers = ['Lift Name', 'Goal Type', 'Wt Unit', 'Target'];
-      const result = fuzzyColumnMapper(headers, 'strength-goals');
-
-      expect(result.find((m) => m.sourceHeader === 'Lift Name')?.destinationField).toBe('lift');
-      expect(result.find((m) => m.sourceHeader === 'Wt Unit')?.destinationField).toBe('unit');
+      expect(result).toEqual([]);
     });
   });
 
