@@ -41,8 +41,8 @@ function Harness({ method = 'estimate' as DiscoveryMethod }: { method?: Discover
   );
 }
 
-describe('StepLifts — default rows', () => {
-  it('renders the seeded big-three rows with weight and reps inputs', () => {
+describe('StepLifts — rendered rows', () => {
+  it('renders each lift row with weight and reps inputs', () => {
     render(<Harness />);
     for (const lift of DEFAULT_LIFTS) {
       expect(screen.getByText(lift)).toBeInTheDocument();

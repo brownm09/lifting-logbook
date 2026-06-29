@@ -1,10 +1,10 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useCallback, useMemo, useState, useTransition } from 'react';
 import styles from './onboarding.module.css';
 import {
   brzycki1RM,
-  DEFAULT_LIFTS,
+  getSeedLiftsByProgramId,
   isWeightOnly,
   valuesAreTrainingMax,
   type DiscoveryMethod,
@@ -20,17 +20,17 @@ import { createFirstCycle } from './actions';
 
 const STEP_LABELS = [
   'Choose Method',
+  'Choose Program',
   'Enter Lifts',
   'Confirm Maxes',
-  'Choose Program',
 ];
+
+const STEP = { METHOD: 0, PROGRAM: 1, LIFTS: 2, CONFIRM: 3 } as const;
 
 export function OnboardingFlow({ catalog }: { catalog: string[] }) {
   const [step, setStep] = useState(0);
   const [method, setMethod] = useState<DiscoveryMethod>('estimate');
-  const [lifts, setLifts] = useState<LiftRow[]>(
-    DEFAULT_LIFTS.map((lift) => ({ lift, weight: '', reps: '' })),
-  );
+  const [lifts, setLifts] = useState<LiftRow[]>([]);
   const [experience, setExperience] = useState<Experience>('beginner');
   const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -83,9 +83,7 @@ export function OnboardingFlow({ catalog }: { catalog: string[] }) {
     setLifts((prev) => prev.filter((_, i) => i !== index));
   }
 
-  // The `import` method pre-fills the lift rows from a training-maxes CSV
-  // (one row per lift, weight = the training max, no reps). Replacing `lifts`
-  // enables the advance gate (every weight > 0) so the user continues to Confirm.
+  // Import replaces seeded rows — the user's file takes priority over program defaults.
   function handleImported(rows: LiftRow[]) {
     setLifts(rows);
   }
@@ -97,6 +95,17 @@ export function OnboardingFlow({ catalog }: { catalog: string[] }) {
   function goBack() {
     setStep((s) => Math.max(s - 1, 0));
   }
+
+  // Seeds lifts only on first arrival (lifts.length === 0) — preserves manual
+  // edits and retains the prior program's lifts when the user goes Back and
+  // re-selects (no affordance; the import path always overwrites instead).
+  const handleProgramAdvance = useCallback(() => {
+    if (selectedProgramId && lifts.length === 0) {
+      const seeded = getSeedLiftsByProgramId(selectedProgramId);
+      if (seeded.length > 0) setLifts(seeded);
+    }
+    setStep((s) => Math.min(s + 1, STEP_LABELS.length - 1));
+  }, [selectedProgramId, lifts]);
 
   function handleConfirm() {
     if (!selectedProgramId) return;
@@ -142,8 +151,23 @@ export function OnboardingFlow({ catalog }: { catalog: string[] }) {
         </header>
 
         <section className={styles.body}>
-          {step === 0 && <StepMethod method={method} onSelect={setMethod} />}
-          {step === 1 &&
+          {step === STEP.METHOD && <StepMethod method={method} onSelect={setMethod} />}
+          {step === STEP.PROGRAM && (
+            <StepProgram
+              experience={experience}
+              selectedProgramId={selectedProgramId}
+              onExperienceChange={(level) => {
+                setExperience(level);
+                setSelectedProgramId(null);
+              }}
+              onSelectProgram={(id) => {
+                setSelectedProgramId(id);
+              }}
+              onClearSelection={() => setSelectedProgramId(null)}
+              onAdvance={handleProgramAdvance}
+            />
+          )}
+          {step === STEP.LIFTS &&
             (method === 'import' ? (
               <StepImport onImported={handleImported} />
             ) : (
@@ -156,40 +180,41 @@ export function OnboardingFlow({ catalog }: { catalog: string[] }) {
                 onRemove={removeLift}
               />
             ))}
-          {step === 2 && <StepConfirm maxes={computedMaxes} method={method} />}
-          {step === 3 && (
-            <StepProgram
-              experience={experience}
-              selectedProgramId={selectedProgramId}
+          {step === STEP.CONFIRM && (
+            <StepConfirm
+              maxes={computedMaxes}
+              method={method}
+              onConfirm={handleConfirm}
               isPending={isPending}
               cycleError={cycleError}
-              onExperienceChange={(level) => {
-                setExperience(level);
-                setSelectedProgramId(null);
-              }}
-              onSelectProgram={(id) => {
-                setSelectedProgramId(id);
-              }}
-              onClearSelection={() => setSelectedProgramId(null)}
-              onConfirm={handleConfirm}
             />
           )}
         </section>
 
         <div className={styles.actionRow}>
-          {step > 0 && step < 3 && (
-            <button type="button" className={styles.btnSecondary} onClick={goBack}>
+          {step > STEP.METHOD && (
+            <button
+              type="button"
+              className={styles.btnSecondary}
+              onClick={goBack}
+              disabled={isPending}
+            >
               Back
             </button>
           )}
-          {step < 3 && (
+          {step === STEP.METHOD && (
+            <button type="button" className={styles.btnPrimary} onClick={goNext}>
+              Next
+            </button>
+          )}
+          {step === STEP.LIFTS && (
             <button
               type="button"
               className={styles.btnPrimary}
               onClick={goNext}
-              disabled={step === 1 ? !canAdvanceFromLifts : false}
+              disabled={!canAdvanceFromLifts}
             >
-              {step === 2 ? 'Continue to Programs' : 'Next'}
+              Next
             </button>
           )}
         </div>

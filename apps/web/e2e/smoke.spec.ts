@@ -31,37 +31,37 @@ test('no active cycle redirects to onboarding', async ({ page, request }) => {
 // 3. Onboarding flow → lands on cycle dashboard
 // ---------------------------------------------------------------------------
 
-test('onboarding: enter lifts → confirm → choose program → lands on cycle', async ({ page, request }) => {
+test('onboarding: choose program → enter lifts → confirm → lands on cycle', async ({ page, request }) => {
   // The onboarding guard redirects to /cycle/<N> when a cycle already exists,
   // so this test must start from a no-cycle state.
   await request.get(`${MOCK_API}/__reset?noCurrentCycle=true`);
   await page.goto('/onboarding');
   await expect(page.getByRole('heading', { name: 'Get Started' })).toBeVisible();
 
-  // Step 1: Choose Method — click Next to accept default (estimate)
+  // Step 1: Choose Method — pick "Enter training maxes" (weight-only, no reps needed)
+  await page.getByRole('button', { name: 'Enter training maxes' }).click();
   await page.getByRole('button', { name: 'Next', exact: true }).click();
 
-  // Step 2: Enter Lifts
-  await page.getByLabel('Bench Press weight').fill('185');
-  await page.getByLabel('Bench Press reps').fill('5');
-  // The default squat row now uses the canonical catalog name 'Squat'
-  // (previously displayed as 'Back Squat') — see DEFAULT_LIFTS in onboarding/lib.ts.
-  await page.getByLabel('Squat weight').fill('225');
-  await page.getByLabel('Squat reps').fill('5');
-  await page.getByLabel('Deadlift weight').fill('275');
-  await page.getByLabel('Deadlift reps').fill('5');
-  await page.getByRole('button', { name: 'Next', exact: true }).click();
-
-  // Step 3: Confirm maxes
-  await expect(page.getByRole('button', { name: 'Continue to Programs' })).toBeVisible();
-  await page.getByRole('button', { name: 'Continue to Programs' }).click();
-
-  // Step 4: Choose program — switch to Intermediate tab to find RPT (only available program)
+  // Step 2: Choose Program — switch to Intermediate tab, select RPT
   await page.getByRole('tab', { name: 'Intermediate' }).click();
   await page.getByRole('button', { name: /Reverse Pyramid Training/i }).click();
 
-  // Detail view — confirm selection
+  // Detail view — confirm program selection (seeds RPT lifts into the next step)
   await page.getByRole('button', { name: 'Choose This Program' }).click();
+
+  // Step 3: Enter Lifts — RPT's 9 lifts are pre-seeded; enter a TM for each
+  const rptLifts = [
+    'Bench Press', 'Barbell Row', 'Overhead Press',
+    'Squat', 'Romanian Deadlift', 'Calf Raises',
+    'Deadlift', 'Weighted Pull-ups', 'Dips',
+  ];
+  for (const lift of rptLifts) {
+    await page.getByLabel(`${lift} weight`, { exact: true }).fill('225');
+  }
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+
+  // Step 4: Confirm Maxes — submit to create the first cycle
+  await page.getByRole('button', { name: 'Start My Program' }).click();
 
   // Should land on the cycle dashboard
   await expect(page).toHaveURL(/\/cycle\/1/, { timeout: 15_000 });

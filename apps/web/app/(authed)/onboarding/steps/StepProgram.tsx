@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import styles from '../onboarding.module.css';
 import { PROGRAMS, type Experience, type Goal, type Program, type Purpose } from '@/lib/programs';
 
@@ -29,23 +29,19 @@ type View = 'list' | 'detail' | 'catalog';
 type Props = {
   experience: Experience;
   selectedProgramId: string | null;
-  isPending: boolean;
-  cycleError?: string | null;
   onExperienceChange: (level: Experience) => void;
   onSelectProgram: (id: string) => void;
   onClearSelection: () => void;
-  onConfirm: () => void;
+  onAdvance: () => void;
 };
 
 export function StepProgram({
   experience,
   selectedProgramId,
-  isPending,
-  cycleError,
   onExperienceChange,
   onSelectProgram,
   onClearSelection,
-  onConfirm,
+  onAdvance,
 }: Props) {
   const [view, setView] = useState<View>('list');
   const [goalFilter, setGoalFilter] = useState<'all' | Goal>('all');
@@ -57,17 +53,19 @@ export function StepProgram({
   const selectedProgram: Program | null =
     PROGRAMS.find((p) => p.id === selectedProgramId) ?? null;
 
-  function applyFilters(programs: Program[]): Program[] {
-    return programs.filter((p) => {
-      if (!showUnavailable && !p.available) return false;
-      if (goalFilter !== 'all' && !p.goals.includes(goalFilter)) return false;
-      return true;
-    });
-  }
+  const applyFilters = useCallback(
+    (programs: Program[]) =>
+      programs.filter((p) => {
+        if (!showUnavailable && !p.available) return false;
+        if (goalFilter !== 'all' && !p.goals.includes(goalFilter)) return false;
+        return true;
+      }),
+    [goalFilter, showUnavailable],
+  );
 
   const visiblePrograms = useMemo(
     () => applyFilters(PROGRAMS.filter((p) => p.experience === experience)),
-    [experience, goalFilter, showUnavailable],
+    [experience, applyFilters],
   );
 
   const catalogByTier = useMemo(
@@ -76,7 +74,7 @@ export function StepProgram({
       intermediate: applyFilters(PROGRAMS.filter((p) => p.experience === 'intermediate')),
       advanced: applyFilters(PROGRAMS.filter((p) => p.experience === 'advanced')),
     }),
-    [goalFilter, showUnavailable],
+    [applyFilters],
   );
 
   // When the default-on availability filter hides every match for the current
@@ -274,19 +272,16 @@ export function StepProgram({
             <button
               type="button"
               className={styles.btnSuccess}
-              onClick={isAvailable ? onConfirm : undefined}
-              disabled={!isAvailable || isPending}
-              aria-disabled={!isAvailable || isPending}
+              onClick={isAvailable ? onAdvance : undefined}
+              disabled={!isAvailable}
+              aria-disabled={!isAvailable}
             >
-              {isPending ? 'Starting…' : 'Choose This Program'}
+              Choose This Program
             </button>
           </div>
 
           {!isAvailable && (
             <p className={styles.comingSoonNote}>⏳ Coming soon — not yet available</p>
-          )}
-          {cycleError && (
-            <p className={styles.errorNote} role="alert">{cycleError}</p>
           )}
         </div>
       </>
