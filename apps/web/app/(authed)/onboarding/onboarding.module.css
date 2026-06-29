@@ -98,6 +98,19 @@
   color: var(--color-error-text);
 }
 
+.inlineLinkBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-accent);
+  cursor: pointer;
+  font: inherit;
+  text-decoration: underline;
+}
+.inlineLinkBtn:hover {
+  opacity: 0.8;
+}
+
 .optionList {
   display: flex;
   flex-direction: column;

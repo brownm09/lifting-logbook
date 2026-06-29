@@ -84,6 +84,30 @@ describe('StepImport', () => {
     });
   });
 
+  it('shows a re-upload affordance when all rows are removed', async () => {
+    const user = userEvent.setup();
+    const onImported = jest.fn();
+    render(<StepImport onImported={onImported} />);
+
+    const csv = [
+      'Date Updated,Lift,Weight',
+      '2026-01-01,Squat,300',
+    ].join('\n');
+
+    await user.upload(screen.getByLabelText(/training-maxes csv/i), csvFile(csv));
+    await waitFor(() => expect(onImported).toHaveBeenCalledTimes(1));
+
+    // Remove the only row.
+    await user.click(screen.getByRole('button', { name: 'Remove Squat' }));
+    await waitFor(() => expect(onImported).toHaveBeenLastCalledWith([]));
+
+    // The empty-state affordance is visible; the row list and old summary are gone.
+    expect(screen.getByText(/all rows removed/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /upload a new file/i })).toBeInTheDocument();
+    expect(screen.queryByText(/loaded/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Weight for Squat')).not.toBeInTheDocument();
+  });
+
   it('redirects to the full import tool when the file is not training maxes', async () => {
     const user = userEvent.setup();
     const onImported = jest.fn();

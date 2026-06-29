@@ -81,6 +81,7 @@ export function StepImport({ onImported }: Props) {
   rowsRef.current = rows;
   // Stable counter so each uploaded file resets keyed inputs (avoids stale values).
   const uploadGen = useRef(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   function applyRows(next: LiftRow[]) {
     setRows(next);
@@ -178,11 +179,18 @@ export function StepImport({ onImported }: Props) {
           Training-maxes CSV
         </label>
         <input
+          ref={fileInputRef}
           id={inputId}
           type="file"
           accept=".csv,text/csv"
           onChange={handleFile}
-          aria-describedby={error ? `${inputId}-error` : fileName ? summaryId : undefined}
+          aria-describedby={
+            error
+              ? `${inputId}-error`
+              : fileName && rows !== null && rows.length > 0
+                ? summaryId
+                : undefined
+          }
         />
       </div>
       {error && (
@@ -195,36 +203,50 @@ export function StepImport({ onImported }: Props) {
         </p>
       )}
       {fileName && rows !== null && (
-        <>
-          <p id={summaryId} className={styles.infoBox}>
-            Loaded {rows.length} training max{rows.length === 1 ? '' : 'es'} from {fileName}.
-            Edit or remove any rows before continuing.
+        rows.length === 0 ? (
+          <p className={styles.infoBox}>
+            All rows removed.{' '}
+            <button
+              type="button"
+              className={styles.inlineLinkBtn}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              Upload a new file
+            </button>{' '}
+            to start over.
           </p>
-          <div className={styles.dataRows} aria-label="Imported training maxes">
-            {rows.map((row, i) => (
-              <div key={`${uploadGen.current}-${row.lift}`} className={styles.dataRow}>
-                <span className={styles.maxEditLiftName}>{row.lift}</span>
-                <input
-                  type="number"
-                  className={styles.numberInput}
-                  value={row.weight}
-                  min={1}
-                  aria-label={`Weight for ${row.lift}`}
-                  onChange={(e) => updateWeight(i, e.target.value)}
-                />
-                <span className={styles.unitLabel}>lbs</span>
-                <button
-                  type="button"
-                  className={styles.removeLiftBtn}
-                  onClick={() => removeRow(i)}
-                  aria-label={`Remove ${row.lift}`}
-                >
-                  &times;
-                </button>
-              </div>
-            ))}
-          </div>
-        </>
+        ) : (
+          <>
+            <p id={summaryId} className={styles.infoBox}>
+              Loaded {rows.length} training max{rows.length === 1 ? '' : 'es'} from {fileName}.
+              Edit or remove any rows before continuing.
+            </p>
+            <div className={styles.dataRows} aria-label="Imported training maxes">
+              {rows.map((row, i) => (
+                <div key={`${uploadGen.current}-${row.lift}`} className={styles.dataRow}>
+                  <span className={styles.maxEditLiftName}>{row.lift}</span>
+                  <input
+                    type="number"
+                    className={styles.numberInput}
+                    value={row.weight}
+                    min={1}
+                    aria-label={`Weight for ${row.lift}`}
+                    onChange={(e) => updateWeight(i, e.target.value)}
+                  />
+                  <span className={styles.unitLabel}>lbs</span>
+                  <button
+                    type="button"
+                    className={styles.removeLiftBtn}
+                    onClick={() => removeRow(i)}
+                    aria-label={`Remove ${row.lift}`}
+                  >
+                    &times;
+                  </button>
+                </div>
+              ))}
+            </div>
+          </>
+        )
       )}
     </>
   );
