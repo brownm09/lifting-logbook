@@ -433,7 +433,7 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
             <button
               type="button"
               className={styles.btnSecondary}
-              onClick={() => setStep(step === Step.CLASSIFY ? Step.SOURCE : step - 1)}
+              onClick={() => setStep((step === Step.CLASSIFY ? Step.SOURCE : step - 1) as typeof Step[keyof typeof Step])}
               disabled={busy}
             >
               Back
