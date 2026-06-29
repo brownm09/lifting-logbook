@@ -100,7 +100,7 @@ export function buildLiftRecordsPreviewSoft(
   }
 
   // Ambiguous rows — tag with status and original lift name for autocomplete
-  for (const { rowIndex, originalLift } of softResult.ambiguous) {
+  for (const { record: r, rowIndex, originalLift } of softResult.ambiguous) {
     const key = `__ambiguous_${rowIndex}`;
     const value = `${r.weight} × ${r.reps}`;
     const label = `${originalLift} · cycle ${r.cycleNum} workout ${r.workoutNum} set ${r.setNum}`;
