@@ -46,14 +46,14 @@ describe('readServerPublicConfig', () => {
   // Fail-loud guard: in a deployed runtime a missing/empty PUBLIC_API_URL must throw rather
   // than silently fall back to localhost (which would ship a broken prod image — #395/#458).
   it('throws in a deployed runtime when PUBLIC_API_URL is unset', () => {
-    process.env.NODE_ENV = 'production';
+    Object.defineProperty(process.env, 'NODE_ENV', { value: 'production', configurable: true });
     delete process.env.NEXT_PHASE;
     delete process.env.PUBLIC_API_URL;
     expect(() => readServerPublicConfig()).toThrow(/PUBLIC_API_URL is not set/);
   });
 
   it('throws in a deployed runtime when PUBLIC_API_URL is the empty string', () => {
-    process.env.NODE_ENV = 'production';
+    Object.defineProperty(process.env, 'NODE_ENV', { value: 'production', configurable: true });
     delete process.env.NEXT_PHASE;
     process.env.PUBLIC_API_URL = '';
     expect(() => readServerPublicConfig()).toThrow(/PUBLIC_API_URL is not set/);
@@ -61,7 +61,7 @@ describe('readServerPublicConfig', () => {
 
   it('does NOT throw during `next build` even with PUBLIC_API_URL unset', () => {
     // The keyless build the force-dynamic root layout relies on must never throw here.
-    process.env.NODE_ENV = 'production';
+    Object.defineProperty(process.env, 'NODE_ENV', { value: 'production', configurable: true });
     process.env.NEXT_PHASE = 'phase-production-build';
     delete process.env.PUBLIC_API_URL;
     expect(readServerPublicConfig().apiUrl).toBe(PUBLIC_CONFIG_FALLBACK.apiUrl);
