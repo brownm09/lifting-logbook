@@ -104,6 +104,9 @@ function createInitialState() {
     // Empty by default so the /programs page test still sees RPT as the only
     // program; the import test opts in via /__reset?withCustomProgram=true.
     customPrograms: [],
+    // When true, the import preview response includes columnMappings with one
+    // required field unmapped, to exercise the MAP_COLUMNS override flow.
+    nonStandardColumns: false,
   };
 }
 
@@ -175,6 +178,9 @@ const server = createServer(async (req, res) => {
     }
     if (url.searchParams.get('withCustomProgram') === 'true') {
       state.customPrograms = [CUSTOM_PROGRAM];
+    }
+    if (url.searchParams.get('withNonStandardColumns') === 'true') {
+      state.nonStandardColumns = true;
     }
     json(res, { ok: true });
     return;
@@ -370,6 +376,19 @@ const server = createServer(async (req, res) => {
             alternatives: [{ type: 'lift-records', confidence: 0.42, closeCall: false }],
           },
           destination: 'training-maxes',
+          // When nonStandardColumns is set, include fuzzy column mappings with one
+          // required field unmapped so the MAP_COLUMNS override flow can be tested.
+          // Omitted in the standard case (not empty array) to preserve the mock
+          // contract the existing first import test relies on.
+          ...(state.nonStandardColumns
+            ? {
+                columnMappings: [
+                  { sourceHeader: 'Date', destinationField: 'dateUpdated', confidence: 0.65, required: true, transformationNote: null },
+                  { sourceHeader: 'Exercise', destinationField: '', confidence: 0.0, required: true, transformationNote: null },
+                  { sourceHeader: 'Max Weight', destinationField: 'weight', confidence: 0.72, required: true, transformationNote: null },
+                ],
+              }
+            : {}),
           preview: {
             creates: 2,
             updates: 1,
