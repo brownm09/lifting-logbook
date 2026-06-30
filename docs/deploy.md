@@ -718,6 +718,11 @@ gcloud beta run domain-mappings create --service=lifting-logbook-prod-web \
 > default or "leave blank" guidance. Validated during the `liftinglogbook.com` production setup
 > (2026-05-20).
 
+For the full walkthrough — `www` subdomain mapping, the A/AAAA/CNAME DNS records to add, and
+SSL provisioning status — see [`deploy-single-user.md` Step 6](deploy-single-user.md#step-6--map-a-custom-domain-optional),
+which documents the same verification gotcha and carries the rest of the procedure this summary
+omits.
+
 ### Accessing logs
 
 ```bash
