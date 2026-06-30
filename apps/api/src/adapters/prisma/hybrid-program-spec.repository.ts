@@ -3,6 +3,7 @@ import {
   LiftingProgramSpec,
   classifyAndCount,
   programSpecNaturalKey,
+  parseProgramSpecNaturalKey,
   programSpecRowKind,
   normalizeAmrap,
 } from '@lifting-logbook/core';
@@ -159,5 +160,25 @@ export class HybridLiftingProgramSpecRepository implements ILiftingProgramSpecRe
       },
       IMPORT_BATCH_TX_OPTIONS,
     );
+  }
+
+  async deleteSpecRows(program: string, naturalKeys: string[]): Promise<void> {
+    if (naturalKeys.length === 0 || !UUID_PATTERN.test(program)) return;
+    const parsed = naturalKeys.flatMap((k) => {
+      const p = parseProgramSpecNaturalKey(k);
+      return p ? [p] : [];
+    });
+    if (parsed.length === 0) return;
+    await this.prisma.customProgramSpec.deleteMany({
+      where: {
+        programId: program,
+        OR: parsed.map((p) => ({
+          week: p.week,
+          offset: p.offset,
+          lift: p.lift,
+          order: p.order,
+        })),
+      },
+    });
   }
 }

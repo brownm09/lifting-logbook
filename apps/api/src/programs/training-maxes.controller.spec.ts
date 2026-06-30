@@ -12,7 +12,7 @@ describe('TrainingMaxesController', () => {
   let factory: jest.Mocked<IRepositoryFactory>;
 
   beforeEach(async () => {
-    repo = { getTrainingMaxes: jest.fn(), saveTrainingMaxes: jest.fn() };
+    repo = { getTrainingMaxes: jest.fn(), saveTrainingMaxes: jest.fn(), importTrainingMaxes: jest.fn(), deleteTrainingMaxes: jest.fn() };
     factory = {
       forUser: jest.fn().mockResolvedValue({ trainingMax: repo }),
     };

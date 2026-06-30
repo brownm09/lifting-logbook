@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 // Prisma 5.x — error classes moved off the Prisma namespace
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-import { LiftRecord, liftRecordNaturalKey } from '@lifting-logbook/core';
+import { LiftRecord, liftRecordNaturalKey, parseLiftRecordNaturalKey } from '@lifting-logbook/core';
 import { ILiftRecordRepository } from '../../ports/ILiftRecordRepository';
 
 export class PrismaLiftRecordRepository implements ILiftRecordRepository {
@@ -98,6 +98,28 @@ export class PrismaLiftRecordRepository implements ILiftRecordRepository {
       }
       throw e;
     }
+  }
+
+  async deleteLiftRecordsByNaturalKeys(program: string, naturalKeys: string[]): Promise<number> {
+    if (naturalKeys.length === 0) return 0;
+    const parsed = naturalKeys.flatMap((k) => {
+      const p = parseLiftRecordNaturalKey(k);
+      return p ? [p] : [];
+    });
+    if (parsed.length === 0) return 0;
+    const { count } = await this.prisma.liftRecord.deleteMany({
+      where: {
+        userId: this.userId,
+        program,
+        OR: parsed.map((p) => ({
+          cycleNum: p.cycleNum,
+          workoutNum: p.workoutNum,
+          lift: p.lift,
+          setNum: p.setNum,
+        })),
+      },
+    });
+    return count;
   }
 }
 

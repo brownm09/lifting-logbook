@@ -26,4 +26,7 @@ export interface ITrainingMaxRepository {
    * failure rolls back.
    */
   importTrainingMaxes(program: string, maxes: TrainingMax[]): Promise<ImportWriteResult>;
+
+  /** Deletes training maxes by lift name for undo support. */
+  deleteTrainingMaxes(program: string, lifts: string[]): Promise<void>;
 }

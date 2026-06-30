@@ -8,6 +8,7 @@ import { RLS_TX_CLIENT } from './rls-context';
 import { PrismaCustomLiftRepository } from './custom-lift.repository';
 import { PrismaCycleDashboardRepository } from './cycle-dashboard.repository';
 import { PrismaCycleScheduledWorkoutRepository } from './cycle-scheduled-workout.repository';
+import { PrismaImportBatchRepository } from './import-batch.repository';
 import { PrismaLiftMetadataRepository } from './lift-metadata.repository';
 import { PrismaLiftRecordRepository } from './lift-record.repository';
 import { PrismaStrengthGoalRepository } from './strength-goal.repository';
@@ -54,6 +55,7 @@ export class PrismaRepositoryFactory implements IRepositoryFactory {
       customLift: new PrismaCustomLiftRepository(db, user.id),
       cycleDashboard: new PrismaCycleDashboardRepository(db, user.id),
       cycleScheduledWorkout: new PrismaCycleScheduledWorkoutRepository(db, user.id),
+      importBatch: new PrismaImportBatchRepository(db, user.id),
       liftMetadata: new PrismaLiftMetadataRepository(db, user.id),
       liftRecord: new PrismaLiftRecordRepository(db, user.id),
       programPhilosophy: this.philosophyRepo,

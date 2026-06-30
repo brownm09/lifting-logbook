@@ -225,3 +225,15 @@ model CustomProgramSpec {
   @@index([programId])
   @@map("custom_program_spec")
 }
+
+model ImportBatch {
+  id          String   @id @default(uuid())
+  userId      String
+  program     String
+  destination String
+  preImage    Json
+  createdAt   DateTime @default(now())
+
+  @@index([userId, program])
+  @@map("import_batch")
+}

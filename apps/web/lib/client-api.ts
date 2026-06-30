@@ -63,4 +63,5 @@ export const {
   importLiftRecords,
   previewImport,
   commitImport,
+  undoImport,
 } = createApiClient({ baseUrl: getApiUrl, getAuthHeaders: getClientAuthHeaders });

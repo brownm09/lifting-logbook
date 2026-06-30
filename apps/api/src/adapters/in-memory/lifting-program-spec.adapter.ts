@@ -58,4 +58,11 @@ export class InMemoryLiftingProgramSpecRepository
     this.specByProgram.set(program, [...byKey.values()]);
     return result;
   }
+
+  async deleteSpecRows(program: string, naturalKeys: string[]): Promise<void> {
+    if (naturalKeys.length === 0) return;
+    const keySet = new Set(naturalKeys);
+    const existing = this.specByProgram.get(program) ?? [];
+    this.specByProgram.set(program, existing.filter((r) => !keySet.has(programSpecNaturalKey(r))));
+  }
 }

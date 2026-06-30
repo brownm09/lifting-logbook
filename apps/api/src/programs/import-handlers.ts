@@ -10,6 +10,7 @@ import {
   TrainingMax,
   StrengthGoalEntry,
   LiftingProgramSpec,
+  ImportPreImage,
   parseLiftRecords,
   parseTrainingMaxes,
   parseStrengthGoals,
@@ -22,6 +23,10 @@ import {
   buildTrainingMaxPreview,
   buildStrengthGoalPreview,
   buildProgramSpecPreview,
+  buildLiftRecordsPreImage,
+  buildTrainingMaxPreImage,
+  buildStrengthGoalPreImage,
+  buildProgramSpecPreImage,
   liftRecordNaturalKey,
   DEFAULT_SLOT_MAP,
 } from '@lifting-logbook/core';
@@ -39,7 +44,7 @@ export interface ImportHandler<T> {
     valid: T[],
     program: string,
     repos: RepositoryBundle,
-  ): Promise<Omit<ImportCommitResponse, 'destination'>>;
+  ): Promise<Omit<ImportCommitResponse, 'destination' | 'batchId' | 'split'> & { preImage: ImportPreImage }>;
 }
 
 const liftRecordsHandler: ImportHandler<LiftRecord> = {
@@ -52,9 +57,18 @@ const liftRecordsHandler: ImportHandler<LiftRecord> = {
   },
   async commit(valid, program, repos) {
     const records = valid.map((r) => ({ ...r, program }));
-    const uniqueKeys = new Set(records.map(liftRecordNaturalKey)).size;
+    const existingKeys = new Set(
+      (await repos.liftRecord.findExistingRecords(program, records)).map(liftRecordNaturalKey),
+    );
     const created = await repos.liftRecord.appendLiftRecords(program, records);
-    return { created, updated: 0, skipped: uniqueKeys - created };
+    const uniqueKeys = new Set(records.map(liftRecordNaturalKey)).size;
+    const newRecords = records.filter((r) => !existingKeys.has(liftRecordNaturalKey(r)));
+    return {
+      created,
+      updated: 0,
+      skipped: uniqueKeys - created,
+      preImage: buildLiftRecordsPreImage(newRecords),
+    };
   },
 };
 
@@ -66,7 +80,9 @@ const trainingMaxesHandler: ImportHandler<TrainingMax> = {
     return buildTrainingMaxPreview(valid, existing);
   },
   async commit(valid, program, repos) {
-    return repos.trainingMax.importTrainingMaxes(program, valid);
+    const existing = await repos.trainingMax.getTrainingMaxes(program);
+    const result = await repos.trainingMax.importTrainingMaxes(program, valid);
+    return { ...result, preImage: buildTrainingMaxPreImage(valid, existing) };
   },
 };
 
@@ -78,7 +94,9 @@ const strengthGoalsHandler: ImportHandler<StrengthGoalEntry> = {
     return buildStrengthGoalPreview(valid, existing);
   },
   async commit(valid, program, repos) {
-    return repos.strengthGoal.importGoals(program, valid);
+    const existing = await repos.strengthGoal.getGoals(program);
+    const result = await repos.strengthGoal.importGoals(program, valid);
+    return { ...result, preImage: buildStrengthGoalPreImage(valid, existing) };
   },
 };
 
@@ -90,7 +108,9 @@ const programSpecHandler: ImportHandler<LiftingProgramSpec> = {
     return buildProgramSpecPreview(valid, existing);
   },
   async commit(valid, program, repos) {
-    return repos.liftingProgramSpec.saveProgramSpec(program, valid);
+    const existing = await repos.liftingProgramSpec.getProgramSpec(program);
+    const result = await repos.liftingProgramSpec.saveProgramSpec(program, valid);
+    return { ...result, preImage: buildProgramSpecPreImage(valid, existing) };
   },
 };
 

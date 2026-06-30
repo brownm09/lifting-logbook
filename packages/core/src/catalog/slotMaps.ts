@@ -34,4 +34,25 @@ export const DEFAULT_SLOT_MAP: Readonly<Record<string, string>> = {
   'CBL Curls':   'cable-curl',
   'C. Lat Raise': 'lateral-raise',
   'Lat Raise':    'lateral-raise',
+
+  // Canonical IDs map to themselves so that rows pre-resolved by liftOverrides pass
+  // strict validation without requiring a separate display-name alias.
+  'back-squat':     'back-squat',
+  'bench-press':    'bench-press',
+  'deadlift':       'deadlift',
+  'overhead-press': 'overhead-press',
+  'barbell-row':    'barbell-row',
+  'chin-up':        'chin-up',
+  'cable-curl':     'cable-curl',
+  'calf-raise':     'calf-raise',
+  'dip':            'dip',
+  'face-pull':      'face-pull',
+  'lateral-raise':  'lateral-raise',
+  'upright-row':    'upright-row',
 };
+
+/**
+ * Unique canonical lift IDs derived from DEFAULT_SLOT_MAP.
+ * Used by the REVIEW step's lift-catalog autocomplete datalist.
+ */
+export const CANONICAL_LIFT_IDS: string[] = [...new Set(Object.values(DEFAULT_SLOT_MAP))];

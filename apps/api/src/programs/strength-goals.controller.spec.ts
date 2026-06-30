@@ -18,6 +18,7 @@ describe('StrengthGoalsController', () => {
       getGoals: jest.fn(),
       upsertGoal: jest.fn(),
       deleteGoal: jest.fn(),
+      importGoals: jest.fn(),
     };
     factory = { forUser: jest.fn().mockResolvedValue({ strengthGoal: repo }) };
 

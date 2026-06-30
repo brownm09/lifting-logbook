@@ -25,6 +25,7 @@ import { IWorkoutDateOverrideRepository } from './IWorkoutDateOverrideRepository
 import { IWorkoutLiftOverrideRepository } from './IWorkoutLiftOverrideRepository';
 import { IWorkoutRepository } from './IWorkoutRepository';
 import { IWorkoutSkipOverrideRepository } from './IWorkoutSkipOverrideRepository';
+import { IImportBatchRepository } from './IImportBatchRepository';
 
 // ---------------------------------------------------------------------------
 // IAuthProvider
@@ -55,6 +56,8 @@ const _programSpecRepo: ILiftingProgramSpecRepository = {
     Promise.resolve([]),
   saveProgramSpec: () =>
     Promise.resolve({ created: 0, updated: 0, skipped: 0 }),
+  deleteSpecRows: (): Promise<void> =>
+    Promise.resolve(),
 };
 
 // ---------------------------------------------------------------------------
@@ -70,6 +73,8 @@ const _liftRecordRepo: ILiftRecordRepository = {
     Promise.resolve([]),
   updateLiftRecord: (): Promise<LiftRecord | null> =>
     Promise.resolve(null),
+  deleteLiftRecordsByNaturalKeys: (): Promise<number> =>
+    Promise.resolve(0),
 };
 
 // ---------------------------------------------------------------------------
@@ -94,6 +99,8 @@ const _trainingMaxRepo: ITrainingMaxRepository = {
     Promise.resolve(),
   importTrainingMaxes: () =>
     Promise.resolve({ created: 0, updated: 0, skipped: 0 }),
+  deleteTrainingMaxes: (): Promise<void> =>
+    Promise.resolve(),
 };
 
 // ---------------------------------------------------------------------------
@@ -193,6 +200,12 @@ const _customLiftRepo: ICustomLiftRepository = {
   delete: () => Promise.resolve(),
 };
 
+const _importBatchRepo: IImportBatchRepository = {
+  save: (): Promise<void> => Promise.resolve(),
+  findById: () => Promise.resolve(null),
+  deleteById: (): Promise<void> => Promise.resolve(),
+};
+
 const _repositoryBundle: RepositoryBundle = {
   customLift: _customLiftRepo,
   cycleDashboard: _cycleDashboardRepo,
@@ -209,6 +222,7 @@ const _repositoryBundle: RepositoryBundle = {
   workoutDateOverride: _workoutDateOverrideRepo,
   workoutLiftOverride: _workoutLiftOverrideRepo,
   workoutSkipOverride: _workoutSkipOverrideRepo,
+  importBatch: _importBatchRepo,
 };
 
 const _repositoryFactory: IRepositoryFactory = {

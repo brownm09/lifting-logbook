@@ -365,7 +365,8 @@ const server = createServer(async (req, res) => {
       const mode = url.searchParams.get('mode') ?? 'preview';
       const destination = url.searchParams.get('destination') ?? 'training-maxes';
       if (mode === 'commit') {
-        json(res, { destination, created: 2, updated: 1, skipped: 0, errors: [] });
+        // batchId enables the Phase 3 undo flow.
+        json(res, { destination, created: 2, updated: 1, skipped: 0, errors: [], batchId: 'batch-1' });
       } else {
         json(res, {
           classification: {
@@ -401,6 +402,11 @@ const server = createServer(async (req, res) => {
           errors: [],
         });
       }
+      return;
+    }
+    // POST /programs/:p/import/:batchId/undo — Phase 3 undo
+    if (method === 'POST' && rest[0] === 'import' && rest.length === 3 && rest[2] === 'undo') {
+      json(res, { batchId: rest[1], restored: 2, skipped: 0, flagged: [] });
       return;
     }
   }

@@ -5,6 +5,7 @@ import { IRepositoryFactory, RepositoryBundle } from '../../ports/factory';
 import { InMemoryCustomLiftRepository } from '../in-memory/custom-lift.adapter';
 import { InMemoryCycleDashboardRepository } from '../in-memory/cycle-dashboard.adapter';
 import { InMemoryCycleScheduledWorkoutRepository } from '../in-memory/cycle-scheduled-workout.adapter';
+import { InMemoryImportBatchRepository } from '../in-memory/import-batch.adapter';
 import { InMemoryLiftMetadataRepository } from '../in-memory/lift-metadata.adapter';
 import { InMemoryLiftingProgramSpecRepository } from '../in-memory/lifting-program-spec.adapter';
 import { InMemoryLiftRecordRepository } from '../in-memory/lift-record.adapter';
@@ -39,6 +40,7 @@ export class InMemoryRepositoryFactory implements IRepositoryFactory {
         customLift: new InMemoryCustomLiftRepository(user.id),
         cycleDashboard: new InMemoryCycleDashboardRepository(preSeed),
         cycleScheduledWorkout: new InMemoryCycleScheduledWorkoutRepository(),
+        importBatch: new InMemoryImportBatchRepository(),
         liftMetadata: new InMemoryLiftMetadataRepository(),
         liftingProgramSpec: new InMemoryLiftingProgramSpecRepository(preSeed),
         liftRecord: new InMemoryLiftRecordRepository(sharedRecords),

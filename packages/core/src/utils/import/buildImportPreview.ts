@@ -8,6 +8,7 @@ import {
 import { classifyImportRows } from './classifyAndCount';
 import { liftRecordNaturalKey } from './liftRecordNaturalKey';
 import { normalizeAmrap } from './normalize-amrap';
+import { LiftImportSoftResult } from './validateLiftImportSoft';
 
 /**
  * Pure before→after diff builders for the Smart Import preview step (#477).
@@ -36,6 +37,20 @@ export function programSpecNaturalKey(r: {
   return `${r.week}:${r.offset}:${r.lift}:${r.order}`;
 }
 
+/** Inverse of {@link programSpecNaturalKey}. Returns null for malformed keys. */
+export function parseProgramSpecNaturalKey(
+  key: string,
+): { week: number; offset: number; lift: string; order: number } | null {
+  const parts = key.split(':');
+  if (parts.length < 4) return null;
+  const week = parseInt(parts[0] ?? '', 10);
+  const offset = parseInt(parts[1] ?? '', 10);
+  const order = parseInt(parts[parts.length - 1] ?? '', 10);
+  const lift = parts.slice(2, parts.length - 1).join(':');
+  if (isNaN(week) || isNaN(offset) || isNaN(order) || !lift) return null;
+  return { week, offset, lift, order };
+}
+
 /**
  * Lift records are append-only: a row either creates (new natural key) or skips
  * (key already present). Duplicate keys within the file collapse to one entry.
@@ -60,6 +75,60 @@ export function buildLiftRecordsPreview(
         : { key, label, kind, after: value },
     );
   }
+  return tally(deltas);
+}
+
+/**
+ * Phase 3: lift-records preview that includes soft-validation rows (incomplete /
+ * ambiguous) with status tags, enabling the interactive REVIEW step. Valid rows
+ * are classified as create/skip; incomplete and ambiguous rows appear as 'create'
+ * with their respective status so the REVIEW step can offer in-line fixes.
+ */
+export function buildLiftRecordsPreviewSoft(
+  softResult: LiftImportSoftResult,
+  existing: LiftRecord[],
+): ImportPreview {
+  const existingKeys = new Set(existing.map(liftRecordNaturalKey));
+  const deltas: ImportDelta[] = [];
+
+  // Valid rows — normal create/skip classification
+  for (const { row: r, kind, key } of classifyImportRows(
+    softResult.valid,
+    liftRecordNaturalKey,
+    (_r, k) => (existingKeys.has(k) ? 'skip' : 'create'),
+  )) {
+    const label = `${r.lift} · cycle ${r.cycleNum} workout ${r.workoutNum} set ${r.setNum}`;
+    const value = `${r.weight} × ${r.reps}`;
+    deltas.push(
+      kind === 'skip'
+        ? { key, label, kind, before: value, after: value }
+        : { key, label, kind, after: value },
+    );
+  }
+
+  // Incomplete rows — tag with status so REVIEW can filter/highlight them
+  for (const { rowIndex } of softResult.incomplete) {
+    const key = `__incomplete_${rowIndex}`;
+    const label = `Row ${rowIndex} (incomplete)`;
+    deltas.push({ key, label, kind: 'create', status: 'incomplete', rowIndex });
+  }
+
+  // Ambiguous rows — tag with status and original lift name for autocomplete
+  for (const { record: r, rowIndex, originalLift } of softResult.ambiguous) {
+    const key = `__ambiguous_${rowIndex}`;
+    const value = `${r.weight} × ${r.reps}`;
+    const label = `${originalLift} · cycle ${r.cycleNum} workout ${r.workoutNum} set ${r.setNum}`;
+    deltas.push({
+      key,
+      label,
+      kind: 'create',
+      after: value,
+      status: 'ambiguous',
+      rowIndex,
+      originalLift,
+    });
+  }
+
   return tally(deltas);
 }
 

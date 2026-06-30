@@ -1,19 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import type {
   ColumnMapping,
   CustomProgramSummaryResponse,
   ImportCommitResponse,
+  ImportDelta,
   ImportError,
   ImportKind,
   ImportPreviewResponse,
+  ImportUndoResponse,
 } from '@lifting-logbook/types';
-import { commitImport, previewImport } from '@/lib/client-api';
+import { CANONICAL_LIFT_IDS } from '@lifting-logbook/core';
+import { commitImport, previewImport, undoImport } from '@/lib/client-api';
 import { Step, STEP_LABELS } from './steps';
 import styles from './import.module.css';
 
+type ReviewFilter = 'all' | 'new' | 'updates' | 'skips' | 'incomplete' | 'ambiguous';
 type EditableMax = { lift: string; weight: string };
 
 function buildTrainingMaxesCsv(rows: EditableMax[]): string {
@@ -23,7 +27,6 @@ function buildTrainingMaxesCsv(rows: EditableMax[]): string {
     .map((r) => `${today},"${r.lift.replace(/"/g, '""')}",${Math.round(Number(r.weight))}`);
   return ['Date Updated,Lift,Weight', ...lines].join('\n');
 }
-
 
 const KIND_LABEL: Record<ImportKind, string> = {
   'lift-records': 'Lift History',
@@ -88,6 +91,16 @@ function bucketClass(bucket: 'high' | 'medium' | 'low'): string {
       : styles.bucketLow ?? '';
 }
 
+function filterDeltas(deltas: ImportDelta[], filter: ReviewFilter): ImportDelta[] {
+  if (filter === 'all') return deltas;
+  if (filter === 'incomplete') return deltas.filter((d) => d.status === 'incomplete');
+  if (filter === 'ambiguous') return deltas.filter((d) => d.status === 'ambiguous');
+  if (filter === 'new') return deltas.filter((d) => d.kind === 'create' && !d.status);
+  if (filter === 'updates') return deltas.filter((d) => d.kind === 'update' && !d.status);
+  if (filter === 'skips') return deltas.filter((d) => d.kind === 'skip');
+  return deltas;
+}
+
 export function ImportWizard({ programs }: { programs: CustomProgramSummaryResponse[] }) {
   const [step, setStep] = useState<typeof Step[keyof typeof Step]>(Step.SOURCE);
   const [programId, setProgramId] = useState<string>(programs[0]?.id ?? '');
@@ -97,22 +110,27 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
   const [commitErrors, setCommitErrors] = useState<ImportError[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  // For training-maxes: user-editable rows populated from previewBody.deltas when
-  // entering the Preview step. Null for all other destination kinds.
-  const [editedMaxes, setEditedMaxes] = useState<EditableMax[] | null>(null);
-  // Map from sourceHeader → override destinationField (user-chosen via dropdown)
+
+  // Phase 3 state
+  const [reviewMaxes, setReviewMaxes] = useState<EditableMax[] | null>(null);
+  const [excludedKeys, setExcludedKeys] = useState<Set<string>>(new Set());
+  const [liftOverrides, setLiftOverrides] = useState<Map<number, string>>(new Map());
+  const [reviewFilter, setReviewFilter] = useState<ReviewFilter>('all');
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const lastSelectedKey = useRef<string | null>(null);
+  const [batchId, setBatchId] = useState<string | null>(null);
+  const [undoResult, setUndoResult] = useState<ImportUndoResponse | null>(null);
+
+  // Column mapping overrides from MAP_COLUMNS step
   const [columnOverrides, setColumnOverrides] = useState<Map<string, string>>(new Map());
 
   const destination = preview?.destination ?? null;
   const previewBody = preview?.preview ?? null;
 
-  // Unmapped required sentinel rows have sourceHeader:''; use destinationField as key
-  // so multiple such rows can be assigned independently.
   function mappingKey(m: ColumnMapping): string {
     return m.sourceHeader || `__req__:${m.destinationField}`;
   }
 
-  // Effective column mappings after applying user overrides
   const effectiveMappings: ColumnMapping[] = (preview?.columnMappings ?? []).map((m) =>
     columnOverrides.has(mappingKey(m))
       ? { ...m, destinationField: columnOverrides.get(mappingKey(m)) ?? m.destinationField, confidence: 1 }
@@ -122,6 +140,21 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
   const allRequiredMapped = effectiveMappings
     .filter((m) => m.required)
     .every((m) => m.destinationField !== '' && m.confidence > 0);
+
+  // Derived: column overrides as a plain Record for the commit call
+  const columnOverridesRecord: Record<string, string> = {};
+  for (const [src, dest] of columnOverrides.entries()) {
+    if (src && !src.startsWith('__req__:')) {
+      columnOverridesRecord[src] = dest;
+    }
+  }
+
+  // REVIEW filter chips — only show incomplete/ambiguous when rows exist
+  const hasIncomplete = (previewBody?.deltas ?? []).some((d) => d.status === 'incomplete');
+  const hasAmbiguous = (previewBody?.deltas ?? []).some((d) => d.status === 'ambiguous');
+
+  // Filtered deltas for the REVIEW table
+  const visibleDeltas = filterDeltas(previewBody?.deltas ?? [], reviewFilter);
 
   async function analyze(override?: ImportKind): Promise<ImportPreviewResponse | null> {
     if (!programId || !file) return null;
@@ -152,33 +185,109 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
     setStep(res ? Step.MAP_COLUMNS : Step.CLASSIFY);
   }
 
+  function enterReview() {
+    // Initialize TM editable list from preview deltas (create + update rows)
+    if (destination === 'training-maxes' && previewBody && reviewMaxes === null) {
+      setReviewMaxes(
+        previewBody.deltas
+          .filter((d) => d.kind === 'create' || d.kind === 'update')
+          .map((d) => ({ lift: d.label, weight: d.after ?? '' })),
+      );
+    }
+    setReviewFilter('all');
+    setSelectedKeys(new Set());
+    lastSelectedKey.current = null;
+    setStep(Step.REVIEW);
+  }
+
+  function handleDeltaCheckbox(key: string, shiftHeld: boolean, deltas: ImportDelta[]) {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (shiftHeld && lastSelectedKey.current && lastSelectedKey.current !== key) {
+        const keys = deltas.map((d) => d.key);
+        const a = keys.indexOf(lastSelectedKey.current);
+        const b = keys.indexOf(key);
+        const [lo, hi] = a < b ? [a, b] : [b, a];
+        for (let i = lo; i <= hi; i++) {
+          const k = keys[i];
+          if (k) next.add(k);
+        }
+      } else {
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
+      }
+      lastSelectedKey.current = key;
+      return next;
+    });
+  }
+
+  function bulkExcludeSelected() {
+    setExcludedKeys((prev) => {
+      const next = new Set(prev);
+      for (const k of selectedKeys) next.add(k);
+      return next;
+    });
+    setSelectedKeys(new Set());
+  }
+
   async function handleCommit() {
     if (!programId || !file || !destination) return;
     setCommitErrors(null);
     setBusy(true);
 
-    // For training-maxes, rebuild a minimal CSV from the edited rows so the
-    // commit reflects any weight corrections or row removals the user made.
     let commitFile = file;
-    if (destination === 'training-maxes' && editedMaxes !== null) {
-      const csv = buildTrainingMaxesCsv(editedMaxes);
-      commitFile = new File([csv], file.name, { type: 'text/csv' });
-    }
 
     try {
-      const result = await commitImport(programId, commitFile, destination);
+      let result: { ok: true; data: ImportCommitResponse } | { ok: false; errors: ImportError[] };
+
+      if (destination === 'training-maxes' && reviewMaxes !== null) {
+        // Rebuild CSV from the edited maxes list so that inline weight edits and excluded rows
+        // are authoritative at commit time. excludedKeys is enforced here (via filter) rather
+        // than via the server-side excludeKeys param, because the rebuilt CSV already omits
+        // those rows — passing excludeKeys on top would be redundant and error-prone.
+        const activeMaxes = reviewMaxes.filter((r) => !excludedKeys.has(r.lift));
+        const csv = buildTrainingMaxesCsv(activeMaxes);
+        commitFile = new File([csv], file.name, { type: 'text/csv' });
+        result = await commitImport(programId, commitFile, destination, {
+          overrides: Object.keys(columnOverridesRecord).length > 0 ? columnOverridesRecord : undefined,
+        });
+      } else {
+        const liftOverridesRecord: Record<number, string> = {};
+        for (const [rowIdx, liftId] of liftOverrides.entries()) {
+          liftOverridesRecord[rowIdx] = liftId;
+        }
+        result = await commitImport(programId, file, destination, {
+          overrides: Object.keys(columnOverridesRecord).length > 0 ? columnOverridesRecord : undefined,
+          excludeKeys: excludedKeys.size > 0 ? [...excludedKeys] : undefined,
+          liftOverrides: liftOverrides.size > 0 ? liftOverridesRecord : undefined,
+          splitDest: preview?.split !== undefined,
+        });
+      }
+
       if (result.ok) {
+        setBatchId(result.data.batchId);
         setCommitResult(result.data);
         setStep(Step.DONE);
       } else {
         setCommitErrors(result.errors);
       }
     } catch (e) {
-      // A network failure or non-JSON 500 rejects rather than returning the
-      // {ok:false} union; surface it instead of leaving the step silent.
       setCommitErrors([
         { row: 0, message: e instanceof Error ? e.message : 'Import failed' },
       ]);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleUndo() {
+    if (!programId || !batchId || undoResult !== null) return;
+    setBusy(true);
+    try {
+      const result = await undoImport(programId, batchId);
+      setUndoResult(result);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Undo failed');
     } finally {
       setBusy(false);
     }
@@ -191,8 +300,15 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
     setCommitResult(null);
     setCommitErrors(null);
     setError(null);
-    setEditedMaxes(null);
+    setReviewMaxes(null);
+    setExcludedKeys(new Set());
+    setLiftOverrides(new Map());
+    setReviewFilter('all');
+    setSelectedKeys(new Set());
+    lastSelectedKey.current = null;
     setColumnOverrides(new Map());
+    setBatchId(null);
+    setUndoResult(null);
   }
 
   return (
@@ -222,6 +338,7 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
         </header>
 
         <section className={styles.body}>
+          {/* ── SOURCE ── */}
           {step === Step.SOURCE && (
             <>
               <h2 className={styles.stepTitle}>Choose a file and program</h2>
@@ -269,6 +386,7 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
             </>
           )}
 
+          {/* ── ANALYZING ── */}
           {step === Step.ANALYZING && (
             <div className={styles.analyzing}>
               <div className={styles.spinner} aria-hidden="true" />
@@ -276,6 +394,7 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
             </div>
           )}
 
+          {/* ── CLASSIFY ── */}
           {step === Step.CLASSIFY && preview && (
             <>
               <h2 className={styles.stepTitle}>What we found</h2>
@@ -342,6 +461,7 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
             </>
           )}
 
+          {/* ── MAP_COLUMNS ── */}
           {step === Step.MAP_COLUMNS && preview && destination && (
             <>
               <h2 className={styles.stepTitle}>Map columns</h2>
@@ -443,9 +563,11 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
             </>
           )}
 
+          {/* ── REVIEW ── */}
           {step === Step.REVIEW && preview && (
             <>
               <h2 className={styles.stepTitle}>Review</h2>
+
               {preview.errors.length > 0 ? (
                 <div className={styles.errorBox}>
                   <strong>This file has {preview.errors.length} problem(s):</strong>
@@ -458,6 +580,233 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
                     ))}
                   </ul>
                 </div>
+              ) : previewBody ? (
+                <>
+                  {/* Training maxes: editable list */}
+                  {destination === 'training-maxes' && reviewMaxes !== null ? (
+                    <>
+                      <p className={styles.stepHint}>Edit weights or remove rows before committing.</p>
+                      <ul className={styles.maxEditList} aria-label="Training maxes to import">
+                        {reviewMaxes
+                          .filter((row) => !excludedKeys.has(row.lift))
+                          .map((row) => (
+                            <li key={row.lift} className={styles.maxEditRow}>
+                              <span className={styles.maxEditLift}>{row.lift}</span>
+                              <input
+                                type="number"
+                                className={styles.maxEditWeight}
+                                value={row.weight}
+                                min={1}
+                                aria-label={`Weight for ${row.lift}`}
+                                onChange={(e) =>
+                                  setReviewMaxes((prev) =>
+                                    prev
+                                      ? prev.map((r) =>
+                                          r.lift === row.lift ? { ...r, weight: e.target.value } : r,
+                                        )
+                                      : prev,
+                                  )
+                                }
+                              />
+                              <span className={styles.stepHint}>lbs</span>
+                              <button
+                                type="button"
+                                className={styles.maxEditRemove}
+                                onClick={() =>
+                                  setExcludedKeys((prev) => new Set([...prev, row.lift]))
+                                }
+                                aria-label={`Remove ${row.lift}`}
+                              >
+                                ×
+                              </button>
+                            </li>
+                          ))}
+                      </ul>
+                      {reviewMaxes.filter((r) => !excludedKeys.has(r.lift)).length === 0 && (
+                        <p className={styles.infoBox}>All rows removed. Nothing will be imported.</p>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {/* Filter chips */}
+                      <div className={styles.reviewFilter} aria-label="Filter rows">
+                        {(['all', 'new', 'updates', 'skips'] as ReviewFilter[]).map((f) => (
+                          <button
+                            key={f}
+                            type="button"
+                            className={`${styles.chip} ${reviewFilter === f ? styles.chipActive : ''}`}
+                            onClick={() => setReviewFilter(f)}
+                          >
+                            {f === 'all' ? 'All' : f === 'new' ? 'New' : f === 'updates' ? 'Updates' : 'Skips'}
+                          </button>
+                        ))}
+                        {hasIncomplete && (
+                          <button
+                            type="button"
+                            className={`${styles.chip} ${reviewFilter === 'incomplete' ? styles.chipActive : ''}`}
+                            onClick={() => setReviewFilter('incomplete')}
+                          >
+                            Incomplete
+                          </button>
+                        )}
+                        {hasAmbiguous && (
+                          <button
+                            type="button"
+                            className={`${styles.chip} ${reviewFilter === 'ambiguous' ? styles.chipActive : ''}`}
+                            onClick={() => setReviewFilter('ambiguous')}
+                          >
+                            Ambiguous
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Bulk actions */}
+                      {selectedKeys.size > 0 && (
+                        <div className={styles.bulkBar}>
+                          <span>{selectedKeys.size} selected</span>
+                          <button
+                            type="button"
+                            className={styles.btnSecondary}
+                            onClick={bulkExcludeSelected}
+                          >
+                            Exclude selected
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Lift catalog datalist for ambiguous rows */}
+                      <datalist id="lift-catalog">
+                        {CANONICAL_LIFT_IDS.map((id) => (
+                          <option key={id} value={id} />
+                        ))}
+                      </datalist>
+
+                      {/* Delta table */}
+                      <table className={styles.deltaTable}>
+                        <thead>
+                          <tr>
+                            <th aria-label="Select" />
+                            <th>Row</th>
+                            <th>Kind</th>
+                            <th>Value</th>
+                            <th aria-label="Exclude" />
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {visibleDeltas.map((d) => {
+                            const excluded = excludedKeys.has(d.key);
+                            const selected = selectedKeys.has(d.key);
+                            const isAmbiguous = d.status === 'ambiguous';
+
+                            return (
+                              <tr
+                                key={d.key}
+                                className={[
+                                  excluded ? styles.deltaExcluded : '',
+                                  d.status === 'incomplete' ? styles.deltaIncomplete : '',
+                                  isAmbiguous ? styles.deltaAmbiguous : '',
+                                ]
+                                  .filter(Boolean)
+                                  .join(' ')}
+                              >
+                                <td>
+                                  <input
+                                    type="checkbox"
+                                    className={styles.deltaCheckbox}
+                                    checked={selected}
+                                    readOnly
+                                    onClick={(e) =>
+                                      handleDeltaCheckbox(d.key, e.shiftKey, visibleDeltas)
+                                    }
+                                    aria-label={`Select ${d.label}`}
+                                  />
+                                </td>
+                                <td className={styles.deltaLabel}>
+                                  {isAmbiguous && !excluded ? (
+                                    <input
+                                      type="text"
+                                      list="lift-catalog"
+                                      className={styles.ambiguousInput}
+                                      defaultValue={d.originalLift ?? ''}
+                                      placeholder="Type a lift name…"
+                                      aria-label={`Lift name for row ${d.rowIndex}`}
+                                      onChange={(e) => {
+                                        if (d.rowIndex === undefined) return;
+                                        const rowIndex = d.rowIndex;
+                                        const val = e.target.value.trim();
+                                        setLiftOverrides((prev) => {
+                                          const next = new Map(prev);
+                                          if (val) next.set(rowIndex, val);
+                                          else next.delete(rowIndex);
+                                          return next;
+                                        });
+                                      }}
+                                    />
+                                  ) : (
+                                    d.label
+                                  )}
+                                </td>
+                                <td>
+                                  <span
+                                    className={`${styles.kindBadge} ${
+                                      d.kind === 'create'
+                                        ? styles.deltaKindCreate
+                                        : d.kind === 'update'
+                                          ? styles.deltaKindUpdate
+                                          : styles.deltaKindSkip
+                                    }`}
+                                  >
+                                    {d.status ?? d.kind}
+                                  </span>
+                                </td>
+                                <td className={styles.deltaChange}>
+                                  {d.kind === 'update'
+                                    ? `${d.before} → ${d.after}`
+                                    : d.kind === 'create'
+                                      ? d.after
+                                      : 'unchanged'}
+                                </td>
+                                <td>
+                                  {!excluded ? (
+                                    <button
+                                      type="button"
+                                      className={styles.maxEditRemove}
+                                      aria-label={`Exclude ${d.label}`}
+                                      onClick={() =>
+                                        setExcludedKeys((prev) => new Set([...prev, d.key]))
+                                      }
+                                    >
+                                      ×
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      className={styles.undoExclude}
+                                      aria-label={`Re-include ${d.label}`}
+                                      onClick={() =>
+                                        setExcludedKeys((prev) => {
+                                          const next = new Set(prev);
+                                          next.delete(d.key);
+                                          return next;
+                                        })
+                                      }
+                                    >
+                                      ↩
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+
+                      {visibleDeltas.length === 0 && (
+                        <p className={styles.infoBox}>No rows match the current filter.</p>
+                      )}
+                    </>
+                  )}
+                </>
               ) : (
                 <p className={styles.infoBox}>
                   {destination && `Destination: ${KIND_LABEL[destination]}. `}
@@ -467,96 +816,43 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
             </>
           )}
 
+          {/* ── PREVIEW ── */}
           {step === Step.PREVIEW && previewBody && (
             <>
               <h2 className={styles.stepTitle}>Preview changes</h2>
-              {destination === 'training-maxes' && editedMaxes !== null ? (
-                <p className={styles.infoBox}>
-                  {editedMaxes.length} max{editedMaxes.length !== 1 ? 'es' : ''} will be imported.
-                </p>
-              ) : (
-                <div className={styles.countRow}>
-                  <div className={styles.countPill}>
-                    <span className={styles.countValue}>{previewBody.creates}</span>
-                    <span className={styles.countLabel}>Create</span>
-                  </div>
-                  <div className={styles.countPill}>
-                    <span className={styles.countValue}>{previewBody.updates}</span>
-                    <span className={styles.countLabel}>Update</span>
-                  </div>
-                  <div className={styles.countPill}>
-                    <span className={styles.countValue}>{previewBody.skips}</span>
-                    <span className={styles.countLabel}>Skip</span>
+              <div className={styles.countRow}>
+                <div className={styles.countPill}>
+                  <span className={styles.countValue}>{previewBody.creates}</span>
+                  <span className={styles.countLabel}>Create</span>
+                </div>
+                <div className={styles.countPill}>
+                  <span className={styles.countValue}>{previewBody.updates}</span>
+                  <span className={styles.countLabel}>Update</span>
+                </div>
+                <div className={styles.countPill}>
+                  <span className={styles.countValue}>{previewBody.skips}</span>
+                  <span className={styles.countLabel}>Skip</span>
+                </div>
+              </div>
+
+              {preview?.split && (
+                <div className={styles.splitCard}>
+                  <p className={styles.stepHint}>
+                    Also routing to {KIND_LABEL[preview.split.destination]}:
+                  </p>
+                  <div className={styles.countRow}>
+                    <div className={styles.countPill}>
+                      <span className={styles.countValue}>{preview.split.preview.creates}</span>
+                      <span className={styles.countLabel}>Create</span>
+                    </div>
+                    <div className={styles.countPill}>
+                      <span className={styles.countValue}>{preview.split.preview.updates}</span>
+                      <span className={styles.countLabel}>Update</span>
+                    </div>
                   </div>
                 </div>
               )}
-              {destination === 'training-maxes' && editedMaxes !== null ? (
-                <>
-                  <p className={styles.stepHint}>
-                    Edit weights or remove rows before committing.
-                  </p>
-                  <ul className={styles.maxEditList} aria-label="Training maxes to import">
-                    {editedMaxes.map((row, i) => (
-                      <li key={row.lift} className={styles.maxEditRow}>
-                        <span className={styles.maxEditLift}>{row.lift}</span>
-                        <input
-                          type="number"
-                          className={styles.maxEditWeight}
-                          value={row.weight}
-                          min={1}
-                          aria-label={`Weight for ${row.lift}`}
-                          onChange={(e) =>
-                            setEditedMaxes((prev) =>
-                              prev
-                                ? prev.map((r, j) =>
-                                    j === i ? { ...r, weight: e.target.value } : r,
-                                  )
-                                : prev,
-                            )
-                          }
-                        />
-                        <span className={styles.stepHint}>lbs</span>
-                        <button
-                          type="button"
-                          className={styles.maxEditRemove}
-                          onClick={() =>
-                            setEditedMaxes((prev) =>
-                              prev ? prev.filter((_, j) => j !== i) : prev,
-                            )
-                          }
-                          aria-label={`Remove ${row.lift}`}
-                        >
-                          ×
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              ) : (
-                <ul className={styles.deltaList}>
-                  {previewBody.deltas.slice(0, 200).map((d) => (
-                    <li
-                      key={d.key}
-                      className={`${styles.deltaRow} ${
-                        d.kind === 'create'
-                          ? styles.deltaKindCreate
-                          : d.kind === 'update'
-                            ? styles.deltaKindUpdate
-                            : styles.deltaKindSkip
-                      }`}
-                    >
-                      <span className={styles.deltaLabel}>{d.label}</span>
-                      <span className={styles.deltaChange}>
-                        {d.kind === 'update'
-                          ? `${d.before} → ${d.after}`
-                          : d.kind === 'create'
-                            ? d.after
-                            : 'unchanged'}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
+
               {commitErrors && (
                 <div className={styles.errorBox}>
                   <strong>Commit failed:</strong>
@@ -572,6 +868,7 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
             </>
           )}
 
+          {/* ── DONE ── */}
           {step === Step.DONE && commitResult && (
             <div className={styles.successBanner}>
               <p className={styles.successTitle}>Import complete</p>
@@ -579,10 +876,40 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
                 {KIND_LABEL[commitResult.destination]}: {commitResult.created} created,{' '}
                 {commitResult.updated} updated, {commitResult.skipped} skipped.
               </p>
+
+              {/* Undo section */}
+              {batchId !== null && undoResult === null && (
+                <div className={styles.undoBanner}>
+                  <button
+                    type="button"
+                    className={styles.undoBtn}
+                    onClick={handleUndo}
+                    disabled={busy}
+                  >
+                    {busy ? 'Undoing…' : 'Undo this import'}
+                  </button>
+                </div>
+              )}
+
+              {undoResult !== null && (
+                <div className={styles.undoBanner}>
+                  <p>
+                    Undo complete: {undoResult.restored} restored
+                    {undoResult.skipped > 0 ? `, ${undoResult.skipped} skipped` : ''}
+                    {undoResult.flagged.length > 0
+                      ? `, ${undoResult.flagged.length} flagged (modified since import)`
+                      : ''}
+                    .
+                  </p>
+                </div>
+              )}
+
+              {error && <p className={styles.errorNote}>{error}</p>}
             </div>
           )}
         </section>
 
+        {/* ── ACTION ROW ── */}
         <div className={styles.actionRow}>
           {step >= 2 && step <= 5 && (
             <button
@@ -617,7 +944,7 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
               type="button"
               className={styles.btnPrimary}
               disabled={!allRequiredMapped}
-              onClick={() => setStep(Step.REVIEW)}
+              onClick={enterReview}
             >
               Next
             </button>
@@ -627,18 +954,13 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
             <button
               type="button"
               className={styles.btnPrimary}
-              onClick={() => {
-                // Only initialize when null — re-entering step 5 via Back preserves edits.
-                if (destination === 'training-maxes' && previewBody && editedMaxes === null) {
-                  setEditedMaxes(
-                    previewBody.deltas
-                      .filter((d) => d.kind === 'create' || d.kind === 'update')
-                      .map((d) => ({ lift: d.label, weight: d.after ?? '' })),
-                  );
-                }
-                setStep(Step.PREVIEW);
-              }}
-              disabled={!previewBody}
+              onClick={() => setStep(Step.PREVIEW)}
+              disabled={
+                !previewBody ||
+                (destination === 'training-maxes' &&
+                  reviewMaxes !== null &&
+                  reviewMaxes.filter((r) => !excludedKeys.has(r.lift)).length === 0)
+              }
             >
               Next
             </button>
@@ -649,14 +971,7 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
               type="button"
               className={styles.btnSuccess}
               onClick={handleCommit}
-              disabled={
-                busy ||
-                !previewBody ||
-                (destination === 'training-maxes' &&
-                  editedMaxes !== null &&
-                  (editedMaxes.length === 0 ||
-                    editedMaxes.some((r) => !r.weight || Number(r.weight) <= 0)))
-              }
+              disabled={busy || !previewBody}
             >
               {busy ? 'Importing…' : 'Commit import'}
             </button>

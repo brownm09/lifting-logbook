@@ -57,7 +57,7 @@ describe('CycleDashboardController', () => {
       getCycleDashboard: jest.fn(),
       saveCycleDashboard: jest.fn(),
     };
-    specRepo = { getProgramSpec: jest.fn(), saveProgramSpec: jest.fn() };
+    specRepo = { getProgramSpec: jest.fn(), saveProgramSpec: jest.fn(), deleteSpecRows: jest.fn() };
     scheduledRepo = {
       getScheduledWorkouts: jest.fn().mockResolvedValue([]),
       saveScheduledWorkouts: jest.fn(),
@@ -67,6 +67,7 @@ describe('CycleDashboardController', () => {
       appendLiftRecords: jest.fn(),
       findExistingRecords: jest.fn(),
       updateLiftRecord: jest.fn(),
+      deleteLiftRecordsByNaturalKeys: jest.fn(),
     };
     overrideRepo = {
       getOverride: jest.fn().mockResolvedValue(null),

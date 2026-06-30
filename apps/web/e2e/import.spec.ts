@@ -7,7 +7,7 @@ test.beforeEach(async ({ request }) => {
   await request.get(`${MOCK_API}/__reset?withCustomProgram=true`);
 });
 
-test('import wizard: Source → Classify → Preview → Done', async ({ page }) => {
+test('import wizard: Source → Classify → Review → Preview → Done', async ({ page }) => {
   await page.goto('/import');
 
   // Source step: pick a program (pre-selected) and upload a CSV.
@@ -27,14 +27,72 @@ test('import wizard: Source → Classify → Preview → Done', async ({ page })
   await page.getByRole('button', { name: 'Next', exact: true }).click(); // → Review
   await page.getByRole('button', { name: 'Next', exact: true }).click(); // → Preview
 
-  // Preview step: live summary (training-maxes editable list) and the commit action.
+  // Preview step: count pills summarising creates/updates/skips + commit action.
   await expect(page.getByRole('heading', { name: 'Preview changes' })).toBeVisible();
-  await expect(page.getByText('2 maxes will be imported.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Commit import' })).toBeEnabled();
 
   await page.getByRole('button', { name: 'Commit import' }).click();
 
-  // Done step.
+  // Done step: success banner + undo affordance (batchId is set by the mock).
   await expect(page.getByText('Import complete')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Undo this import' })).toBeVisible();
+});
+
+test('import wizard REVIEW: remove a TM row then commit', async ({ page }) => {
+  await page.goto('/import');
+
+  await page.getByLabel('CSV file').setInputFiles({
+    name: 'training_maxes.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from('Date Updated,Lift,Weight\n1/1/2026,Squat,300\n1/1/2026,Bench,210'),
+  });
+  await page.getByRole('button', { name: 'Analyze' }).click();
+  await expect(page.getByText('Training Maxes')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Next', exact: true }).click(); // → Map columns
+  await page.getByRole('button', { name: 'Next', exact: true }).click(); // → Review
+
+  // Review step: editable training-max list with two rows.
+  await expect(page.getByRole('heading', { name: 'Review' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Remove squat' })).toBeVisible();
+
+  // Remove the squat row — it disappears from the editable list.
+  await page.getByRole('button', { name: 'Remove squat' }).click();
+  await expect(page.getByRole('button', { name: 'Remove squat' })).not.toBeVisible();
+
+  await page.getByRole('button', { name: 'Next', exact: true }).click(); // → Preview
+  await expect(page.getByRole('heading', { name: 'Preview changes' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Commit import' }).click();
+  await expect(page.getByText('Import complete')).toBeVisible();
+});
+
+test('import wizard DONE: undo import restores rows', async ({ page }) => {
+  await page.goto('/import');
+
+  await page.getByLabel('CSV file').setInputFiles({
+    name: 'training_maxes.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from('Date Updated,Lift,Weight\n1/1/2026,Squat,300\n1/1/2026,Bench,210'),
+  });
+  await page.getByRole('button', { name: 'Analyze' }).click();
+  await expect(page.getByText('Training Maxes')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Next', exact: true }).click(); // → Map columns
+  await page.getByRole('button', { name: 'Next', exact: true }).click(); // → Review
+  await page.getByRole('button', { name: 'Next', exact: true }).click(); // → Preview
+  await page.getByRole('button', { name: 'Commit import' }).click();
+
+  // Done step: undo button is visible (mock provides batchId).
+  await expect(page.getByText('Import complete')).toBeVisible();
+  const undoBtn = page.getByRole('button', { name: 'Undo this import' });
+  await expect(undoBtn).toBeVisible();
+
+  await undoBtn.click();
+
+  // After undo: result replaces the button.
+  await expect(page.getByText(/Undo complete/)).toBeVisible();
+  await expect(page.getByText(/2 restored/)).toBeVisible();
 });
 
 test('import wizard MAP_COLUMNS: fuzzy-matched columns shown; override unmapped column enables Next', async ({ page, request }) => {
