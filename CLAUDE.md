@@ -482,7 +482,7 @@ Slug is determined at day end when the overall theme is clear.
 4. `git add`, `git commit -m "draft: YYYY-MM-DD session 1"`, `git push -u origin draft/YYYY-MM-DD`
 
 **Subsequent sessions:**
-1. `git -C <engineering-journal-path> pull origin draft/YYYY-MM-DD`
+1. `git -C <engineering-journal-path> checkout draft/YYYY-MM-DD && git -C <engineering-journal-path> pull`
 2. Get the file's line count (`wc -l`), then `Read` with offset to retrieve only the last
    `<!-- next-session-context -->` block — do not read the full draft
 3. Append the new `<!-- session: <slug> -->` block and `<!-- next-session-context -->` paragraph
