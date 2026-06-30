@@ -61,20 +61,21 @@ export function buildTrainingMaxPreImage(
   incoming: TrainingMax[],
   existing: TrainingMax[],
 ): ImportPreImage {
-  const existingByLift = new Map(existing.map((m) => [m.lift, m.weight]));
+  const existingWeightByLift = new Map(existing.map((m) => [m.lift, m.weight]));
+  const existingTmByLift = new Map(existing.map((m) => [m.lift, m]));
   const image: ImportPreImage = {};
 
   for (const { row: m, kind, key } of classifyImportRows(
     incoming,
     (m) => m.lift,
-    (m) => trainingMaxRowKind(m, existingByLift),
+    (m) => trainingMaxRowKind(m, existingWeightByLift),
   )) {
     if (kind === 'skip') continue;
-    const before = existingByLift.get(key);
+    const prior = existingTmByLift.get(key);
     image[key] = {
       kind: kind === 'create' ? 'created' : 'updated',
-      ...(before !== undefined ? { before: { weight: before } } : {}),
-      wrote: { weight: m.weight },
+      ...(prior ? { before: { weight: prior.weight, dateUpdated: prior.dateUpdated.toISOString() } } : {}),
+      wrote: { weight: m.weight, dateUpdated: m.dateUpdated.toISOString() },
     };
   }
 

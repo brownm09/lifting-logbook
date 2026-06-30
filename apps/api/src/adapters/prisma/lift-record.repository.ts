@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 // Prisma 5.x — error classes moved off the Prisma namespace
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-import { LiftRecord, liftRecordNaturalKey } from '@lifting-logbook/core';
+import { LiftRecord, liftRecordNaturalKey, parseLiftRecordNaturalKey } from '@lifting-logbook/core';
 import { ILiftRecordRepository } from '../../ports/ILiftRecordRepository';
 
 export class PrismaLiftRecordRepository implements ILiftRecordRepository {
@@ -103,7 +103,7 @@ export class PrismaLiftRecordRepository implements ILiftRecordRepository {
   async deleteLiftRecordsByNaturalKeys(program: string, naturalKeys: string[]): Promise<number> {
     if (naturalKeys.length === 0) return 0;
     const parsed = naturalKeys.flatMap((k) => {
-      const p = parseNaturalKey(k);
+      const p = parseLiftRecordNaturalKey(k);
       return p ? [p] : [];
     });
     if (parsed.length === 0) return 0;
@@ -140,20 +140,6 @@ function parseLiftRecordId(
   const setNum = parseInt(parts[parts.length - 1] ?? '', 10);
   const lift = parts.slice(2, parts.length - 1).join('-');
 
-  if (isNaN(cycleNum) || isNaN(workoutNum) || isNaN(setNum) || !lift) return null;
-  return { cycleNum, workoutNum, lift, setNum };
-}
-
-/** Decode a `liftRecordNaturalKey`-encoded string ("cycleNum:workoutNum:lift:setNum"). */
-function parseNaturalKey(
-  key: string,
-): { cycleNum: number; workoutNum: number; lift: string; setNum: number } | null {
-  const parts = key.split(':');
-  if (parts.length < 4) return null;
-  const cycleNum = parseInt(parts[0] ?? '', 10);
-  const workoutNum = parseInt(parts[1] ?? '', 10);
-  const setNum = parseInt(parts[parts.length - 1] ?? '', 10);
-  const lift = parts.slice(2, parts.length - 1).join(':');
   if (isNaN(cycleNum) || isNaN(workoutNum) || isNaN(setNum) || !lift) return null;
   return { cycleNum, workoutNum, lift, setNum };
 }

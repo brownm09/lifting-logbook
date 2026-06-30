@@ -19,3 +19,22 @@ export function liftRecordNaturalKey(r: {
 }): string {
   return `${r.cycleNum}:${r.workoutNum}:${r.lift}:${r.setNum}`;
 }
+
+/**
+ * Inverse of {@link liftRecordNaturalKey}. Returns null for malformed keys.
+ *
+ * The lift field may contain colons (e.g. "chin-up"), so only the first two
+ * and the last segment are numeric; everything in between is the lift name.
+ */
+export function parseLiftRecordNaturalKey(
+  key: string,
+): { cycleNum: number; workoutNum: number; lift: string; setNum: number } | null {
+  const parts = key.split(':');
+  if (parts.length < 4) return null;
+  const cycleNum = parseInt(parts[0] ?? '', 10);
+  const workoutNum = parseInt(parts[1] ?? '', 10);
+  const setNum = parseInt(parts[parts.length - 1] ?? '', 10);
+  const lift = parts.slice(2, parts.length - 1).join(':');
+  if (isNaN(cycleNum) || isNaN(workoutNum) || isNaN(setNum) || !lift) return null;
+  return { cycleNum, workoutNum, lift, setNum };
+}

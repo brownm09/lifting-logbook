@@ -241,7 +241,10 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
       let result: { ok: true; data: ImportCommitResponse } | { ok: false; errors: ImportError[] };
 
       if (destination === 'training-maxes' && reviewMaxes !== null) {
-        // Rebuild CSV from edited maxes, excluding any excluded rows
+        // Rebuild CSV from the edited maxes list so that inline weight edits and excluded rows
+        // are authoritative at commit time. excludedKeys is enforced here (via filter) rather
+        // than via the server-side excludeKeys param, because the rebuilt CSV already omits
+        // those rows — passing excludeKeys on top would be redundant and error-prone.
         const activeMaxes = reviewMaxes.filter((r) => !excludedKeys.has(r.lift));
         const csv = buildTrainingMaxesCsv(activeMaxes);
         commitFile = new File([csv], file.name, { type: 'text/csv' });

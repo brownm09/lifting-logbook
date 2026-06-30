@@ -13,4 +13,5 @@ export interface ImportBatchRecord {
 export interface IImportBatchRepository {
   save(batch: ImportBatchRecord): Promise<void>;
   findById(id: string, userId: string): Promise<ImportBatchRecord | null>;
+  deleteById(id: string, userId: string): Promise<void>;
 }

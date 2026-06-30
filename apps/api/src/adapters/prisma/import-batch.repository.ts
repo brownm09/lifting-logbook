@@ -35,4 +35,8 @@ export class PrismaImportBatchRepository implements IImportBatchRepository {
       createdAt: row.createdAt,
     };
   }
+
+  async deleteById(id: string, userId: string): Promise<void> {
+    await this.prisma.importBatch.deleteMany({ where: { id, userId } });
+  }
 }

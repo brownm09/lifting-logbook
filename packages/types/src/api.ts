@@ -619,8 +619,8 @@ export interface ImportWriteResult {
 /** Response for `POST /programs/:program/import?mode=commit`. */
 export interface ImportCommitResponse extends ImportWriteResult {
   destination: ImportKind;
-  /** Phase 3: UUID of the ImportBatch record; present to support undo. */
-  batchId: string;
+  /** Phase 3: UUID of the ImportBatch record; null if the batch save failed (import still succeeds). */
+  batchId: string | null;
   /**
    * Phase 3: counts for rows automatically split to a second destination
    * (e.g. 1RM Test lift-records rows committed to Training Maxes).

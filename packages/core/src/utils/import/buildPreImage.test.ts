@@ -44,16 +44,16 @@ describe('buildTrainingMaxPreImage', () => {
     const image = buildTrainingMaxPreImage(incoming, existing);
     expect(image['Squat']!.kind).toBe('created');
     expect(image['Squat']!.before).toBeUndefined();
-    expect(image['Squat']!.wrote).toEqual({ weight: 315 });
+    expect(image['Squat']!.wrote).toEqual({ weight: 315, dateUpdated: '2026-01-01T00:00:00.000Z' });
   });
 
-  it('marks an updated lift as updated with before and wrote', () => {
+  it('marks an updated lift as updated with before and wrote including dateUpdated', () => {
     const incoming = [trainingMax('Squat', 320)];
     const existing = [trainingMax('Squat', 300)];
     const image = buildTrainingMaxPreImage(incoming, existing);
     expect(image['Squat']!.kind).toBe('updated');
-    expect(image['Squat']!.before).toEqual({ weight: 300 });
-    expect(image['Squat']!.wrote).toEqual({ weight: 320 });
+    expect(image['Squat']!.before).toEqual({ weight: 300, dateUpdated: '2026-01-01T00:00:00.000Z' });
+    expect(image['Squat']!.wrote).toEqual({ weight: 320, dateUpdated: '2026-01-01T00:00:00.000Z' });
   });
 
   it('omits unchanged (skipped) lifts', () => {

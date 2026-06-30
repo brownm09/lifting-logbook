@@ -12,4 +12,9 @@ export class InMemoryImportBatchRepository implements IImportBatchRepository {
     if (!record || record.userId !== userId) return null;
     return record;
   }
+
+  async deleteById(id: string, userId: string): Promise<void> {
+    const record = this.store.get(id);
+    if (record && record.userId === userId) this.store.delete(id);
+  }
 }

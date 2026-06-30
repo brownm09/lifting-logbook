@@ -151,89 +151,103 @@ export class ImportController {
       ? await repos.strengthGoal.getGoals(program)
       : [];
 
-    for (const [key, entry] of Object.entries(batch.preImage)) {
-      if (batch.destination === 'lift-records') {
-        if (entry.kind === 'created') {
-          const deleted = await repos.liftRecord.deleteLiftRecordsByNaturalKeys(program, [key]);
-          if (deleted > 0) restored++;
-          else flagged.push({ key, reason: 'row not found (already deleted?)' });
+    if (batch.destination === 'lift-records') {
+      // Collect all created keys and delete in a single query to avoid N+1 round-trips
+      const createdKeys = Object.entries(batch.preImage)
+        .filter(([, e]) => e.kind === 'created')
+        .map(([k]) => k);
+      if (createdKeys.length > 0) {
+        const deleted = await repos.liftRecord.deleteLiftRecordsByNaturalKeys(program, createdKeys);
+        restored += deleted;
+        if (deleted < createdKeys.length) {
+          const missing = createdKeys.length - deleted;
+          skipped += missing;
+          flagged.push({ key: '*', reason: `${missing} row(s) not found (already deleted?)` });
         }
-      } else if (batch.destination === 'training-maxes') {
-        const lift = key;
-        const current = allMaxes.find((m) => m.lift === lift);
-        const wrote = entry.wrote as { weight: number };
+      }
+    } else {
+      for (const [key, entry] of Object.entries(batch.preImage)) {
+        if (batch.destination === 'training-maxes') {
+          const lift = key;
+          const current = allMaxes.find((m) => m.lift === lift);
+          const wrote = entry.wrote as { weight: number };
 
-        if (!current) {
-          skipped++;
-          flagged.push({ key, reason: 'training max no longer exists' });
-          continue;
-        }
-        if (current.weight !== wrote.weight) {
-          skipped++;
-          flagged.push({ key, reason: `weight modified after import (expected ${wrote.weight}, found ${current.weight})` });
-          continue;
-        }
+          if (!current) {
+            skipped++;
+            flagged.push({ key, reason: 'training max no longer exists' });
+            continue;
+          }
+          if (current.weight !== wrote.weight) {
+            skipped++;
+            flagged.push({ key, reason: `weight modified after import (expected ${wrote.weight}, found ${current.weight})` });
+            continue;
+          }
 
-        if (entry.kind === 'created') {
-          await repos.trainingMax.deleteTrainingMaxes(program, [lift]);
-          restored++;
-        } else if (entry.kind === 'updated') {
-          const before = entry.before as { weight: number };
-          await repos.trainingMax.saveTrainingMaxes(program, [
-            { lift: current.lift, weight: before.weight, dateUpdated: current.dateUpdated },
-          ]);
-          restored++;
-        }
-      } else if (batch.destination === 'strength-goals') {
-        const lift = key;
-        const current = allGoals.find((g) => g.lift === lift);
-        const wrote = entry.wrote as Record<string, unknown>;
+          if (entry.kind === 'created') {
+            await repos.trainingMax.deleteTrainingMaxes(program, [lift]);
+            restored++;
+          } else if (entry.kind === 'updated') {
+            const before = entry.before as { weight: number; dateUpdated: string };
+            await repos.trainingMax.saveTrainingMaxes(program, [
+              { lift: current.lift, weight: before.weight, dateUpdated: new Date(before.dateUpdated) },
+            ]);
+            restored++;
+          }
+        } else if (batch.destination === 'strength-goals') {
+          const lift = key;
+          const current = allGoals.find((g) => g.lift === lift);
+          const wrote = entry.wrote as Record<string, unknown>;
 
-        if (!current) {
-          skipped++;
-          flagged.push({ key, reason: 'strength goal no longer exists' });
-          continue;
-        }
-        if (
-          current.goalType !== wrote['goalType'] ||
-          current.target !== wrote['target'] ||
-          current.unit !== wrote['unit'] ||
-          current.ratio !== wrote['ratio']
-        ) {
-          skipped++;
-          flagged.push({ key, reason: 'goal modified after import' });
-          continue;
-        }
+          if (!current) {
+            skipped++;
+            flagged.push({ key, reason: 'strength goal no longer exists' });
+            continue;
+          }
+          if (
+            current.goalType !== wrote['goalType'] ||
+            current.target !== wrote['target'] ||
+            current.unit !== wrote['unit'] ||
+            current.ratio !== wrote['ratio']
+          ) {
+            skipped++;
+            flagged.push({ key, reason: 'goal modified after import' });
+            continue;
+          }
 
-        if (entry.kind === 'created') {
-          await repos.strengthGoal.deleteGoal(program, lift);
-          restored++;
-        } else if (entry.kind === 'updated') {
-          const before = entry.before as Record<string, unknown>;
-          const goalTarget = before['target'];
-          const goalRatio = before['ratio'];
-          await repos.strengthGoal.upsertGoal(program, {
-            lift,
-            goalType: before['goalType'] as 'absolute' | 'relative',
-            ...(goalTarget !== undefined ? { target: goalTarget as number } : {}),
-            unit: before['unit'] as 'lbs' | 'kg',
-            ...(goalRatio !== undefined ? { ratio: goalRatio as number } : {}),
-            updatedAt: new Date(),
-          });
-          restored++;
-        }
-      } else if (batch.destination === 'program-spec') {
-        if (entry.kind === 'created') {
-          await repos.liftingProgramSpec.deleteSpecRows(program, [key]);
-          restored++;
-        } else {
-          // Program-spec row-level undo requires storing the full prior row,
-          // which is not yet captured in the pre-image. Flag for now.
-          flagged.push({ key, reason: 'program-spec row updates cannot be undone automatically' });
-          skipped++;
+          if (entry.kind === 'created') {
+            await repos.strengthGoal.deleteGoal(program, lift);
+            restored++;
+          } else if (entry.kind === 'updated') {
+            const before = entry.before as Record<string, unknown>;
+            const goalTarget = before['target'];
+            const goalRatio = before['ratio'];
+            await repos.strengthGoal.upsertGoal(program, {
+              lift,
+              goalType: before['goalType'] as 'absolute' | 'relative',
+              ...(goalTarget !== undefined ? { target: goalTarget as number } : {}),
+              unit: before['unit'] as 'lbs' | 'kg',
+              ...(goalRatio !== undefined ? { ratio: goalRatio as number } : {}),
+              updatedAt: new Date(),
+            });
+            restored++;
+          }
+        } else if (batch.destination === 'program-spec') {
+          if (entry.kind === 'created') {
+            await repos.liftingProgramSpec.deleteSpecRows(program, [key]);
+            restored++;
+          } else {
+            // Program-spec `updated` rows cannot be auto-undone: `comparable` captures
+            // only the serialized mutable fields, not the full prior row shape needed to
+            // reconstruct the previous spec. Flag so the caller knows undo was partial.
+            flagged.push({ key, reason: 'program-spec row updates cannot be undone automatically' });
+            skipped++;
+          }
         }
       }
     }
+
+    // Delete the batch record now that undo has been applied (best-effort; ignore failures)
+    await repos.importBatch.deleteById(batchId, user.id);
 
     return { batchId, restored, skipped, flagged };
   }
@@ -389,14 +403,21 @@ export class ImportController {
       }
     }
 
-    // Save import batch for undo
+    // Save import batch for undo; best-effort — a save failure leaves batchId null but the
+    // import data is already written and the commit response still succeeds.
     const batchId = randomUUID();
-    await repos.importBatch.save({ id: batchId, userId, program, destination, preImage, createdAt: new Date() });
+    let savedBatchId: string | null = null;
+    try {
+      await repos.importBatch.save({ id: batchId, userId, program, destination, preImage, createdAt: new Date() });
+      savedBatchId = batchId;
+    } catch {
+      // Intentional: undo availability is non-critical; import commit must not fail here
+    }
 
     return {
       destination,
       ...commitCounts,
-      batchId,
+      batchId: savedBatchId,
       ...(splitResult ? { split: splitResult } : {}),
     };
   }
@@ -436,6 +457,6 @@ function parseJsonParam<T>(param: string | undefined): T | null {
   try {
     return JSON.parse(param) as T;
   } catch {
-    return null;
+    throw new BadRequestException(`Invalid JSON in query parameter: ${param}`);
   }
 }

@@ -37,6 +37,20 @@ export function programSpecNaturalKey(r: {
   return `${r.week}:${r.offset}:${r.lift}:${r.order}`;
 }
 
+/** Inverse of {@link programSpecNaturalKey}. Returns null for malformed keys. */
+export function parseProgramSpecNaturalKey(
+  key: string,
+): { week: number; offset: number; lift: string; order: number } | null {
+  const parts = key.split(':');
+  if (parts.length < 4) return null;
+  const week = parseInt(parts[0] ?? '', 10);
+  const offset = parseInt(parts[1] ?? '', 10);
+  const order = parseInt(parts[parts.length - 1] ?? '', 10);
+  const lift = parts.slice(2, parts.length - 1).join(':');
+  if (isNaN(week) || isNaN(offset) || isNaN(order) || !lift) return null;
+  return { week, offset, lift, order };
+}
+
 /**
  * Lift records are append-only: a row either creates (new natural key) or skips
  * (key already present). Duplicate keys within the file collapse to one entry.

@@ -203,6 +203,7 @@ const _customLiftRepo: ICustomLiftRepository = {
 const _importBatchRepo: IImportBatchRepository = {
   save: (): Promise<void> => Promise.resolve(),
   findById: () => Promise.resolve(null),
+  deleteById: (): Promise<void> => Promise.resolve(),
 };
 
 const _repositoryBundle: RepositoryBundle = {
