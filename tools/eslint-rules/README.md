@@ -135,6 +135,26 @@ Allowlisted files (checked by filename inside the rule, not via `eslint.config.j
 `packages/api-client` is outside the `apps/web` lint scope, so the `fetch()` inside
 `createApiClient()` is never seen by this rule.
 
+### `lifting-logbook/no-direct-prisma-transaction`
+
+Scoped to `apps/api/src/adapters/prisma/**/*.ts` (spec/test files ignored) via
+[`eslint.config.js`](../../eslint.config.js). The RLS interceptor
+(`rls.interceptor.ts`) owns the one per-request interactive transaction, and
+`rls-context.service.ts` owns short-lived per-operation transactions for
+`@SkipRlsTransaction()` handlers. A raw `.$transaction()` call anywhere else
+would either bypass the RLS `app.current_user_id` GUC setup (silently returning
+all rows to the app role) or attempt an illegal nested transaction on an
+interactive-transaction client.
+
+Callers that need transactional behaviour must use `runBatch` or `runInteractive`
+from [`prisma-tx.util.ts`](../../apps/api/src/adapters/prisma/prisma-tx.util.ts).
+
+Allowlisted files (checked by filename suffix inside the rule):
+
+- `apps/api/src/adapters/prisma/prisma-tx.util.ts` — the utility that wraps `$transaction` for all callers
+- `apps/api/src/adapters/prisma/rls.interceptor.ts` — owns the per-request interactive transaction
+- `apps/api/src/adapters/prisma/rls-context.service.ts` — owns the per-operation short-lived transaction for `@SkipRlsTransaction()` handlers (#518)
+
 ## Adding a new rule
 
 1. Write `tools/eslint-rules/my-new-rule.js` exporting an ESLint rule module
