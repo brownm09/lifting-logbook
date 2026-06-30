@@ -5,12 +5,16 @@
   "project_node_id": "PVT_kwHOAjEKvM4BTuEF",
   "epic_field_id": "PVTSSF_lAHOAjEKvM4BTuEFzhA7GEs",
   "epic_options": {
-    "Monorepo Scaffolding":         "974b67c1",
-    "Package & App Scaffolding":    "26d27ab2",
-    "Port Interfaces":              "9196ffd9",
-    "Shared Types":                 "42bf8843",
-    "CI/CD Foundation":             "23133b3a",
-    "Architecture & Documentation": "656e470c"
+    "Monorepo Scaffolding":         "9dcd9556",
+    "Package & App Scaffolding":    "ae06cfdd",
+    "Port Interfaces":              "cc1ae008",
+    "Shared Types":                 "a6b59698",
+    "CI/CD Foundation":             "fc0df03b",
+    "Architecture & Documentation": "f7202bcd",
+    "Observability":                "d3c68018",
+    "API Implementation":           "50a1da76",
+    "Client Applications":          "31d3931e",
+    "Operations":                   "0c3f26d2"
   },
   "milestones": [
     "v0.1 — Foundation",
