@@ -33,6 +33,11 @@ Include in your opening brief only: the issue you are working on, current branch
 - **`gh` CLI** is available and authenticated. The `project` scope must be added separately when needed: `gh auth refresh -s project`.
 - **Prefer Git Bash** over PowerShell for scripting — PowerShell handles arrays and arithmetic differently and has caused failures in this environment.
 
+### Tooling constraints
+
+- **Turborepo 2.x requires a `packageManager` field in the root `package.json`.** Without it, `turbo run *` fails with `Could not resolve workspaces. Missing packageManager field in package.json`. Always ensure `packageManager` is set when scaffolding a new monorepo root or upgrading Turborepo.
+- **ESLint 9 uses flat config (`eslint.config.js`), not `.eslintrc.js`.** ESLint 9 dropped `.eslintrc*` support by default, so creating an `.eslintrc.js` silently does nothing. When an issue or acceptance criterion references `.eslintrc.js`, create `eslint.config.js` instead and note the translation in the PR description. Use `@typescript-eslint/eslint-plugin`'s `flat/recommended` config — it is an array of three objects (entry 0 registers the plugin and sets the parser via `languageOptions`), so spread the whole array rather than configuring the parser separately. To fall back to the legacy config format, set `ESLINT_USE_FLAT_CONFIG=false`. Validated in PR #24.
+
 ---
 
 ## Repository Layout
