@@ -34,6 +34,27 @@ describe('StepImport', () => {
     expect(screen.getByLabelText('Weight for Bench Press')).toBeInTheDocument();
   });
 
+  it('preserves a decimal weight from the CSV without rounding', async () => {
+    const user = userEvent.setup();
+    const onImported = jest.fn();
+    render(<StepImport onImported={onImported} />);
+
+    const csv = [
+      'Date Updated,Lift,Weight',
+      '2026-01-01,Squat,316.25',
+      '2026-01-01,Bench Press,225',
+    ].join('\n');
+
+    await user.upload(screen.getByLabelText(/training-maxes csv/i), csvFile(csv));
+
+    await waitFor(() => expect(onImported).toHaveBeenCalledTimes(1));
+    expect(onImported).toHaveBeenCalledWith([
+      { lift: 'Squat', weight: '316.25', reps: '' },
+      { lift: 'Bench Press', weight: '225', reps: '' },
+    ]);
+    expect(screen.getByLabelText('Weight for Squat')).toHaveValue(316.25);
+  });
+
   it('reflects an edited weight in the onImported payload', async () => {
     const user = userEvent.setup();
     const onImported = jest.fn();

@@ -24,7 +24,7 @@ function buildTrainingMaxesCsv(rows: EditableMax[]): string {
   const today = new Date().toISOString().slice(0, 10);
   const lines = rows
     .filter((r) => Number(r.weight) > 0)
-    .map((r) => `${today},"${r.lift.replace(/"/g, '""')}",${Math.round(Number(r.weight))}`);
+    .map((r) => `${today},"${r.lift.replace(/"/g, '""')}",${Number(r.weight)}`);
   return ['Date Updated,Lift,Weight', ...lines].join('\n');
 }
 
@@ -597,6 +597,7 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
                                 className={styles.maxEditWeight}
                                 value={row.weight}
                                 min={1}
+                                step="0.01"
                                 aria-label={`Weight for ${row.lift}`}
                                 onChange={(e) =>
                                   setReviewMaxes((prev) =>
