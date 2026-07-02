@@ -117,6 +117,8 @@ All new issues must be added to the **Lifting Logbook** project and assigned an 
 
 If a mutation runs without a prior snapshot commit, stop and recover from the latest snapshot in `.claude/backups/` before continuing any other work.
 
+> **Milestones drift the same way, via a different trigger.** Milestones aren't a ProjectV2 single-select field, so a new milestone isn't created by the `updateProjectV2Field` mutation above — but the table below and the `milestones` arrays in `.claude/hook-config.json` and `.claude/propose.json` are just as easy to leave stale when a new milestone is created via `gh api repos/.../milestones` or the web UI. Update all three in the same PR that adds a milestone.
+
 **Milestones:**
 
 | Title | Number |
@@ -124,6 +126,7 @@ If a mutation runs without a prior snapshot commit, stop and recover from the la
 | v0.1 — Foundation | `1` |
 | v0.2 — Core API | `2` |
 | v0.3 — Client Applications | `3` |
+| v0.4 — Alpha Release | `4` |
 
 **Workflow — run after `gh issue create`:**
 
