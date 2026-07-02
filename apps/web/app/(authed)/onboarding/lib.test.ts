@@ -14,6 +14,10 @@ describe('floorToIncrement', () => {
   it('respects a custom increment', () => {
     expect(floorToIncrement(23, 5)).toBe(20);
   });
+
+  it('degrades to the unrounded value for a zero increment instead of dividing by zero', () => {
+    expect(floorToIncrement(203, 0)).toBe(203);
+  });
 });
 
 describe('brzycki1RM', () => {

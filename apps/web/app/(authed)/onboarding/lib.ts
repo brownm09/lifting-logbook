@@ -71,6 +71,9 @@ export function getSeedLiftsByProgramId(programId: string | null | undefined): L
  * precision instead (see {@link valuesAreTrainingMax}).
  */
 export function floorToIncrement(value: number, increment = 2.5): number {
+  // A zero increment would divide by zero and yield NaN — degrade safely to
+  // the unrounded value instead, matching MROUND's guard in packages/core.
+  if (increment === 0) return value;
   return Math.floor(value / increment) * increment;
 }
 
