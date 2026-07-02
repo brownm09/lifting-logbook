@@ -10,7 +10,7 @@ import {
 import { ICycleScheduledWorkoutRepository } from '../ports/ICycleScheduledWorkoutRepository';
 import { IUserSettingsRepository } from '../ports/IUserSettingsRepository';
 import { ProgramNotFoundError } from '../ports/errors';
-import { CycleGenerationService } from './cycle-generation.service';
+import { buildHistoryEntries, CycleGenerationService } from './cycle-generation.service';
 
 const PROGRAM = '5-3-1';
 
@@ -388,5 +388,36 @@ describe('CycleGenerationService', () => {
         ]),
       );
     });
+  });
+});
+
+describe('buildHistoryEntries', () => {
+  const asOf = (weight: number) => ({
+    lift: 'Squat',
+    weight,
+    dateUpdated: new Date('2026-04-18T00:00:00.000Z'),
+  });
+  const date = new Date('2026-04-20T00:00:00.000Z');
+
+  it('records a real sub-0.1lb change that a 1-decimal-place comparison would have missed', () => {
+    // 316.25 -> 316.30 is a genuine 0.05lb change; both round to 316.3 at 1
+    // decimal place, which would have silently dropped this from history.
+    const entries = buildHistoryEntries([asOf(316.25)], [asOf(316.3)], date, 'program');
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ lift: 'Squat', weight: 316.3 });
+  });
+
+  it('does not record an unchanged weight', () => {
+    const entries = buildHistoryEntries([asOf(316.25)], [asOf(316.25)], date, 'program');
+
+    expect(entries).toHaveLength(0);
+  });
+
+  it('records a lift with no prior entry', () => {
+    const entries = buildHistoryEntries([], [asOf(316.25)], date, 'test');
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ lift: 'Squat', weight: 316.25, source: 'test' });
   });
 });

@@ -57,6 +57,7 @@ export function StepLifts({ method, lifts, catalog, onChange, onAdd, onRemove }:
               type="number"
               inputMode="decimal"
               min="0"
+              step="0.01"
               placeholder="Weight"
               className={styles.numberInput}
               value={row.weight}

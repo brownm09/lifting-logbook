@@ -135,6 +135,36 @@ describe('ImportWizard', () => {
     expect(text).not.toContain(',300');
   });
 
+  it('training-maxes: a decimal weight in REVIEW is not rounded in the commit payload', async () => {
+    const user = userEvent.setup();
+    mockPreview.mockResolvedValue(TM_PREVIEW);
+    mockCommit.mockResolvedValue({
+      ok: true,
+      data: { destination: 'training-maxes', created: 2, updated: 1, skipped: 0, batchId: 'batch-1' },
+    });
+
+    render(<ImportWizard programs={PROGRAMS} />);
+
+    const file = new File(['Date Updated,Lift,Weight\n1/1/2026,Squat,300'], 'tm.csv', {
+      type: 'text/csv',
+    });
+    await navigateToReview(user, file);
+
+    // Edit the squat weight to a value with 2.5/1.25-increment decimal precision.
+    const weightInput = screen.getByLabelText('Weight for squat');
+    await user.clear(weightInput);
+    await user.type(weightInput, '316.25');
+
+    await user.click(screen.getByRole('button', { name: 'Next' })); // Review → Preview
+    await user.click(screen.getByRole('button', { name: 'Commit import' }));
+    await waitFor(() => expect(mockCommit).toHaveBeenCalledTimes(1));
+
+    const [, commitFile] = mockCommit.mock.calls[0] as [string, File, string];
+    const text = await readFileText(commitFile);
+    expect(text).toContain('316.25');
+    expect(text).not.toContain(',316\n');
+  });
+
   it('training-maxes: removed row in REVIEW is excluded from the commit payload', async () => {
     const user = userEvent.setup();
     mockPreview.mockResolvedValue(TM_PREVIEW);

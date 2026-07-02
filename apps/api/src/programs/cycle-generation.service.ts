@@ -93,19 +93,20 @@ async function saveScheduledDates(
   }
 }
 
-function round1dp(w: number): number {
-  return Math.round(w * 10) / 10;
+function round2dp(w: number): number {
+  return Math.round(w * 100) / 100;
 }
 
-function buildHistoryEntries(
+/** Exported for direct unit testing of the change-detection comparison precision. */
+export function buildHistoryEntries(
   prevMaxes: TrainingMax[],
   newMaxes: TrainingMax[],
   date: Date,
   source: 'test' | 'program',
 ): Omit<TrainingMaxHistoryEntry, 'id'>[] {
-  const prevMap = new Map(prevMaxes.map((m) => [m.lift, round1dp(m.weight)]));
+  const prevMap = new Map(prevMaxes.map((m) => [m.lift, round2dp(m.weight)]));
   return newMaxes
-    .filter((m) => prevMap.get(m.lift) !== round1dp(m.weight))
+    .filter((m) => prevMap.get(m.lift) !== round2dp(m.weight))
     .map((m) => ({
       lift: m.lift,
       weight: m.weight,

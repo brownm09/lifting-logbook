@@ -330,6 +330,7 @@ rationale, examples, and enforcement notes. Existing standards:
 |---|---|---|
 | [`docs/standards/fetch-cache-semantics.md`](docs/standards/fetch-cache-semantics.md) | `apps/web` Server Components | All `fetch()` calls must specify `{ cache: 'no-store' }` or `{ next: { revalidate: N } }` explicitly |
 | [`docs/standards/error-fallback-test-coverage.md`](docs/standards/error-fallback-test-coverage.md) | all packages and apps | Error-swallowing fallbacks (`.catch(() => default)`, `?? default`, try/catch returning neutral) require a data-level assertion, a paired success-path test, or a documented structure-only comment |
+| [`docs/standards/training-max-precision.md`](docs/standards/training-max-precision.md) | all packages and apps | Directly-known training-max weights are never rounded; formula-derived estimates floor to the nearest plate increment; computed per-workout weights round to the nearest *loadable* plate combination |
 
 When implementing `apps/web`, read the relevant standards before writing any `fetch()` calls.
 
