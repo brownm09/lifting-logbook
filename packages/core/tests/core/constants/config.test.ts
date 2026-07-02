@@ -1,4 +1,4 @@
-import { MROUND, PROG_SPEC_WORK_PCTS } from "@src/core";
+import { floorToIncrement, MROUND, PROG_SPEC_WORK_PCTS } from "@src/core";
 
 describe("MROUND", () => {
   it("rounds to the nearest multiple", () => {
@@ -10,6 +10,26 @@ describe("MROUND", () => {
     // A custom program saved with increment 0 must not poison weight math.
     expect(MROUND(187, 0)).toBe(187);
     expect(Number.isNaN(MROUND(187, 0))).toBe(false);
+  });
+});
+
+describe("floorToIncrement", () => {
+  it("leaves an exact multiple of the increment unchanged", () => {
+    expect(floorToIncrement(315)).toBe(315);
+    expect(floorToIncrement(317.5)).toBe(317.5);
+  });
+
+  it("floors down to the nearest lower multiple (default 2.5)", () => {
+    expect(floorToIncrement(316.9)).toBe(315);
+    expect(floorToIncrement(203)).toBe(202.5);
+  });
+
+  it("respects a custom increment", () => {
+    expect(floorToIncrement(23, 5)).toBe(20);
+  });
+
+  it("degrades to the unrounded value for a zero increment instead of dividing by zero", () => {
+    expect(floorToIncrement(203, 0)).toBe(203);
   });
 });
 

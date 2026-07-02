@@ -1,2 +1,2 @@
-export * from './estimateTrainingMax';
+export * from './estimateOneRepMax';
 export * from './updateMaxes';

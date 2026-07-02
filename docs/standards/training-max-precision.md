@@ -21,7 +21,7 @@ the value *comes from*:
 2. **Formula-derived estimates** — a 1RM estimated from a weight×reps set (Brzycki
    formula), or a training max derived from that estimate at a fixed percentage — are
    approximations by nature, and this repo's convention is to **floor down to the nearest
-   plate increment** (`floorToIncrement()` in `apps/web/app/(authed)/onboarding/lib.ts`,
+   plate increment** (`floorToIncrement()` in `packages/core/src/constants/config.ts`,
    default 2.5 lbs) rather than round to nearest. Floor, not round: a lifter should never
    be told to load slightly more than their estimate supports.
 3. **Computed per-workout target weights** — a percentage of a training max, generated
@@ -67,8 +67,8 @@ from user-edited rows for the commit API — `${Number(r.weight)}`, no rounding.
 
 ### Good: floor-to-increment for an estimate
 
-`apps/web/app/(authed)/onboarding/lib.ts`'s `brzycki1RM()` estimates a 1RM from a
-weight×reps set and floors the result: `floorToIncrement((weight * 36) / denom)`.
+`packages/core/src/services/maxes/estimateOneRepMax.ts`'s `estimateOneRepMax()` estimates a
+1RM from a weight×reps set and floors the result: `floorToIncrement((weight * 36) / denom)`.
 
 ### Good: increment-aware rounding for a computed workout weight
 
@@ -107,3 +107,4 @@ categories above applies and that the rounding behavior (or lack of it) matches.
 - [Issue #633 — Training-max precision loss and configurable workout-rounding increment](https://github.com/brownm09/lifting-logbook/issues/633) — the audit that produced this standard
 - [PR #636 — Preserve training-max decimal precision in Import, onboarding, and history](https://github.com/brownm09/lifting-logbook/pull/636) — the incident and fix
 - [PR #560 — Add 'enter training maxes directly' onboarding method](https://github.com/brownm09/lifting-logbook/pull/560) — introduced one of the four bugs fixed in #636
+- [Issue #642 — Consolidate duplicate Brzycki 1RM-estimation implementations onto packages/core](https://github.com/brownm09/lifting-logbook/issues/642) — moved `floorToIncrement()`/the estimate formula from `apps/web` into `packages/core` so this standard's category-2 convention has a single implementation instead of two that could drift again
