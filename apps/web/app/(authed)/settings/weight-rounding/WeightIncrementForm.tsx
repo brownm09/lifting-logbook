@@ -33,9 +33,11 @@ export default function WeightIncrementForm({
     <section>
       <h2>Weight Rounding</h2>
       <p>
-        Computed workout weights are rounded to the nearest multiple of this value, so
-        they match plates you actually have on hand. This doesn&apos;t affect training
-        maxes you enter or import — those are always kept at full precision.
+        Sets the default rounding increment for lifts you add to a new custom program,
+        so new rows start at a plate size you actually have on hand instead of a generic
+        default. You can still override the increment per lift when editing a program.
+        Preset programs keep their own increments, and this never affects the precision
+        of training maxes you enter or import — those are always kept exact.
       </p>
 
       <label htmlFor="weight-increment-select">Rounding increment</label>

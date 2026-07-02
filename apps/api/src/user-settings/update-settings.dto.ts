@@ -19,7 +19,7 @@ import {
   ValidatorConstraintInterface,
   ValidationArguments,
 } from 'class-validator';
-import { SCHEDULE_LIMITS, isValidSchedule } from '@lifting-logbook/types';
+import { SCHEDULE_LIMITS, WEIGHT_INCREMENT_OPTIONS, isValidSchedule } from '@lifting-logbook/types';
 import type { UserWorkoutSchedule } from '@lifting-logbook/types';
 
 // Delegates to the shared `isValidSchedule` predicate so the write-side and read-side
@@ -95,6 +95,6 @@ export class UpdateSettingsDto {
   // docs/standards/training-max-precision.md.
   @IsOptional()
   @ValidateIf((o: UpdateSettingsDto) => o.defaultWeightIncrement !== null)
-  @IsIn([0.625, 1.25, 2.5, 5])
+  @IsIn(WEIGHT_INCREMENT_OPTIONS)
   defaultWeightIncrement?: number | null;
 }
