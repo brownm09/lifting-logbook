@@ -66,7 +66,7 @@ function latestPerLift(maxes: TrainingMax[]): LiftRow[] {
   }
   return Array.from(byLift.entries()).map(([lift, { weight }]) => ({
     lift,
-    weight: String(Math.round(weight)),
+    weight: String(weight),
     reps: '',
   }));
 }
@@ -230,6 +230,7 @@ export function StepImport({ onImported }: Props) {
                     className={styles.numberInput}
                     value={row.weight}
                     min={1}
+                    step="0.01"
                     aria-label={`Weight for ${row.lift}`}
                     onChange={(e) => updateWeight(i, e.target.value)}
                   />

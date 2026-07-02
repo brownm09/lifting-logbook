@@ -47,7 +47,8 @@ describe('OnboardingFlow — persistence of confirmed maxes', () => {
     // Step 1 (Program): choose RPT → seeds 9 lifts → Step 2 (Enter Lifts)
     await selectRpt(user);
 
-    // Step 2: fill each seeded lift with 200 × 5 → Brzycki 1RM 225 → TM 203
+    // Step 2: fill each seeded lift with 200 × 5 → Brzycki 1RM 225 → TM 202.5
+    // (floored to the nearest 2.5, not rounded — 225 * 0.9 = 202.5 exactly)
     for (const lift of RPT_LIFTS) {
       await user.type(screen.getByLabelText(`${lift} weight`), '200');
       await user.type(screen.getByLabelText(`${lift} reps`), '5');
@@ -62,7 +63,7 @@ describe('OnboardingFlow — persistence of confirmed maxes', () => {
     expect(mockCreateFirstCycle).toHaveBeenCalledTimes(1);
     expect(mockCreateFirstCycle).toHaveBeenCalledWith(
       rpt.id,
-      RPT_LIFTS.map((lift) => ({ lift, trainingMax: 203 })),
+      RPT_LIFTS.map((lift) => ({ lift, trainingMax: 202.5 })),
     );
   });
 
@@ -80,21 +81,25 @@ describe('OnboardingFlow — persistence of confirmed maxes', () => {
     // Step 1 (Program): choose RPT → seeds 9 lifts → Step 2 (Enter Lifts)
     await selectRpt(user);
 
-    // Weight-only rows (no reps input) — enter 315 for each.
+    // Weight-only rows (no reps input) — enter 315 for each, except the first
+    // lift gets a decimal value to prove full precision is preserved (2.5/1.25
+    // plate increments), not just whole numbers.
+    const [decimalLift, ...wholeLifts] = RPT_LIFTS;
+    if (!decimalLift) throw new Error('Test setup: RPT_LIFTS is empty');
     for (const lift of RPT_LIFTS) {
       expect(screen.queryByLabelText(`${lift} reps`)).not.toBeInTheDocument();
-      await user.type(screen.getByLabelText(`${lift} weight`), '315');
+      await user.type(screen.getByLabelText(`${lift} weight`), lift === decimalLift ? '316.25' : '315');
     }
 
     await user.click(screen.getByRole('button', { name: /next/i }));
     await user.click(screen.getByRole('button', { name: /start my program/i }));
 
-    // 315 entered → 315 persisted (not 283 which would be 90% of 315 rounded).
+    // Entered as-is → persisted as-is (not 283 which would be 90% of 315 rounded).
     expect(mockCreateFirstCycle).toHaveBeenCalledTimes(1);
-    expect(mockCreateFirstCycle).toHaveBeenCalledWith(
-      rpt.id,
-      RPT_LIFTS.map((lift) => ({ lift, trainingMax: 315 })),
-    );
+    expect(mockCreateFirstCycle).toHaveBeenCalledWith(rpt.id, [
+      { lift: decimalLift, trainingMax: 316.25 },
+      ...wholeLifts.map((lift) => ({ lift, trainingMax: 315 })),
+    ]);
   });
 
   it('persists imported training maxes as-is when the "import" method is used (not seeded rows)', async () => {
@@ -112,11 +117,12 @@ describe('OnboardingFlow — persistence of confirmed maxes', () => {
     // → Step 2 (Import)
     await selectRpt(user);
 
-    // Step 2: Upload a training-maxes CSV — Squat has history, so the latest (315) wins.
+    // Step 2: Upload a training-maxes CSV — Squat has history, so the latest
+    // (316.25, a 2.5/1.25-increment decimal) wins.
     const csv = [
       'Date Updated,Lift,Weight',
       '2026-01-01,Squat,300',
-      '2026-02-01,Squat,315',
+      '2026-02-01,Squat,316.25',
       '2026-01-01,Bench Press,225',
     ].join('\n');
     await user.upload(
@@ -131,13 +137,44 @@ describe('OnboardingFlow — persistence of confirmed maxes', () => {
     await user.click(screen.getByRole('button', { name: /next/i }));
     await user.click(screen.getByRole('button', { name: /start my program/i }));
 
-    // Imported TMs persist verbatim (latest per lift); the 9 seeded RPT rows are
-    // overwritten by the import, not passed to createFirstCycle.
+    // Imported TMs persist verbatim (latest per lift, full precision); the 9
+    // seeded RPT rows are overwritten by the import, not passed to createFirstCycle.
     expect(mockCreateFirstCycle).toHaveBeenCalledTimes(1);
     expect(mockCreateFirstCycle).toHaveBeenCalledWith(rpt.id, [
-      { lift: 'Squat', trainingMax: 315 },
+      { lift: 'Squat', trainingMax: 316.25 },
       { lift: 'Bench Press', trainingMax: 225 },
     ]);
+  });
+
+  it('floors both the entered 1RM and the 90%-derived training max to the nearest 2.5 when the "manual" method is used', async () => {
+    const user = userEvent.setup();
+    const rpt = PROGRAMS.find((p) => p.id === 'rpt');
+    if (!rpt) throw new Error('Test setup: rpt missing from PROGRAMS catalog');
+
+    render(<OnboardingFlow catalog={CATALOG} />);
+
+    // Step 0: pick "Enter manually" (1RM), then advance.
+    await user.click(screen.getByRole('button', { name: /enter manually/i }));
+    await user.click(screen.getByRole('button', { name: /next/i }));
+
+    // Step 1 (Program): choose RPT → seeds 9 lifts → Step 2 (Enter Lifts)
+    await selectRpt(user);
+
+    // 203 floors to 202.5 (not rounds to 203); 202.5 * 0.9 = 182.25, which
+    // floors to 180.
+    for (const lift of RPT_LIFTS) {
+      expect(screen.queryByLabelText(`${lift} reps`)).not.toBeInTheDocument();
+      await user.type(screen.getByLabelText(`${lift} weight`), '203');
+    }
+
+    await user.click(screen.getByRole('button', { name: /next/i }));
+    await user.click(screen.getByRole('button', { name: /start my program/i }));
+
+    expect(mockCreateFirstCycle).toHaveBeenCalledTimes(1);
+    expect(mockCreateFirstCycle).toHaveBeenCalledWith(
+      rpt.id,
+      RPT_LIFTS.map((lift) => ({ lift, trainingMax: 180 })),
+    );
   });
 });
 

@@ -33,6 +33,11 @@ Include in your opening brief only: the issue you are working on, current branch
 - **`gh` CLI** is available and authenticated. The `project` scope must be added separately when needed: `gh auth refresh -s project`.
 - **Prefer Git Bash** over PowerShell for scripting — PowerShell handles arrays and arithmetic differently and has caused failures in this environment.
 
+### Tooling constraints
+
+- **Turborepo 2.x requires a `packageManager` field in the root `package.json`.** Without it, `turbo run *` fails with `Could not resolve workspaces. Missing packageManager field in package.json`. Always ensure `packageManager` is set when scaffolding a new monorepo root or upgrading Turborepo.
+- **ESLint 9 uses flat config (`eslint.config.js`), not `.eslintrc.js`.** ESLint 9 dropped `.eslintrc*` support by default, so creating an `.eslintrc.js` silently does nothing. When an issue or acceptance criterion references `.eslintrc.js`, create `eslint.config.js` instead and note the translation in the PR description. Use `@typescript-eslint/eslint-plugin`'s `flat/recommended` config — it is an array of three objects (entry 0 registers the plugin and sets the parser via `languageOptions`), so spread the whole array rather than configuring the parser separately. To fall back to the legacy config format, set `ESLINT_USE_FLAT_CONFIG=false`. Validated in PR #24.
+
 ---
 
 ## Repository Layout
@@ -330,6 +335,7 @@ rationale, examples, and enforcement notes. Existing standards:
 |---|---|---|
 | [`docs/standards/fetch-cache-semantics.md`](docs/standards/fetch-cache-semantics.md) | `apps/web` Server Components | All `fetch()` calls must specify `{ cache: 'no-store' }` or `{ next: { revalidate: N } }` explicitly |
 | [`docs/standards/error-fallback-test-coverage.md`](docs/standards/error-fallback-test-coverage.md) | all packages and apps | Error-swallowing fallbacks (`.catch(() => default)`, `?? default`, try/catch returning neutral) require a data-level assertion, a paired success-path test, or a documented structure-only comment |
+| [`docs/standards/training-max-precision.md`](docs/standards/training-max-precision.md) | all packages and apps | Directly-known training-max weights are never rounded; formula-derived estimates floor to the nearest plate increment; computed per-workout weights round to the nearest *loadable* plate combination |
 
 When implementing `apps/web`, read the relevant standards before writing any `fetch()` calls.
 
@@ -487,7 +493,7 @@ Slug is determined at day end when the overall theme is clear.
 4. `git add`, `git commit -m "draft: YYYY-MM-DD session 1"`, `git push -u origin draft/YYYY-MM-DD`
 
 **Subsequent sessions:**
-1. `git -C <engineering-journal-path> pull origin draft/YYYY-MM-DD`
+1. `git -C <engineering-journal-path> checkout draft/YYYY-MM-DD && git -C <engineering-journal-path> pull`
 2. Get the file's line count (`wc -l`), then `Read` with offset to retrieve only the last
    `<!-- next-session-context -->` block — do not read the full draft
 3. Append the new `<!-- session: <slug> -->` block and `<!-- next-session-context -->` paragraph

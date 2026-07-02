@@ -420,6 +420,11 @@ gh api repos/brownm09/lifting-logbook/actions/runs/$RUNID/pending_deployments \
 
 The `production` environment id is `15694632193`. To **reject** instead, use `-f state=rejected`.
 
+**Assisted approval.** A tool or assistant may run the approve command on your behalf, but only
+after surfacing the run link and a short risk summary — the `plan-production` blast radius
+above — and getting an explicit go-ahead. Never approve silently: this is an outward-facing
+production action, and approving is what applies the pending Terraform and Prisma diffs.
+
 ### Web image: single build, runtime public config (ADR-028)
 
 The `apps/web` image is built **once per commit** (`web:<sha>`, also `:latest`) and the same
@@ -693,6 +698,30 @@ After the secrets are populated, the next push-to-main deploy wires telemetry en
 verify in Grafana Cloud: Tempo `{ service.name = "lifting-logbook-api" }`, Loki
 `{ service_name = "lifting-logbook-api" }`, and the `http.server.*` metric in Mimir. The
 operational runbook is [`docs/runbooks/observability.md`](runbooks/observability.md).
+
+### Mapping a custom domain to Cloud Run
+
+To serve the app from a custom domain (e.g. `liftinglogbook.com`), first verify domain ownership
+in [Google Search Console](https://search.google.com/search-console), then create the Cloud Run
+domain mapping:
+
+```bash
+gcloud beta run domain-mappings create --service=lifting-logbook-prod-web \
+  --domain=liftinglogbook.com --region=us-central1 --project=lifting-logbook-prod
+```
+
+> **The verification TXT record's host field must be `@`.** When adding the Google Search Console
+> TXT record for domain-ownership verification (required before `gcloud beta run
+> domain-mappings create`), the **Name/host field must be `@`** (the apex). Other values — blank,
+> or the full domain name — fail silently: verification never completes, and the registrar UI
+> default is frequently wrong. Specify `@` explicitly rather than leaving it to the registrar's
+> default or "leave blank" guidance. Validated during the `liftinglogbook.com` production setup
+> (2026-05-20).
+
+For the full walkthrough — `www` subdomain mapping, the A/AAAA/CNAME DNS records to add, and
+SSL provisioning status — see [`deploy-single-user.md` Step 6](deploy-single-user.md#step-6--map-a-custom-domain-optional),
+which documents the same verification gotcha and carries the rest of the procedure this summary
+omits.
 
 ### Accessing logs
 

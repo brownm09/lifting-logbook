@@ -64,10 +64,23 @@ export function getSeedLiftsByProgramId(programId: string | null | undefined): L
   return getSeedLifts(PRESET_BASE_SPECS[programId]);
 }
 
+/**
+ * Floors a value down to the nearest lower multiple of `increment` (default
+ * 2.5 lb plates). Used for estimated/derived maxes, which are approximations
+ * by nature — directly-entered or imported maxes are persisted at full
+ * precision instead (see {@link valuesAreTrainingMax}).
+ */
+export function floorToIncrement(value: number, increment = 2.5): number {
+  // A zero increment would divide by zero and yield NaN — degrade safely to
+  // the unrounded value instead, matching MROUND's guard in packages/core.
+  if (increment === 0) return value;
+  return Math.floor(value / increment) * increment;
+}
+
 export function brzycki1RM(weight: number, reps: number): number {
   if (reps <= 0 || weight <= 0) return 0;
-  if (reps === 1) return Math.round(weight);
+  if (reps === 1) return floorToIncrement(weight);
   const denom = 37 - reps;
   if (denom <= 0) return 0;
-  return Math.round((weight * 36) / denom);
+  return floorToIncrement((weight * 36) / denom);
 }

@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState, useTransition } from 'react';
 import styles from './onboarding.module.css';
 import {
   brzycki1RM,
+  floorToIncrement,
   getSeedLiftsByProgramId,
   isWeightOnly,
   valuesAreTrainingMax,
@@ -58,10 +59,10 @@ export function OnboardingFlow({ catalog }: { catalog: string[] }) {
       const w = Number(row.weight);
       const r = Number(row.reps);
       if (valuesAreTrainingMax(method)) {
-        return { lift: row.lift, oneRm: null, trainingMax: Math.round(w) };
+        return { lift: row.lift, oneRm: null, trainingMax: w };
       }
-      const oneRm = method === 'manual' ? Math.round(w) : brzycki1RM(w, r);
-      return { lift: row.lift, oneRm, trainingMax: Math.round(oneRm * 0.9) };
+      const oneRm = method === 'manual' ? floorToIncrement(w) : brzycki1RM(w, r);
+      return { lift: row.lift, oneRm, trainingMax: floorToIncrement(oneRm * 0.9) };
     });
   }, [lifts, method]);
 
