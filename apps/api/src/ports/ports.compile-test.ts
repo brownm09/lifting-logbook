@@ -170,7 +170,8 @@ const _workoutSkipOverrideRepo: IWorkoutSkipOverrideRepository = {
 };
 
 const _userSettingsRepo: IUserSettingsRepository = {
-  getSettings: () => Promise.resolve({ activeProgram: null, workoutSchedule: null }),
+  getSettings: () =>
+    Promise.resolve({ activeProgram: null, workoutSchedule: null, defaultWeightIncrement: null }),
 };
 
 const _customLiftRepo: ICustomLiftRepository = {

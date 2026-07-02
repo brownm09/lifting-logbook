@@ -11,10 +11,16 @@ type Tab = 'browse' | 'editor';
 type Props = {
   activeProgram: string | null;
   workoutSchedule: UserWorkoutSchedule | null;
+  defaultWeightIncrement: number | null;
   customPrograms: CustomProgramSummaryResponse[];
 };
 
-export default function ProgramsTabs({ activeProgram, workoutSchedule, customPrograms }: Props) {
+export default function ProgramsTabs({
+  activeProgram,
+  workoutSchedule,
+  defaultWeightIncrement,
+  customPrograms,
+}: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('browse');
   const [currentActive, _setCurrentActive] = useState(activeProgram);
 
@@ -51,6 +57,7 @@ export default function ProgramsTabs({ activeProgram, workoutSchedule, customPro
       {activeTab === 'editor' && (
         <EditorTab
           activeProgram={currentActive}
+          defaultWeightIncrement={defaultWeightIncrement}
           customPrograms={customPrograms}
           onProgramSaved={handleProgramSaved}
         />

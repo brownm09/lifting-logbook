@@ -19,7 +19,7 @@ import {
   ValidatorConstraintInterface,
   ValidationArguments,
 } from 'class-validator';
-import { SCHEDULE_LIMITS, isValidSchedule } from '@lifting-logbook/types';
+import { SCHEDULE_LIMITS, WEIGHT_INCREMENT_OPTIONS, isValidSchedule } from '@lifting-logbook/types';
 import type { UserWorkoutSchedule } from '@lifting-logbook/types';
 
 // Delegates to the shared `isValidSchedule` predicate so the write-side and read-side
@@ -89,4 +89,12 @@ export class UpdateSettingsDto {
   @ValidateNested()
   @Type(() => WorkoutScheduleDto)
   workoutSchedule?: WorkoutScheduleDto | null;
+
+  // null clears the setting (falls back to the 1.25 app default); undefined leaves
+  // it unchanged. Constrained to plate sizes users actually have on hand — see
+  // docs/standards/training-max-precision.md.
+  @IsOptional()
+  @ValidateIf((o: UpdateSettingsDto) => o.defaultWeightIncrement !== null)
+  @IsIn(WEIGHT_INCREMENT_OPTIONS)
+  defaultWeightIncrement?: number | null;
 }

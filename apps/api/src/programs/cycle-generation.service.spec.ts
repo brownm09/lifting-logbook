@@ -109,7 +109,9 @@ describe('CycleGenerationService', () => {
       deleteLiftRecordsByNaturalKeys: jest.fn(),
     };
     userSettingsRepo = {
-      getSettings: jest.fn().mockResolvedValue({ activeProgram: null, workoutSchedule: null }),
+      getSettings: jest
+        .fn()
+        .mockResolvedValue({ activeProgram: null, workoutSchedule: null, defaultWeightIncrement: null }),
     };
     cycleScheduledWorkoutRepo = {
       getScheduledWorkouts: jest.fn().mockResolvedValue([]),
@@ -214,6 +216,7 @@ describe('CycleGenerationService', () => {
       userSettingsRepo.getSettings.mockResolvedValue({
         activeProgram: null,
         workoutSchedule: { type: 'fixed', days: [0, 2, 4] },
+        defaultWeightIncrement: null,
       });
 
       await service.startNewCycle(repos, PROGRAM);
@@ -304,6 +307,7 @@ describe('CycleGenerationService', () => {
       userSettingsRepo.getSettings.mockResolvedValue({
         activeProgram: null,
         workoutSchedule: { type: 'fixed', days: [0, 2, 4] },
+        defaultWeightIncrement: null,
       });
 
       await service.initializeFirstCycle(repos, PROGRAM, { cycleDate: '2026-05-12' });
@@ -335,6 +339,7 @@ describe('CycleGenerationService', () => {
       userSettingsRepo.getSettings.mockResolvedValue({
         activeProgram: null,
         workoutSchedule: { type: 'fixed', days: [0, 2, 4] },
+        defaultWeightIncrement: null,
       });
 
       await expect(

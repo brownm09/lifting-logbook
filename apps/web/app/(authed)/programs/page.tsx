@@ -3,7 +3,11 @@ import type { UserSettingsResponse } from '@lifting-logbook/types';
 import ProgramsTabs from './ProgramsTabs';
 import styles from './programs.module.css';
 
-const DEFAULT_SETTINGS: UserSettingsResponse = { activeProgram: null, workoutSchedule: null };
+const DEFAULT_SETTINGS: UserSettingsResponse = {
+  activeProgram: null,
+  workoutSchedule: null,
+  defaultWeightIncrement: null,
+};
 
 export default async function ProgramsPage() {
   const [settings, customPrograms] = await Promise.all([
@@ -17,6 +21,7 @@ export default async function ProgramsPage() {
       <ProgramsTabs
         activeProgram={settings.activeProgram}
         workoutSchedule={settings.workoutSchedule ?? null}
+        defaultWeightIncrement={settings.defaultWeightIncrement}
         customPrograms={customPrograms}
       />
     </main>

@@ -11,13 +11,19 @@ type EditorMode = 'new' | 'clone' | 'edit';
 
 type Props = {
   activeProgram: string | null;
+  defaultWeightIncrement: number | null;
   customPrograms: CustomProgramSummaryResponse[];
   onProgramSaved: (id: string) => void;
 };
 
 const ALL_TEMPLATES = PROGRAMS;
 
-export default function EditorTab({ activeProgram, customPrograms: initialPrograms, onProgramSaved }: Props) {
+export default function EditorTab({
+  activeProgram,
+  defaultWeightIncrement,
+  customPrograms: initialPrograms,
+  onProgramSaved,
+}: Props) {
   const [subTab, setSubTab] = useState<EditorMode>('new');
   const [editingProgram, setEditingProgram] = useState<CustomProgramResponse | null>(null);
   const [cloneTemplateId, setCloneTemplateId] = useState<string>(ALL_TEMPLATES[0]?.id ?? '');
@@ -68,6 +74,7 @@ export default function EditorTab({ activeProgram, customPrograms: initialProgra
         mode="edit"
         existing={editingProgram}
         activeProgram={activeProgram}
+        defaultWeightIncrement={defaultWeightIncrement}
         onSaved={handleSaved}
         onCancel={() => setEditingProgram(null)}
       />
@@ -95,6 +102,7 @@ export default function EditorTab({ activeProgram, customPrograms: initialProgra
         <ProgramEditor
           mode="new"
           activeProgram={activeProgram}
+          defaultWeightIncrement={defaultWeightIncrement}
           onSaved={handleSaved}
           onCancel={() => {}}
         />
@@ -121,6 +129,7 @@ export default function EditorTab({ activeProgram, customPrograms: initialProgra
               mode="clone"
               baseTemplateId={cloneTemplateId}
               activeProgram={activeProgram}
+              defaultWeightIncrement={defaultWeightIncrement}
               onSaved={handleSaved}
               onCancel={() => setSubTab('new')}
             />
