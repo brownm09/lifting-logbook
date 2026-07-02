@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { LIFT_CATALOG } from '@lifting-logbook/core';
 import { useRouter } from 'next/navigation';
+import { DEFAULT_WEIGHT_INCREMENT } from '@lifting-logbook/types';
 import type { CustomProgramResponse, CustomProgramSpecRow } from '@lifting-logbook/types';
 import { createCustomProgram, updateCustomProgram, switchProgram } from './actions';
 import { TEMPLATE_BUILDERS } from '@/lib/programs';
@@ -15,6 +16,7 @@ type Props = {
   existing?: CustomProgramResponse;
   baseTemplateId?: string;
   activeProgram: string | null;
+  defaultWeightIncrement: number | null;
   onSaved: (id: string) => void;
   onCancel: () => void;
 };
@@ -27,11 +29,16 @@ const WEEK_LABELS: Record<number, string> = {
 
 const ALL_LIFTS: string[] = LIFT_CATALOG.map((l) => l.name as string);
 
-const DEFAULT_ROW = (week: number, lift: string, order: number): CustomProgramSpecRow => ({
+const DEFAULT_ROW = (
+  week: number,
+  lift: string,
+  order: number,
+  increment: number,
+): CustomProgramSpecRow => ({
   week,
   offset: 0,
   lift,
-  increment: 5,
+  increment,
   order,
   sets: 3,
   reps: 5,
@@ -41,17 +48,21 @@ const DEFAULT_ROW = (week: number, lift: string, order: number): CustomProgramSp
   activation: 'compound',
 });
 
-function buildDefaultSpecs(lifts: string[]): CustomProgramSpecRow[] {
+function buildDefaultSpecs(lifts: string[], increment: number): CustomProgramSpecRow[] {
   const rows: CustomProgramSpecRow[] = [];
   for (const week of [1, 2, 3] as const) {
     lifts.forEach((lift, i) => {
-      rows.push(DEFAULT_ROW(week, lift, i + 1));
+      rows.push(DEFAULT_ROW(week, lift, i + 1, increment));
     });
   }
   return rows;
 }
 
-function buildSpecsFromTemplate(templateId: string, lifts: string[]): CustomProgramSpecRow[] {
+function buildSpecsFromTemplate(
+  templateId: string,
+  lifts: string[],
+  increment: number,
+): CustomProgramSpecRow[] {
   const builder = TEMPLATE_BUILDERS[templateId];
   const seeded = builder ? builder() : null;
   if (seeded) {
@@ -67,7 +78,7 @@ function buildSpecsFromTemplate(templateId: string, lifts: string[]): CustomProg
     const filtered = expanded.filter((s) => seededLifts.has(s.lift));
     if (filtered.length > 0) return filtered.map((s) => ({ ...s, amrap: Boolean(s.amrap) }));
   }
-  return buildDefaultSpecs(lifts);
+  return buildDefaultSpecs(lifts, increment);
 }
 
 export default function ProgramEditor({
@@ -75,12 +86,17 @@ export default function ProgramEditor({
   existing,
   baseTemplateId,
   activeProgram: _activeProgram,
+  defaultWeightIncrement,
   onSaved,
   onCancel,
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // Seeds new spec rows (custom programs only — see docs/standards/training-max-precision.md).
+  // Preset-derived templates keep their own hardcoded per-lift increments in
+  // buildSpecsFromTemplate; this is the fallback for lifts with no preset data.
+  const increment = defaultWeightIncrement ?? DEFAULT_WEIGHT_INCREMENT;
 
   const [name, setName] = useState(
     mode === 'edit' ? (existing?.name ?? '') : mode === 'clone' ? `${existing?.name ?? ''} (copy)` : '',
@@ -96,8 +112,8 @@ export default function ProgramEditor({
 
   const [specs, setSpecs] = useState<CustomProgramSpecRow[]>(() => {
     if (existing?.specs && existing.specs.length > 0) return existing.specs;
-    if (baseTemplateId) return buildSpecsFromTemplate(baseTemplateId, initialLifts);
-    return buildDefaultSpecs(initialLifts);
+    if (baseTemplateId) return buildSpecsFromTemplate(baseTemplateId, initialLifts, increment);
+    return buildDefaultSpecs(initialLifts, increment);
   });
 
   function toggleLift(lift: string) {
@@ -117,7 +133,7 @@ export default function ProgramEditor({
       for (const week of [1, 2, 3] as const) {
         lifts.forEach((lift, i) => {
           const existing_ = prev.find((s) => s.week === week && s.lift === lift);
-          rows.push(existing_ ?? DEFAULT_ROW(week, lift, i + 1));
+          rows.push(existing_ ?? DEFAULT_ROW(week, lift, i + 1, increment));
         });
       }
       return rows;
@@ -247,7 +263,7 @@ export default function ProgramEditor({
                 {weeks.flatMap((week) =>
                   selectedLifts.map((lift) => {
                     const row = specs.find((s) => s.week === week && s.lift === lift) ??
-                      DEFAULT_ROW(week, lift, selectedLifts.indexOf(lift) + 1);
+                      DEFAULT_ROW(week, lift, selectedLifts.indexOf(lift) + 1, increment);
                     return (
                       <tr key={`${week}-${lift}`}>
                         <td>{WEEK_LABELS[week]}</td>

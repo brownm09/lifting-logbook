@@ -2,7 +2,11 @@ import { fetchUserSettings } from '@/lib/api';
 import type { UserSettingsResponse } from '@lifting-logbook/types';
 import ScheduleForm from './ScheduleForm';
 
-const DEFAULT_SETTINGS: UserSettingsResponse = { activeProgram: null, workoutSchedule: null };
+const DEFAULT_SETTINGS: UserSettingsResponse = {
+  activeProgram: null,
+  workoutSchedule: null,
+  defaultWeightIncrement: null,
+};
 
 export default async function SchedulePage() {
   // Fall back to empty settings when the API is unreachable — matches /programs and

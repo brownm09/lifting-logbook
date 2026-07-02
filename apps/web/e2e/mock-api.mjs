@@ -101,6 +101,7 @@ function createInitialState() {
     strengthGoals: [],
     skippedWorkouts: new Set(),
     workoutSchedule: null,
+    defaultWeightIncrement: null,
     // Empty by default so the /programs page test still sees RPT as the only
     // program; the import test opts in via /__reset?withCustomProgram=true.
     customPrograms: [],
@@ -190,7 +191,11 @@ const server = createServer(async (req, res) => {
   // GET /users/me/settings
   // -------------------------------------------------------------------------
   if (method === 'GET' && url.pathname === '/users/me/settings') {
-    json(res, { activeProgram: '5-3-1', workoutSchedule: state.workoutSchedule });
+    json(res, {
+      activeProgram: '5-3-1',
+      workoutSchedule: state.workoutSchedule,
+      defaultWeightIncrement: state.defaultWeightIncrement,
+    });
     return;
   }
 

@@ -8,7 +8,12 @@ import { UpdateSettingsDto } from './update-settings.dto';
 
 const MOCK_USER = { id: 'user-1', email: 'u@example.com', provider: 'dev' };
 
-type Row = { userId: string; activeProgram: string | null; workoutSchedule: unknown };
+type Row = {
+  userId: string;
+  activeProgram: string | null;
+  workoutSchedule: unknown;
+  defaultWeightIncrement: number | null;
+};
 
 function makePrismaMock(): { service: PrismaService; store: Map<string, Row> } {
   const store = new Map<string, Row>();
@@ -39,6 +44,7 @@ function makePrismaMock(): { service: PrismaService; store: Map<string, Row> } {
                 userId: where.userId,
                 activeProgram: create.activeProgram ?? null,
                 workoutSchedule: create.workoutSchedule ?? null,
+                defaultWeightIncrement: create.defaultWeightIncrement ?? null,
               };
           store.set(where.userId, next);
           return next;
@@ -64,7 +70,37 @@ describe('UserSettingsController', () => {
 
   it('returns null schedule for a fresh user', async () => {
     const result = await controller.getSettings(MOCK_USER);
-    expect(result).toEqual({ activeProgram: null, workoutSchedule: null });
+    expect(result).toEqual({
+      activeProgram: null,
+      workoutSchedule: null,
+      defaultWeightIncrement: null,
+    });
+  });
+
+  it('persists a defaultWeightIncrement and reads it back', async () => {
+    const dto = plainToInstance(UpdateSettingsDto, { defaultWeightIncrement: 0.625 });
+    const errors = await validate(dto);
+    expect(errors).toEqual([]);
+
+    const patched = await controller.updateSettings(MOCK_USER, dto);
+    expect(patched.defaultWeightIncrement).toBe(0.625);
+
+    const fetched = await controller.getSettings(MOCK_USER);
+    expect(fetched.defaultWeightIncrement).toBe(0.625);
+  });
+
+  it('clears defaultWeightIncrement when patched with null', async () => {
+    prismaMock.store.set(MOCK_USER.id, {
+      userId: MOCK_USER.id,
+      activeProgram: null,
+      workoutSchedule: null,
+      defaultWeightIncrement: 2.5,
+    });
+    const dto = plainToInstance(UpdateSettingsDto, { defaultWeightIncrement: null });
+    const errors = await validate(dto);
+    expect(errors).toEqual([]);
+    const result = await controller.updateSettings(MOCK_USER, dto);
+    expect(result.defaultWeightIncrement).toBeNull();
   });
 
   it('persists a fixed schedule and reads it back', async () => {
@@ -89,6 +125,7 @@ describe('UserSettingsController', () => {
       userId: MOCK_USER.id,
       activeProgram: null,
       workoutSchedule: { type: 'fixed', days: [0, 99] },
+      defaultWeightIncrement: null,
     });
     const result = await controller.getSettings(MOCK_USER);
     expect(result.workoutSchedule).toBeNull();
@@ -99,6 +136,7 @@ describe('UserSettingsController', () => {
       userId: MOCK_USER.id,
       activeProgram: null,
       workoutSchedule: { type: 'fixed', days: [0, 2, 4] },
+      defaultWeightIncrement: null,
     });
     const dto = plainToInstance(UpdateSettingsDto, { workoutSchedule: null });
     const errors = await validate(dto);
@@ -164,6 +202,19 @@ describe('UpdateSettingsDto validation', () => {
 
   it('rejects an unknown schedule type', async () => {
     const errs = await check({ workoutSchedule: { type: 'weird', days: [0] } });
+    expect(errs.length).toBeGreaterThan(0);
+  });
+
+  it.each([0.625, 1.25, 2.5, 5])('accepts %s as a valid defaultWeightIncrement', async (value) => {
+    expect(await check({ defaultWeightIncrement: value })).toEqual([]);
+  });
+
+  it('accepts an explicit null to clear defaultWeightIncrement', async () => {
+    expect(await check({ defaultWeightIncrement: null })).toEqual([]);
+  });
+
+  it.each([0, 1, 3, 10, -2.5])('rejects %s as an out-of-range defaultWeightIncrement', async (value) => {
+    const errs = await check({ defaultWeightIncrement: value });
     expect(errs.length).toBeGreaterThan(0);
   });
 

@@ -167,9 +167,10 @@ model CustomLift {
 }
 
 model UserSettings {
-  userId          String  @id
-  activeProgram   String?
-  workoutSchedule Json?
+  userId                 String  @id
+  activeProgram          String?
+  workoutSchedule        Json?
+  defaultWeightIncrement Float?
 
   @@map("user_settings")
 }

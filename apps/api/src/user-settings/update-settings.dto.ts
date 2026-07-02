@@ -89,4 +89,12 @@ export class UpdateSettingsDto {
   @ValidateNested()
   @Type(() => WorkoutScheduleDto)
   workoutSchedule?: WorkoutScheduleDto | null;
+
+  // null clears the setting (falls back to the 1.25 app default); undefined leaves
+  // it unchanged. Constrained to plate sizes users actually have on hand — see
+  // docs/standards/training-max-precision.md.
+  @IsOptional()
+  @ValidateIf((o: UpdateSettingsDto) => o.defaultWeightIncrement !== null)
+  @IsIn([0.625, 1.25, 2.5, 5])
+  defaultWeightIncrement?: number | null;
 }
