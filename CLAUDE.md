@@ -89,7 +89,7 @@ All new issues must be added to the **Lifting Logbook** project and assigned an 
 | Client Applications | `31d3931e` |
 | Operations | `0c3f26d2` |
 
-> **IDs regenerate on every option mutation.** `updateProjectV2Field` with `singleSelectOptions` is a full replacement — passing the existing options unchanged still produces new IDs and drops every item's prior assignment. Always follow the **Backup-and-restore procedure** below before any mutation, and update this table immediately after.
+> **IDs regenerate on every option mutation.** `updateProjectV2Field` with `singleSelectOptions` is a full replacement — passing the existing options unchanged still produces new IDs and drops every item's prior assignment. Always follow the **Backup-and-restore procedure** below before any mutation, and update this table — **plus the other two ID caches listed in step 3** — immediately after.
 
 **Backup-and-restore procedure (mandatory before adding/removing/renaming any single-select option):**
 
@@ -107,10 +107,17 @@ All new issues must be added to the **Lifting Logbook** project and assigned an 
    git commit -m "[chore] Snapshot project Epic assignments before option mutation"
    ```
 2. Run the `updateProjectV2Field` mutation with the full desired option list (existing names + new/changed).
-3. Capture the new option IDs from the mutation response and update the **Epic options** table above in the same PR as the snapshot.
+3. Capture the new option IDs from the mutation response and update **all three places these IDs are cached**, in the same PR as the snapshot — all must match the live API:
+   - the **Epic options** table above;
+   - [`.claude/propose.json`](.claude/propose.json) — the `epics` array (consumed by `/propose`);
+   - [`.claude/hook-config.json`](.claude/hook-config.json) — the `epic_options` map (consumed by the `post-tool-use.py` project-board hook, which prints them verbatim with no live fetch).
+
+   > `hook-config.json` was the cache omitted in the 2026-05-10 mutation, which left the issue/PR hook suggesting dead Epic option IDs until [#627](https://github.com/brownm09/lifting-logbook/issues/627). Do not skip it.
 4. Restore assignments by reading the snapshot and re-issuing `gh project item-edit` for each item, mapping the snapshot's epic name → new option ID.
 
 If a mutation runs without a prior snapshot commit, stop and recover from the latest snapshot in `.claude/backups/` before continuing any other work.
+
+> **Milestones drift the same way, via a different trigger.** Milestones aren't a ProjectV2 single-select field, so a new milestone isn't created by the `updateProjectV2Field` mutation above — but the table below and the `milestones` arrays in `.claude/hook-config.json` and `.claude/propose.json` are just as easy to leave stale when a new milestone is created via `gh api repos/.../milestones` or the web UI. Update all three in the same PR that adds a milestone.
 
 **Milestones:**
 
@@ -119,6 +126,7 @@ If a mutation runs without a prior snapshot commit, stop and recover from the la
 | v0.1 — Foundation | `1` |
 | v0.2 — Core API | `2` |
 | v0.3 — Client Applications | `3` |
+| v0.4 — Alpha Release | `4` |
 
 **Workflow — run after `gh issue create`:**
 

@@ -6,7 +6,8 @@
   "milestones": [
     "v0.1 — Foundation",
     "v0.2 — Core API",
-    "v0.3 — Client Applications"
+    "v0.3 — Client Applications",
+    "v0.4 — Alpha Release"
   ],
   "epics": [
     { "name": "Monorepo Scaffolding",         "id": "9dcd9556" },
