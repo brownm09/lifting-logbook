@@ -180,6 +180,35 @@ describe('createApiClient', () => {
     });
   });
 
+  describe('switchProgram', () => {
+    it('sends a JSON body alongside the JSON content-type header (issue #665)', async () => {
+      mockFetch.mockResolvedValue(
+        new Response(JSON.stringify({ activeProgram: 'leangains', cycleNum: 1 }), { status: 200 }),
+      );
+      const client = makeClient();
+      await client.switchProgram('leangains');
+
+      const [url, init] = lastCall();
+      expect(url).toBe('http://api.test/programs/leangains/switch');
+      expect(init.method).toBe('POST');
+      // A Content-Type: application/json header with no body is rejected outright by Fastify's
+      // JSON body parser in production — inject()-based E2E tests don't set Content-Type and so
+      // never caught this. Assert on the constructed request shape directly instead.
+      expect(init.body).toBe('{}');
+    });
+
+    it('resolves with the parsed response', async () => {
+      mockFetch.mockResolvedValue(
+        new Response(JSON.stringify({ activeProgram: 'leangains', cycleNum: 3 }), { status: 200 }),
+      );
+      const client = makeClient();
+      await expect(client.switchProgram('leangains')).resolves.toEqual({
+        activeProgram: 'leangains',
+        cycleNum: 3,
+      });
+    });
+  });
+
   describe('importLiftRecords', () => {
     const file = new File(['a,b\n1,2'], 'records.csv', { type: 'text/csv' });
 

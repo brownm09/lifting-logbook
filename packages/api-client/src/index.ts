@@ -499,6 +499,7 @@ export function createApiClient(config: ApiClientConfig) {
       return request(`/programs/${enc(programId)}/switch`, {
         method: 'POST',
         headers: JSON_HEADERS,
+        body: JSON.stringify({}),
         cache: 'no-store',
       });
     },
