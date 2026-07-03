@@ -63,8 +63,8 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate --schema=apps/api/prisma/schema.prisma
 
-      - name: Lint & Test
-        run: npx turbo run lint test
+      - name: Lint, Typecheck & Test
+        run: npx turbo run lint typecheck test
 
       - name: Validate analytics taxonomy
         run: node scripts/validate-analytics-taxonomy.mjs

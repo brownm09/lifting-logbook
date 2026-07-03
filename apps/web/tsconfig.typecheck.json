@@ -1,0 +1,27 @@
+{
+  // Whole-program type-check gate for web (app source + component/unit tests), run by the
+  // `typecheck` task as `tsc --noEmit -p tsconfig.typecheck.json`. Extends the app tsconfig
+  // (bundler moduleResolution + the next plugin + next-env.d.ts) so next/*, CSS-module imports,
+  // and the @testing-library/jest-dom matcher augmentation all resolve — unlike tsconfig.spec.json,
+  // which is tuned for ts-jest per-file transpile under Node10 resolution. Playwright e2e specs are
+  // excluded (they type-check against @playwright/test in their own context, not jest). See #651.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    // Resolve workspace packages to their TypeScript SOURCE, mirroring this app's Jest
+    // moduleNameMapper (jest.config.js) exactly — so the type-check sees the same code the
+    // tests run against, and needs no upstream build (the app tsconfig otherwise resolves
+    // @lifting-logbook/* via node_modules -> packages/*/dist, which is absent in a clean CI
+    // checkout because the `typecheck` Turbo task has no build dependency). See #651.
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"],
+      "@src/core": ["../../packages/core/src/index.ts"],
+      "@src/core/*": ["../../packages/core/src/*"],
+      "@lifting-logbook/core": ["../../packages/core/src/index.ts"],
+      "@lifting-logbook/api-client": ["../../packages/api-client/src/index.ts"],
+      "@lifting-logbook/types": ["../../packages/types/src/index.ts"]
+    }
+  },
+  "exclude": ["node_modules", "e2e"]
+}

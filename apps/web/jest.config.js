@@ -7,13 +7,13 @@ module.exports = {
   setupFilesAfterEnv: [...(base.setupFilesAfterEnv ?? []), '<rootDir>/jest.setup.ts'],
   testMatch: ['**/*.test.ts', '**/*.test.tsx'],
   transform: {
-    // diagnostics.warnOnly: ts-jest emits TS compile errors as warnings rather
-    // than aborting the suite. The @testing-library/jest-dom augmentation on
-    // jest.Matchers (toBeInTheDocument, etc.) fails to resolve under Node10
-    // moduleResolution in this monorepo setup — tracked in #421. Tests that
-    // use those matchers run and pass at runtime (jest.setup.ts loads the lib);
-    // the TS error is only at the type-check layer.
-    '^.+\\.tsx?$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.spec.json', diagnostics: { warnOnly: true } }],
+    // ts-jest runs transpile-only here: tsconfig.spec.json sets isolatedModules, so
+    // each test file is transpiled without type-checking (fast — see issue #651).
+    // This also sidesteps the #421 @testing-library/jest-dom matcher-augmentation
+    // type error (previously softened with diagnostics.warnOnly): transpile-only emits
+    // no type diagnostics from the test run at all. Tests still run and pass at runtime
+    // (jest.setup.ts loads jest-dom).
+    '^.+\\.tsx?$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.spec.json' }],
   },
   moduleNameMapper: {
     '\\.module\\.css$': 'identity-obj-proxy',
