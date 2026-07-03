@@ -3,9 +3,8 @@ import {
   ExecutionContext,
   Injectable,
   NestInterceptor,
-  Optional,
 } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
+import { ModuleRef, Reflector } from '@nestjs/core';
 import { ClsService } from 'nestjs-cls';
 import { SpanStatusCode, trace } from '@opentelemetry/api';
 import { Observable, defaultIfEmpty, from, lastValueFrom } from 'rxjs';
@@ -31,19 +30,36 @@ import {
  * No-ops when there is no Prisma client (in-memory / SystemDb factories) or no authenticated user
  * (public routes such as /health and /readyz). Those run on the base client with no GUC — which is
  * fail-closed for any userId-scoped table (zero rows) and harmless for the table-less probes.
+ *
+ * PrismaService is resolved lazily via ModuleRef on every request rather than constructor-injected.
+ * RlsInterceptor is bound via APP_INTERCEPTOR, which Nest instantiates as part of its early
+ * global-enhancer setup — before PrismaService's useFactory provider (declared in the same module)
+ * is guaranteed to have run. A constructor-injected `@Optional() PrismaService` captured that
+ * premature `null` permanently (RlsInterceptor is a singleton), silently disabling the RLS
+ * transaction — and therefore the `app.current_user_id` GUC — for the lifetime of the process. See
+ * issue #644.
+ *
+ * The resolution is cached after the first non-null lookup: PrismaService, once resolved, is a
+ * singleton that cannot become unavailable again for the process's lifetime, so paying for a
+ * `strict: false` module-graph search on every request — including unauthenticated /health and
+ * /readyz probe traffic — would be pure repeated overhead.
  */
 @Injectable()
 export class RlsInterceptor implements NestInterceptor {
   private readonly tracer = trace.getTracer('rls-interceptor');
+  private cachedPrisma: PrismaService | null = null;
 
   constructor(
     private readonly cls: ClsService,
     private readonly reflector: Reflector,
-    @Optional() private readonly prisma: PrismaService | null = null,
+    private readonly moduleRef: ModuleRef,
   ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
-    const prisma = this.prisma;
+    const prisma = this.cachedPrisma ?? this.moduleRef.get(PrismaService, { strict: false });
+    if (prisma) {
+      this.cachedPrisma = prisma;
+    }
     // Only the HTTP path is RLS-wired today; `apps/api` exposes no GraphQL resolvers
     // (no GraphQLModule). If GraphQL resolvers touching userId tables are ever added, this guard
     // must be broadened to the 'graphql' context type — otherwise those queries skip the GUC and
