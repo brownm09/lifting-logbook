@@ -1,7 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { initializeCycle, updateTrainingMaxes } from '@/lib/api';
+import { switchProgram, updateTrainingMaxes } from '@/lib/api';
 import { PROGRAMS } from '@/lib/programs';
 
 export type CreateFirstCycleResult = { ok: false; error: string };
@@ -14,8 +14,14 @@ export async function createFirstCycle(
   if (!allowed.includes(programId)) {
     return { ok: false, error: 'That program is not yet available.' };
   }
+  let cycleNum = 1;
   try {
-    await initializeCycle(programId);
+    // switchProgram both ensures a cycle exists for programId (creating one if this is a
+    // genuine first-time setup) AND sets it as the user's activeProgram in one call — the
+    // dashboard page resolves its program via getActiveProgram(), not the URL, so without
+    // this the redirect below would 404 even though the cycle was created successfully
+    // (issue #650).
+    ({ cycleNum } = await switchProgram(programId));
     // Persist the confirmed training maxes exactly as shown on the Confirm step.
     // The caller (OnboardingFlow) already resolved each lift to its final training
     // max — deriving it at 90% of the 1RM for the estimate/test/manual methods, or
@@ -46,7 +52,7 @@ export async function createFirstCycle(
         });
       } catch (maxErr) {
         console.error(
-          `createFirstCycle: cycle initialized for "${programId}" but persisting training maxes failed; continuing to /cycle/1`,
+          `createFirstCycle: cycle initialized for "${programId}" but persisting training maxes failed; continuing to /cycle/${cycleNum}`,
           maxErr,
         );
       }
@@ -60,6 +66,8 @@ export async function createFirstCycle(
   }
   // redirect() throws NEXT_REDIRECT internally. Calling it outside the try block
   // lets Next.js propagate it natively — no need for the internal isRedirectError
-  // guard, which is fragile across major Next.js versions.
-  redirect('/cycle/1');
+  // guard, which is fragile across major Next.js versions. Uses the cycleNum
+  // switchProgram returned rather than a hardcoded 1 — almost always 1 for a genuine
+  // first-time setup, but correct too if a cycle already existed (see switchProgram).
+  redirect(`/cycle/${cycleNum}`);
 }
