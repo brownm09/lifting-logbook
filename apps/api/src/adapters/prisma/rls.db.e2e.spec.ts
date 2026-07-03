@@ -1,12 +1,13 @@
 // Real-Postgres E2E suite for Row-Level Security (issue #511).
 //
 // Postgres is provisioned by jest.global-setup.js (Testcontainers locally; CI passthrough),
-// which exposes the OWNER connection string via LIFTING_TC_DATABASE_URL. The enable_rls migration
-// has already created the non-superuser `lifting_app` role (without a password). This suite:
-//   1. sets a known password on lifting_app using the owner connection, then
-//   2. connects a second Prisma client AS lifting_app to prove the policies actually constrain a
-//      non-superuser caller — the existing DB-E2E suites connect as the bootstrap superuser, which
-//      bypasses RLS, so they could never catch a missing/broken policy.
+// which also provisions the `lifting_app` role's login password and exposes both connection
+// strings directly (issue #646): LIFTING_TC_DATABASE_URL (the restricted lifting_app role — the
+// default every DB E2E suite now uses) and LIFTING_TC_OWNER_DATABASE_URL (the superuser/owner
+// opt-in). This suite:
+//   1. connects a second Prisma client AS lifting_app to prove the policies actually constrain a
+//      non-superuser caller — the enforcement tests below assert the policies themselves hold,
+//      which merely connecting as the (now-default) restricted role elsewhere cannot substitute for.
 //
 // Seeding and cleanup use the owner client (superuser → bypasses RLS, so it can write any user's
 // rows). Enforcement assertions use the lifting_app client.
@@ -25,35 +26,26 @@ import { RlsInterceptor } from './rls.interceptor';
 import { RLS_TX_CLIENT } from './rls-context';
 import { runBatch } from './prisma-tx.util';
 
-const TC_DATABASE_URL = process.env.LIFTING_TC_DATABASE_URL;
-const describeOrSkip = TC_DATABASE_URL ? describe : describe.skip;
-// Guaranteed-string form for use inside the guarded describe blocks (they only run when
-// TC_DATABASE_URL is set, so the '' fallback is never exercised — it just avoids a non-null
+const APP_ROLE_URL = process.env.LIFTING_TC_DATABASE_URL;
+const OWNER_TC_URL = process.env.LIFTING_TC_OWNER_DATABASE_URL;
+const describeOrSkip = APP_ROLE_URL && OWNER_TC_URL ? describe : describe.skip;
+// Guaranteed-string forms for use inside the guarded describe blocks (they only run when
+// both sentinels are set, so the '' fallback is never exercised — it just avoids a non-null
 // assertion and keeps Prisma's `url: string` type satisfied).
-const OWNER_URL = TC_DATABASE_URL ?? '';
+const OWNER_URL = OWNER_TC_URL ?? '';
+const APP_DB_URL = APP_ROLE_URL ?? '';
 
-// The beforeAll below connects an owner PrismaClient, runs ALTER ROLE, and seeds
-// fixtures. In isolation it finishes in ~2s, but under a full-suite Windows
-// `turbo run test` it contends with the CSV-fixture-heavy web/core suites and
-// intermittently blows past Jest's 5s default hook timeout (an isolation-only
-// flake — apps/api/jest.config.js does not extend the win32-capped base config).
-// 30s gives ample headroom over the contended case while still failing fast on a
+// The beforeAll below connects an owner PrismaClient and seeds fixtures. In isolation it
+// finishes in ~2s, but under a full-suite Windows `turbo run test` it contends with the
+// CSV-fixture-heavy web/core suites and intermittently blows past Jest's 5s default hook
+// timeout (an isolation-only flake — apps/api/jest.config.js does not extend the win32-capped
+// base config). 30s gives ample headroom over the contended case while still failing fast on a
 // genuine hang (Testcontainers readiness is already bounded in jest.global-setup.js). See #567.
 const DB_E2E_HOOK_TIMEOUT_MS = 30_000;
-
-const APP_ROLE = 'lifting_app';
-const APP_ROLE_PASSWORD = 'lifting_app';
 
 const USER_ALICE = 'rls-e2e-alice';
 const USER_BOB = 'rls-e2e-bob';
 const PROGRAM = 'rls-e2e-program';
-
-function appRoleUrl(ownerUrl: string): string {
-  const u = new URL(ownerUrl);
-  u.username = APP_ROLE;
-  u.password = APP_ROLE_PASSWORD;
-  return u.toString();
-}
 
 /** Runs `body` inside a transaction with app.current_user_id set to `userId` (or unset if null). */
 async function asUser<T>(
@@ -82,13 +74,9 @@ describeOrSkip('Row-Level Security (e2e, lifting_app role)', () => {
   beforeAll(async () => {
     owner = new PrismaClient({ datasources: { db: { url: OWNER_URL } } });
 
-    // The migration created lifting_app without a password; give it one so the app-role client can
-    // connect. Owner is a superuser here, so ALTER ROLE is permitted. (Password is test-only.)
-    await owner.$executeRawUnsafe(
-      `ALTER ROLE "${APP_ROLE}" WITH LOGIN PASSWORD '${APP_ROLE_PASSWORD}'`,
-    );
-
-    appDb = new PrismaClient({ datasources: { db: { url: appRoleUrl(OWNER_URL) } } });
+    // jest.global-setup.js already provisioned lifting_app's login password (issue #646),
+    // so the app-role client can connect directly against the sentinel it exposed.
+    appDb = new PrismaClient({ datasources: { db: { url: APP_DB_URL } } });
 
     await cleanup();
 
@@ -264,7 +252,7 @@ describeOrSkip('RLS request wiring (interceptor + factory)', () => {
   let interceptor: RlsInterceptor;
 
   beforeAll(async () => {
-    process.env.DATABASE_URL = OWNER_URL; // allowed by jest.env.setup.js Proxy (== sentinel value)
+    process.env.DATABASE_URL = OWNER_URL; // allowed by jest.env.setup.js Proxy (== LIFTING_TC_OWNER_DATABASE_URL sentinel)
     const moduleRef = await Test.createTestingModule({
       imports: [ClsModule.forRoot({ global: true })],
       providers: [
@@ -366,16 +354,12 @@ describeOrSkip('RLS request wiring (interceptor + factory, full app boot)', () =
 
   beforeAll(async () => {
     owner = new PrismaClient({ datasources: { db: { url: OWNER_URL } } });
-    // Idempotent — harmless if the "Row-Level Security (e2e, lifting_app role)" block above
-    // already set this password; this block must not depend on describe-block execution order.
-    await owner.$executeRawUnsafe(
-      `ALTER ROLE "${APP_ROLE}" WITH LOGIN PASSWORD '${APP_ROLE_PASSWORD}'`,
-    );
 
-    // Allowed by jest.env.setup.js's Proxy: same host/pathname as the LIFTING_TC_DATABASE_URL
-    // sentinel, lifting_app user — so PrismaService's env("DATABASE_URL") read resolves to a
-    // real, RLS-enforcing connection instead of the owner/superuser one.
-    process.env.DATABASE_URL = appRoleUrl(OWNER_URL);
+    // jest.global-setup.js already provisioned lifting_app's login password (issue #646).
+    // This matches the LIFTING_TC_DATABASE_URL sentinel exactly, so jest.env.setup.js's Proxy
+    // allows the write — PrismaService's env("DATABASE_URL") read resolves to a real,
+    // RLS-enforcing connection instead of the owner/superuser one.
+    process.env.DATABASE_URL = APP_DB_URL;
 
     app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter(), {
       logger: false,
