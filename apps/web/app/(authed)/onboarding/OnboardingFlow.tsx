@@ -3,14 +3,13 @@
 import { useCallback, useMemo, useState, useTransition } from 'react';
 import styles from './onboarding.module.css';
 import {
-  brzycki1RM,
-  floorToIncrement,
   getSeedLiftsByProgramId,
   isWeightOnly,
   valuesAreTrainingMax,
   type DiscoveryMethod,
   type LiftRow,
 } from './lib';
+import { estimateOneRepMax, floorToIncrement } from '@lifting-logbook/core';
 import type { Experience } from '@/lib/programs';
 import { StepMethod } from './steps/StepMethod';
 import { StepLifts } from './steps/StepLifts';
@@ -61,7 +60,7 @@ export function OnboardingFlow({ catalog }: { catalog: string[] }) {
       if (valuesAreTrainingMax(method)) {
         return { lift: row.lift, oneRm: null, trainingMax: w };
       }
-      const oneRm = method === 'manual' ? floorToIncrement(w) : brzycki1RM(w, r);
+      const oneRm = method === 'manual' ? floorToIncrement(w) : estimateOneRepMax(w, r);
       return { lift: row.lift, oneRm, trainingMax: floorToIncrement(oneRm * 0.9) };
     });
   }, [lifts, method]);

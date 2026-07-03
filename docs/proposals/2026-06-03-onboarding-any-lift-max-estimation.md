@@ -39,6 +39,10 @@ which mirrors the canonical core utility `estimateTrainingMax`
 (`packages/core/src/services/maxes/estimateTrainingMax.ts`). Rep-range guidance ("stay under 10 reps for
 accuracy") is preserved.
 
+*(Update, 2026-07-02: the two implementations drifted apart and were consolidated onto a single
+implementation in `packages/core` — see [issue #642](https://github.com/brownm09/lifting-logbook/issues/642).
+The live estimate now calls `estimateOneRepMax()` directly; `brzycki1RM` no longer exists.)*
+
 **3. Persist confirmed maxes**
 
 Extend `createFirstCycle` (`onboarding/actions.ts`) to accept the confirmed `{ lift, oneRm }[]` and write
