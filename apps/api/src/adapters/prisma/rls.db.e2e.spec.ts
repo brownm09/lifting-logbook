@@ -433,4 +433,28 @@ describeOrSkip('RLS request wiring (interceptor + factory, full app boot)', () =
     expect(JSON.parse(res.body).program).toBe('leangains');
     await owner.cycleDashboard.deleteMany({ where: { userId } });
   });
+
+  // switchProgram (SwitchProgramController) is a separate DI-wired path from
+  // cycles/initialize above — it builds its repos via `this.prisma.clientForRequest()`
+  // directly rather than solely through PrismaRepositoryFactory. It has an existing
+  // create-new-cycle test in programs.db.e2e.spec.ts, but that suite (like every DB E2E
+  // suite except this file) connects as the bootstrap superuser, which bypasses RLS.
+  // #650 (the onboarding activeProgram fix) made this the primary path onboarding now
+  // depends on, so it needs the same full-app-boot-under-lifting_app coverage cycles/
+  // initialize got in #645 — otherwise this endpoint carries the same class of blind
+  // spot that let #644 ship undetected.
+  it('switchProgram creates a first-time cycle and sets activeProgram under the restricted role', async () => {
+    const userId = `rls-e2e-fullapp-switch-${Date.now()}`;
+    const res = await inject({
+      method: 'POST',
+      url: '/programs/leangains/switch',
+      headers: { authorization: `Bearer ${userId}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)).toEqual({ activeProgram: 'leangains', cycleNum: 1 });
+
+    await owner.cycleDashboard.deleteMany({ where: { userId } });
+    await owner.userSettings.deleteMany({ where: { userId } });
+  });
 });
