@@ -1,0 +1,13 @@
+{
+  // Whole-program type-check gate for web (app source + component/unit tests), run by the
+  // `typecheck` task as `tsc --noEmit -p tsconfig.typecheck.json`. Extends the app tsconfig
+  // (bundler moduleResolution + the next plugin + next-env.d.ts) so next/*, CSS-module imports,
+  // and the @testing-library/jest-dom matcher augmentation all resolve — unlike tsconfig.spec.json,
+  // which is tuned for ts-jest per-file transpile under Node10 resolution. Playwright e2e specs are
+  // excluded (they type-check against @playwright/test in their own context, not jest). See #651.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "exclude": ["node_modules", "e2e"]
+}

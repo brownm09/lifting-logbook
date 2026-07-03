@@ -17,6 +17,9 @@
     "lint": {
       "inputs": ["src/**", "app/**", "*.ts", ".eslintrc*", "eslint.config*"]
     },
+    "typecheck": {
+      "cache": false
+    },
     "dev": {
       "dependsOn": ["db:generate"],
       "persistent": true,
