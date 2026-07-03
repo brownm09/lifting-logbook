@@ -37,7 +37,10 @@ import {
  * plumbing (issue #644), not a legitimate no-DB environment — silently falling through here
  * produces "empty reads / rejected writes" symptoms indistinguishable from "this user has no data
  * yet," which is why #644 went undiagnosed for weeks. This throws InternalServerErrorException
- * instead of no-op'ing in that case (issue #649).
+ * instead of no-op'ing in that case (issue #649) — deliberately including unauthenticated routes
+ * like /health and /readyz, since a deployment with broken RLS plumbing should fail its readiness
+ * probe and stop receiving traffic rather than report healthy while every real endpoint silently
+ * drops RLS.
  *
  * PrismaService is resolved lazily via ModuleRef on every request rather than constructor-injected.
  * RlsInterceptor is bound via APP_INTERCEPTOR, which Nest instantiates as part of its early
@@ -80,11 +83,16 @@ export class RlsInterceptor implements NestInterceptor {
         // A real Postgres connection is configured but the Prisma client still couldn't be
         // resolved from the module graph — the broken-plumbing case from issue #644, not the
         // legitimate in-memory/SystemDb no-op. Fail loudly rather than silently running this
-        // request with no RLS GUC set (issue #649).
-        throw new InternalServerErrorException(
-          'RlsInterceptor could not resolve PrismaService even though DATABASE_URL is configured; ' +
-            'RLS context cannot be established for this request.',
-        );
+        // request with no RLS GUC set (issue #649). The client-facing message stays generic —
+        // the diagnostic detail (which env signal was involved) lives in `cause` instead, so it
+        // reaches server-side logs/traces (via the existing Pino/OTel auto-instrumentation) without
+        // also being echoed back in the HTTP response body, since no global filter in main.ts
+        // redacts InternalServerErrorException messages before they reach the client.
+        throw new InternalServerErrorException('RLS context could not be established for this request.', {
+          cause: new Error(
+            'RlsInterceptor could not resolve PrismaService even though DATABASE_URL is configured.',
+          ),
+        });
       }
       return next.handle();
     }

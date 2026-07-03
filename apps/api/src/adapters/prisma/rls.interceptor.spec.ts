@@ -58,6 +58,21 @@ describe('RlsInterceptor', () => {
         InternalServerErrorException,
       );
     });
+
+    it('keeps the client-facing message generic and carries the diagnostic detail in `cause`', () => {
+      const interceptor = new RlsInterceptor(makeCls(), makeReflector(), makeModuleRef(null));
+      stubDatabaseUrlConfigured(interceptor, true);
+
+      try {
+        interceptor.intercept(makeContext('http'), passthroughHandler);
+        throw new Error('expected intercept() to throw');
+      } catch (err) {
+        expect(err).toBeInstanceOf(InternalServerErrorException);
+        const exception = err as InternalServerErrorException;
+        expect(exception.message).not.toMatch(/DATABASE_URL/);
+        expect((exception.cause as Error)?.message).toMatch(/DATABASE_URL/);
+      }
+    });
   });
 
   describe('when PrismaService cannot be resolved and no DB is configured (in-memory/SystemDb mode)', () => {
