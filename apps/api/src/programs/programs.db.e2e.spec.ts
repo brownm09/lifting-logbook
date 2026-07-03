@@ -2,11 +2,21 @@
 //   - Local: an ephemeral container via @testcontainers/postgresql (Docker required).
 //   - CI:    passthrough of the DATABASE_URL already exported by the
 //            db-integration job's postgres service container.
-// globalSetup exposes the connection string via LIFTING_TC_DATABASE_URL; this
-// spec restores DATABASE_URL from that sentinel below, before AppModule is
-// instantiated. (jest.env.setup.js force-blanks DATABASE_URL in every worker so
-// the in-memory e2e suite keeps wiring InMemoryRepositoryFactory; its Proxy
-// allows this one specific restoration.)
+// globalSetup provisions the `lifting_app` role's login password and exposes two
+// connection strings (issue #646): LIFTING_TC_DATABASE_URL (the restricted lifting_app
+// role) and LIFTING_TC_OWNER_DATABASE_URL (the superuser/owner opt-in). This spec uses
+// both, deliberately for different things:
+//   - `app` (the NestJS instance under test) restores DATABASE_URL from
+//     LIFTING_TC_DATABASE_URL before boot, so every one of this file's HTTP-driven
+//     assertions genuinely exercises the restricted role end to end — real RLS
+//     enforcement on the same path production traffic takes.
+//   - `prisma` (this file's own seeding/cleanup/DB-assertion client) connects via
+//     LIFTING_TC_OWNER_DATABASE_URL explicitly, because this suite acts as a harness
+//     across many synthetic users (Alice, Bob, TEST_USER, ...) rather than as one
+//     authenticated request — exactly the legitimate owner-opt-in case.
+// (jest.env.setup.js force-blanks DATABASE_URL in every worker so the in-memory e2e
+// suite keeps wiring InMemoryRepositoryFactory; its Proxy allows restoring DATABASE_URL
+// from either of the two sentinels above.)
 import 'reflect-metadata';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -68,9 +78,10 @@ async function cleanTestUsers(prisma: PrismaClient): Promise<void> {
 }
 
 const TC_DATABASE_URL = process.env.LIFTING_TC_DATABASE_URL;
+const OWNER_DATABASE_URL = process.env.LIFTING_TC_OWNER_DATABASE_URL;
 // Skip only when globalSetup did not provision a DB (e.g. Docker unavailable
-// and not running in CI). Normal local / CI runs always have it set.
-const describeOrSkip = TC_DATABASE_URL ? describe : describe.skip;
+// and not running in CI). Normal local / CI runs always have both sentinels set.
+const describeOrSkip = TC_DATABASE_URL && OWNER_DATABASE_URL ? describe : describe.skip;
 
 describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
   let app: NestFastifyApplication;
@@ -135,7 +146,12 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
   };
 
   beforeAll(async () => {
-    prisma = new PrismaClient();
+    // Owner/superuser connection, explicit and deliberate (issue #646): this suite seeds
+    // and asserts against many synthetic users as a test harness, not as one authenticated
+    // request, so it bypasses RLS on purpose. `app` below boots against the ambient
+    // DATABASE_URL (the restricted lifting_app role) — that's the connection every one of
+    // this file's HTTP-driven `it()` blocks actually exercises.
+    prisma = new PrismaClient({ datasources: { db: { url: OWNER_DATABASE_URL } } });
 
     // Clean any leftover data from an interrupted previous run before seeding.
     await cleanTestUsers(prisma);

@@ -17,11 +17,30 @@
 //      `prisma migrate deploy` failures throw buildMigrationFailedMessage
 //      (schema drift, SQL error, timeout — Docker is fine).
 //
-// In paths 1 and 3 the spec reads LIFTING_TC_DATABASE_URL (not DATABASE_URL)
-// because jest.env.setup.js force-blanks DATABASE_URL in every worker to keep
-// the in-memory e2e suite wiring InMemoryRepositoryFactory. The DB E2E spec
-// restores DATABASE_URL from the sentinel inside its own beforeAll;
-// jest.env.setup.js allows that one specific write through its Proxy.
+// In paths 1 and 3, once the database is confirmed migrated (so the `lifting_app`
+// role from the enable_rls migration exists), this file also provisions that
+// role's login password and exposes TWO connection strings (issue #646):
+//   - LIFTING_TC_DATABASE_URL: the restricted `lifting_app` role. This is the
+//     DEFAULT every DB E2E spec should use — it's the same non-superuser role
+//     the production app runs as, so Row-Level Security is actually enforced.
+//     Postgres superusers bypass RLS entirely regardless of policy correctness,
+//     which is exactly how issue #644 (RlsInterceptor silently never setting the
+//     RLS GUC) went undetected for 3+ weeks — every DB E2E suite ran as superuser.
+//   - LIFTING_TC_OWNER_DATABASE_URL: the bootstrap superuser/owner connection,
+//     kept available as an explicit, named opt-in for suites that genuinely need
+//     to bypass RLS (seeding/cleanup across many synthetic users, or asserting on
+//     RLS metadata itself). Only read this sentinel with a comment explaining why
+//     the suite needs to bypass RLS.
+// buildRoleProvisioningFailedMessage covers failures in that provisioning step —
+// by that point Docker and migrations are both known-good, so the failure is
+// specific to the ALTER ROLE statement itself.
+//
+// In paths 1 and 3 the spec reads LIFTING_TC_DATABASE_URL / LIFTING_TC_OWNER_DATABASE_URL
+// (not DATABASE_URL) because jest.env.setup.js force-blanks DATABASE_URL in every
+// worker to keep the in-memory e2e suite wiring InMemoryRepositoryFactory. The DB
+// E2E spec restores DATABASE_URL from one of the two sentinels inside its own
+// beforeAll; jest.env.setup.js allows exactly those two specific writes through
+// its Proxy.
 
 const path = require('path');
 const { execSync } = require('child_process');
@@ -31,6 +50,12 @@ const { execSync } = require('child_process');
 // latest postgres:16-alpine, capture its digest, and update both call sites.
 const POSTGRES_IMAGE = 'postgres:16-alpine@sha256:16bc17c64a573ef34162af9298258d1aec548232985b33ed7b1eac33ba35c229';
 const MIGRATION_TIMEOUT_MS = 120_000;
+
+// The restricted runtime role created (passwordless) by the enable_rls migration.
+// Test-only password — never used outside an ephemeral Testcontainers instance or
+// CI's throwaway service container.
+const APP_ROLE = 'lifting_app';
+const APP_ROLE_PASSWORD = 'lifting_app';
 
 // Keep recovery copy in sync with docs/testing/e2e-coverage.md ("Running locally
 // when Docker is unavailable") and the CLAUDE.md Testing prerequisites bullet.
@@ -72,6 +97,51 @@ function buildMigrationFailedMessage(underlying) {
   ].join('\n');
 }
 
+// Distinct from the two messages above: by the time this fires, Docker is
+// reachable AND migrations have already succeeded (this only runs after a
+// successful CI passthrough or a successful local migrate-deploy), so the
+// failure is specific to provisioning the lifting_app role's login password.
+function buildRoleProvisioningFailedMessage(underlying) {
+  return [
+    "[jest.global-setup] Failed to provision the `lifting_app` role's login password.",
+    '',
+    'Docker is reachable and migrations succeeded — the failure is specific to this step.',
+    '',
+    'Likely causes:',
+    '  1. The enable_rls migration (20260611000000_enable_rls) has not actually run,',
+    '     so the `lifting_app` role does not exist yet — check the migration history.',
+    '  2. The owner/superuser connection used here lacks privilege to ALTER ROLE —',
+    '     should not happen against the bootstrap superuser Testcontainers/CI creates.',
+    '  3. A network or auth issue reaching the database specific to this connection.',
+    '',
+    `Underlying error: ${underlying && underlying.message ? underlying.message : String(underlying)}`,
+  ].join('\n');
+}
+
+// Clones ownerUrl with the lifting_app role's credentials substituted in — same
+// host/port/database, only the role differs.
+function appRoleUrl(ownerUrl) {
+  const u = new URL(ownerUrl);
+  u.username = APP_ROLE;
+  u.password = APP_ROLE_PASSWORD;
+  return u.toString();
+}
+
+// Sets a known login password on the lifting_app role (created passwordless by the
+// enable_rls migration) using the owner/superuser connection, which alone has
+// privilege to ALTER ROLE. Idempotent — safe to call on every run.
+async function provisionAppRolePassword(ownerUrl) {
+  const { PrismaClient } = require('@prisma/client');
+  const owner = new PrismaClient({ datasources: { db: { url: ownerUrl } } });
+  try {
+    await owner.$executeRawUnsafe(
+      `ALTER ROLE "${APP_ROLE}" WITH LOGIN PASSWORD '${APP_ROLE_PASSWORD}'`,
+    );
+  } finally {
+    await owner.$disconnect().catch(() => {});
+  }
+}
+
 // Truthy variants the opt-out accepts. Anything else that is set-but-not-listed
 // triggers a near-miss warning so a typoed value doesn't silently fall through
 // to the hard-fail path.
@@ -79,11 +149,20 @@ const SKIP_DB_E2E_TRUTHY = new Set(['1', 'true', 'yes']);
 
 module.exports = async function globalSetup() {
   if (process.env.DATABASE_URL) {
-    process.env.LIFTING_TC_DATABASE_URL = process.env.DATABASE_URL;
+    const ownerUrl = process.env.DATABASE_URL;
+    try {
+      await provisionAppRolePassword(ownerUrl);
+    } catch (err) {
+      throw new Error(buildRoleProvisioningFailedMessage(err));
+    }
+    process.env.LIFTING_TC_OWNER_DATABASE_URL = ownerUrl;
+    process.env.LIFTING_TC_DATABASE_URL = appRoleUrl(ownerUrl);
     // Clear DATABASE_URL so worker setupFiles' BLOCK list takes effect uniformly.
-    // The spec restores it from LIFTING_TC_DATABASE_URL in beforeAll.
+    // The spec restores it from one of the two sentinels above in beforeAll.
     delete process.env.DATABASE_URL;
-    console.log('[jest.global-setup] CI passthrough — using pre-set DATABASE_URL.');
+    console.log(
+      '[jest.global-setup] CI passthrough — provisioned lifting_app; it is now the default DB E2E connection.',
+    );
     return;
   }
 
@@ -146,6 +225,19 @@ module.exports = async function globalSetup() {
     throw new Error(buildMigrationFailedMessage(err));
   }
 
-  process.env.LIFTING_TC_DATABASE_URL = url;
-  console.log('[jest.global-setup] Postgres testcontainer ready.');
+  try {
+    await provisionAppRolePassword(url);
+  } catch (err) {
+    // Mirror the migrate-failure branch above: stop the container and clear its
+    // handle BEFORE throwing, so a role-provisioning failure can't leak it.
+    await container.stop().catch(() => {});
+    globalThis.__LL_PG_CONTAINER__ = undefined;
+    throw new Error(buildRoleProvisioningFailedMessage(err));
+  }
+
+  process.env.LIFTING_TC_OWNER_DATABASE_URL = url;
+  process.env.LIFTING_TC_DATABASE_URL = appRoleUrl(url);
+  console.log(
+    '[jest.global-setup] Postgres testcontainer ready — lifting_app is the default DB E2E connection.',
+  );
 };
