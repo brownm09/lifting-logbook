@@ -160,11 +160,19 @@ test.describe('onboarding write path (creates and cleans up real data)', () => {
 
   test.beforeAll(async ({ request }) => {
     // Defensive: a prior run's own cleanup may not have completed (CI kill, etc).
-    await request.delete(RESET_URL);
+    // Asserted, not fire-and-forget: a silently-failing reset here (e.g. an
+    // expired Clerk session returning 401) would leave a stale cycle in place,
+    // and switchProgram silently reuses an existing cycle rather than erroring
+    // (switch-program.controller.ts) — so the test below would still pass
+    // without ever exercising a genuine first-time write, defeating the entire
+    // point of this suite with no visible signal. Fail loudly here instead.
+    const res = await request.delete(RESET_URL);
+    expect(res.ok(), `Pre-test cleanup failed: ${res.status()} ${await res.text()}`).toBeTruthy();
   });
 
   test.afterAll(async ({ request }) => {
-    await request.delete(RESET_URL);
+    const res = await request.delete(RESET_URL);
+    expect(res.ok(), `Post-test cleanup failed: ${res.status()} ${await res.text()}`).toBeTruthy();
   });
 
   test('sign in -> choose program -> confirm maxes -> Start My Program -> cycle dashboard renders', async ({ page }: { page: Page }) => {

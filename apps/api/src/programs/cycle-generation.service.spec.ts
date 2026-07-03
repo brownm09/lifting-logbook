@@ -96,6 +96,7 @@ describe('CycleGenerationService', () => {
       saveTrainingMaxes: jest.fn().mockResolvedValue(undefined),
       importTrainingMaxes: jest.fn(),
       deleteTrainingMaxes: jest.fn().mockResolvedValue(undefined),
+      deleteAllTrainingMaxes: jest.fn().mockResolvedValue(undefined),
     };
     trainingMaxHistoryRepo = {
       getHistory: jest.fn().mockResolvedValue([]),
@@ -356,28 +357,30 @@ describe('CycleGenerationService', () => {
   describe('deleteCurrentCycle', () => {
     it('deletes lift records, training maxes, history, scheduled workouts, and the dashboard', async () => {
       cycleDashboardRepo.getCycleDashboard.mockResolvedValue(stubDashboard());
-      trainingMaxRepo.getTrainingMaxes.mockResolvedValue(stubTrainingMaxes());
 
       await service.deleteCurrentCycle(repos, PROGRAM);
 
       expect(liftRecordRepo.deleteAllLiftRecords).toHaveBeenCalledWith(PROGRAM);
       expect(trainingMaxHistoryRepo.deleteAllHistory).toHaveBeenCalledWith(PROGRAM);
-      expect(trainingMaxRepo.deleteTrainingMaxes).toHaveBeenCalledWith(PROGRAM, ['Squat']);
+      expect(trainingMaxRepo.deleteAllTrainingMaxes).toHaveBeenCalledWith(PROGRAM);
       expect(cycleScheduledWorkoutRepo.saveScheduledWorkouts).toHaveBeenCalledWith(PROGRAM, 1, []);
       expect(cycleDashboardRepo.deleteCycleDashboard).toHaveBeenCalledWith(PROGRAM);
     });
 
-    it('deletes the dashboard after the other deletes complete (ordering)', async () => {
+    it('deletes sequentially, in a fixed order, ending with the dashboard', async () => {
+      // The five deletes share one request-scoped Prisma transaction client, which
+      // serializes queries on a single connection — asserting a real, deterministic
+      // order here (rather than Promise.all's unordered settling) is itself the
+      // regression guard for that constraint.
       const order: string[] = [];
       cycleDashboardRepo.getCycleDashboard.mockResolvedValue(stubDashboard());
-      trainingMaxRepo.getTrainingMaxes.mockResolvedValue(stubTrainingMaxes());
       liftRecordRepo.deleteAllLiftRecords.mockImplementation(async () => {
         order.push('liftRecord');
       });
       trainingMaxHistoryRepo.deleteAllHistory.mockImplementation(async () => {
         order.push('trainingMaxHistory');
       });
-      trainingMaxRepo.deleteTrainingMaxes.mockImplementation(async () => {
+      trainingMaxRepo.deleteAllTrainingMaxes.mockImplementation(async () => {
         order.push('trainingMax');
       });
       cycleScheduledWorkoutRepo.saveScheduledWorkouts.mockImplementation(async () => {
@@ -389,8 +392,13 @@ describe('CycleGenerationService', () => {
 
       await service.deleteCurrentCycle(repos, PROGRAM);
 
-      expect(order[order.length - 1]).toBe('cycleDashboard');
-      expect(order).toHaveLength(5);
+      expect(order).toEqual([
+        'liftRecord',
+        'trainingMaxHistory',
+        'trainingMax',
+        'cycleScheduledWorkout',
+        'cycleDashboard',
+      ]);
     });
 
     it('propagates ProgramNotFoundError when no cycle exists (404 path)', async () => {
@@ -403,12 +411,10 @@ describe('CycleGenerationService', () => {
 
     it('scopes the scheduled-workout clear to the dashboard current cycleNum', async () => {
       cycleDashboardRepo.getCycleDashboard.mockResolvedValue({ ...stubDashboard(), cycleNum: 3 });
-      trainingMaxRepo.getTrainingMaxes.mockResolvedValue([]);
 
       await service.deleteCurrentCycle(repos, PROGRAM);
 
       expect(cycleScheduledWorkoutRepo.saveScheduledWorkouts).toHaveBeenCalledWith(PROGRAM, 3, []);
-      expect(trainingMaxRepo.deleteTrainingMaxes).toHaveBeenCalledWith(PROGRAM, []);
     });
   });
 

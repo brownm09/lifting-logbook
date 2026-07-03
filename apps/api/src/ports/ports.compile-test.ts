@@ -105,6 +105,8 @@ const _trainingMaxRepo: ITrainingMaxRepository = {
     Promise.resolve({ created: 0, updated: 0, skipped: 0 }),
   deleteTrainingMaxes: (): Promise<void> =>
     Promise.resolve(),
+  deleteAllTrainingMaxes: (): Promise<void> =>
+    Promise.resolve(),
 };
 
 // ---------------------------------------------------------------------------
