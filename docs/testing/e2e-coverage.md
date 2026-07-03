@@ -30,7 +30,8 @@ This document maps every critical user flow to its test coverage across the API 
 | File | What it covers |
 |---|---|
 | `apps/api/src/programs/programs.e2e.spec.ts` | Full API surface via in-memory adapters. Runs on every `npm test`. |
-| `apps/api/src/programs/programs.db.e2e.spec.ts` | Full API surface via Prisma adapters. Postgres is auto-provisioned by Jest globalSetup (Testcontainers locally; service container in CI). Runs on every `npm test -w @lifting-logbook/api` when Docker is available. |
+| `apps/api/src/programs/programs.db.e2e.spec.ts` | Full API surface via Prisma adapters. Postgres is auto-provisioned by Jest globalSetup (Testcontainers locally; service container in CI). HTTP requests run through the restricted `lifting_app` role (RLS-enforced) by default; direct DB seeding/cleanup and cross-user fixture setup use the owner/superuser connection via `LIFTING_TC_OWNER_DATABASE_URL`. Runs on every `npm test -w @lifting-logbook/api` when Docker is available. |
+| `apps/api/src/adapters/prisma/rls.db.e2e.spec.ts` | Row-Level Security enforcement and request-wiring tests (issues #511, #644). Connects as `lifting_app` for policy-enforcement assertions and full-app-boot HTTP tests; uses the owner connection only for cross-user seeding/cleanup and RLS-independent metadata checks against `pg_policy`/`pg_roles`. |
 | `apps/api/src/observability/otel.e2e.spec.ts` | OTel + nestjs-pino trace correlation smoke test. |
 
 ## Frontend E2E Tests
@@ -88,6 +89,32 @@ npm run test:db -w @lifting-logbook/api
 # postgres service container), globalSetup uses it directly and skips
 # container startup. Run migrations yourself in this case before invoking jest.
 ```
+
+## DB E2E connection defaults (issue #646)
+
+Every DB E2E suite connects as the restricted **`lifting_app`** role by default — the same
+non-superuser role the production application uses at runtime, with Row-Level Security fully
+enforced (`FORCE ROW LEVEL SECURITY` on every userId-scoped table, per the `enable_rls`
+migration). `jest.global-setup.js` provisions this role's password once and exposes it as
+`LIFTING_TC_DATABASE_URL`.
+
+A distinct, explicit opt-in, **`LIFTING_TC_OWNER_DATABASE_URL`**, exposes the superuser/owner
+connection for suites that genuinely need to bypass RLS: seeding or cleaning up fixtures across
+many synthetic users, or DB-layer assertions on RLS metadata itself that must run
+role-independently.
+
+**Rule of thumb:** if a test's Prisma calls stand in for what an authenticated HTTP request would
+do, use the restricted sentinel — or better, let the app under test boot against the ambient
+`DATABASE_URL`, which is already the restricted role. If a test needs to act as an omniscient
+harness across multiple users' data, use the owner sentinel explicitly via
+`datasources.db.url`. Never construct a Prisma client from ambient env when the intent is to
+bypass RLS — ambient env now resolves to the restricted role by default.
+
+This flips the pre-#646 default, under which every DB E2E suite connected as the superuser
+bootstrap role and structurally could not detect a broken or missing RLS policy. That's exactly
+how issue [#644](https://github.com/brownm09/lifting-logbook/issues/644) shipped and stayed live
+for 3+ weeks: `RlsInterceptor` silently never set the `app.current_user_id` GUC, and no suite
+besides `rls.db.e2e.spec.ts` ran with RLS actually capable of rejecting anything.
 
 ## Running locally when Docker is unavailable
 
