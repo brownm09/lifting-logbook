@@ -12,11 +12,13 @@
 // rows). Enforcement assertions use the lifting_app client.
 import 'reflect-metadata';
 import { ExecutionContext, CallHandler } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
+import { NestFactory, Reflector } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
+import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { PrismaClient } from '@prisma/client';
 import { ClsModule, ClsService } from 'nestjs-cls';
 import { lastValueFrom, from } from 'rxjs';
+import { AppModule } from '../../app.module';
 import { PrismaService } from './prisma.service';
 import { PrismaRepositoryFactory } from './prisma-repository-factory';
 import { RlsInterceptor } from './rls.interceptor';
@@ -279,7 +281,10 @@ describeOrSkip('RLS request wiring (interceptor + factory)', () => {
     prisma = moduleRef.get(PrismaService);
     await prisma.$connect();
     factory = new PrismaRepositoryFactory(prisma, cls);
-    interceptor = new RlsInterceptor(cls, moduleRef.get(Reflector), prisma);
+    // RlsInterceptor resolves PrismaService lazily via ModuleRef (see rls.interceptor.ts) rather
+    // than constructor injection, so the test module itself — which implements ModuleRef and
+    // already has PrismaService registered above — stands in for the real one.
+    interceptor = new RlsInterceptor(cls, moduleRef.get(Reflector), moduleRef);
   });
 
   afterAll(async () => {
@@ -340,5 +345,99 @@ describeOrSkip('RLS request wiring (interceptor + factory)', () => {
 
     // After the request scope ends, it falls back to the base client again.
     expect(prisma.clientForRequest()).toBe(prisma);
+  });
+});
+
+// Proves the FULL request path — real AppModule, real AuthGuard, real RlsInterceptor, real
+// PrismaRepositoryFactory — against the actual restricted lifting_app role. Neither block above
+// covers this exact combination: the enforcement block above calls raw Prisma directly (no
+// interceptor/factory/guard involved), and the wiring block above connects as the OWNER
+// (superuser bypasses policy enforcement, so it can prove the GUC is *set* but not that a real
+// write actually clears the policy). That gap is exactly what let issue #644 ship silently:
+// RlsInterceptor's constructor-injected `@Optional() PrismaService` was permanently null (Nest
+// instantiates APP_INTERCEPTOR-bound providers before this module's PrismaService factory is
+// guaranteed to have run), so no request ever set app.current_user_id — reads on genuinely
+// existing data silently returned "not found" (fail-closed), and every first-time INSERT was
+// rejected with a 42501 row-level security violation. Every other DB E2E suite in this repo
+// connects as the bootstrap superuser and could not have caught this.
+describeOrSkip('RLS request wiring (interceptor + factory, full app boot)', () => {
+  let app: NestFastifyApplication;
+  let owner: PrismaClient;
+
+  function appRoleUrl(): string {
+    const u = new URL(OWNER_URL);
+    u.username = APP_ROLE;
+    u.password = APP_ROLE_PASSWORD;
+    return u.toString();
+  }
+
+  beforeAll(async () => {
+    owner = new PrismaClient({ datasources: { db: { url: OWNER_URL } } });
+    // Idempotent — harmless if the "Row-Level Security (e2e, lifting_app role)" block above
+    // already set this password; this block must not depend on describe-block execution order.
+    await owner.$executeRawUnsafe(
+      `ALTER ROLE "${APP_ROLE}" WITH LOGIN PASSWORD '${APP_ROLE_PASSWORD}'`,
+    );
+
+    // Allowed by jest.env.setup.js's Proxy: same host/pathname as the LIFTING_TC_DATABASE_URL
+    // sentinel, lifting_app user — so PrismaService's env("DATABASE_URL") read resolves to a
+    // real, RLS-enforcing connection instead of the owner/superuser one.
+    process.env.DATABASE_URL = appRoleUrl();
+
+    app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter(), {
+      logger: false,
+    });
+    await app.init();
+  }, DB_E2E_HOOK_TIMEOUT_MS);
+
+  afterAll(async () => {
+    await app?.close().catch(() => undefined);
+    await owner?.$disconnect().catch(() => undefined);
+  }, DB_E2E_HOOK_TIMEOUT_MS);
+
+  const inject = (opts: {
+    method: string;
+    url: string;
+    headers: Record<string, string>;
+    payload?: string;
+  }) => app.getHttpAdapter().getInstance().inject(opts);
+
+  it('creates a first-time row for a brand-new user (regression test for #644)', async () => {
+    const userId = `rls-e2e-fullapp-init-${Date.now()}`;
+    const res = await inject({
+      method: 'POST',
+      url: '/programs/leangains/cycles/initialize',
+      headers: { authorization: `Bearer ${userId}`, 'content-type': 'application/json' },
+      payload: '{}',
+    });
+
+    expect(res.statusCode).toBe(201);
+    await owner.cycleDashboard.deleteMany({ where: { userId } });
+  });
+
+  it('reads back data that genuinely exists instead of failing closed (regression test for #644)', async () => {
+    const userId = `rls-e2e-fullapp-read-${Date.now()}`;
+    await owner.cycleDashboard.create({
+      data: {
+        userId,
+        program: 'leangains',
+        cycleUnit: 'week',
+        cycleNum: 1,
+        cycleDate: new Date(),
+        sheetName: 'leangains_Cycle_1_seed',
+        cycleStartWeekday: 'Friday',
+        programType: 'leangains',
+      },
+    });
+
+    const res = await inject({
+      method: 'GET',
+      url: '/programs/leangains/cycles/current',
+      headers: { authorization: `Bearer ${userId}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body).program).toBe('leangains');
+    await owner.cycleDashboard.deleteMany({ where: { userId } });
   });
 });
