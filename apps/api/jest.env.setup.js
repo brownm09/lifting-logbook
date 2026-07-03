@@ -47,8 +47,9 @@ const originalEnv = process.env;
 process.env = new Proxy(originalEnv, {
   set(target, key, value) {
     // Allow the DB E2E spec to restore DATABASE_URL from the Testcontainers
-    // sentinel set by jest.global-setup.js. This is the single legitimate
-    // write path for DATABASE_URL during a test run.
+    // sentinel set by jest.global-setup.js, or from its lifting_app-role variant
+    // (see below) — these are the only legitimate write paths for DATABASE_URL
+    // during a test run.
     if (String(key) === 'DATABASE_URL' && value) {
       const sentinel = target.LIFTING_TC_DATABASE_URL;
       if (value === sentinel) {

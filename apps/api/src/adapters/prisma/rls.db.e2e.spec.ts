@@ -364,13 +364,6 @@ describeOrSkip('RLS request wiring (interceptor + factory, full app boot)', () =
   let app: NestFastifyApplication;
   let owner: PrismaClient;
 
-  function appRoleUrl(): string {
-    const u = new URL(OWNER_URL);
-    u.username = APP_ROLE;
-    u.password = APP_ROLE_PASSWORD;
-    return u.toString();
-  }
-
   beforeAll(async () => {
     owner = new PrismaClient({ datasources: { db: { url: OWNER_URL } } });
     // Idempotent — harmless if the "Row-Level Security (e2e, lifting_app role)" block above
@@ -382,7 +375,7 @@ describeOrSkip('RLS request wiring (interceptor + factory, full app boot)', () =
     // Allowed by jest.env.setup.js's Proxy: same host/pathname as the LIFTING_TC_DATABASE_URL
     // sentinel, lifting_app user — so PrismaService's env("DATABASE_URL") read resolves to a
     // real, RLS-enforcing connection instead of the owner/superuser one.
-    process.env.DATABASE_URL = appRoleUrl();
+    process.env.DATABASE_URL = appRoleUrl(OWNER_URL);
 
     app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter(), {
       logger: false,

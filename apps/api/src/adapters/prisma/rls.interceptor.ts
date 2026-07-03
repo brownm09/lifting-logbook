@@ -38,10 +38,16 @@ import {
  * premature `null` permanently (RlsInterceptor is a singleton), silently disabling the RLS
  * transaction — and therefore the `app.current_user_id` GUC — for the lifetime of the process. See
  * issue #644.
+ *
+ * The resolution is cached after the first non-null lookup: PrismaService, once resolved, is a
+ * singleton that cannot become unavailable again for the process's lifetime, so paying for a
+ * `strict: false` module-graph search on every request — including unauthenticated /health and
+ * /readyz probe traffic — would be pure repeated overhead.
  */
 @Injectable()
 export class RlsInterceptor implements NestInterceptor {
   private readonly tracer = trace.getTracer('rls-interceptor');
+  private cachedPrisma: PrismaService | null = null;
 
   constructor(
     private readonly cls: ClsService,
@@ -50,7 +56,10 @@ export class RlsInterceptor implements NestInterceptor {
   ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
-    const prisma = this.moduleRef.get(PrismaService, { strict: false });
+    const prisma = this.cachedPrisma ?? this.moduleRef.get(PrismaService, { strict: false });
+    if (prisma) {
+      this.cachedPrisma = prisma;
+    }
     // Only the HTTP path is RLS-wired today; `apps/api` exposes no GraphQL resolvers
     // (no GraphQLModule). If GraphQL resolvers touching userId tables are ever added, this guard
     // must be broadened to the 'graphql' context type — otherwise those queries skip the GUC and

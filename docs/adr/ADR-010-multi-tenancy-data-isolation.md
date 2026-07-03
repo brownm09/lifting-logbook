@@ -6,6 +6,8 @@
 **Review outcome:** Pass
 **Implementation status (2026-06-11):** Implemented — isolation is now **two-layer**. Application-level `user_id` scoping remains in every repository, and the Postgres **RLS defense-in-depth layer is now live**: migration `20260611000000_enable_rls` enables + forces RLS and creates per-user `CREATE POLICY` rules on all 14 user-data tables, and a per-request NestJS interceptor sets `app.current_user_id` (via `set_config`) inside a transaction that every repository query runs through. The gap was surfaced by the 2026-06-08 architecture review ([#464](https://github.com/brownm09/lifting-logbook/issues/464)) and closed in [#511](https://github.com/brownm09/lifting-logbook/issues/511). See the **Implementation** section below for the mechanism and the superuser/role requirement.
 
+**Correction (2026-07-02):** The RLS layer described above was **not actually live** from 2026-06-11 until [#645](https://github.com/brownm09/lifting-logbook/pull/645) merged. `rls.interceptor.ts` constructor-injected `PrismaService` as an `@Optional()` dependency; because it is bound globally via `APP_INTERCEPTOR`, NestJS instantiated it before `PrismaService`'s factory provider (declared in the same module) was guaranteed to have run, so the injection silently resolved to `null` and stayed `null` for the interceptor's lifetime. The `app.current_user_id` GUC was therefore never set on any request. Application-level `user_id` scoping (the first layer) was unaffected the entire time, so this was a missing second layer, not a cross-tenant data leak — see [#644](https://github.com/brownm09/lifting-logbook/issues/644) for the full incident writeup. The **Verification** bullet below, which claimed the existing test suite "proves... the interceptor wires the GUC end to end," was also inaccurate: that suite connects as the bootstrap superuser, which bypasses RLS by Postgres design, so it could not have caught this. #645 fixes the interceptor (resolves `PrismaService` lazily via `ModuleRef` instead of at construction) and adds test coverage that boots the real app under the restricted `lifting_app` role — the combination the original verification was missing.
+
 ---
 
 ## Context
@@ -78,8 +80,13 @@ Implemented in [#511](https://github.com/brownm09/lifting-logbook/issues/511) (2
   deployment-coupled follow-up.
 - **Verification** — `apps/api/src/adapters/prisma/rls.db.e2e.spec.ts` connects *as* `lifting_app`
   and proves unscoped-read isolation, fail-closed-on-unset-GUC, `WITH CHECK` rejection, the
-  `custom_program_spec` FK policy, that the test role is genuinely non-superuser/non-`BYPASSRLS`,
-  and that the interceptor wires the GUC end to end.
+  `custom_program_spec` FK policy, and that the test role is genuinely non-superuser/non-`BYPASSRLS`.
+  Its "RLS request wiring (interceptor + factory, full app boot)" block (added in
+  [#645](https://github.com/brownm09/lifting-logbook/pull/645)) additionally boots the real
+  `AppModule` under the restricted role and proves the interceptor wires the GUC end to end for a
+  genuine request — the combination the original verification (raw Prisma calls, or a manually
+  constructed interceptor bypassing Nest's real DI resolution) did not cover, and the gap that let
+  the interceptor sit inert for three weeks (see the 2026-07-02 correction above).
 - **Per-operation user context (`@SkipRlsTransaction()`)** — `cycle-plan` calls an LLM between DB
   reads. Holding one request-level transaction across the model call would pin a DB connection for
   its full duration, so that handler opts out via `@SkipRlsTransaction()`
