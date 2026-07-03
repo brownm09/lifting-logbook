@@ -1,5 +1,9 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  // Shared root configs that are not per-package files: a change to the base tsconfig
+  // (extended by every workspace) or the base Jest config (required by every jest.config.js)
+  // must invalidate every dependent typecheck/test cache. See #656.
+  "globalDependencies": ["tsconfig.base.json", "jest.config.base.js"],
   "tasks": {
     "db:generate": {
       "inputs": ["prisma/schema.prisma", "package.json", "../../package-lock.json"],
@@ -10,15 +14,39 @@
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"],
       "inputs": ["src/**", "app/**", "!src/**/*.test.ts", "!src/**/*.spec.ts", "!src/**/__tests__/**", "tsconfig.json", "package.json", "next.config.*"]
     },
+    // Base test task stays uncached: apps/api's suite includes Testcontainers-backed DB E2E
+    // (external state), and apps/web / apps/mobile are left uncached by default. Only the
+    // hermetic pure packages opt into caching via the per-package overrides below. Each
+    // resolves upstream workspace SOURCE (jest moduleNameMapper -> packages/*/src), and the
+    // `build` dependency chains that source into the hash (own build -> ^build -> upstream
+    // build inputs), so an upstream source change invalidates the dependent's test cache. #656
     "test": {
       "dependsOn": ["build"],
       "cache": false
     },
+    "@lifting-logbook/core#test": {
+      "dependsOn": ["build"],
+      "cache": true
+    },
+    "@lifting-logbook/types#test": {
+      "dependsOn": ["build"],
+      "cache": true
+    },
+    "@lifting-logbook/api-client#test": {
+      "dependsOn": ["build"],
+      "cache": true
+    },
     "lint": {
       "inputs": ["src/**", "app/**", "*.ts", ".eslintrc*", "eslint.config*"]
     },
+    // typecheck is build-free by design (#651): each workspace's typecheck tsconfig resolves
+    // workspace deps to SOURCE, not dist. `dependsOn: ["^typecheck"]` chains upstream source
+    // into the hash through the typecheck graph (every workspace whose source is resolved has
+    // its own typecheck task), so an upstream source change invalidates the dependent's cache
+    // without forcing an upstream build. outputs:[] — tsc --noEmit produces no artifacts. #656
     "typecheck": {
-      "cache": false
+      "dependsOn": ["^typecheck"],
+      "outputs": []
     },
     "dev": {
       "dependsOn": ["db:generate"],

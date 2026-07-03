@@ -1,0 +1,23 @@
+{
+  // Whole-program type-check gate for api-client source, run by the `typecheck` task as
+  // `tsc --noEmit -p tsconfig.typecheck.json`. Resolves @lifting-logbook/types to its
+  // TypeScript SOURCE (not node_modules -> dist) so the check needs no upstream build —
+  // this is what makes the Turbo `typecheck` task cacheable via `dependsOn: ["^typecheck"]`
+  // (the task has no build dependency, so packages/types/dist is absent in a clean CI
+  // checkout). Mirrors packages/core/tsconfig.spec.json and apps/web/tsconfig.typecheck.json.
+  // See #656 / #651.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    // rootDir at the repo root + composite:false: the @lifting-logbook/types path mapping
+    // pulls source from outside packages/api-client, so a narrower rootDir raises TS6059.
+    // noEmit means rootDir is only an assertion here, never an emit layout.
+    "composite": false,
+    "rootDir": "../../",
+    "baseUrl": ".",
+    "paths": {
+      "@lifting-logbook/types": ["../types/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts"]
+}
