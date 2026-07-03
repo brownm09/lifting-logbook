@@ -1,0 +1,28 @@
+services:
+  # Test-only Postgres for the DB E2E suite's Docker-unavailable recovery path
+  # (apps/api/jest.global-setup.js buildDockerUnavailableMessage, docs/testing/e2e-coverage.md
+  # "Running locally when Docker is unavailable"). Postgres only — no OTel Collector, Tempo,
+  # Loki, or Prometheus — per ADR-021 (docs/adr/ADR-021-no-test-tracing.md).
+  #
+  # Pinned digest — keep in sync with apps/api/jest.global-setup.js POSTGRES_IMAGE and
+  # .github/workflows/ci.yml's db-integration service.
+  db:
+    image: postgres:16-alpine@sha256:16bc17c64a573ef34162af9298258d1aec548232985b33ed7b1eac33ba35c229
+    environment:
+      POSTGRES_USER: lifting
+      POSTGRES_PASSWORD: lifting
+      POSTGRES_DB: lifting_test
+    ports:
+      # Host 5433 (not 5432) so this can run alongside the main docker-compose.yml's
+      # Postgres and a locally-installed default-port Postgres without conflict.
+      - "5433:5432"
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lifting"]
+      interval: 5s
+      timeout: 5s
+      retries: 6
+
+volumes:
+  postgres_test_data:
