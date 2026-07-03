@@ -8,6 +8,8 @@
 
 **Correction (2026-07-02):** The RLS layer described above was **not actually live** from 2026-06-11 until [#645](https://github.com/brownm09/lifting-logbook/pull/645) merged. `rls.interceptor.ts` constructor-injected `PrismaService` as an `@Optional()` dependency; because it is bound globally via `APP_INTERCEPTOR`, NestJS instantiated it before `PrismaService`'s factory provider (declared in the same module) was guaranteed to have run, so the injection silently resolved to `null` and stayed `null` for the interceptor's lifetime. The `app.current_user_id` GUC was therefore never set on any request. Application-level `user_id` scoping (the first layer) was unaffected the entire time, so this was a missing second layer, not a cross-tenant data leak — see [#644](https://github.com/brownm09/lifting-logbook/issues/644) for the full incident writeup. The **Verification** bullet below, which claimed the existing test suite "proves... the interceptor wires the GUC end to end," was also inaccurate: that suite connects as the bootstrap superuser, which bypasses RLS by Postgres design, so it could not have caught this. #645 fixes the interceptor (resolves `PrismaService` lazily via `ModuleRef` instead of at construction) and adds test coverage that boots the real app under the restricted `lifting_app` role — the combination the original verification was missing.
 
+**Follow-up (2026-07-03):** #645 fixed *why* `PrismaService` could resolve to `null`, but the interceptor's fallback guard still treated "null and no DB expected" (legitimate in-memory/SystemDb mode) and "null but a real DB connection is configured" (broken plumbing — the exact #644 failure mode) identically: both silently ran the request with no GUC set. [#649](https://github.com/brownm09/lifting-logbook/issues/649) closed that gap — the interceptor now checks `DATABASE_URL` in addition to the Prisma-client-null check, and throws `InternalServerErrorException` instead of silently proceeding when a real DB connection is expected but the client is unavailable. This makes a future recurrence of the #644 failure mode surface immediately as a 500 rather than as silent fail-closed reads/writes indistinguishable from "no data yet."
+
 ---
 
 ## Context
@@ -69,7 +71,11 @@ Implemented in [#511](https://github.com/brownm09/lifting-logbook/issues/511) (2
   GUC is transaction-local, all of a request's DB work shares one transaction; the two repositories
   that batch writes and the one that runs an interactive transaction use a small helper
   (`prisma-tx.util.ts`) that reuses the request transaction instead of nesting (Prisma's
-  transaction client cannot open a nested transaction).
+  transaction client cannot open a nested transaction). The interceptor no-ops (runs the request on
+  the base client, no GUC) only when `DATABASE_URL` is unset — the legitimate in-memory/SystemDb
+  case. If `DATABASE_URL` **is** set but the Prisma client still can't be resolved, it throws
+  `InternalServerErrorException` instead of silently no-op'ing, so a recurrence of the #644 failure
+  mode (broken DI plumbing masquerading as "no data yet") surfaces immediately ([#649](https://github.com/brownm09/lifting-logbook/issues/649)).
 - **Non-superuser role (required for enforcement)** — RLS is ignored by superusers and `BYPASSRLS`
   roles. The migration creates a `lifting_app` role (`NOSUPERUSER NOBYPASSRLS`); the application
   must connect as it in deployed environments for the policies to bite. Migrations run as the
