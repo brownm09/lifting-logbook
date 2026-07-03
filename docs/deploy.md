@@ -660,8 +660,10 @@ if a secret is missing or empty.
 1. **Get the values from the Grafana Cloud portal:**
    - **OTLP endpoint + instance ID** — Stack → Details → OpenTelemetry → *OTLP endpoint* and
      the numeric *Instance ID / User* (this endpoint also routes metrics → Mimir).
-   - **Loki endpoint + user** — Stack → Details → Loki → *URL* (append `/loki/api/v1/push`)
-     and its *User*. The OTLP and Loki instance IDs may differ but can share one token.
+   - **Loki endpoint + user** — Stack → Details → Loki → *URL* (append `/otlp` — the collector
+     sends logs via the generic `otlphttp` exporter at Loki's native OTLP ingestion path, not
+     the deprecated dedicated `loki` exporter's `/loki/api/v1/push`; see #662) and its *User*.
+     The OTLP and Loki instance IDs may differ but can share one token.
    - **API token** — Stack → Details → generate a token with **send metrics + send logs +
      send traces** scopes (or a service account with those permissions).
 
