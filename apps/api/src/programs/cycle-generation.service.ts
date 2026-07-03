@@ -238,6 +238,42 @@ export class CycleGenerationService {
     return { dashboard, programSpec };
   }
 
+  /**
+   * Deletes the current cycle for a program and every row scoped to it: the
+   * CycleDashboard, all LiftRecord rows across every cycle number, all TrainingMax
+   * rows, all TrainingMaxHistory entries, and any CycleScheduledWorkout rows for the
+   * deleted cycle. Deliberately leaves UserSettings.activeProgram untouched — that
+   * field is independent of cycle existence and is used by switchProgram's routing.
+   *
+   * getCycleDashboard(program) is called first for two reasons: it supplies the
+   * cycleNum needed to scope the CycleScheduledWorkout clear, and it throws
+   * ProgramNotFoundError (-> 404) when nothing exists, giving a free "nothing to
+   * delete" response with no new error-handling code — mirrors the guard
+   * initializeFirstCycle uses to detect "no cycle yet".
+   */
+  async deleteCurrentCycle(
+    repos: Pick<
+      CycleRepos,
+      'cycleDashboard' | 'cycleScheduledWorkout' | 'liftRecord' | 'trainingMax' | 'trainingMaxHistory'
+    >,
+    program: string,
+  ): Promise<void> {
+    const dashboard = await repos.cycleDashboard.getCycleDashboard(program);
+    const trainingMaxes = await repos.trainingMax.getTrainingMaxes(program);
+
+    await Promise.all([
+      repos.liftRecord.deleteAllLiftRecords(program),
+      repos.trainingMaxHistory.deleteAllHistory(program),
+      repos.trainingMax.deleteTrainingMaxes(program, trainingMaxes.map((m) => m.lift)),
+      repos.cycleScheduledWorkout.saveScheduledWorkouts(program, dashboard.cycleNum, []),
+    ]);
+
+    // Delete the dashboard last — while it's present, a concurrent GET still
+    // resolves a (possibly slightly stale) cycle rather than racing into a 404
+    // mid-cleanup.
+    await repos.cycleDashboard.deleteCycleDashboard(program);
+  }
+
   async recalculateMaxes(
     repos: CycleRepos,
     program: string,

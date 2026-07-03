@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 
 // Staging integration tests — run against the live Cloud Run staging environment.
 // Auth state is provided by staging.setup.ts (signs in once, saves session).
@@ -7,6 +7,8 @@ import { test, expect } from '@playwright/test';
 // - No mock API, no __reset endpoint
 // - Assertions check structure/presence only — not hardcoded seed data values
 // - Write-path tests must be idempotent or self-cleaning
+//   (see test 6 for the first concrete example: onboarding write-path, self-
+//   cleaned via /api/test-support/reset-cycle before and after)
 
 // ---------------------------------------------------------------------------
 // 1. Home page redirects signed-in users to the authenticated landing page
@@ -123,4 +125,77 @@ test('authenticated API call succeeds (auth propagation)', async ({ page }) => {
       '503=Clerk valid but API call failed — check API_URL, IAM (web_invoker_on_api), or Cloud Run logs. ' +
       'Check that the staging API is deployed and Clerk is configured correctly.',
   ).toBe(200);
+});
+
+// ---------------------------------------------------------------------------
+// 6. Onboarding write path — sign in -> choose program -> confirm maxes ->
+//    Start My Program -> cycle dashboard renders
+//
+// This is the only write-path test in this file. It exists to close the gap
+// that let #644 (RLS silently disabled) ship undetected: every other test here
+// is read-only and would pass even if every write to Postgres were silently
+// failing. Per the file-level constraint above ("write-path tests must be
+// idempotent or self-cleaning"), this test deletes the test account's current
+// cycle via the /api/test-support/reset-cycle route handler BEFORE it runs
+// (so a fresh cycle-1 creation is actually exercised even on a re-run) AND
+// again AFTER (so a left-behind cycle never causes a future run of this test
+// to silently take the "cycle already exists" branch of switchProgram instead
+// of genuinely creating one — see apps/api/src/programs/switch-program.controller.ts).
+//
+// Cleanup runs via test.beforeAll/afterAll with the `request` fixture rather
+// than a try/finally in the test body — Playwright's per-test timeout does not
+// reliably let a `finally` block complete, whereas afterAll is guaranteed to
+// run regardless of how the test ended.
+//
+// The reset call uses the exact same auth path (X-Clerk-Authorization via
+// lib/api.ts) that "Start My Program" itself uses — see
+// docs/adr/ADR-023-staging-integration-test-design.md for why the two more
+// "obvious" alternatives (server-side getToken()+forward, client-side
+// getToken()+direct-fetch) are both already known to be flaky against this
+// specific staging Clerk instance.
+// ---------------------------------------------------------------------------
+
+test.describe('onboarding write path (creates and cleans up real data)', () => {
+  const RESET_URL = '/api/test-support/reset-cycle?program=rpt';
+
+  test.beforeAll(async ({ request }) => {
+    // Defensive: a prior run's own cleanup may not have completed (CI kill, etc).
+    await request.delete(RESET_URL);
+  });
+
+  test.afterAll(async ({ request }) => {
+    await request.delete(RESET_URL);
+  });
+
+  test('sign in -> choose program -> confirm maxes -> Start My Program -> cycle dashboard renders', async ({ page }: { page: Page }) => {
+    await page.goto('/onboarding');
+    await expect(page.getByRole('heading', { name: 'Get Started' })).toBeVisible();
+
+    // Step 1: Choose Method — pick "Enter training maxes" (weight-only, no reps needed)
+    await page.getByRole('button', { name: 'Enter training maxes' }).click();
+    await page.getByRole('button', { name: 'Next', exact: true }).click();
+
+    // Step 2: Choose Program — switch to Intermediate tab, select RPT
+    await page.getByRole('tab', { name: 'Intermediate' }).click();
+    await page.getByRole('button', { name: /Reverse Pyramid Training/i }).click();
+    await page.getByRole('button', { name: 'Choose This Program' }).click();
+
+    // Step 3: Enter Lifts — RPT's 9 lifts are pre-seeded; enter a TM for each
+    const rptLifts = [
+      'Bench Press', 'Barbell Row', 'Overhead Press',
+      'Squat', 'Romanian Deadlift', 'Calf Raises',
+      'Deadlift', 'Weighted Pull-ups', 'Dips',
+    ];
+    for (const lift of rptLifts) {
+      await page.getByLabel(`${lift} weight`, { exact: true }).fill('225');
+    }
+    await page.getByRole('button', { name: 'Next', exact: true }).click();
+
+    // Step 4: Confirm Maxes — submit to create the first cycle
+    await page.getByRole('button', { name: 'Start My Program' }).click();
+
+    // Lands on the cycle dashboard — the actual write-path assertion.
+    await expect(page).toHaveURL(/\/cycle\/1/, { timeout: 15_000 });
+    await expect(page.getByRole('heading', { name: /cycle/i }).first()).toBeVisible();
+  });
 });

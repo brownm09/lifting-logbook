@@ -1234,4 +1234,104 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
       expect(finalDash.json().weeks[0].completed).toBe(true);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // DELETE cycles/current (issue #647) — a program not touched by SEED_PROGRAM's
+  // order-sensitive write-operations chain, with fresh per-test user tokens, so
+  // this block cannot interfere with (or depend on) state left by earlier blocks.
+  // ---------------------------------------------------------------------------
+
+  describe('DELETE /programs/:program/cycles/current', () => {
+    const FRESH_PROGRAM = 'leangains';
+    const injectRaw = () =>
+      app.getHttpAdapter().getInstance().inject.bind(app.getHttpAdapter().getInstance());
+
+    it('DELETE then re-initialize succeeds (full lifecycle)', async () => {
+      const AS_FRESH = { authorization: 'Bearer user-cycle-delete-fresh' };
+      const inject = injectRaw();
+
+      const initRes = await inject({
+        method: 'POST',
+        url: `/programs/${FRESH_PROGRAM}/cycles/initialize`,
+        headers: { 'content-type': 'application/json', ...AS_FRESH },
+        payload: '{}',
+      });
+      expect(initRes.statusCode).toBe(201);
+
+      const delRes = await inject({
+        method: 'DELETE',
+        url: `/programs/${FRESH_PROGRAM}/cycles/current`,
+        headers: AS_FRESH,
+      });
+      expect(delRes.statusCode).toBe(204);
+
+      const getRes = await inject({
+        method: 'GET',
+        url: `/programs/${FRESH_PROGRAM}/cycles/current`,
+        headers: AS_FRESH,
+      });
+      expect(getRes.statusCode).toBe(404);
+
+      // Re-initialize succeeds again — would 409 (ConflictException) if the
+      // delete had silently failed to remove the dashboard row.
+      const reInitRes = await inject({
+        method: 'POST',
+        url: `/programs/${FRESH_PROGRAM}/cycles/initialize`,
+        headers: { 'content-type': 'application/json', ...AS_FRESH },
+        payload: '{}',
+      });
+      expect(reInitRes.statusCode).toBe(201);
+    });
+
+    it('DELETE with no existing cycle returns 404', async () => {
+      const AS_NEW = { authorization: 'Bearer user-cycle-delete-none' };
+      const res = await injectRaw()({
+        method: 'DELETE',
+        url: `/programs/${FRESH_PROGRAM}/cycles/current`,
+        headers: AS_NEW,
+      });
+      expect(res.statusCode).toBe(404);
+    });
+
+    it('isolates cycle deletion between users', async () => {
+      const AS_ALICE = { authorization: 'Bearer user-cycle-delete-alice' };
+      const AS_BOB = { authorization: 'Bearer user-cycle-delete-bob' };
+      const inject = injectRaw();
+
+      await inject({
+        method: 'POST',
+        url: `/programs/${FRESH_PROGRAM}/cycles/initialize`,
+        headers: { 'content-type': 'application/json', ...AS_ALICE },
+        payload: '{}',
+      });
+      await inject({
+        method: 'POST',
+        url: `/programs/${FRESH_PROGRAM}/cycles/initialize`,
+        headers: { 'content-type': 'application/json', ...AS_BOB },
+        payload: '{}',
+      });
+
+      const delRes = await inject({
+        method: 'DELETE',
+        url: `/programs/${FRESH_PROGRAM}/cycles/current`,
+        headers: AS_ALICE,
+      });
+      expect(delRes.statusCode).toBe(204);
+
+      const aliceGet = await inject({
+        method: 'GET',
+        url: `/programs/${FRESH_PROGRAM}/cycles/current`,
+        headers: AS_ALICE,
+      });
+      expect(aliceGet.statusCode).toBe(404);
+
+      const bobGet = await inject({
+        method: 'GET',
+        url: `/programs/${FRESH_PROGRAM}/cycles/current`,
+        headers: AS_BOB,
+      });
+      expect(bobGet.statusCode).toBe(200);
+      expect(bobGet.json().cycleNum).toBe(1);
+    });
+  });
 });

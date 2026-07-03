@@ -441,4 +441,49 @@ describeOrSkip('RLS request wiring (interceptor + factory, full app boot)', () =
     await owner.cycleDashboard.deleteMany({ where: { userId } });
     await owner.userSettings.deleteMany({ where: { userId } });
   });
+
+  // Regression coverage for #647: the new DELETE cycles/current endpoint (added to
+  // support a self-cleaning staging Playwright test) deletes through the same
+  // factory/repos path as every other request. Proves the deleteMany calls are
+  // genuinely RLS-scoped under the restricted lifting_app role — not merely
+  // filtered by an application-level WHERE clause that happens to look correct —
+  // exactly the risk class that let #644 ship silently.
+  it('deletes a cycle scoped to the requesting user only, under real RLS (regression coverage for #647)', async () => {
+    const userId = `rls-e2e-fullapp-delete-${Date.now()}`;
+    const otherUserId = `rls-e2e-fullapp-delete-other-${Date.now()}`;
+
+    const seedDashboard = (uid: string) => ({
+      userId: uid,
+      program: 'leangains',
+      cycleUnit: 'week',
+      cycleNum: 1,
+      cycleDate: new Date(),
+      sheetName: `leangains_Cycle_1_${uid}`,
+      cycleStartWeekday: 'Friday',
+      programType: 'leangains',
+    });
+    await owner.cycleDashboard.create({ data: seedDashboard(userId) });
+    await owner.cycleDashboard.create({ data: seedDashboard(otherUserId) });
+
+    const delRes = await inject({
+      method: 'DELETE',
+      url: '/programs/leangains/cycles/current',
+      headers: { authorization: `Bearer ${userId}` },
+    });
+    expect(delRes.statusCode).toBe(204);
+
+    const mineGone = await owner.cycleDashboard.findFirst({
+      where: { userId, program: 'leangains' },
+    });
+    expect(mineGone).toBeNull();
+
+    // The other user's row must survive — proves the delete was RLS-scoped to the
+    // requesting user, not a bug that deleted every row matching the program.
+    const otherSurvives = await owner.cycleDashboard.findFirst({
+      where: { userId: otherUserId, program: 'leangains' },
+    });
+    expect(otherSurvives).not.toBeNull();
+
+    await owner.cycleDashboard.deleteMany({ where: { userId: { in: [userId, otherUserId] } } });
+  });
 });

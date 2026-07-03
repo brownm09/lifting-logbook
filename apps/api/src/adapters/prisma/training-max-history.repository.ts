@@ -84,4 +84,10 @@ export class PrismaTrainingMaxHistoryRepository implements ITrainingMaxHistoryRe
       throw e;
     }
   }
+
+  async deleteAllHistory(program: string): Promise<void> {
+    await this.prisma.trainingMaxHistory.deleteMany({
+      where: { userId: this.userId, program },
+    });
+  }
 }

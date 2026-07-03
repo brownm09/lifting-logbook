@@ -208,6 +208,14 @@ export function createApiClient(config: ApiClientConfig) {
         cache: 'no-store',
       });
     },
+    // Idempotent delete: a 404 (no existing cycle) is treated as success, matching
+    // deleteStrengthGoal/deleteCustomProgram below.
+    deleteCurrentCycle(programId: string): Promise<void> {
+      return requestVoidIdempotent(`/programs/${enc(programId)}/cycles/current`, {
+        method: 'DELETE',
+        cache: 'no-store',
+      });
+    },
 
     // -- Program spec ------------------------------------------------------
     fetchProgramSpec(program: string): Promise<LiftingProgramSpecResponse[]> {

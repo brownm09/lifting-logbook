@@ -14,4 +14,7 @@ export interface ITrainingMaxHistoryRepository {
     id: string,
     update: { isPR?: boolean; goalMet?: boolean },
   ): Promise<TrainingMaxHistoryEntry>;
+
+  /** Deletes every training-max-history entry for a program. No-op if none exist. */
+  deleteAllHistory(program: string): Promise<void>;
 }
