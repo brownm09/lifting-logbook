@@ -2,9 +2,10 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     // isolatedModules: ts-jest transpiles each test file without type-checking
-    // (transpile-only) for fast runs. See issue #651. (A blocking whole-program
-    // type-check gate for web tests is tracked as follow-up work — web tests were
-    // previously only diagnostics.warnOnly, i.e. non-blocking.)
+    // (transpile-only) for fast runs. See issue #651. Type-checking is instead performed
+    // by the blocking `typecheck` task (tsc --noEmit -p tsconfig.typecheck.json): web tests
+    // were previously only diagnostics.warnOnly (non-blocking); they now have a real
+    // blocking whole-program type-check gate.
     "isolatedModules": true,
     // The root base sets lib: ["ES2020"] only. Test files type-check DOM-typed
     // code (e.g. e.target.value on input change events) under ts-jest, so the

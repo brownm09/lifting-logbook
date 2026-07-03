@@ -352,6 +352,15 @@ Run `npm test` from the repo root to execute the full test suite across all work
 npm test
 ```
 
+Type-checking runs as a separate Turbo task. ts-jest runs **transpile-only** for speed (see
+[#651](https://github.com/brownm09/lifting-logbook/issues/651)), so a dedicated `tsc --noEmit` gate
+owns type-checking for `core` and `web`. It is a **blocking CI gate** (CI runs
+`turbo run lint typecheck test`) — run it before opening a PR:
+
+```bash
+npm run typecheck
+```
+
 **Prerequisites:**
 - Run `npm run build` first if you have touched compiled output (e.g., API controllers, shared types in `packages/types`).
 - The API DB E2E suite (`apps/api/src/programs/programs.db.e2e.spec.ts`) auto-provisions Postgres via Testcontainers in `apps/api/jest.global-setup.js`. Docker Desktop must be running; no `DATABASE_URL` configuration is required locally. In CI, the existing service container provides `DATABASE_URL` and globalSetup uses it directly.
