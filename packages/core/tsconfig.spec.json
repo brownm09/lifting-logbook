@@ -1,7 +1,16 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "rootDir": ".",
+    // isolatedModules: ts-jest transpiles each test file in isolation (transpile-only,
+    // no type-checking) for fast runs. The compensating whole-program type-check is the
+    // `typecheck` task: `tsc --noEmit -p tsconfig.spec.json`. See issue #651.
+    "isolatedModules": true,
+    // rootDir at the repo root + composite:false: this config's `include` pulls
+    // cross-package source in via the @lifting-logbook/types path mapping (which lives
+    // outside packages/core), so a narrower rootDir raises TS6059. noEmit means rootDir
+    // is only an assertion here, never an emit layout.
+    "rootDir": "../../",
+    "composite": false,
     "noEmit": true,
     "paths": {
       "@src/core": ["src/index.ts"],

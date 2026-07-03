@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint app lib",
     "test": "jest --passWithNoTests",
+    "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
     "test:e2e": "playwright test",
     "test:e2e:ci": "playwright test --reporter=github",
     "test:e2e:staging": "playwright test --config=playwright.config.staging.ts"
