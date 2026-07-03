@@ -67,7 +67,7 @@ Architecture follows hexagonal / Ports & Adapters. `packages/core` has zero infr
 
 All new issues must be added to the **Lifting Logbook** project and assigned an epic before work begins.
 
-**Important:** All `gh project item-list` queries in this file use `--limit 300` to avoid truncation. The project has 267+ items (default limit is 30). If the project grows beyond 300 items, increase this limit accordingly.
+**Important:** All `gh project item-list` queries in this file use `--limit 500` to avoid truncation. The project has 327+ items (default limit is 30). If the project grows beyond 500 items, increase this limit accordingly.
 
 **Project IDs (needed for CLI commands):**
 - Project number: `2`, owner: `brownm09`
@@ -161,7 +161,7 @@ If `--format json` is not supported by the installed `gh` version, fall back to 
 3. Move the issue to **In Progress** on the project board:
    ```bash
    TMPFILE="C:/Users/brown/.claude/scratch/tmp_item_<N>.json"
-   gh project item-list 2 --owner brownm09 --limit 300 --format json > "$TMPFILE"
+   gh project item-list 2 --owner brownm09 --limit 500 --format json > "$TMPFILE"
    ITEM_ID=$(node -e "
      const d=JSON.parse(require('fs').readFileSync('$TMPFILE','utf8'));
      const item=d.items.find(i=>i.content&&i.content.number===<N>);
@@ -180,7 +180,7 @@ If `--format json` is not supported by the installed `gh` version, fall back to 
 9. Move the issue to **Done** on the project board:
    ```bash
    TMPFILE="C:/Users/brown/.claude/scratch/tmp_item_<N>.json"
-   gh project item-list 2 --owner brownm09 --limit 300 --format json > "$TMPFILE"
+   gh project item-list 2 --owner brownm09 --limit 500 --format json > "$TMPFILE"
    ITEM_ID=$(node -e "
      const d=JSON.parse(require('fs').readFileSync('$TMPFILE','utf8'));
      const item=d.items.find(i=>i.content&&i.content.number===<N>);
