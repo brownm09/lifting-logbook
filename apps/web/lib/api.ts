@@ -71,7 +71,6 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
 export const {
   fetchCycleDashboard,
   createCycle,
-  initializeCycle,
   fetchProgramSpec,
   fetchTrainingMaxes,
   fetchTrainingMaxHistory,
