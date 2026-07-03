@@ -103,7 +103,7 @@ function buildMigrationFailedMessage(underlying) {
 // failure is specific to provisioning the lifting_app role's login password.
 function buildRoleProvisioningFailedMessage(underlying) {
   return [
-    "[jest.global-setup] Failed to provision the `lifting_app` role's login password.",
+    '[jest.global-setup] Failed to provision the `lifting_app` role\'s login password.',
     '',
     'Docker is reachable and migrations succeeded — the failure is specific to this step.',
     '',
@@ -127,6 +127,23 @@ function appRoleUrl(ownerUrl) {
   return u.toString();
 }
 
+// Bounds the ALTER ROLE call the same way MIGRATION_TIMEOUT_MS bounds the migrate-deploy
+// step above: without this, a connectivity loss in the (narrow) window between a successful
+// migration and this step would hang globalSetup indefinitely instead of failing fast with
+// buildRoleProvisioningFailedMessage. Does not abort the underlying query directly (Prisma has
+// no query-cancellation API) — the subsequent $disconnect() in provisionAppRolePassword's
+// `finally` forces the connection closed, which is sufficient to unblock the process.
+const ROLE_PROVISIONING_TIMEOUT_MS = 15_000;
+
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms),
+    ),
+  ]);
+}
+
 // Sets a known login password on the lifting_app role (created passwordless by the
 // enable_rls migration) using the owner/superuser connection, which alone has
 // privilege to ALTER ROLE. Idempotent — safe to call on every run.
@@ -134,8 +151,12 @@ async function provisionAppRolePassword(ownerUrl) {
   const { PrismaClient } = require('@prisma/client');
   const owner = new PrismaClient({ datasources: { db: { url: ownerUrl } } });
   try {
-    await owner.$executeRawUnsafe(
-      `ALTER ROLE "${APP_ROLE}" WITH LOGIN PASSWORD '${APP_ROLE_PASSWORD}'`,
+    await withTimeout(
+      owner.$executeRawUnsafe(
+        `ALTER ROLE "${APP_ROLE}" WITH LOGIN PASSWORD '${APP_ROLE_PASSWORD}'`,
+      ),
+      ROLE_PROVISIONING_TIMEOUT_MS,
+      'lifting_app role provisioning',
     );
   } finally {
     await owner.$disconnect().catch(() => {});

@@ -77,11 +77,11 @@ async function cleanTestUsers(prisma: PrismaClient): Promise<void> {
   await prisma.customLift.deleteMany({ where: { userId: { in: users } } });
 }
 
-const TC_DATABASE_URL = process.env.LIFTING_TC_DATABASE_URL;
+const APP_ROLE_URL = process.env.LIFTING_TC_DATABASE_URL;
 const OWNER_DATABASE_URL = process.env.LIFTING_TC_OWNER_DATABASE_URL;
 // Skip only when globalSetup did not provision a DB (e.g. Docker unavailable
 // and not running in CI). Normal local / CI runs always have both sentinels set.
-const describeOrSkip = TC_DATABASE_URL && OWNER_DATABASE_URL ? describe : describe.skip;
+const describeOrSkip = APP_ROLE_URL && OWNER_DATABASE_URL ? describe : describe.skip;
 
 describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
   let app: NestFastifyApplication;
@@ -89,7 +89,7 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
 
   beforeAll(() => {
     // Allowed by jest.env.setup.js Proxy because value === LIFTING_TC_DATABASE_URL.
-    process.env.DATABASE_URL = TC_DATABASE_URL;
+    process.env.DATABASE_URL = APP_ROLE_URL;
   });
 
   const AUTH = { authorization: `Bearer ${TEST_USER}` };
