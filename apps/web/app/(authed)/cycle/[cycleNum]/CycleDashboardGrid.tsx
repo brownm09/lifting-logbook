@@ -82,7 +82,7 @@ export default function CycleDashboardGrid({
 
   return (
     <section className={styles.container}>
-      <h2 className={styles.heading}>Cycle {cycleNum}</h2>
+      <h1 className={styles.heading}>Cycle {cycleNum}</h1>
       <nav className={styles.quickNav}>
         <Link href={`/cycle/${cycleNum}/program`}>📋 Cycle Program</Link>
         <Link href={`/cycle/${cycleNum}/plan`}>🗓 Program Plan</Link>

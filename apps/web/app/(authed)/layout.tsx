@@ -1,5 +1,6 @@
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
+import AppNav from './AppNav';
 
 /**
  * Defense-in-depth auth guard for all protected routes.
@@ -24,9 +25,19 @@ export default async function AuthedLayout({
     process.env['NODE_ENV'] !== 'production' &&
     process.env.DEV_AUTH_TOKEN
   ) {
-    return <>{children}</>;
+    return (
+      <>
+        <AppNav />
+        {children}
+      </>
+    );
   }
   const { userId } = await auth();
   if (!userId) redirect('/sign-in');
-  return <>{children}</>;
+  return (
+    <>
+      <AppNav />
+      {children}
+    </>
+  );
 }

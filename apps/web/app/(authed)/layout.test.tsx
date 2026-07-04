@@ -1,5 +1,6 @@
 import React from 'react';
 import AuthedLayout from './layout';
+import AppNav from './AppNav';
 
 jest.mock('@clerk/nextjs/server', () => ({
   auth: jest.fn(),
@@ -56,7 +57,11 @@ describe('(authed) layout — defense-in-depth auth guard', () => {
 
     expect(mockedRedirect).not.toHaveBeenCalled();
     expect(element.type).toBe(React.Fragment);
-    expect((element.props as { children: unknown }).children).toBe(SENTINEL);
+    // The shell now renders the global app nav alongside the protected content,
+    // which still passes through verbatim as the last child.
+    const kids = (element.props as { children: React.ReactNode[] }).children;
+    expect((kids[0] as React.ReactElement).type).toBe(AppNav);
+    expect(kids[kids.length - 1]).toBe(SENTINEL);
   });
 
   it('bypasses Clerk in non-production when DEV_AUTH_TOKEN is set', async () => {
@@ -67,7 +72,9 @@ describe('(authed) layout — defense-in-depth auth guard', () => {
     expect(mockedAuth).not.toHaveBeenCalled();
     expect(mockedRedirect).not.toHaveBeenCalled();
     expect(element.type).toBe(React.Fragment);
-    expect((element.props as { children: unknown }).children).toBe(SENTINEL);
+    const kids = (element.props as { children: React.ReactNode[] }).children;
+    expect((kids[0] as React.ReactElement).type).toBe(AppNav);
+    expect(kids[kids.length - 1]).toBe(SENTINEL);
   });
 
   it('ignores DEV_AUTH_TOKEN in production and still calls auth()', async () => {
