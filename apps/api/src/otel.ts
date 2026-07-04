@@ -55,6 +55,30 @@ export function buildResourceAttributesEnv(
 
 let sdk: NodeSDK | undefined;
 
+/**
+ * Builds the log record processor(s) passed to NodeSDK's `logRecordProcessors`
+ * option. Activates the log-sending half of @opentelemetry/instrumentation-pino
+ * (pulled in transitively by getNodeAutoInstrumentations() below): that
+ * instrumentation patches Pino via pino.multistream() to fan every log line out
+ * to both stdout and the OTel Logs API, but only once a real LoggerProvider
+ * exists — NodeSDK.start() registers one globally as soon as logRecordProcessors
+ * is set. Without this, structured logs (including the err.message/err.stack
+ * Postgres error detail alerting depends on) never reached the collector's logs
+ * pipeline despite it being fully wired to receive them. See issue #662.
+ *
+ * Safe from a redaction standpoint: instrumentation-pino's OTel stream reads the
+ * already-serialized JSON line via multistream, which runs *after* Pino's own
+ * redact() has already stripped req.headers.authorization/cookie (see
+ * app.module.ts) — both stdout and the OTel stream receive the same,
+ * already-redacted line. Locked by otel-log-redaction.spec.ts.
+ *
+ * Extracted (rather than inlined in startOtel()) so otel.spec.ts can assert this
+ * wiring exists independently of exercising the full SDK.
+ */
+export function buildLogRecordProcessors() {
+  return [new BatchLogRecordProcessor(new OTLPLogExporter())];
+}
+
 export function startOtel(): NodeSDK | undefined {
   if (process.env.OTEL_SDK_DISABLED === 'true') return undefined;
   if (sdk) return sdk;
@@ -76,22 +100,7 @@ export function startOtel(): NodeSDK | undefined {
         exporter: new OTLPMetricExporter(),
       }),
     ],
-    // Activates the log-sending half of @opentelemetry/instrumentation-pino
-    // (pulled in transitively by getNodeAutoInstrumentations() below): that
-    // instrumentation patches Pino via pino.multistream() to fan every log line
-    // out to both stdout and the OTel Logs API, but only once a real
-    // LoggerProvider exists — start() registers one globally as soon as
-    // logRecordProcessors is set. Without this, structured logs (including the
-    // err.message/err.stack Postgres error detail alerting depends on) never
-    // reached the collector's logs pipeline despite it being fully wired to
-    // receive them. See issue #662.
-    //
-    // Safe from a redaction standpoint: instrumentation-pino's OTel stream reads
-    // the already-serialized JSON line via multistream, which runs *after*
-    // Pino's own redact() has already stripped req.headers.authorization/cookie
-    // (see app.module.ts) — both stdout and the OTel stream receive the same,
-    // already-redacted line. Locked by otel-log-redaction.spec.ts.
-    logRecordProcessors: [new BatchLogRecordProcessor(new OTLPLogExporter())],
+    logRecordProcessors: buildLogRecordProcessors(),
     instrumentations: [getNodeAutoInstrumentations()],
   });
 
