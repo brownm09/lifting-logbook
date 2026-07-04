@@ -2,6 +2,7 @@ import {
   DEPLOYMENT_ENVIRONMENT_ATTR,
   buildResourceAttributesEnv,
   resolveDeploymentEnvironment,
+  buildLogRecordProcessors,
 } from './otel';
 
 // Regression coverage for #487: the API must tag telemetry with a deployment
@@ -64,5 +65,18 @@ describe('buildResourceAttributesEnv', () => {
 
   it('uses the stable semconv attribute key', () => {
     expect(DEPLOYMENT_ENVIRONMENT_ATTR).toBe('deployment.environment.name');
+  });
+});
+
+// Regression coverage for #662: startOtel() must wire a log record processor,
+// or structured logs (including the err.message/err.stack detail the #648 RLS
+// alert depends on) silently never reach the collector's logs pipeline despite
+// it being fully configured to receive them. otel-log-redaction.spec.ts proves
+// the underlying mechanism is redaction-safe; this proves otel.ts actually uses it.
+describe('buildLogRecordProcessors', () => {
+  it('returns at least one processor so structured logs reach the OTel Logs pipeline', async () => {
+    const processors = buildLogRecordProcessors();
+    expect(processors.length).toBeGreaterThan(0);
+    await Promise.all(processors.map((p) => p.shutdown()));
   });
 });

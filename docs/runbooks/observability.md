@@ -207,14 +207,18 @@ Tempo and Loki containers instead.
 | Variable | Purpose |
 |---|---|
 | `OTEL_COLLECTOR_OTLP_ENDPOINT` | Grafana Cloud Tempo/Mimir OTLP endpoint (traces + metrics) |
-| `OTEL_COLLECTOR_LOKI_ENDPOINT` | Grafana Cloud Loki push endpoint (logs) |
+| `OTEL_COLLECTOR_LOKI_ENDPOINT` | Grafana Cloud Loki native OTLP ingestion endpoint (logs) |
 | `OTEL_COLLECTOR_OTLP_AUTH_HEADER` | `Basic <base64(instanceId:apiKey)>` for traces/metrics |
 | `OTEL_COLLECTOR_LOKI_AUTH_HEADER` | `Basic <base64(instanceId:apiKey)>` for logs |
 
 Grafana Cloud endpoints and credentials are obtained from the Grafana Cloud portal:
 
 - **Traces/metrics endpoint:** Stack → Details → OpenTelemetry → OTLP endpoint
-- **Logs endpoint:** Stack → Details → Loki → URL (append `/loki/api/v1/push`)
+- **Logs endpoint:** Stack → Details → Loki → URL (append `/otlp`). The collector's `logs`
+  pipeline uses the generic `otlphttp` exporter pointed at this path — the dedicated `loki`
+  exporter (`/loki/api/v1/push`) is deprecated and has been removed from
+  `opentelemetry-collector-contrib` ([issue #38374](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/38374),
+  [PR #41413](https://github.com/open-telemetry/opentelemetry-collector-contrib/pull/41413)); see #662.
 - **API key:** Stack → Details → Generate a token (select "MetricsPublisher" or
   create a service account with Send metrics + Send traces + Send logs permissions)
 
