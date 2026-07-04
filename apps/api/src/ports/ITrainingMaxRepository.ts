@@ -29,4 +29,7 @@ export interface ITrainingMaxRepository {
 
   /** Deletes training maxes by lift name for undo support. */
   deleteTrainingMaxes(program: string, lifts: string[]): Promise<void>;
+
+  /** Deletes every training max for a program, regardless of lift. No-op if none exist. */
+  deleteAllTrainingMaxes(program: string): Promise<void>;
 }

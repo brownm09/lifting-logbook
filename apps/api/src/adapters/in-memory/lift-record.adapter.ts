@@ -62,4 +62,8 @@ export class InMemoryLiftRecordRepository implements ILiftRecordRepository {
     this.store.set(program, after);
     return before.length - after.length;
   }
+
+  async deleteAllLiftRecords(program: string): Promise<void> {
+    this.store.delete(program);
+  }
 }

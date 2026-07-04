@@ -95,4 +95,10 @@ export class PrismaTrainingMaxRepository implements ITrainingMaxRepository {
       where: { userId: this.userId, program, lift: { in: lifts } },
     });
   }
+
+  async deleteAllTrainingMaxes(program: string): Promise<void> {
+    await this.prisma.trainingMax.deleteMany({
+      where: { userId: this.userId, program },
+    });
+  }
 }

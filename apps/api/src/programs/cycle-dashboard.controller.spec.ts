@@ -9,6 +9,7 @@ import { IWorkoutSkipOverrideRepository } from '../ports/IWorkoutSkipOverrideRep
 import { IRepositoryFactory } from '../ports/factory';
 import { REPOSITORY_FACTORY } from '../ports/tokens';
 import { CycleDashboardController } from './cycle-dashboard.controller';
+import { CycleGenerationService } from './cycle-generation.service';
 
 const MOCK_USER = { id: 'test-user', email: 'test@example.com', provider: 'dev' };
 
@@ -51,11 +52,13 @@ describe('CycleDashboardController', () => {
   let overrideRepo: jest.Mocked<IWorkoutDateOverrideRepository>;
   let skipRepo: jest.Mocked<IWorkoutSkipOverrideRepository>;
   let factory: jest.Mocked<IRepositoryFactory>;
+  let cycleGenerationService: jest.Mocked<Pick<CycleGenerationService, 'deleteCurrentCycle'>>;
 
   beforeEach(async () => {
     repo = {
       getCycleDashboard: jest.fn(),
       saveCycleDashboard: jest.fn(),
+      deleteCycleDashboard: jest.fn(),
     };
     specRepo = { getProgramSpec: jest.fn(), saveProgramSpec: jest.fn(), deleteSpecRows: jest.fn() };
     scheduledRepo = {
@@ -89,10 +92,14 @@ describe('CycleDashboardController', () => {
         workoutSkipOverride: skipRepo,
       }),
     };
+    cycleGenerationService = { deleteCurrentCycle: jest.fn().mockResolvedValue(undefined) };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [CycleDashboardController],
-      providers: [{ provide: REPOSITORY_FACTORY, useValue: factory }],
+      providers: [
+        { provide: REPOSITORY_FACTORY, useValue: factory },
+        { provide: CycleGenerationService, useValue: cycleGenerationService },
+      ],
     }).compile();
     controller = module.get(CycleDashboardController);
   });
@@ -201,5 +208,15 @@ describe('CycleDashboardController', () => {
     const result = await controller.getCurrentCycle('5-3-1', MOCK_USER);
 
     expect(result.weeks[0]?.completed).toBe(false);
+  });
+
+  it('DELETE /programs/:program/cycles/current calls service.deleteCurrentCycle with repos and program', async () => {
+    await controller.deleteCurrentCycle('5-3-1', MOCK_USER);
+
+    expect(factory.forUser).toHaveBeenCalledWith(MOCK_USER);
+    expect(cycleGenerationService.deleteCurrentCycle).toHaveBeenCalledWith(
+      expect.objectContaining({ cycleDashboard: repo }),
+      '5-3-1',
+    );
   });
 });

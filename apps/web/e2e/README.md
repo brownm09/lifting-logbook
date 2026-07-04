@@ -59,6 +59,11 @@ To create the test account:
 The test account requires no pre-existing app data. All tests are written to pass on a
 freshly created account with zero lift records, no active program, and no training maxes.
 
+Note: the onboarding write-path test (see "What the tests cover" below) creates and then
+deletes a cycle for this account on every run, via a test-support cleanup route. If a CI run
+is interrupted mid-test (e.g. a hard timeout kill), the account may be left with a stray
+cycle for the `rpt` program; the next run's pre-test cleanup step removes it automatically.
+
 ## Authentication strategy
 
 The global setup uses the [Clerk Backend SDK sign-in token](https://clerk.com/docs/reference/backend-api/tag/Sign-in-Tokens)
@@ -85,10 +90,13 @@ The tests verify that the deployed stack is correctly wired:
 | History page tabs render | Auth-gated page renders structure (data may be empty) |
 | Cycle resolves to dashboard or onboarding | Server-side redirect logic works |
 | **Auth propagation** | `GET /api/health` (Next.js route handler) checks two things: (1) `auth().userId` non-null (Clerk session valid server-side), (2) `GET ${API_URL}/health` returns 200 (API reachable) |
+| **Onboarding write path** | Full onboarding flow (sign in → choose program → confirm maxes → Start My Program) actually writes a new cycle and the dashboard renders. Self-cleaning via `/api/test-support/reset-cycle` before and after — closes the gap where #644 (RLS silently disabled) could ship undetected because every other test here is read-only. |
 
 The auth propagation test is the only one that explicitly verifies the API is reachable and
 that the Clerk token is valid. Tests 1–4 assert page structure; because the server components
 handle API errors gracefully (redirect or render empty), they pass even if the API is down.
+The onboarding write-path test is the only one that performs a real write — see [ADR-023](../../../docs/adr/ADR-023-staging-integration-test-design.md)'s
+amended "Test scope" consequence for why this one deliberate exception exists.
 
 ## Playwright config
 

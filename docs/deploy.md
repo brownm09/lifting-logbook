@@ -281,6 +281,12 @@ echo -n "pk_live_YOUR_KEY" | gcloud secrets versions add \
   --project=lifting-logbook-prod
 ```
 
+> **Staging test account.** The staging Clerk app also needs a dedicated test user for the
+> Playwright integration suite (`STAGING_CLERK_TEST_EMAIL`) — see
+> [`apps/web/e2e/README.md`](../apps/web/e2e/README.md#test-account-setup) for setup steps. As of
+> #647, that account has a cycle created and deleted on every staging CI run by a self-cleaning
+> onboarding write-path test; no extra setup is required beyond the initial account creation.
+
 ---
 
 ### Step 5 — Add GitHub repository secrets and variables
