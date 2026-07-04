@@ -59,4 +59,45 @@ describe('HealthController', () => {
       ServiceUnavailableException,
     );
   });
+
+  describe('GET /version', () => {
+    const originalGitSha = process.env.GIT_SHA;
+    const originalNodeEnv = process.env.NODE_ENV;
+
+    afterEach(() => {
+      if (originalGitSha === undefined) {
+        delete process.env.GIT_SHA;
+      } else {
+        process.env.GIT_SHA = originalGitSha;
+      }
+      if (originalNodeEnv === undefined) {
+        delete process.env.NODE_ENV;
+      } else {
+        process.env.NODE_ENV = originalNodeEnv;
+      }
+    });
+
+    it('returns the GIT_SHA and environment from process.env', () => {
+      process.env.GIT_SHA = 'abc1234';
+      process.env.NODE_ENV = 'production';
+
+      expect(controller.version()).toEqual({
+        gitSha: 'abc1234',
+        environment: 'production',
+      });
+    });
+
+    it('degrades to gitSha "unknown" when GIT_SHA is not set, rather than throwing', () => {
+      delete process.env.GIT_SHA;
+
+      expect(() => controller.version()).not.toThrow();
+      expect(controller.version().gitSha).toBe('unknown');
+    });
+
+    it('falls back to environment "development" when NODE_ENV is not set', () => {
+      delete process.env.NODE_ENV;
+
+      expect(controller.version().environment).toBe('development');
+    });
+  });
 });

@@ -276,6 +276,8 @@ jobs:
             file: apps/api/Dockerfile
             push: true
             tags: ${{ steps.ar.outputs.repo }}/api:${{ github.event.pull_request.head.sha }},${{ steps.ar.outputs.repo }}/api:pr-${{ github.event.pull_request.number }}
+            build-args: |
+              GIT_SHA=${{ github.event.pull_request.head.sha }}
             cache-from: type=gha,scope=api-pr-v2
             cache-to: type=gha,scope=api-pr-v2,mode=max
 
@@ -288,13 +290,17 @@ jobs:
           attempt_delay: 15000
           # Scoped cache (#407). Isolates PR-branch builds from the deploy.yml
           # main-branch web caches so a stale layer in one workflow cannot
-          # silently poison the other. No build-args: public config is injected at
-          # runtime by the web deploy step, not baked in (#396 / ADR-028).
+          # silently poison the other. No NEXT_PUBLIC_*-style build-args for
+          # public config (injected at runtime, #396/ADR-028) — GIT_SHA IS
+          # passed as a build-arg (#671), since it's a build-invariant fact,
+          # not environment config.
           with: |
             context: .
             file: apps/web/Dockerfile
             push: true
             tags: ${{ steps.ar.outputs.repo }}/web:${{ github.event.pull_request.head.sha }},${{ steps.ar.outputs.repo }}/web:pr-${{ github.event.pull_request.number }}
+            build-args: |
+              GIT_SHA=${{ github.event.pull_request.head.sha }}
             cache-from: type=gha,scope=web-pr-v2
             cache-to: type=gha,scope=web-pr-v2,mode=max
 
