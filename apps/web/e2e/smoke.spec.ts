@@ -194,3 +194,22 @@ test('strength goals: create a goal and delete it', async ({ page }) => {
   // Remove button should disappear once deleted
   await expect(page.getByRole('button', { name: /✕ Remove/i })).toHaveCount(0, { timeout: 5_000 });
 });
+
+// ---------------------------------------------------------------------------
+// 10. Persistent app nav: present across screens, escapes the Programs page
+// ---------------------------------------------------------------------------
+
+test('primary nav persists and provides an escape route from Programs', async ({ page }) => {
+  await page.goto('/programs');
+
+  // The Programs page used to be a dead-end; the global nav now offers a way out.
+  const nav = page.getByRole('navigation', { name: 'Primary' });
+  await expect(nav).toBeVisible();
+
+  await nav.getByRole('link', { name: 'History' }).click();
+  await expect(page).toHaveURL(/\/history/);
+
+  // The brand wordmark links back to the current cycle from anywhere.
+  await page.getByRole('link', { name: 'Lifting Logbook' }).click();
+  await expect(page).toHaveURL(/\/cycle\/1/);
+});
