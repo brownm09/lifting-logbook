@@ -1,6 +1,9 @@
 /* Settings sub-nav — cross-navigation between the four settings sections.
    Mirrors the shell nav's token usage (AppNav.module.css) for a consistent
-   look and the same hover/focus/active affordances. */
+   look and the same hover/focus/active affordances.
+
+   KEEP IN SYNC: .subLink / .subActive intentionally duplicate AppNav.module.css's
+   .link / .active tab affordance — update both together so the two navs don't drift. */
 .subNav {
   display: flex;
   flex-wrap: wrap;

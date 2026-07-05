@@ -11,8 +11,11 @@ import styles from './settings.module.css';
  * Rounding — replacing the pre-#679 behaviour where "Settings" only ever opened
  * Training Maxes and the sibling pages were unreachable.
  *
- * Mirrors the shell nav ({@link AppNav}): the active tab carries `aria-current`
- * and the accent style. No tab is active on the `/settings` hub itself.
+ * Shares the shell nav's ({@link AppNav}) active-tab affordance (`aria-current` +
+ * accent style), but deliberately matches with exact-or-subtree
+ * (`pathname === href || pathname.startsWith(href + '/')`) rather than a plain
+ * prefix — specifically so no tab lights up on the bare `/settings` hub and a
+ * sibling-prefix route can't collide. (Encoded by the third SettingsNav test.)
  */
 export default function SettingsNav() {
   const pathname = usePathname() ?? '';

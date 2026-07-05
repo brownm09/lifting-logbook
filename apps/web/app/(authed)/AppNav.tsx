@@ -33,7 +33,9 @@ export default function AppNav() {
       </Link>
       <nav aria-label="Primary" className={styles.nav}>
         {LINKS.map(({ href, label, match }) => {
-          const active = pathname.startsWith(match);
+          // Boundary-safe: exact hub match or a real sub-path, so a sibling like
+          // `/settings-export` can't mis-highlight `/settings` (mirrors SettingsNav).
+          const active = pathname === match || pathname.startsWith(`${match}/`);
           return (
             <Link
               key={href}
