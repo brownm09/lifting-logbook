@@ -45,6 +45,8 @@ const _cycleDashboardRepo: ICycleDashboardRepository = {
     Promise.resolve({} as CycleDashboard),
   saveCycleDashboard: (): Promise<void> =>
     Promise.resolve(),
+  deleteCycleDashboard: (): Promise<void> =>
+    Promise.resolve(),
 };
 
 // ---------------------------------------------------------------------------
@@ -75,6 +77,8 @@ const _liftRecordRepo: ILiftRecordRepository = {
     Promise.resolve(null),
   deleteLiftRecordsByNaturalKeys: (): Promise<number> =>
     Promise.resolve(0),
+  deleteAllLiftRecords: (): Promise<void> =>
+    Promise.resolve(),
 };
 
 // ---------------------------------------------------------------------------
@@ -101,6 +105,8 @@ const _trainingMaxRepo: ITrainingMaxRepository = {
     Promise.resolve({ created: 0, updated: 0, skipped: 0 }),
   deleteTrainingMaxes: (): Promise<void> =>
     Promise.resolve(),
+  deleteAllTrainingMaxes: (): Promise<void> =>
+    Promise.resolve(),
 };
 
 // ---------------------------------------------------------------------------
@@ -112,6 +118,7 @@ const _trainingMaxHistoryRepo: ITrainingMaxHistoryRepository = {
   appendHistoryEntries: (): Promise<void> => Promise.resolve(),
   updateHistoryEntry: (): Promise<TrainingMaxHistoryEntry> =>
     Promise.resolve({ id: '', lift: '', weight: 0, reps: 1, date: new Date(), isPR: false, source: 'program', goalMet: false }),
+  deleteAllHistory: (): Promise<void> => Promise.resolve(),
 };
 
 // IWorkoutRepository

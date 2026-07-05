@@ -10,11 +10,18 @@
 #
 # Confirm these endpoint URLs match your Grafana Cloud stack region:
 #   Stack → Details → OpenTelemetry → OTLP endpoint   (traces + metrics → Tempo/Mimir)
-#   Stack → Details → Loki → URL + /loki/api/v1/push  (logs → Loki)
-
+#   Stack → Details → Loki → URL + /otlp               (logs → Loki, native OTLP ingestion)
+#
+# The Loki endpoint moved from the dedicated `loki` exporter's /loki/api/v1/push
+# to the generic otlphttp exporter's /otlp path (#662) — the collector's `loki`
+# exporter type is deprecated/removed upstream (opentelemetry-collector-contrib
+# issues/38374, pull/41413). Same host, per Loki's native OTLP ingestion docs
+# (https://grafana.com/docs/loki/latest/send-data/otel/) — confirm against the
+# Grafana Cloud portal before rollout, since this couldn't be verified against
+# the live stack from this change.
 env:
   OTEL_COLLECTOR_OTLP_ENDPOINT: https://otlp-gateway-prod-us-central1.grafana.net/otlp
-  OTEL_COLLECTOR_LOKI_ENDPOINT: https://logs-prod-021.grafana.net/loki/api/v1/push
+  OTEL_COLLECTOR_LOKI_ENDPOINT: https://logs-prod-021.grafana.net/otlp
 
 # 20% probabilistic sampling of clean traces; errors and slow traces (>1 000 ms) are always kept.
 tailSampleRate: "20"

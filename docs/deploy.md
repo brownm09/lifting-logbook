@@ -281,6 +281,12 @@ echo -n "pk_live_YOUR_KEY" | gcloud secrets versions add \
   --project=lifting-logbook-prod
 ```
 
+> **Staging test account.** The staging Clerk app also needs a dedicated test user for the
+> Playwright integration suite (`STAGING_CLERK_TEST_EMAIL`) — see
+> [`apps/web/e2e/README.md`](../apps/web/e2e/README.md#test-account-setup) for setup steps. As of
+> #647, that account has a cycle created and deleted on every staging CI run by a self-cleaning
+> onboarding write-path test; no extra setup is required beyond the initial account creation.
+
 ---
 
 ### Step 5 — Add GitHub repository secrets and variables
@@ -660,8 +666,10 @@ if a secret is missing or empty.
 1. **Get the values from the Grafana Cloud portal:**
    - **OTLP endpoint + instance ID** — Stack → Details → OpenTelemetry → *OTLP endpoint* and
      the numeric *Instance ID / User* (this endpoint also routes metrics → Mimir).
-   - **Loki endpoint + user** — Stack → Details → Loki → *URL* (append `/loki/api/v1/push`)
-     and its *User*. The OTLP and Loki instance IDs may differ but can share one token.
+   - **Loki endpoint + user** — Stack → Details → Loki → *URL* (append `/otlp` — the collector
+     sends logs via the generic `otlphttp` exporter at Loki's native OTLP ingestion path, not
+     the deprecated dedicated `loki` exporter's `/loki/api/v1/push`; see #662) and its *User*.
+     The OTLP and Loki instance IDs may differ but can share one token.
    - **API token** — Stack → Details → generate a token with **send metrics + send logs +
      send traces** scopes (or a service account with those permissions).
 

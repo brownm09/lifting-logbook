@@ -132,7 +132,7 @@ The three recovery options the error names:
 2. **Use `docker-compose.test.yml`.** Spin up the compose Postgres on 5433 and
    set `DATABASE_URL` so globalSetup takes the CI passthrough branch:
    ```bash
-   docker-compose -f docker-compose.test.yml up -d
+   docker-compose -f docker-compose.test.yml up -d --wait
    DATABASE_URL=postgresql://lifting:lifting@localhost:5433/lifting_test \
      npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma
    DATABASE_URL=postgresql://lifting:lifting@localhost:5433/lifting_test \

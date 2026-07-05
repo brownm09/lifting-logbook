@@ -42,4 +42,8 @@ export class InMemoryTrainingMaxHistoryRepository implements ITrainingMaxHistory
     this.entriesByProgram.set(program, next);
     return updated;
   }
+
+  async deleteAllHistory(program: string): Promise<void> {
+    this.entriesByProgram.delete(program);
+  }
 }

@@ -84,6 +84,7 @@ describe('CycleGenerationService', () => {
     cycleDashboardRepo = {
       getCycleDashboard: jest.fn(),
       saveCycleDashboard: jest.fn().mockResolvedValue(undefined),
+      deleteCycleDashboard: jest.fn().mockResolvedValue(undefined),
     };
     programSpecRepo = {
       getProgramSpec: jest.fn().mockResolvedValue(stubProgramSpec()),
@@ -94,12 +95,14 @@ describe('CycleGenerationService', () => {
       getTrainingMaxes: jest.fn(),
       saveTrainingMaxes: jest.fn().mockResolvedValue(undefined),
       importTrainingMaxes: jest.fn(),
-      deleteTrainingMaxes: jest.fn(),
+      deleteTrainingMaxes: jest.fn().mockResolvedValue(undefined),
+      deleteAllTrainingMaxes: jest.fn().mockResolvedValue(undefined),
     };
     trainingMaxHistoryRepo = {
       getHistory: jest.fn().mockResolvedValue([]),
       appendHistoryEntries: jest.fn().mockResolvedValue(undefined),
       updateHistoryEntry: jest.fn(),
+      deleteAllHistory: jest.fn().mockResolvedValue(undefined),
     };
     liftRecordRepo = {
       getLiftRecords: jest.fn(),
@@ -107,6 +110,7 @@ describe('CycleGenerationService', () => {
       findExistingRecords: jest.fn(),
       updateLiftRecord: jest.fn(),
       deleteLiftRecordsByNaturalKeys: jest.fn(),
+      deleteAllLiftRecords: jest.fn().mockResolvedValue(undefined),
     };
     userSettingsRepo = {
       getSettings: jest
@@ -347,6 +351,70 @@ describe('CycleGenerationService', () => {
       ).resolves.not.toThrow();
 
       expect(cycleScheduledWorkoutRepo.saveScheduledWorkouts).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('deleteCurrentCycle', () => {
+    it('deletes lift records, training maxes, history, scheduled workouts, and the dashboard', async () => {
+      cycleDashboardRepo.getCycleDashboard.mockResolvedValue(stubDashboard());
+
+      await service.deleteCurrentCycle(repos, PROGRAM);
+
+      expect(liftRecordRepo.deleteAllLiftRecords).toHaveBeenCalledWith(PROGRAM);
+      expect(trainingMaxHistoryRepo.deleteAllHistory).toHaveBeenCalledWith(PROGRAM);
+      expect(trainingMaxRepo.deleteAllTrainingMaxes).toHaveBeenCalledWith(PROGRAM);
+      expect(cycleScheduledWorkoutRepo.saveScheduledWorkouts).toHaveBeenCalledWith(PROGRAM, 1, []);
+      expect(cycleDashboardRepo.deleteCycleDashboard).toHaveBeenCalledWith(PROGRAM);
+    });
+
+    it('deletes sequentially, in a fixed order, ending with the dashboard', async () => {
+      // The five deletes share one request-scoped Prisma transaction client, which
+      // serializes queries on a single connection — asserting a real, deterministic
+      // order here (rather than Promise.all's unordered settling) is itself the
+      // regression guard for that constraint.
+      const order: string[] = [];
+      cycleDashboardRepo.getCycleDashboard.mockResolvedValue(stubDashboard());
+      liftRecordRepo.deleteAllLiftRecords.mockImplementation(async () => {
+        order.push('liftRecord');
+      });
+      trainingMaxHistoryRepo.deleteAllHistory.mockImplementation(async () => {
+        order.push('trainingMaxHistory');
+      });
+      trainingMaxRepo.deleteAllTrainingMaxes.mockImplementation(async () => {
+        order.push('trainingMax');
+      });
+      cycleScheduledWorkoutRepo.saveScheduledWorkouts.mockImplementation(async () => {
+        order.push('cycleScheduledWorkout');
+      });
+      cycleDashboardRepo.deleteCycleDashboard.mockImplementation(async () => {
+        order.push('cycleDashboard');
+      });
+
+      await service.deleteCurrentCycle(repos, PROGRAM);
+
+      expect(order).toEqual([
+        'liftRecord',
+        'trainingMaxHistory',
+        'trainingMax',
+        'cycleScheduledWorkout',
+        'cycleDashboard',
+      ]);
+    });
+
+    it('propagates ProgramNotFoundError when no cycle exists (404 path)', async () => {
+      cycleDashboardRepo.getCycleDashboard.mockRejectedValue(new ProgramNotFoundError(PROGRAM));
+
+      await expect(service.deleteCurrentCycle(repos, PROGRAM)).rejects.toThrow(ProgramNotFoundError);
+      expect(cycleDashboardRepo.deleteCycleDashboard).not.toHaveBeenCalled();
+      expect(liftRecordRepo.deleteAllLiftRecords).not.toHaveBeenCalled();
+    });
+
+    it('scopes the scheduled-workout clear to the dashboard current cycleNum', async () => {
+      cycleDashboardRepo.getCycleDashboard.mockResolvedValue({ ...stubDashboard(), cycleNum: 3 });
+
+      await service.deleteCurrentCycle(repos, PROGRAM);
+
+      expect(cycleScheduledWorkoutRepo.saveScheduledWorkouts).toHaveBeenCalledWith(PROGRAM, 3, []);
     });
   });
 

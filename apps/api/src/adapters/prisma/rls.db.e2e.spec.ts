@@ -441,4 +441,106 @@ describeOrSkip('RLS request wiring (interceptor + factory, full app boot)', () =
     await owner.cycleDashboard.deleteMany({ where: { userId } });
     await owner.userSettings.deleteMany({ where: { userId } });
   });
+
+  // Regression coverage for #647: the new DELETE cycles/current endpoint (added to
+  // support a self-cleaning staging Playwright test) deletes through the same
+  // factory/repos path as every other request. Proves the deleteMany calls are
+  // genuinely RLS-scoped under the restricted lifting_app role — not merely
+  // filtered by an application-level WHERE clause that happens to look correct —
+  // exactly the risk class that let #644 ship silently.
+  it('deletes a cycle scoped to the requesting user only, under real RLS (regression coverage for #647)', async () => {
+    // deleteCurrentCycle issues five scoped deletes (CycleDashboard, LiftRecord,
+    // TrainingMax, TrainingMaxHistory, CycleScheduledWorkout). Seeding all five
+    // for both users — not just the dashboard — matters because #644 was a
+    // per-repository DI-wiring failure, not a missing-policy failure: a future
+    // regression where one specific repository fails to route through the
+    // request-scoped RLS transaction would not be caught if this test only ever
+    // exercised an empty table for that repository.
+    const userId = `rls-e2e-fullapp-delete-${Date.now()}`;
+    const otherUserId = `rls-e2e-fullapp-delete-other-${Date.now()}`;
+    const PROGRAM = 'leangains';
+
+    const seedAllTables = async (uid: string) => {
+      await owner.cycleDashboard.create({
+        data: {
+          userId: uid,
+          program: PROGRAM,
+          cycleUnit: 'week',
+          cycleNum: 1,
+          cycleDate: new Date(),
+          sheetName: `leangains_Cycle_1_${uid}`,
+          cycleStartWeekday: 'Friday',
+          programType: PROGRAM,
+        },
+      });
+      await owner.liftRecord.create({
+        data: {
+          userId: uid,
+          program: PROGRAM,
+          cycleNum: 1,
+          workoutNum: 1,
+          date: new Date(),
+          lift: 'Squat',
+          setNum: 1,
+          weight: 135,
+          reps: 5,
+        },
+      });
+      await owner.trainingMax.create({
+        data: { userId: uid, program: PROGRAM, lift: 'Squat', weight: 225, dateUpdated: new Date() },
+      });
+      await owner.trainingMaxHistory.create({
+        data: {
+          userId: uid,
+          program: PROGRAM,
+          lift: 'Squat',
+          weight: 225,
+          reps: 1,
+          date: new Date(),
+          isPR: false,
+          source: 'program',
+          goalMet: false,
+        },
+      });
+      await owner.cycleScheduledWorkout.create({
+        data: { userId: uid, program: PROGRAM, cycleNum: 1, workoutNum: 1, weekNum: 1, scheduledDate: new Date() },
+      });
+    };
+    await seedAllTables(userId);
+    await seedAllTables(otherUserId);
+
+    const delRes = await inject({
+      method: 'DELETE',
+      url: `/programs/${PROGRAM}/cycles/current`,
+      headers: { authorization: `Bearer ${userId}` },
+    });
+    expect(delRes.statusCode).toBe(204);
+
+    const findAllFor = (uid: string) =>
+      Promise.all([
+        owner.cycleDashboard.findFirst({ where: { userId: uid, program: PROGRAM } }),
+        owner.liftRecord.findFirst({ where: { userId: uid, program: PROGRAM } }),
+        owner.trainingMax.findFirst({ where: { userId: uid, program: PROGRAM } }),
+        owner.trainingMaxHistory.findFirst({ where: { userId: uid, program: PROGRAM } }),
+        owner.cycleScheduledWorkout.findFirst({ where: { userId: uid, program: PROGRAM } }),
+      ]);
+
+    // The requesting user's rows are gone from every affected table...
+    const mine = await findAllFor(userId);
+    expect(mine).toEqual([null, null, null, null, null]);
+
+    // ...but the other user's rows in every table survive — proves each of the
+    // five deletes was RLS-scoped to the requesting user, not a bug that deleted
+    // every row matching the program regardless of owner.
+    const others = await findAllFor(otherUserId);
+    for (const row of others) expect(row).not.toBeNull();
+
+    await Promise.all([
+      owner.cycleDashboard.deleteMany({ where: { userId: { in: [userId, otherUserId] } } }),
+      owner.liftRecord.deleteMany({ where: { userId: { in: [userId, otherUserId] } } }),
+      owner.trainingMax.deleteMany({ where: { userId: { in: [userId, otherUserId] } } }),
+      owner.trainingMaxHistory.deleteMany({ where: { userId: { in: [userId, otherUserId] } } }),
+      owner.cycleScheduledWorkout.deleteMany({ where: { userId: { in: [userId, otherUserId] } } }),
+    ]);
+  });
 });

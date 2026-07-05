@@ -28,4 +28,7 @@ export interface ILiftRecordRepository {
    * Returns the number of rows deleted.
    */
   deleteLiftRecordsByNaturalKeys(program: string, naturalKeys: string[]): Promise<number>;
+
+  /** Deletes every lift record for a program, across all cycles. No-op if none exist. */
+  deleteAllLiftRecords(program: string): Promise<void>;
 }

@@ -121,6 +121,12 @@ export class PrismaLiftRecordRepository implements ILiftRecordRepository {
     });
     return count;
   }
+
+  async deleteAllLiftRecords(program: string): Promise<void> {
+    await this.prisma.liftRecord.deleteMany({
+      where: { userId: this.userId, program },
+    });
+  }
 }
 
 // ID format: ${program}-${cycleNum}-${workoutNum}-${lift}-${setNum}

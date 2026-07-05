@@ -176,7 +176,21 @@ If `--format json` is not supported by the installed `gh` version, fall back to 
 5. Commit with `Closes #<N>` in the message (see Commit Format)
 6. Push: `git push -u origin <branch>`
 7. Open a PR: `gh pr create --title "<prefix> <title>" --body "..."`
-8. After PR approval: squash merge with `gh pr merge <N> --squash --delete-branch`
+8. After PR approval: squash merge using the two-step pattern below rather than a single
+   `gh pr merge <N> --squash --delete-branch` — the combined form fails at the local
+   checkout-and-delete step whenever **any** worktree in the repo (not just the canonical
+   checkout) currently holds `main` (a "squat"), which is likely given 60+ concurrent worktrees
+   under `.claude/worktrees/` (already confirmed on [PR #664](https://github.com/brownm09/lifting-logbook/pull/664),
+   2026-07-03). Splitting the merge into two API-only calls avoids the failure unconditionally,
+   regardless of which worktree currently holds `main`:
+   ```bash
+   gh pr merge <N> --squash                                                   # server-side only; always succeeds
+   gh api -X DELETE "repos/brownm09/lifting-logbook/git/refs/heads/<branch>"   # pure REST ref delete
+   ```
+   Root cause and full context: [dev-env ADR-058](https://github.com/brownm09/dev-env/blob/main/docs/adr/058-worktree-squatting-main-detection-correction.md)
+   (2026-07-03 amendment) and [REFERENCE.md → Git Workflow Runbooks](https://github.com/brownm09/dev-env/blob/main/docs/REFERENCE.md#git-workflow-runbooks).
+   If a squat is actively blocking other work, it can be cleared on demand rather than waiting for
+   the next scheduled prune — see the runbook link above.
 9. Move the issue to **Done** on the project board:
    ```bash
    TMPFILE="C:/Users/brown/.claude/scratch/tmp_item_<N>.json"
@@ -242,7 +256,7 @@ Closes #1
 - **Title format:** `[<type>] <description>` (matching the commit type prefix)
 - **Body:** Summary paragraph + Acceptance Criteria checklist (copy from issue) + test instructions
 - **Merge strategy:** Squash merge only — keeps `main` history linear
-- **Branch cleanup:** Always pass `--delete-branch` on merge
+- **Branch cleanup:** Delete the branch after merge — use the two-step pattern in Standard Issue Workflow step 8, not a bare `--delete-branch`, since that flag's local step can fail when a worktree is squatting `main`
 
 ---
 

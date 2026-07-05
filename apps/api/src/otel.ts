@@ -2,7 +2,9 @@ import { NodeSDK } from '@opentelemetry/sdk-node';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
+import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http';
 import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
+import { BatchLogRecordProcessor } from '@opentelemetry/sdk-logs';
 // @prisma/instrumentation@5.x directly instantiates sdk-trace-base's Span class,
 // which was made package-private in sdk-trace-base@2.x — causing "Span is not a
 // constructor" at $connect(). PrismaInstrumentation is excluded from the
@@ -53,6 +55,30 @@ export function buildResourceAttributesEnv(
 
 let sdk: NodeSDK | undefined;
 
+/**
+ * Builds the log record processor(s) passed to NodeSDK's `logRecordProcessors`
+ * option. Activates the log-sending half of @opentelemetry/instrumentation-pino
+ * (pulled in transitively by getNodeAutoInstrumentations() below): that
+ * instrumentation patches Pino via pino.multistream() to fan every log line out
+ * to both stdout and the OTel Logs API, but only once a real LoggerProvider
+ * exists — NodeSDK.start() registers one globally as soon as logRecordProcessors
+ * is set. Without this, structured logs (including the err.message/err.stack
+ * Postgres error detail alerting depends on) never reached the collector's logs
+ * pipeline despite it being fully wired to receive them. See issue #662.
+ *
+ * Safe from a redaction standpoint: instrumentation-pino's OTel stream reads the
+ * already-serialized JSON line via multistream, which runs *after* Pino's own
+ * redact() has already stripped req.headers.authorization/cookie (see
+ * app.module.ts) — both stdout and the OTel stream receive the same,
+ * already-redacted line. Locked by otel-log-redaction.spec.ts.
+ *
+ * Extracted (rather than inlined in startOtel()) so otel.spec.ts can assert this
+ * wiring exists independently of exercising the full SDK.
+ */
+export function buildLogRecordProcessors() {
+  return [new BatchLogRecordProcessor(new OTLPLogExporter())];
+}
+
 export function startOtel(): NodeSDK | undefined {
   if (process.env.OTEL_SDK_DISABLED === 'true') return undefined;
   if (sdk) return sdk;
@@ -74,6 +100,7 @@ export function startOtel(): NodeSDK | undefined {
         exporter: new OTLPMetricExporter(),
       }),
     ],
+    logRecordProcessors: buildLogRecordProcessors(),
     instrumentations: [getNodeAutoInstrumentations()],
   });
 

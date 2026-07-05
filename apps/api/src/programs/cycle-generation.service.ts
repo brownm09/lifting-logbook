@@ -238,6 +238,44 @@ export class CycleGenerationService {
     return { dashboard, programSpec };
   }
 
+  /**
+   * Deletes the current cycle for a program and every row scoped to it: the
+   * CycleDashboard, all LiftRecord rows across every cycle number, all TrainingMax
+   * rows, all TrainingMaxHistory entries, and any CycleScheduledWorkout rows for the
+   * deleted cycle. Deliberately leaves UserSettings.activeProgram untouched — that
+   * field is independent of cycle existence and is used by switchProgram's routing.
+   *
+   * getCycleDashboard(program) is called first for two reasons: it supplies the
+   * cycleNum needed to scope the CycleScheduledWorkout clear, and it throws
+   * ProgramNotFoundError (-> 404) when nothing exists, giving a free "nothing to
+   * delete" response with no new error-handling code — mirrors the guard
+   * initializeFirstCycle uses to detect "no cycle yet".
+   *
+   * The five deletes run sequentially, not concurrently: repos.forUser() binds
+   * them all to the single interactive-transaction Prisma client RlsInterceptor
+   * holds for this request, which serializes queries on one connection — a
+   * Promise.all here would not parallelize anything and can throw a "queries
+   * cannot run concurrently" error against the real Prisma adapter (the in-memory
+   * adapter has no such constraint, so this would pass there and fail in
+   * production). Atomicity across all five is already guaranteed by that same
+   * request transaction, independent of the order below.
+   */
+  async deleteCurrentCycle(
+    repos: Pick<
+      CycleRepos,
+      'cycleDashboard' | 'cycleScheduledWorkout' | 'liftRecord' | 'trainingMax' | 'trainingMaxHistory'
+    >,
+    program: string,
+  ): Promise<void> {
+    const dashboard = await repos.cycleDashboard.getCycleDashboard(program);
+
+    await repos.liftRecord.deleteAllLiftRecords(program);
+    await repos.trainingMaxHistory.deleteAllHistory(program);
+    await repos.trainingMax.deleteAllTrainingMaxes(program);
+    await repos.cycleScheduledWorkout.saveScheduledWorkouts(program, dashboard.cycleNum, []);
+    await repos.cycleDashboard.deleteCycleDashboard(program);
+  }
+
   async recalculateMaxes(
     repos: CycleRepos,
     program: string,

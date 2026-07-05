@@ -25,4 +25,8 @@ export class InMemoryCycleDashboardRepository
   async saveCycleDashboard(dashboard: CycleDashboard): Promise<void> {
     this.dashboards.set(dashboard.program, dashboard);
   }
+
+  async deleteCycleDashboard(program: string): Promise<void> {
+    this.dashboards.delete(program);
+  }
 }

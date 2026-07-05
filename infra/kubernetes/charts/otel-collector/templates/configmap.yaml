@@ -76,7 +76,13 @@ data:
         endpoint: ${env:OTEL_COLLECTOR_OTLP_ENDPOINT}
         headers:
           authorization: ${env:OTEL_COLLECTOR_OTLP_AUTH_HEADER}
-      loki:
+      # The dedicated `loki` exporter is deprecated and removed from
+      # opentelemetry-collector-contrib (github.com/open-telemetry/
+      # opentelemetry-collector-contrib issues/38374, pull/41413) — the generic
+      # otlphttp exporter pointed at Loki's native /otlp endpoint is the
+      # supported path (https://grafana.com/docs/loki/latest/send-data/otel/).
+      # See #662.
+      otlphttp/logs:
         endpoint: ${env:OTEL_COLLECTOR_LOKI_ENDPOINT}
         headers:
           authorization: ${env:OTEL_COLLECTOR_LOKI_AUTH_HEADER}
@@ -95,4 +101,4 @@ data:
         logs:
           receivers: [otlp]
           processors: [batch]
-          exporters: [loki]
+          exporters: [otlphttp/logs]
