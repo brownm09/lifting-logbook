@@ -1232,6 +1232,11 @@ jobs:
             --wait --timeout=5m
 
       - name: Print deployment URLs and deployed version
+        # This is a post-deploy reporting step, exactly like the audit step below — the
+        # production deploy has already fully succeeded by the time this runs, so a git
+        # hiccup here (e.g. an unresolvable SHA) must never turn an already-green deploy
+        # red (#697 review).
+        continue-on-error: true
         run: |
           SHORT_SHA=$(git rev-parse --short "${{ github.sha }}")
           SUBJECT=$(git log -1 --format='%s' "${{ github.sha }}")
@@ -1288,9 +1293,21 @@ jobs:
 
           # select() excludes this in-progress run itself — belt and suspenders, since a
           # run in progress cannot yet show status=cancelled, but cheap to guard anyway.
+          # (A run's status is exactly one of success/cancelled/etc, so it can never also
+          # match the earlier success-run query — no double-count risk from that side.)
+          #
+          # >= (not strict >) on --created: gh's --created filter is timestamp-precise, not
+          # day-truncated (verified empirically against this repo's own run history), but a
+          # cancelled run created in the SAME SECOND as the last success would be excluded
+          # by strict >. >= closes that gap safely — it can never re-include the success run
+          # itself, since that run's status is "success", not "cancelled" (#697 review).
+          #
+          # Explicit --limit: without it, gh defaults to 30, which could silently truncate
+          # the audit during exactly the burst-cancellation scenario (#401) it exists to
+          # catch. 100 comfortably covers any realistic gap between successful deploys.
           CANCELLED_TSV=$(gh run list --repo "${{ github.repository }}" \
             --workflow deploy.yml --branch main --status cancelled \
-            --created ">${LAST_SUCCESS_CREATED}" \
+            --created ">=${LAST_SUCCESS_CREATED}" --limit 100 \
             --json databaseId,headSha,displayTitle \
             --jq "[.[] | select(.databaseId != ${{ github.run_id }})] | .[] | [.databaseId, .headSha, .displayTitle] | @tsv") || {
             echo ":warning: \`gh run list\` failed listing cancelled runs — skipping this audit (advisory; does not affect the deploy)." >> "$GITHUB_STEP_SUMMARY"
@@ -1329,6 +1346,10 @@ jobs:
             if git merge-base --is-ancestor "$SHA" "${{ github.sha }}" 2>/dev/null; then
               echo "| [${RUN_ID}](${RUN_URL}) — ${TITLE} | \`${SHORT}\` | :white_check_mark: yes |" >> "$GITHUB_STEP_SUMMARY"
             else
+              # rc=$? MUST be the first statement in this branch — it captures the
+              # merge-base call's exit code above. Inserting any command (even an echo)
+              # before this line would clobber $? and silently misclassify every
+              # non-ancestor (128 vs 1) — do not add anything above this line (#697 review).
               rc=$?
               if [ "$rc" -eq 1 ]; then
                 echo "| [${RUN_ID}](${RUN_URL}) — ${TITLE} | \`${SHORT}\` | :rotating_light: **NO — investigate** |" >> "$GITHUB_STEP_SUMMARY"

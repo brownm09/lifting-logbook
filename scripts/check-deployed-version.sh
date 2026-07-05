@@ -13,7 +13,7 @@
 # the end, exiting non-zero only then (mirrors deploy.yml's "Validate production auth
 # secrets (pre-promote)" step rather than aborting on the first failure).
 #
-# Two things worth knowing before reading the output:
+# Three things worth knowing before reading the output:
 #   * "environment" in the JSON response is NODE_ENV, not the GCP project. Staging's Cloud
 #     Run services run NODE_ENV=production (the Node convention for "optimized build"), so
 #     staging's /version legitimately reports "environment":"production" — this does not
@@ -21,6 +21,9 @@
 #   * On staging specifically, the reported SHA can lag the PR's actual head commit when a
 #     run reused a prior image via staging.yml's skip-build optimization (see the "Resolve
 #     image tag" step comment in staging.yml, #671) — this is expected, not a broken deploy.
+#   * This reports what's live *right now*, which answers a different question than
+#     deploy.yml's job-summary SHA (which reports what a specific run *deployed* at the
+#     time it ran). The two can legitimately differ — see docs/runbooks/checking-deployed-version.md.
 #
 # Prereqs:
 #   * gcloud CLI, authenticated, with roles/iam.serviceAccountTokenCreator on the relevant
@@ -128,6 +131,83 @@ print_commit_context() {
   fi
 }
 
+# Fetches GET <url>/version in a single request (status and body must come from the same
+# response — checking status via one request and parsing the body from a second, separate
+# request leaves a window where a rolling deploy could swap revisions between the two calls
+# and produce a status/body mismatch), validates the status, and parses the body.
+# Prints "gitSha<TAB>environment" on success. On failure, prints a FAIL line (prefixed with
+# the given label) to stderr and returns 1 — callers just need to check the return status.
+#   $1 = label for FAIL messages (e.g. "staging web"), $2 = full URL (no trailing slash),
+#   remaining args = extra curl options (e.g. -H "Authorization: ...")
+fetch_version() {
+  local label="$1" url="$2"; shift 2
+  local response status body
+  if ! response=$(curl -s -w '\n%{http_code}' --max-time 10 "$@" "${url}/version"); then
+    echo "    FAIL: ${label} — curl could not reach ${url}/version" >&2
+    return 1
+  fi
+  status="${response##*$'\n'}"
+  body="${response%$'\n'*}"
+
+  if [ "$status" != "200" ]; then
+    echo "    FAIL: ${label} — GET ${url}/version returned HTTP ${status} (expected 200)" >&2
+    return 1
+  fi
+
+  local parsed
+  if ! parsed=$(printf '%s' "$body" | parse_version_json); then
+    echo "    FAIL: ${label} — /version returned malformed JSON: ${body}" >&2
+    return 1
+  fi
+
+  printf '%s' "$parsed"
+}
+
+# Resolves a Cloud Run service's URL, checking the actual gcloud exit status (not just
+# whether stdout came back empty — a denied/erroring gcloud call and a call that legitimately
+# returns nothing are different failures, and conflating them produces a misleading message).
+# Prints the URL (no trailing slash) on success; prints a FAIL line and returns 1 on failure.
+#   $1 = label for FAIL messages, $2 = service name, $3 = GCP project id
+resolve_service_url() {
+  local label="$1" service="$2" project="$3"
+  local url
+  if ! url=$(gcloud run services describe "$service" --project="$project" --region="$REGION" --format='value(status.url)'); then
+    echo "    FAIL: ${label} — could not resolve service URL for ${service} (gcloud exited non-zero — see error above)" >&2
+    return 1
+  fi
+  if [ -z "$url" ]; then
+    echo "    FAIL: ${label} — gcloud returned an empty URL for ${service} with no error (unexpected)" >&2
+    return 1
+  fi
+  printf '%s' "${url%/}"
+}
+
+# Checks one service's /version and prints the standard report block. Shared by the
+# --allow-unauthenticated (web) and identity-token (api) paths below — they differ only in
+# whether curl_auth_args carries an Authorization header.
+#   $1 = env label, $2 = service kind ("web"|"api"), $3 = service url,
+#   remaining args = extra curl options for fetch_version (e.g. -H "Authorization: ...")
+report_version() {
+  local env="$1" kind="$2" url="$3"; shift 3
+  local label="${env} ${kind}"
+
+  local parsed
+  if ! parsed=$(fetch_version "$label" "$url" "$@"); then
+    FAILURES=$((FAILURES + 1))
+    echo
+    return
+  fi
+
+  local sha nodeenv
+  IFS=$'\t' read -r sha nodeenv <<< "$parsed"
+
+  echo "    url:         ${url}"
+  echo "    gitSha:      ${sha}"
+  echo "    environment: ${nodeenv}  (NODE_ENV — not the GCP project; staging runs NODE_ENV=production by convention)"
+  print_commit_context "$sha"
+  echo
+}
+
 # Checks a --allow-unauthenticated web service. No identity token needed.
 #   $1 = env label ("staging"|"production"), $2 = GCP project id
 check_web() {
@@ -136,39 +216,13 @@ check_web() {
   echo "==> ${env} web (${service})"
 
   local url
-  url=$(gcloud run services describe "$service" --project="$project" --region="$REGION" --format='value(status.url)')
-  if [ -z "$url" ]; then
-    echo "    FAIL: could not resolve service URL (see gcloud error above, if any)" >&2
-    FAILURES=$((FAILURES + 1))
-    echo
-    return
-  fi
-  url="${url%/}"
-
-  local status
-  status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "${url}/version" || echo "000")
-  if [ "$status" != "200" ]; then
-    echo "    FAIL: GET ${url}/version returned HTTP ${status} (expected 200)" >&2
+  if ! url=$(resolve_service_url "${env} web" "$service" "$project"); then
     FAILURES=$((FAILURES + 1))
     echo
     return
   fi
 
-  local body parsed
-  body=$(curl -s --max-time 10 "${url}/version")
-  if ! parsed=$(printf '%s' "$body" | parse_version_json); then
-    echo "    FAIL: /version returned malformed JSON: ${body}" >&2
-    FAILURES=$((FAILURES + 1))
-    echo
-    return
-  fi
-
-  local sha="${parsed%%$'\t'*}" nodeenv="${parsed##*$'\t'}"
-  echo "    url:         ${url}"
-  echo "    gitSha:      ${sha}"
-  echo "    environment: ${nodeenv}  (NODE_ENV — not the GCP project; staging runs NODE_ENV=production by convention)"
-  print_commit_context "$sha"
-  echo
+  report_version "$env" "web" "$url"
 }
 
 # Checks a --no-allow-unauthenticated api service. Mints a Cloud Run identity token via
@@ -181,60 +235,37 @@ check_api() {
   echo "==> ${env} api (${service})"
 
   if [ -z "$service_account" ]; then
-    echo "    FAIL: no service account provided (--${env}-service-account) — cannot mint a Cloud Run identity token" >&2
+    echo "    FAIL: ${env} api — no service account provided (--${env}-service-account) — cannot mint a Cloud Run identity token" >&2
     FAILURES=$((FAILURES + 1))
     echo
     return
   fi
 
   local url
-  url=$(gcloud run services describe "$service" --project="$project" --region="$REGION" --format='value(status.url)')
-  if [ -z "$url" ]; then
-    echo "    FAIL: could not resolve service URL (see gcloud error above, if any)" >&2
+  if ! url=$(resolve_service_url "${env} api" "$service" "$project"); then
     FAILURES=$((FAILURES + 1))
     echo
     return
   fi
-  url="${url%/}"
 
   local id_token
-  id_token=$(gcloud auth print-identity-token \
-    --impersonate-service-account="$service_account" \
-    --audiences="$url" --include-email)
+  if ! id_token=$(gcloud auth print-identity-token \
+      --impersonate-service-account="$service_account" \
+      --audiences="$url" --include-email); then
+    echo "    FAIL: ${env} api — could not mint a Cloud Run identity token impersonating ${service_account} (gcloud exited non-zero — check you have roles/iam.serviceAccountTokenCreator on it)" >&2
+    FAILURES=$((FAILURES + 1))
+    echo
+    return
+  fi
   if [ -z "$id_token" ]; then
-    echo "    FAIL: could not mint a Cloud Run identity token impersonating ${service_account} (see gcloud error above, if any — check you have roles/iam.serviceAccountTokenCreator on it)" >&2
+    echo "    FAIL: ${env} api — gcloud returned an empty identity token with no error (unexpected)" >&2
     FAILURES=$((FAILURES + 1))
     echo
     return
   fi
 
-  local status
-  status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 -H "Authorization: Bearer ${id_token}" "${url}/version" || echo "000")
-  if [ "$status" != "200" ]; then
-    echo "    FAIL: GET ${url}/version returned HTTP ${status} (expected 200)" >&2
-    FAILURES=$((FAILURES + 1))
-    unset id_token
-    echo
-    return
-  fi
-
-  local body parsed
-  body=$(curl -s --max-time 10 -H "Authorization: Bearer ${id_token}" "${url}/version")
+  report_version "$env" "api" "$url" -H "Authorization: Bearer ${id_token}"
   unset id_token
-
-  if ! parsed=$(printf '%s' "$body" | parse_version_json); then
-    echo "    FAIL: /version returned malformed JSON: ${body}" >&2
-    FAILURES=$((FAILURES + 1))
-    echo
-    return
-  fi
-
-  local sha="${parsed%%$'\t'*}" nodeenv="${parsed##*$'\t'}"
-  echo "    url:         ${url}"
-  echo "    gitSha:      ${sha}"
-  echo "    environment: ${nodeenv}  (NODE_ENV — not the GCP project; staging runs NODE_ENV=production by convention)"
-  print_commit_context "$sha"
-  echo
 }
 
 if [ "$ENVS" = "both" ] || [ "$ENVS" = "staging" ]; then

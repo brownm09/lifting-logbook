@@ -89,6 +89,12 @@ run — checking whether each cancelled run's changes made it into what actually
 in `deploy-production` (`.github/workflows/deploy.yml`). This is advisory (never fails the
 deploy) and is the automated version of the manual check this runbook otherwise describes.
 
+**The job-summary SHA and `check-deployed-version.sh`'s SHA answer different questions.** The
+job summary reports what a specific run *deployed at the time it ran*; the script reports what's
+*actually live right now*. These are usually the same commit, but can diverge — most commonly on
+staging after an image-reuse (skip-build) deploy, per the gotcha above. If the two disagree,
+trust the script — it reflects the live `/version` endpoint, not a historical CI record.
+
 ---
 
 ## References

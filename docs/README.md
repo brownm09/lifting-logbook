@@ -175,6 +175,7 @@ sequences the runbooks below in reading order and explains what the signals mean
 | Runbook | Covers |
 |---------|--------|
 | [Observability](runbooks/observability.md) | Local stack startup, Grafana dashboards, trace queries, log↔trace correlation, alert rules + notification routing + silencing, Grafana Cloud credential wiring |
+| [Checking the deployed version](runbooks/checking-deployed-version.md) | Confirming what commit is live in staging/production via `/version` + `check-deployed-version.sh` |
 | [API 5xx surge](runbooks/api-5xx-surge.md) | `APIRouteHighErrorRate` / `APIHighErrorRate` alert response — SEV2 |
 | [Database unreachable](runbooks/database-unreachable.md) | DB connection error triage — SEV1 |
 | [Auth provider outage](runbooks/auth-provider-outage.md) | 401/403 surge + Clerk status incident — SEV2 |
