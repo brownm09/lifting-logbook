@@ -228,14 +228,21 @@ jobs:
             file: apps/api/Dockerfile
             push: true
             tags: ${{ steps.ar.outputs.repo }}/api:${{ github.sha }},${{ steps.ar.outputs.repo }}/api:latest
+            build-args: |
+              GIT_SHA=${{ github.sha }}
             cache-from: type=gha,scope=api-deploy-v2
             cache-to: type=gha,scope=api-deploy-v2,mode=max
 
       # ── Web image: single build, promote-everywhere (#396 / ADR-028) ───────
-      # One env-agnostic build (no NEXT_PUBLIC_* build-args). The same artifact is
-      # exercised by the staging gate and deployed to production — restoring the
-      # build-once / promote-everywhere contract that ADR-025's per-env builds broke.
-      # Pushed to the same AR repo as the API image (steps.ar.outputs.repo).
+      # One env-agnostic build (no NEXT_PUBLIC_*-style build-args for public
+      # config — that's injected at runtime, see the deploy steps below). The
+      # same artifact is exercised by the staging gate and deployed to
+      # production — restoring the build-once / promote-everywhere contract
+      # that ADR-025's per-env builds broke. Pushed to the same AR repo as the
+      # API image (steps.ar.outputs.repo). GIT_SHA IS passed as a build-arg
+      # (#671): unlike NEXT_PUBLIC_*/public config, it's a build-invariant
+      # fact (same commit regardless of destination), so baking it in doesn't
+      # reopen the per-environment-build problem ADR-028 fixed.
       - name: Build and push web image
         uses: Wandalen/wretry.action@e68c23e6309f2871ca8ae4763e7629b9c258e1ea  # v3.8.0
         with:
@@ -250,6 +257,8 @@ jobs:
             file: apps/web/Dockerfile
             push: true
             tags: ${{ steps.ar.outputs.repo }}/web:${{ github.sha }},${{ steps.ar.outputs.repo }}/web:latest
+            build-args: |
+              GIT_SHA=${{ github.sha }}
             cache-from: type=gha,scope=web-deploy-v3
             cache-to: type=gha,scope=web-deploy-v3,mode=max
 
@@ -308,6 +317,8 @@ jobs:
             file: apps/api/Dockerfile
             push: true
             tags: ${{ steps.ar-prod.outputs.repo }}/api:${{ github.sha }},${{ steps.ar-prod.outputs.repo }}/api:latest
+            build-args: |
+              GIT_SHA=${{ github.sha }}
             cache-from: type=gha,scope=api-deploy-v2
 
       - name: Build and push web image to prod AR
@@ -322,6 +333,8 @@ jobs:
             file: apps/web/Dockerfile
             push: true
             tags: ${{ steps.ar-prod.outputs.repo }}/web:${{ github.sha }},${{ steps.ar-prod.outputs.repo }}/web:latest
+            build-args: |
+              GIT_SHA=${{ github.sha }}
             cache-from: type=gha,scope=web-deploy-v3
 
       # Auth context invariant: build-images now ends with the prod CI/CD SA

@@ -4,13 +4,14 @@
  * Locks down the Clerk middleware matcher's negative-lookahead behavior.
  *
  * Without this test, a future "simplify" of the regex (e.g., dropping the
- * `(?:\?|$)` anchor and excluding bare `livez`) would silently widen the
- * auth bypass to /livezfoo, /livez-admin, etc. The deploy-time smoke only
- * verifies the positive case (/livez returns 200), not the negative one
- * (/livezfoo must still be auth-gated).
+ * `(?:\?|$)` anchor and excluding bare `livez`/`version`) would silently
+ * widen the auth bypass to /livezfoo, /versionadmin, etc. The deploy-time
+ * smoke only verifies the positive case (/livez returns 200), not the
+ * negative one (/livezfoo must still be auth-gated).
  *
- * See #402 (the original bypass on /healthz), #405 (tightened anchor), and
- * #409 (rename /healthz → /livez because GFE intercepts /healthz on Cloud Run).
+ * See #402 (the original bypass on /healthz), #405 (tightened anchor), #409
+ * (rename /healthz → /livez because GFE intercepts /healthz on Cloud Run),
+ * and #671 (added the /version bypass alongside /livez).
  */
 import { config } from './middleware';
 
@@ -21,14 +22,18 @@ const matcherSource = config.matcher[0];
 // regex-level behavior, not Next.js's full route resolution.
 const matcher = new RegExp(`^${matcherSource}$`);
 
-describe('clerkMiddleware matcher — /livez bypass scope', () => {
+describe('clerkMiddleware matcher — /livez and /version bypass scope', () => {
   describe('paths that should BYPASS Clerk (matcher must not match)', () => {
-    test.each([['/livez'], ['/livez?ping=1'], ['/livez?foo=bar&baz=1']])(
-      '%s is excluded',
-      (path) => {
-        expect(matcher.test(path)).toBe(false);
-      },
-    );
+    test.each([
+      ['/livez'],
+      ['/livez?ping=1'],
+      ['/livez?foo=bar&baz=1'],
+      ['/version'],
+      ['/version?ping=1'],
+      ['/version?foo=bar&baz=1'],
+    ])('%s is excluded', (path) => {
+      expect(matcher.test(path)).toBe(false);
+    });
   });
 
   describe('paths that should ENTER Clerk (matcher must match)', () => {
@@ -46,6 +51,12 @@ describe('clerkMiddleware matcher — /livez bypass scope', () => {
       // /livez/admin route is auth-gated by default (#405).
       ['/livez/admin'],
       ['/livez/sub'],
+      // Same critical-negative and nested-subpath coverage for /version (#671).
+      ['/versionfoo'],
+      ['/version-admin'],
+      ['/versionz'],
+      ['/version/admin'],
+      ['/version/sub'],
     ])('%s is included', (path) => {
       expect(matcher.test(path)).toBe(true);
     });

@@ -193,6 +193,13 @@ jobs:
       # surface. The floating tag avoids all three failure modes at the cost of
       # the SHA-as-image-tag invariant on skip runs only.
       #
+      # Corollary (#671): on a skip run, the reused image's baked-in GIT_SHA
+      # build-arg — surfaced via GET /version — reflects whichever earlier
+      # commit in this PR actually triggered the last real build, not the
+      # current head SHA. This is the same pre-existing tag/content mismatch
+      # above, just now visible through a human-facing endpoint rather than
+      # only the image tag.
+      #
       # On cold start (skip-eligible diff, no prior successful run on this PR),
       # we fall through to a fresh build — see issue #358 cold-start discussion.
       - name: Resolve image tag
@@ -276,6 +283,8 @@ jobs:
             file: apps/api/Dockerfile
             push: true
             tags: ${{ steps.ar.outputs.repo }}/api:${{ github.event.pull_request.head.sha }},${{ steps.ar.outputs.repo }}/api:pr-${{ github.event.pull_request.number }}
+            build-args: |
+              GIT_SHA=${{ github.event.pull_request.head.sha }}
             cache-from: type=gha,scope=api-pr-v2
             cache-to: type=gha,scope=api-pr-v2,mode=max
 
@@ -288,13 +297,17 @@ jobs:
           attempt_delay: 15000
           # Scoped cache (#407). Isolates PR-branch builds from the deploy.yml
           # main-branch web caches so a stale layer in one workflow cannot
-          # silently poison the other. No build-args: public config is injected at
-          # runtime by the web deploy step, not baked in (#396 / ADR-028).
+          # silently poison the other. No NEXT_PUBLIC_*-style build-args for
+          # public config (injected at runtime, #396/ADR-028) — GIT_SHA IS
+          # passed as a build-arg (#671), since it's a build-invariant fact,
+          # not environment config.
           with: |
             context: .
             file: apps/web/Dockerfile
             push: true
             tags: ${{ steps.ar.outputs.repo }}/web:${{ github.event.pull_request.head.sha }},${{ steps.ar.outputs.repo }}/web:pr-${{ github.event.pull_request.number }}
+            build-args: |
+              GIT_SHA=${{ github.event.pull_request.head.sha }}
             cache-from: type=gha,scope=web-pr-v2
             cache-to: type=gha,scope=web-pr-v2,mode=max
 

@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { Public } from '../auth/public.decorator';
 import { PrismaService } from '../adapters/prisma/prisma.service';
+import { resolveDeploymentEnvironment } from '../otel';
 
 @Controller()
 export class HealthController {
@@ -36,5 +37,25 @@ export class HealthController {
       throw new ServiceUnavailableException('database not ready', { cause: e });
     }
     return { status: 'ready', timestamp: new Date().toISOString() };
+  }
+
+  // Deployment identity: what commit this process is running. GIT_SHA is baked
+  // into the image at Docker build time (apps/api/Dockerfile's runner stage) —
+  // it's a property of the build, not the environment, so unlike PUBLIC_API_URL
+  // -style config (ADR-028) it's safe to bake in rather than inject at deploy
+  // time: it never differs per destination for a given build. A missing
+  // GIT_SHA only degrades observability, not functionality, so this degrades
+  // to 'unknown' rather than throwing. See #671.
+  //
+  // Truthy check (not ??): the Dockerfile's ARG has a default of 'unknown',
+  // but a manual `docker build` without --build-arg GIT_SHA=... still yields
+  // an empty string, not undefined — `??` would let that through unchanged.
+  @Public()
+  @Get('version')
+  version(): { gitSha: string; environment: string } {
+    return {
+      gitSha: process.env.GIT_SHA || 'unknown',
+      environment: resolveDeploymentEnvironment(),
+    };
   }
 }

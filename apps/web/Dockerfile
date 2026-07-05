@@ -95,6 +95,15 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
+# Deployment identity (#671): baked in at build time rather than injected at
+# deploy time, since a git SHA is a property of the build, not the
+# environment — it never differs across staging/prod for a given image, so
+# unlike the runtime-injected config in lib/public-config.ts (ADR-028) it's
+# safe to bake in here. Declared only in this final stage so it never
+# invalidates the installer/builder stages' cache.
+ARG GIT_SHA=unknown
+ENV GIT_SHA=$GIT_SHA
+
 # Non-root user for security.
 RUN addgroup --system --gid 1001 nodejs \
  && adduser  --system --uid 1001 --ingroup nodejs nextjs

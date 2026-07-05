@@ -32,25 +32,26 @@ export const config = {
   // Standard Clerk matcher — excludes static assets (_next, images, fonts, etc.)
   // so the middleware only runs on page and API routes.
   //
-  // `livez` is also negated: the /livez route (#402, renamed in #409) is a
-  // pure runtime liveness probe that must NOT enter clerkMiddleware. It is
-  // distinct from /api/healthz (#395), which deliberately runs through
-  // Clerk to detect init failures — the (api|trpc) line below still
-  // captures that one.
+  // `livez` and `version` are also negated: /livez (#402, renamed in #409) is
+  // a pure runtime liveness probe, and /version (#671) is a pure deployment-
+  // identity probe — neither must enter clerkMiddleware. Both are distinct
+  // from /api/healthz (#395), which deliberately runs through Clerk to detect
+  // init failures — the (api|trpc) line below still captures that one.
   //
-  // The livez(?:\?|$) anchor pins the exclusion to /livez and /livez?...
-  // only — /livezfoo, /livez-admin, AND /livez/* subpaths all enter
-  // clerkMiddleware and are auth-protected (#405 lockdown). The matcher
-  // behavior is locked down by middleware.matcher.test.ts so a future
-  // "simplify" of the regex back to bare `livez` or to the looser `[/?]`
-  // anchor will fail the suite.
+  // The (?:livez|version)(?:\?|$) anchor pins the exclusion to exactly
+  // /livez, /livez?..., /version, and /version?... — /livezfoo,
+  // /versionadmin, and any /livez/* or /version/* subpaths all enter
+  // clerkMiddleware and are auth-protected (#405 lockdown, extended in #671).
+  // The matcher behavior is locked down by middleware.matcher.test.ts so a
+  // future "simplify" of the regex back to bare `livez`/`version` or to the
+  // looser `[/?]` anchor will fail the suite.
   //
   // Historical note: the probe used to live at /healthz, but Google
   // Frontend on Cloud Run intercepts /healthz before it reaches the
   // container — all sibling paths (/livez, /readyz, /health) pass through
   // to Next.js normally. See #409 for the full diagnostic chain.
   matcher: [
-    '/((?!_next|livez(?:\\?|$)|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    '/((?!_next|(?:livez|version)(?:\\?|$)|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
     '/(api|trpc)(.*)',
   ],
 };
