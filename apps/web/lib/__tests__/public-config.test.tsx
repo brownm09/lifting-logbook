@@ -109,6 +109,15 @@ describe('readServerClerkPublishableKey', () => {
     delete process.env.CLERK_PUBLISHABLE_KEY;
     expect(readServerClerkPublishableKey()).toBeUndefined();
   });
+
+  it('does NOT throw in a deployed runtime when DEV_AUTH_TOKEN is set (dev-auth mode)', () => {
+    // Mirrors the API-side guard: a missing Clerk credential is intentional in dev-auth mode.
+    Object.defineProperty(process.env, 'NODE_ENV', { value: 'production', configurable: true });
+    delete process.env.NEXT_PHASE;
+    delete process.env.CLERK_PUBLISHABLE_KEY;
+    process.env.DEV_AUTH_TOKEN = 'tok';
+    expect(readServerClerkPublishableKey()).toBeUndefined();
+  });
 });
 
 describe('publicConfigScript', () => {

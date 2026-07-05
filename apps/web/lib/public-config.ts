@@ -93,13 +93,15 @@ export function readServerPublicConfig(): PublicConfig {
  * class as #395/#458, here for auth.
  *
  * An empty string is treated as unset (an empty `--set-env-vars=CLERK_PUBLISHABLE_KEY=` must
- * trip the guard too). Never throws during `next build` (phase-production-build) — the keyless
- * build the force-dynamic root layout relies on must not throw (ADR-028) — nor in local dev or
- * tests, where a missing key returns `undefined` unchanged. See #687.
+ * trip the guard too). Dev-auth mode is exempt: when `DEV_AUTH_TOKEN` is set a missing key is
+ * intentional, mirroring the API-side guard where an unset `CLERK_SECRET_KEY` selects
+ * `DevAuthProvider` rather than failing. Never throws during `next build` (phase-production-build)
+ * — the keyless build the force-dynamic root layout relies on must not throw (ADR-028) — nor in
+ * local dev or tests, where a missing key returns `undefined` unchanged. See #687.
  */
 export function readServerClerkPublishableKey(): string | undefined {
   const key = process.env.CLERK_PUBLISHABLE_KEY || undefined;
-  if (!key && isDeployedServerRuntime()) {
+  if (!key && isDeployedServerRuntime() && !process.env.DEV_AUTH_TOKEN) {
     throw new Error(
       'CLERK_PUBLISHABLE_KEY is not set in a deployed runtime. Clerk requires a publishable ' +
         'key injected at deploy time (Cloud Run --set-env-vars / GKE ConfigMap). Refusing to ' +
