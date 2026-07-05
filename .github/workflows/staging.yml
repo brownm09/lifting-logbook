@@ -193,6 +193,13 @@ jobs:
       # surface. The floating tag avoids all three failure modes at the cost of
       # the SHA-as-image-tag invariant on skip runs only.
       #
+      # Corollary (#671): on a skip run, the reused image's baked-in GIT_SHA
+      # build-arg — surfaced via GET /version — reflects whichever earlier
+      # commit in this PR actually triggered the last real build, not the
+      # current head SHA. This is the same pre-existing tag/content mismatch
+      # above, just now visible through a human-facing endpoint rather than
+      # only the image tag.
+      #
       # On cold start (skip-eligible diff, no prior successful run on this PR),
       # we fall through to a fresh build — see issue #358 cold-start discussion.
       - name: Resolve image tag

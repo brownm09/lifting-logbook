@@ -94,6 +94,14 @@ describe('HealthController', () => {
       expect(controller.version().gitSha).toBe('unknown');
     });
 
+    it('degrades to gitSha "unknown" when GIT_SHA is an empty string (Docker ARG-with-no-value case)', () => {
+      // A `docker build` without --build-arg GIT_SHA=... yields an empty string,
+      // not undefined — `??` would let this through unchanged; `||` catches it.
+      process.env.GIT_SHA = '';
+
+      expect(controller.version().gitSha).toBe('unknown');
+    });
+
     it('falls back to environment "development" when NODE_ENV is not set', () => {
       delete process.env.NODE_ENV;
 

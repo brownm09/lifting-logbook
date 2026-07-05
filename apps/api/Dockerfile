@@ -35,7 +35,7 @@ WORKDIR /app
 # unlike PUBLIC_API_URL-style config (ADR-028) it's safe to bake in here.
 # Declared only in this final stage so it never invalidates the builder
 # stage's cache.
-ARG GIT_SHA
+ARG GIT_SHA=unknown
 ENV GIT_SHA=$GIT_SHA
 
 # Non-root user for security.

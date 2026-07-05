@@ -31,8 +31,11 @@ export function resolveEnvironment(
 }
 
 export async function GET() {
+  // Truthy check (not ??): the Dockerfile's ARG has a default of 'unknown',
+  // but a manual `docker build` without --build-arg GIT_SHA=... still yields
+  // an empty string, not undefined — `??` would let that through unchanged.
   return NextResponse.json({
-    gitSha: process.env.GIT_SHA ?? 'unknown',
+    gitSha: process.env.GIT_SHA || 'unknown',
     environment: resolveEnvironment(),
   });
 }

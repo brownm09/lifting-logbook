@@ -46,11 +46,15 @@ export class HealthController {
   // time: it never differs per destination for a given build. A missing
   // GIT_SHA only degrades observability, not functionality, so this degrades
   // to 'unknown' rather than throwing. See #671.
+  //
+  // Truthy check (not ??): the Dockerfile's ARG has a default of 'unknown',
+  // but a manual `docker build` without --build-arg GIT_SHA=... still yields
+  // an empty string, not undefined — `??` would let that through unchanged.
   @Public()
   @Get('version')
   version(): { gitSha: string; environment: string } {
     return {
-      gitSha: process.env.GIT_SHA ?? 'unknown',
+      gitSha: process.env.GIT_SHA || 'unknown',
       environment: resolveDeploymentEnvironment(),
     };
   }

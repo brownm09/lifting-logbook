@@ -58,4 +58,14 @@ describe('/version GET', () => {
     expect(res.status).toBe(200);
     expect((await res.json()).gitSha).toBe('unknown');
   });
+
+  it('degrades to gitSha "unknown" when GIT_SHA is an empty string (Docker ARG-with-no-value case)', async () => {
+    // A `docker build` without --build-arg GIT_SHA=... yields an empty string,
+    // not undefined — `??` would let this through unchanged; `||` catches it.
+    process.env.GIT_SHA = '';
+
+    const res = await GET();
+
+    expect((await res.json()).gitSha).toBe('unknown');
+  });
 });
