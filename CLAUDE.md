@@ -182,7 +182,9 @@ If `--format json` is not supported by the installed `gh` version, fall back to 
    rather than a single `gh pr merge <N> --squash --delete-branch`. This repo hits the squat
    variant of that failure often: 60+ concurrent worktrees under `.claude/worktrees/` make it
    common for some worktree to be holding `main` at merge time (confirmed on
-   [PR #664](https://github.com/brownm09/lifting-logbook/pull/664), 2026-07-03).
+   [PR #664](https://github.com/brownm09/lifting-logbook/pull/664), 2026-07-03). If a squat is
+   actively blocking a merge right now, the on-demand clear procedure is in the
+   [dev-env runbook](https://github.com/brownm09/dev-env/blob/main/docs/REFERENCE.md#git-workflow-runbooks).
 9. Move the issue to **Done** on the project board:
    ```bash
    TMPFILE="C:/Users/brown/.claude/scratch/tmp_item_<N>.json"
