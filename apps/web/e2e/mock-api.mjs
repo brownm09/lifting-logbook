@@ -130,18 +130,39 @@ function noContent(res) {
   res.end();
 }
 
+// The real Fastify API rejects an empty or malformed body on an application/json endpoint
+// with a 400 (FST_ERR_CTP_EMPTY_JSON_BODY / parse error — see #667). The mock previously
+// swallowed both into `{}` and returned 200/201, so a client bug that sent a broken body
+// passed the mock-backed Playwright tests while failing against the real API. readBody now
+// returns this sentinel for an empty/malformed body; JSON write handlers convert it to a
+// 400 via rejectIfInvalidBody() to match real Fastify (#687 / #699).
+const INVALID_JSON_BODY = Symbol('invalid-json-body');
+
 async function readBody(req) {
   return new Promise((resolve) => {
     let body = '';
     req.on('data', (chunk) => (body += chunk));
     req.on('end', () => {
+      if (body === '') {
+        resolve(INVALID_JSON_BODY);
+        return;
+      }
       try {
         resolve(JSON.parse(body));
       } catch {
-        resolve({});
+        resolve(INVALID_JSON_BODY);
       }
     });
   });
+}
+
+// Sends a Fastify-shaped 400 and returns true when the parsed body was empty/malformed.
+function rejectIfInvalidBody(res, body) {
+  if (body === INVALID_JSON_BODY) {
+    json(res, { statusCode: 400, message: 'Body is not valid JSON' }, 400);
+    return true;
+  }
+  return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -274,6 +295,7 @@ const server = createServer(async (req, res) => {
     // PATCH /programs/:p/training-maxes
     if (method === 'PATCH' && rest[0] === 'training-maxes' && rest.length === 1) {
       const body = await readBody(req);
+      if (rejectIfInvalidBody(res, body)) return;
       if (Array.isArray(body.maxes)) {
         const today = new Date().toISOString().split('T')[0];
         for (const update of body.maxes) {
@@ -306,6 +328,7 @@ const server = createServer(async (req, res) => {
     // POST /programs/:p/lift-records
     if (method === 'POST' && rest[0] === 'lift-records' && rest.length === 1) {
       const body = await readBody(req);
+      if (rejectIfInvalidBody(res, body)) return;
       const record = { id: `r-${Date.now()}`, ...body };
       json(res, record, 201);
       return;
@@ -321,6 +344,7 @@ const server = createServer(async (req, res) => {
     if (method === 'PUT' && rest[0] === 'strength-goals' && rest.length === 2) {
       const lift = decodeURIComponent(rest[1]);
       const body = await readBody(req);
+      if (rejectIfInvalidBody(res, body)) return;
       const goal = { lift, ...body, updatedAt: new Date().toISOString() };
       const idx = state.strengthGoals.findIndex((g) => g.lift === lift);
       if (idx >= 0) {
