@@ -439,6 +439,18 @@ npm run test:e2e -w @lifting-logbook/web
 
 Playwright browsers must be installed once (`npx playwright install chromium`; CI uses the `--with-deps` form for its Linux runner — that flag is a no-op on Windows). The config handles all env vars (dummy Clerk keys, `DEV_AUTH_TOKEN`, `API_URL`) so no manual setup is needed. The motivating incident is [#444](https://github.com/brownm09/lifting-logbook/issues/444) / PR #438, where an aria-label rename (`Back Squat` → `Squat`) passed Jest but broke the smoke spec and was only caught by CI.
 
+### Turbo version pin sync (Dockerfile ↔ package.json)
+
+`apps/web/Dockerfile`'s installer stage pins `npx turbo@<version> prune` to an exact version — `node_modules` is dockerignored ahead of that step, so a bare `npx turbo` has no local install to prefer and would fetch whatever the registry currently tags `latest`. That pin must match the root `package.json`'s `devDependencies.turbo` exactly, or the prune step and the later `npm ci`/build step in the same image run under two different turbo versions with nothing to catch the drift until an uncached Docker build. See [#674](https://github.com/brownm09/lifting-logbook/issues/674) / [#692](https://github.com/brownm09/lifting-logbook/issues/692).
+
+**Run before pushing whenever `apps/web/Dockerfile` or the root `package.json`'s `turbo` devDependency changes:**
+
+```bash
+node scripts/check-turbo-version-sync.mjs
+```
+
+This also runs as a CI step (`ci.yml` → `lint-and-test` → "Verify turbo version pin sync"), so a drifting PR fails either way — running it locally just catches the mismatch before waiting on CI.
+
 ### Coverage Requirements
 
 <!-- When #259 ships: remove the "until then" clause from the frontend row below. Tracked as a checklist item on issue #259. -->

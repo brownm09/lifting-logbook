@@ -69,6 +69,9 @@ jobs:
       - name: Validate analytics taxonomy
         run: node scripts/validate-analytics-taxonomy.mjs
 
+      - name: Verify turbo version pin sync (Dockerfile ↔ package.json)
+        run: node scripts/check-turbo-version-sync.mjs
+
   db-integration:
     name: DB Integration Tests
     runs-on: ubuntu-latest
