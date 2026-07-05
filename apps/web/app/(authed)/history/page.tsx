@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { fetchLiftRecords, fetchTrainingMaxHistory } from '@/lib/api';
 import { getActiveProgram } from '@/lib/active-program';
 import type {
@@ -71,7 +70,6 @@ export default async function HistoryPage() {
 
   return (
     <main className={styles.pageContainer}>
-      <Link href="/" className={styles.backLink}>← Home</Link>
       <h1 className={styles.pageHeading}>Lift History</h1>
       <HistoryTabs records={enriched} tmEntries={tmEntries} />
     </main>

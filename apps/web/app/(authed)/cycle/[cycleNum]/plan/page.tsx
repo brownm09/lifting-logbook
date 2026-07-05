@@ -47,7 +47,7 @@ export default async function ProgramPlanPage({
         <Link href={`/cycle/${dashboard.cycleNum}`}>← Back to Cycle</Link>
       </div>
 
-      <h2 className={styles.heading}>Program Plan</h2>
+      <h1 className={styles.heading}>Program Plan</h1>
 
       <dl className={styles.dataList}>
         <div className={styles.dataRow}>

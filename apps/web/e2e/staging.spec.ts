@@ -50,7 +50,7 @@ test('programs page catalog loads', async ({ page }) => {
 //
 // Structure-only assertion is intentional: the staging test user has no
 // records, so neither real data nor the fallback `[]` from
-// apps/web/app/(authed)/history/page.tsx:37-38 produces visible content. The API
+// apps/web/app/(authed)/history/page.tsx:36-37 produces visible content. The API
 // success path for history fetches is covered indirectly by test 5
 // (auth/API propagation against /api/health).
 // ---------------------------------------------------------------------------
