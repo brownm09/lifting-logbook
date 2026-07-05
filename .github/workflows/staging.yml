@@ -73,9 +73,11 @@ jobs:
 
       # dorny/paths-filter uses the GitHub API to diff pull_request events (no
       # checkout needed) but needs a real git checkout + explicit base for any
-      # other event, including merge_group (#694). base is ignored for
-      # pull_request per the action's own docs, so this is safe to set always.
-      - uses: actions/checkout@v5
+      # other event, including merge_group (#694). Scoped to merge_group only —
+      # pull_request needs no checkout at all per the action's own docs, so
+      # this avoids paying a full-history fetch on every ordinary PR push.
+      - if: github.event_name == 'merge_group'
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -231,7 +233,14 @@ jobs:
           if [[ "${{ github.event_name }}" == "merge_group" ]]; then
             # No stable PR-branch floating tag exists for a merge-queue entry —
             # always rebuild fresh, tagged with the merge group's head SHA (#694).
-            echo "image_tag=${{ github.event.merge_group.head_sha }}" >> "$GITHUB_OUTPUT"
+            # Fail fast rather than fall through to a malformed (empty) Docker
+            # tag two steps downstream if this field ever resolves empty.
+            MERGE_GROUP_SHA="${{ github.event.merge_group.head_sha }}"
+            if [[ -z "$MERGE_GROUP_SHA" ]]; then
+              echo "::error::github.event.merge_group.head_sha resolved empty — cannot tag image. See ADR-030's Escalation trigger."
+              exit 1
+            fi
+            echo "image_tag=$MERGE_GROUP_SHA" >> "$GITHUB_OUTPUT"
             echo "skip_build=false" >> "$GITHUB_OUTPUT"
             echo "merge_group event — building fresh (no floating tag reuse)."
             exit 0
