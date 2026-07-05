@@ -35,7 +35,7 @@ export default async function CycleProgramPage({
       </div>
 
       <div className={styles.header}>
-        <h2 className={styles.heading}>{program}</h2>
+        <h1 className={styles.heading}>{program}</h1>
         <button type="button" className={styles.editButton} disabled title="Coming soon">
           Edit Program
         </button>
