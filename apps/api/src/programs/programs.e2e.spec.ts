@@ -1334,4 +1334,38 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
       expect(bobGet.json().cycleNum).toBe(1);
     });
   });
+
+  // Regression coverage for the production onboarding escape (#665 / #687).
+  // Onboarding's "Start My Program" called POST /programs/:program/switch. The api-client sent
+  // `Content-Type: application/json` with an EMPTY body; the real Fastify API rejects that with
+  // FST_ERR_CTP_EMPTY_JSON_BODY → 400 (fixed client-side in #667 by sending `{}`). The Playwright
+  // mock (apps/web/e2e/mock-api.mjs) had swallowed the empty body to a 200, so the broken request
+  // passed every mock-backed test while failing in production. This suite is the always-on
+  // (no-Docker) layer; locking the server's 400 here means a future client or mock regression is
+  // caught without a database. Fastify rejects the body before the handler runs, so these assert
+  // the contract without touching Prisma. The happy path (200 + cycle init) writes user-settings
+  // through Prisma and is covered by the DB-backed suite (programs.db.e2e.spec.ts). See #704.
+  describe('POST /programs/:program/switch — malformed/empty JSON body (regression for #665)', () => {
+    const AS_SWITCH = { authorization: 'Bearer switch-regression-user' };
+
+    it('rejects an empty application/json body with 400 (not a swallowed 200)', async () => {
+      const res = await app.getHttpAdapter().getInstance().inject({
+        method: 'POST',
+        url: `/programs/${SEED_PROGRAM}/switch`,
+        headers: { 'content-type': 'application/json', ...AS_SWITCH },
+        // No payload → an empty body under a JSON content-type: the exact shape #665 sent.
+      });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('rejects a malformed JSON body with 400', async () => {
+      const res = await app.getHttpAdapter().getInstance().inject({
+        method: 'POST',
+        url: `/programs/${SEED_PROGRAM}/switch`,
+        headers: { 'content-type': 'application/json', ...AS_SWITCH },
+        payload: '{not valid json',
+      });
+      expect(res.statusCode).toBe(400);
+    });
+  });
 });
