@@ -7,6 +7,11 @@ on:
   push:
     branches:
       - main
+  # Required so this workflow's checks re-validate merge-queue entries, not just
+  # PR pushes — see #694 / #673. checks_requested is the only supported type.
+  merge_group:
+    types:
+      - checks_requested
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -44,7 +49,9 @@ jobs:
         # would redden `main` with no contributor action (#432/#433/#501/#516/#520). The
         # `npm ci` step below still runs on every push and catches install-breaking drift
         # (the EUSAGE class). See ADR-036 for the PR-scoped enforcement rationale.
-        if: github.event_name == 'pull_request'
+        # Also runs on merge_group (#694): that's exactly the moment to catch drift
+        # (including an upstream in-range float) one last time before landing on main.
+        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
         run: |
           # Regenerate the lockfile metadata from package.json without touching
           # node_modules, then fail with a clear message if it differs from the committed
@@ -183,6 +190,9 @@ jobs:
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             BASE="${{ github.event.pull_request.base.sha }}"
             HEAD="${{ github.event.pull_request.head.sha }}"
+          elif [ "${{ github.event_name }}" = "merge_group" ]; then
+            BASE="${{ github.event.merge_group.base_sha }}"
+            HEAD="${{ github.event.merge_group.head_sha }}"
           else
             BASE="${{ github.event.before }}"
             HEAD="${{ github.sha }}"
