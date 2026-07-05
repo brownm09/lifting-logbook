@@ -48,4 +48,10 @@ export class PrismaCycleDashboardRepository implements ICycleDashboardRepository
       },
     });
   }
+
+  async deleteCycleDashboard(program: string): Promise<void> {
+    await this.prisma.cycleDashboard.deleteMany({
+      where: { userId: this.userId, program },
+    });
+  }
 }

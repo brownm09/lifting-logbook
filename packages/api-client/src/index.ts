@@ -115,6 +115,21 @@ export interface CommitImportOpts {
   splitDest?: boolean;
 }
 
+// Carries the upstream HTTP status alongside the message so a caller that needs
+// to distinguish failure classes (e.g. 401/403 auth failures vs. a generic 500)
+// can do so without re-parsing the message string. Currently thrown only by
+// requestVoidIdempotent — the other request helpers can adopt this if a caller
+// needs it.
+export class ApiClientError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+  ) {
+    super(message);
+    this.name = 'ApiClientError';
+  }
+}
+
 // NestJS ValidationPipe returns { statusCode, message: string | string[], error }.
 // Surface that detail so error UIs can show actionable text instead of just
 // "Request failed: 400".
@@ -178,7 +193,7 @@ export function createApiClient(config: ApiClientConfig) {
   async function requestVoidIdempotent(path: string, init?: FetchInit): Promise<void> {
     const res = await rawFetch(path, init);
     if (!res.ok && res.status !== 404) {
-      throw new Error(await extractErrorMessage(res, path));
+      throw new ApiClientError(await extractErrorMessage(res, path), res.status);
     }
   }
 
@@ -205,6 +220,14 @@ export function createApiClient(config: ApiClientConfig) {
         method: 'POST',
         headers: JSON_HEADERS,
         body: JSON.stringify(options),
+        cache: 'no-store',
+      });
+    },
+    // Idempotent delete: a 404 (no existing cycle) is treated as success, matching
+    // deleteStrengthGoal/deleteCustomProgram below.
+    deleteCurrentCycle(programId: string): Promise<void> {
+      return requestVoidIdempotent(`/programs/${enc(programId)}/cycles/current`, {
+        method: 'DELETE',
         cache: 'no-store',
       });
     },

@@ -55,4 +55,8 @@ export class InMemoryTrainingMaxRepository implements ITrainingMaxRepository {
     const existing = this.maxesByProgram.get(program) ?? [];
     this.maxesByProgram.set(program, existing.filter((m) => !liftSet.has(m.lift)));
   }
+
+  async deleteAllTrainingMaxes(program: string): Promise<void> {
+    this.maxesByProgram.delete(program);
+  }
 }

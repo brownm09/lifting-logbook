@@ -176,6 +176,17 @@ It is the lightest possible probe that exercises the full auth path.
   per ADR-013. Adding data-assertions to staging tests (e.g., "specific lift record appears")
   would require seed data management, which is out of scope.
 
+  **Amendment (#647):** one deliberate, scoped exception to this narrowness exists —
+  `staging.spec.ts` test 6 performs a real write (completes onboarding end-to-end) and asserts
+  the resulting cycle dashboard renders. This is still "deployed stack wired correctly," not a
+  business-logic assertion: it does not check specific data values, only that a genuine
+  first-time write succeeds and is readable back. It exists because #644 (`RlsInterceptor`
+  silently never setting the RLS GUC) was live in staging identically to production, but every
+  staging test at the time was read-only and could not have surfaced it — the bug only
+  manifested on a write. The test is self-cleaning (deletes its own cycle before and after,
+  via a new `DELETE /programs/:program/cycles/current` endpoint) specifically so it does not
+  require the seed-data management this ADR flags as out of scope.
+
 ---
 
 ## Alternatives Considered
