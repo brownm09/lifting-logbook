@@ -2,7 +2,11 @@ import { ClerkProvider, SignedIn, UserButton } from '@clerk/nextjs';
 import type { Metadata } from "next";
 import { ClerkApiInitializer } from '@/components/ClerkApiInitializer';
 import { PublicConfigProvider } from '@/components/PublicConfigProvider';
-import { publicConfigScript, readServerPublicConfig } from '@/lib/public-config';
+import {
+  publicConfigScript,
+  readServerClerkPublishableKey,
+  readServerPublicConfig,
+} from '@/lib/public-config';
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -44,7 +48,10 @@ export default function RootLayout({
   // React components, and the Clerk publishable key is passed to <ClerkProvider> as
   // a prop (Clerk's runtime-key pattern). See ADR-028 / issue #396.
   const publicConfig = readServerPublicConfig();
-  const clerkPublishableKey = process.env.CLERK_PUBLISHABLE_KEY;
+  // Fail loud in a deployed runtime if the Clerk publishable key is missing, rather than
+  // rendering <ClerkProvider> with an undefined key (auth would break silently in the
+  // browser). Matches the API-side guard in apps/api/src/auth/auth.module.ts. See #687.
+  const clerkPublishableKey = readServerClerkPublishableKey();
 
   return (
     <ClerkProvider publishableKey={clerkPublishableKey}>
