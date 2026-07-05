@@ -3,17 +3,7 @@ export default function CycleLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <main>
-      <header>
-        <h1>Lifting Logbook</h1>
-        <nav>
-          <a href="/history">History</a>
-          <a href="/programs">Programs</a>
-          <a href="/settings/training-maxes">Settings</a>
-        </nav>
-      </header>
-      {children}
-    </main>
-  );
+  // The global app nav now lives in the (authed) shell (AppNav). This layout
+  // just provides the <main> landmark for cycle routes.
+  return <main>{children}</main>;
 }
