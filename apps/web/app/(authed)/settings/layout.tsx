@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import SettingsNav from './SettingsNav';
+import styles from './settings.module.css';
 
 export default function SettingsLayout({
   children,
@@ -9,9 +11,10 @@ export default function SettingsLayout({
     <main>
       <header>
         <h1>Settings</h1>
-        <nav>
-          <Link href="/cycle">← Back to cycle</Link>
-        </nav>
+        <SettingsNav />
+        <Link href="/cycle" className={styles.backLink}>
+          ← Back to cycle
+        </Link>
       </header>
       {children}
     </main>

@@ -8,8 +8,9 @@ import styles from './AppNav.module.css';
 const LINKS: ReadonlyArray<{ href: string; label: string; match: string }> = [
   { href: '/history', label: 'History', match: '/history' },
   { href: '/programs', label: 'Programs', match: '/programs' },
-  // PR 2 (#679) repoints this to the /settings hub once it exists.
-  { href: '/settings/training-maxes', label: 'Settings', match: '/settings' },
+  // Points at the /settings hub (#679), which lists every settings section plus
+  // the Import tool; `match` keeps this active across the whole /settings/* subtree.
+  { href: '/settings', label: 'Settings', match: '/settings' },
 ];
 
 /**
