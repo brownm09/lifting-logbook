@@ -5,7 +5,9 @@ export default defineConfig({
   // staging.spec.ts is only for playwright.config.staging.ts (live Cloud Run environment).
   // Excluding it here prevents accidental runs against the local dev server, which lacks a
   // real Clerk session (window.Clerk.session is null) and would produce false failures.
-  testIgnore: ['**/staging.spec.ts'],
+  // Playwright's default testMatch also grabs `*.test.ts`; those are Jest unit tests
+  // (e.g. e2e/mock-api.test.ts, which uses `describe`) and must not run under Playwright.
+  testIgnore: ['**/staging.spec.ts', '**/*.test.ts'],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
