@@ -3,6 +3,7 @@ import {
   PUBLIC_CONFIG_FALLBACK,
   getClientPublicConfig,
   publicConfigScript,
+  readServerClerkPublishableKey,
   readServerPublicConfig,
   type PublicConfig,
 } from '../public-config';
@@ -65,6 +66,57 @@ describe('readServerPublicConfig', () => {
     process.env.NEXT_PHASE = 'phase-production-build';
     delete process.env.PUBLIC_API_URL;
     expect(readServerPublicConfig().apiUrl).toBe(PUBLIC_CONFIG_FALLBACK.apiUrl);
+  });
+});
+
+describe('readServerClerkPublishableKey', () => {
+  const ORIGINAL = { ...process.env };
+
+  afterEach(() => {
+    process.env = { ...ORIGINAL };
+  });
+
+  it('returns the publishable key when it is set', () => {
+    process.env.CLERK_PUBLISHABLE_KEY = 'pk_test_abc';
+    expect(readServerClerkPublishableKey()).toBe('pk_test_abc');
+  });
+
+  it('returns undefined outside a deployed runtime when the key is unset (local dev / test)', () => {
+    delete process.env.CLERK_PUBLISHABLE_KEY;
+    expect(readServerClerkPublishableKey()).toBeUndefined();
+  });
+
+  // Fail-loud guard: a deployed runtime missing the Clerk publishable key must throw rather
+  // than hand <ClerkProvider> an undefined key that breaks auth silently in the browser (#687).
+  it('throws in a deployed runtime when CLERK_PUBLISHABLE_KEY is unset', () => {
+    Object.defineProperty(process.env, 'NODE_ENV', { value: 'production', configurable: true });
+    delete process.env.NEXT_PHASE;
+    delete process.env.CLERK_PUBLISHABLE_KEY;
+    expect(() => readServerClerkPublishableKey()).toThrow(/CLERK_PUBLISHABLE_KEY is not set/);
+  });
+
+  it('throws in a deployed runtime when CLERK_PUBLISHABLE_KEY is the empty string', () => {
+    Object.defineProperty(process.env, 'NODE_ENV', { value: 'production', configurable: true });
+    delete process.env.NEXT_PHASE;
+    process.env.CLERK_PUBLISHABLE_KEY = '';
+    expect(() => readServerClerkPublishableKey()).toThrow(/CLERK_PUBLISHABLE_KEY is not set/);
+  });
+
+  it('does NOT throw during `next build` even with CLERK_PUBLISHABLE_KEY unset', () => {
+    // The keyless build the force-dynamic root layout relies on must never throw here (ADR-028).
+    Object.defineProperty(process.env, 'NODE_ENV', { value: 'production', configurable: true });
+    process.env.NEXT_PHASE = 'phase-production-build';
+    delete process.env.CLERK_PUBLISHABLE_KEY;
+    expect(readServerClerkPublishableKey()).toBeUndefined();
+  });
+
+  it('does NOT throw in a deployed runtime when DEV_AUTH_TOKEN is set (dev-auth mode)', () => {
+    // Mirrors the API-side guard: a missing Clerk credential is intentional in dev-auth mode.
+    Object.defineProperty(process.env, 'NODE_ENV', { value: 'production', configurable: true });
+    delete process.env.NEXT_PHASE;
+    delete process.env.CLERK_PUBLISHABLE_KEY;
+    process.env.DEV_AUTH_TOKEN = 'tok';
+    expect(readServerClerkPublishableKey()).toBeUndefined();
   });
 });
 
