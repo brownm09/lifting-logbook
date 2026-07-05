@@ -854,6 +854,9 @@ jobs:
         needs.preflight.outputs.staging_enabled != 'true' ||
         needs.smoke-test.result == 'success'
       )
+    # gh run list (used by the cancelled-run ancestry audit near the end of this job)
+    # works with contents: read alone — see staging.yml's build-images job for the
+    # identical working precedent. Do not add actions: read for it.
     permissions:
       contents: read
       id-token: write
@@ -861,6 +864,13 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+        with:
+          # Full history, not the default shallow depth-1 clone: the cancelled-run
+          # ancestry audit below runs `git merge-base --is-ancestor` against SHAs
+          # that can be many commits back, which a shallow clone can't resolve
+          # reliably. This repo's entire history is ~400 commits, so the extra
+          # clone cost is negligible against this job's 45-minute budget (#672).
+          fetch-depth: 0
 
       - name: Authenticate to GCP (production)
         uses: google-github-actions/auth@v3
@@ -1221,8 +1231,118 @@ jobs:
             --values=infra/kubernetes/values/production-otel-collector.yaml \
             --wait --timeout=5m
 
-      - name: Print deployment URLs
+      - name: Print deployment URLs and deployed version
         run: |
-          echo "## Production deployment complete" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Cloud Run web: ${{ steps.tf-prod.outputs.cloud_run_web_url }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Cloud Run API: ${{ steps.tf-prod.outputs.cloud_run_api_url }}" >> "$GITHUB_STEP_SUMMARY"
+          SHORT_SHA=$(git rev-parse --short "${{ github.sha }}")
+          SUBJECT=$(git log -1 --format='%s' "${{ github.sha }}")
+          COMMIT_URL="${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
+          {
+            echo "## Production deployment complete"
+            echo "- Cloud Run web: ${{ steps.tf-prod.outputs.cloud_run_web_url }}"
+            echo "- Cloud Run API: ${{ steps.tf-prod.outputs.cloud_run_api_url }}"
+            echo "- Deployed SHA: [\`${SHORT_SHA}\`](${COMMIT_URL}) — ${SUBJECT}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # ── Cancelled-run ancestry audit (#672 / #670) ──────────────────────────
+      # 2026-07-03 (#670): a deploy-main run was silently cancelled by the concurrency
+      # group above (#401) and nobody could quickly tell whether its changes had shipped
+      # in a later run. This finds every `cancelled` deploy.yml run on main since the last
+      # `success` run and checks whether that run's head SHA is an ancestor of what THIS
+      # run deployed. On this repo's linear, squash-merge, fast-forward-only main history,
+      # "ancestor: yes" is the expected/healthy result — every earlier commit is trivially
+      # reachable from a later one. The value is making that confirmation automatic and
+      # visible instead of requiring a human to notice and check by hand; "ancestor: no"
+      # means something abnormal happened (rewritten history, a force-push) and should be
+      # investigated.
+      #
+      # Purely advisory — continue-on-error: true, matching this file's existing "never
+      # gate an already-succeeded production deploy on a reporting step" philosophy (see
+      # plan-production and the GKE Helm A/B steps above). Both `gh run list` calls below
+      # are `||`-guarded rather than left to the implicit `set -eo pipefail` GitHub Actions
+      # already applies to every `run:` step: a bare `VAR=$(cmd)` assignment is NOT exempt
+      # from that default, so an API hiccup is caught explicitly instead of aborting the
+      # script mid-way through an already-partially-written summary.
+      - name: Audit cancelled deploy runs since last success
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            echo ""
+            echo "## Cancelled-run ancestry audit"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          LAST_SUCCESS_CREATED=$(gh run list --repo "${{ github.repository }}" \
+            --workflow deploy.yml --branch main --status success \
+            --limit 1 --json createdAt --jq '.[0].createdAt // ""') || {
+            echo ":warning: \`gh run list\` failed looking up the last successful run — skipping this audit (advisory; does not affect the deploy)." >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning title=Cancelled-run audit skipped::gh run list (last success) failed."
+            exit 0
+          }
+
+          if [ -z "$LAST_SUCCESS_CREATED" ]; then
+            echo "No prior successful \`deploy.yml\` run found on \`main\` — nothing to bound the audit against (first successful deploy)." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # select() excludes this in-progress run itself — belt and suspenders, since a
+          # run in progress cannot yet show status=cancelled, but cheap to guard anyway.
+          CANCELLED_TSV=$(gh run list --repo "${{ github.repository }}" \
+            --workflow deploy.yml --branch main --status cancelled \
+            --created ">${LAST_SUCCESS_CREATED}" \
+            --json databaseId,headSha,displayTitle \
+            --jq "[.[] | select(.databaseId != ${{ github.run_id }})] | .[] | [.databaseId, .headSha, .displayTitle] | @tsv") || {
+            echo ":warning: \`gh run list\` failed listing cancelled runs — skipping this audit (advisory; does not affect the deploy)." >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning title=Cancelled-run audit skipped::gh run list (cancelled) failed."
+            exit 0
+          }
+
+          if [ -z "$CANCELLED_TSV" ]; then
+            echo "No \`deploy.yml\` runs on \`main\` were cancelled since the last successful run (\`$LAST_SUCCESS_CREATED\`)." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          {
+            echo "Cancelled run(s) on \`main\` since the last successful run:"
+            echo ""
+            echo "| Run | Cancelled SHA | Ancestor of deployed SHA? |"
+            echo "|---|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Read from a plain variable via here-string, not piped into `while read` — a
+          # pipe forks a subshell for the loop body, which would silently discard the
+          # ANY_NON_ANCESTOR=1 set inside it.
+          ANY_NON_ANCESTOR=0
+          while IFS=$'\t' read -r RUN_ID SHA TITLE; do
+            RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${RUN_ID}"
+            SHORT="${SHA:0:7}"
+            # Four backslashes, not two: bash's ${var//pat/repl} replacement text needs
+            # \\\\ to produce a single literal backslash (verified empirically — the more
+            # obvious-looking \\ silently no-ops here).
+            TITLE="${TITLE//|/\\\\|}"
+
+            # Tested directly in the `if` condition (exempt from set -e's abort-on-nonzero)
+            # rather than capturing $? from a bare command, which would abort this script
+            # the moment a cancelled run turns out NOT to be an ancestor (exit 1). Exit
+            # codes: 0 = ancestor, 1 = not an ancestor, 128 = unresolvable SHA/error.
+            if git merge-base --is-ancestor "$SHA" "${{ github.sha }}" 2>/dev/null; then
+              echo "| [${RUN_ID}](${RUN_URL}) — ${TITLE} | \`${SHORT}\` | :white_check_mark: yes |" >> "$GITHUB_STEP_SUMMARY"
+            else
+              rc=$?
+              if [ "$rc" -eq 1 ]; then
+                echo "| [${RUN_ID}](${RUN_URL}) — ${TITLE} | \`${SHORT}\` | :rotating_light: **NO — investigate** |" >> "$GITHUB_STEP_SUMMARY"
+                ANY_NON_ANCESTOR=1
+              else
+                echo "| [${RUN_ID}](${RUN_URL}) — ${TITLE} | \`${SHORT}\` | :warning: error resolving ancestry (exit ${rc}) |" >> "$GITHUB_STEP_SUMMARY"
+              fi
+            fi
+          done <<< "$CANCELLED_TSV"
+
+          if [ "$ANY_NON_ANCESTOR" -eq 1 ]; then
+            {
+              echo ""
+              echo ":rotating_light: **At least one cancelled run's changes do not appear to be an ancestor of this deploy.** Expected result on this repo's linear, fast-forward-only \`main\` history is always \"yes\" — investigate before assuming the cancelled run's changes shipped."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning title=Non-ancestor cancelled run detected::At least one cancelled deploy.yml run's head SHA is not an ancestor of ${{ github.sha }} — see the job summary table."
+          fi
