@@ -6,7 +6,12 @@
     "module": "commonjs",
     "moduleResolution": "node",
     "declaration": true,
-    "declarationMap": true,
+    // declarationMap deliberately omitted: under composite:true, tsc's declaration-map
+    // emit intermittently drops the .d.ts file itself (still emits .js/.js.map/.d.ts.map)
+    // on Linux/musl (reproduced in the apps/web Docker build's Alpine builder stage;
+    // did not reproduce on Windows). declarationMap is an IDE-only "jump to .ts source"
+    // convenience with no role in the build/typecheck pipeline, so it isn't worth the
+    // reliability cost. See #674.
     "sourceMap": true,
     "strict": true,
     "noUncheckedIndexedAccess": true,

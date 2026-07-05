@@ -7,7 +7,11 @@ FROM node:20.11.1-alpine AS installer
 WORKDIR /app
 
 COPY . .
-RUN npx turbo prune --scope=@lifting-logbook/web --docker
+# Pinned to an exact version: this runs before `npm ci` (node_modules is dockerignored
+# here), so a bare `npx turbo` has no local install to prefer and always fetches whatever
+# the registry currently tags "latest" — independent of the "turbo" version locked in
+# package-lock.json. Keep this pin in sync with the locked version. See #674.
+RUN npx turbo@2.9.3 prune --scope=@lifting-logbook/web --docker
 
 # ── Stage 2: builder ─────────────────────────────────────────────────────────
 # Install only the pruned dependency set, then compile and build Next.js.
