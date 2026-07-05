@@ -445,6 +445,9 @@ const server = createServer(async (req, res) => {
   json(res, { statusCode: 404, message: `Not found: ${method} ${url.pathname}` }, 404);
 });
 
-server.listen(3004, () => {
-  console.log('[mock-api] Listening on http://localhost:3004');
+// Port defaults to 3004 (what playwright.config expects); overridable via MOCK_API_PORT so a
+// unit test can spawn an isolated instance without colliding with a running Playwright/dev mock.
+const PORT = Number(process.env.MOCK_API_PORT) || 3004;
+server.listen(PORT, () => {
+  console.log(`[mock-api] Listening on http://localhost:${PORT}`);
 });

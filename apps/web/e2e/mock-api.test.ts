@@ -9,7 +9,10 @@ import { join } from 'node:path';
 // the mock over real HTTP (it starts a listener on import, so it is spawned as a child process
 // rather than imported). See #687 / #699.
 
-const BASE = 'http://localhost:3004';
+// Run the mock on a dedicated port so this unit test never collides with a running
+// Playwright/dev mock on the default 3004 (mock-api.mjs honours MOCK_API_PORT).
+const PORT = 3105;
+const BASE = `http://localhost:${PORT}`;
 let mock: ChildProcess | undefined;
 
 async function waitForReady(timeoutMs = 15000): Promise<void> {
@@ -36,7 +39,10 @@ function jsonRequest(path: string, method: string, body?: string): Promise<Respo
 
 describe('mock-api JSON body fidelity (#699)', () => {
   beforeAll(async () => {
-    mock = spawn(process.execPath, [join(__dirname, 'mock-api.mjs')], { stdio: 'ignore' });
+    mock = spawn(process.execPath, [join(__dirname, 'mock-api.mjs')], {
+      stdio: 'ignore',
+      env: { ...process.env, MOCK_API_PORT: String(PORT) },
+    });
     await waitForReady();
   }, 25000);
 
