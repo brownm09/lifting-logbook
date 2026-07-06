@@ -213,6 +213,45 @@ If `--format json` is not supported by the installed `gh` version, fall back to 
     - **ROADMAP.md**: if this PR completes a work stream listed in a milestone's Active Work table, move that row to the milestone's Shipped table; if the Active Work table becomes empty, replace it with `| *(all shipped)* | | |`
 13. Write a `<!-- next-session-context -->` block to the draft and display it as the closing output of the session
 
+### REST-endpoint fallback when the shared GraphQL rate limit is exhausted
+
+The `gh pr *` commands the steps above depend on — `gh pr create` (step 7), `gh pr merge`
+(step 8), `gh pr view --json`, `gh pr comment` — are **all GraphQL** calls, and this repo's 60+
+concurrent worktrees share **one GitHub API rate-limit bucket per resource class**. GraphQL can
+therefore exhaust while the separate **REST (core)** bucket is still healthy. Motivating incident:
+[PR #700](https://github.com/brownm09/lifting-logbook/pull/700)'s session (2026-07-05) — `gh pr
+create` died with `GraphQL: API rate limit already exceeded` while REST core showed 4999/5000. The
+buckets are independent, so when a `gh pr` command fails that way, don't wait for the reset — fall
+back to the REST equivalents. (The global
+[`CLAUDE.md`](https://github.com/brownm09/dev-env/blob/main/claude/CLAUDE.md) documents the rate-limit
+*hazard*; the steps below are the *mitigation*.)
+
+- **Compare both buckets first** — REST usually still has budget:
+  ```bash
+  gh api rate_limit
+  # resources.graphql = gh pr create / merge / view --json / comment
+  # resources.core    = the gh api REST calls below
+  ```
+- **Create a PR** instead of `gh pr create` — write the body to a scratch file first so backticks
+  aren't mangled by the shell:
+  ```bash
+  gh api -X POST repos/brownm09/lifting-logbook/pulls \
+    -f title="[docs] ..." -f head="<branch>" -f base=main \
+    -F body=@C:/Users/brown/.claude/scratch/pr-body.md
+  ```
+- **Merge.** `gh pr merge <N> --auto --squash` is a single lightweight GraphQL call that arms GitHub
+  to squash-merge once checks pass — prefer it while GraphQL has *any* budget. If GraphQL is fully
+  exhausted, merge and delete the branch entirely over REST (the same server-side merge + ref-delete
+  as step 8, reached without GraphQL):
+  ```bash
+  gh api -X PUT repos/brownm09/lifting-logbook/pulls/<N>/merge -f merge_method=squash
+  gh api -X DELETE "repos/brownm09/lifting-logbook/git/refs/heads/<branch>"
+  ```
+- **Inspect PR state** instead of `gh pr view --json`:
+  ```bash
+  gh api repos/brownm09/lifting-logbook/pulls/<N>
+  ```
+
 ---
 
 ## Branch Naming
