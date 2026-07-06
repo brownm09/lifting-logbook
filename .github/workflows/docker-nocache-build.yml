@@ -57,7 +57,10 @@ jobs:
       # in the RUN layers, not the base image. No wretry wrapper (unlike
       # deploy.yml/staging.yml): that retry exists solely to absorb transient
       # Artifact Registry 504s on registry push, which cannot happen when
-      # push: false.
+      # push: false. A transient failure pulling the base image on a cold runner
+      # is possible, but report-failure's idempotent create-or-comment caps that
+      # at one comment on the existing issue, so a build-step retry isn't worth
+      # the added complexity here.
       - name: Build apps/web image (no cache, not pushed)
         uses: docker/build-push-action@v6
         with:
@@ -111,6 +114,10 @@ jobs:
       - name: Open or update failure issue
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # This job has no checkout step, so gh has no git remote to infer the
+          # target repo from; GH_REPO gives every gh call below its repository
+          # (matches required-checks-drift.yml, which achieves this via checkout).
+          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           gh label create docker-nocache-build-failure \
