@@ -27,11 +27,19 @@ on:
   pull_request:
     branches:
       - main
+  # Required so this workflow's checks re-validate merge-queue entries, not just
+  # PR pushes — see #694 / #673. checks_requested is the only supported type.
+  merge_group:
+    types:
+      - checks_requested
 
 # Cancel superseded builds for the same PR; do NOT cancel running deploys
 # (see staging-deploy-mutex job-level concurrency for that).
+# merge_group has no PR number, so fall back to the merge-group head SHA — unique
+# per queue entry. Without this fallback every queue entry would share the literal
+# group "staging-pr-", recreating the same cross-entry cancellation this fixes (#673).
 concurrency:
-  group: staging-pr-${{ github.event.pull_request.number }}
+  group: staging-pr-${{ github.event.pull_request.number || github.event.merge_group.head_sha }}
   cancel-in-progress: true
 
 env:
@@ -63,6 +71,16 @@ jobs:
             echo "GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER not set — skipping staging pipeline."
           fi
 
+      # dorny/paths-filter uses the GitHub API to diff pull_request events (no
+      # checkout needed) but needs a real git checkout + explicit base for any
+      # other event, including merge_group (#694). Scoped to merge_group only —
+      # pull_request needs no checkout at all per the action's own docs, so
+      # this avoids paying a full-history fetch on every ordinary PR push.
+      - if: github.event_name == 'merge_group'
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
       # Classify the PR diff: image_affecting=false only when every changed file
       # matches one of the skip patterns below. Anything else (including
       # package.json, lockfiles, Dockerfiles, app/package source) forces rebuild.
@@ -71,6 +89,7 @@ jobs:
       - id: filter
         uses: dorny/paths-filter@v3
         with:
+          base: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
           filters: |
             image_affecting:
               - '!**/*.md'
@@ -163,9 +182,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     needs: [preflight, terraform-staging]
+    # merge_group has no pull_request context, so the fork-repo check is
+    # skipped for it — merge-queue entries are always same-repo branches per
+    # GitHub's merge-queue design, and this repo has no fork-PR contribution
+    # pattern in practice (#694).
     if: |
       needs.preflight.outputs.should_run == 'true' &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
+      (github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository) &&
       (needs.terraform-staging.result == 'success' || needs.terraform-staging.result == 'skipped')
     permissions:
       contents: read
@@ -207,6 +230,21 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          if [[ "${{ github.event_name }}" == "merge_group" ]]; then
+            # No stable PR-branch floating tag exists for a merge-queue entry —
+            # always rebuild fresh, tagged with the merge group's head SHA (#694).
+            # Fail fast rather than fall through to a malformed (empty) Docker
+            # tag two steps downstream if this field ever resolves empty.
+            MERGE_GROUP_SHA="${{ github.event.merge_group.head_sha }}"
+            if [[ -z "$MERGE_GROUP_SHA" ]]; then
+              echo "::error::github.event.merge_group.head_sha resolved empty — cannot tag image. See ADR-030's Escalation trigger."
+              exit 1
+            fi
+            echo "image_tag=$MERGE_GROUP_SHA" >> "$GITHUB_OUTPUT"
+            echo "skip_build=false" >> "$GITHUB_OUTPUT"
+            echo "merge_group event — building fresh (no floating tag reuse)."
+            exit 0
+          fi
           if [[ "${{ needs.preflight.outputs.image_affecting }}" == "false" ]]; then
             # --branch is a ref filter, not a PR filter. Branch reuse across
             # closed PRs could surface stale runs; the per-session unique
@@ -282,9 +320,9 @@ jobs:
             context: .
             file: apps/api/Dockerfile
             push: true
-            tags: ${{ steps.ar.outputs.repo }}/api:${{ github.event.pull_request.head.sha }},${{ steps.ar.outputs.repo }}/api:pr-${{ github.event.pull_request.number }}
+            tags: ${{ steps.ar.outputs.repo }}/api:${{ steps.image-tag.outputs.image_tag }}${{ github.event_name == 'pull_request' && format(',{0}/api:pr-{1}', steps.ar.outputs.repo, github.event.pull_request.number) || '' }}
             build-args: |
-              GIT_SHA=${{ github.event.pull_request.head.sha }}
+              GIT_SHA=${{ steps.image-tag.outputs.image_tag }}
             cache-from: type=gha,scope=api-pr-v2
             cache-to: type=gha,scope=api-pr-v2,mode=max
 
@@ -305,9 +343,9 @@ jobs:
             context: .
             file: apps/web/Dockerfile
             push: true
-            tags: ${{ steps.ar.outputs.repo }}/web:${{ github.event.pull_request.head.sha }},${{ steps.ar.outputs.repo }}/web:pr-${{ github.event.pull_request.number }}
+            tags: ${{ steps.ar.outputs.repo }}/web:${{ steps.image-tag.outputs.image_tag }}${{ github.event_name == 'pull_request' && format(',{0}/web:pr-{1}', steps.ar.outputs.repo, github.event.pull_request.number) || '' }}
             build-args: |
-              GIT_SHA=${{ github.event.pull_request.head.sha }}
+              GIT_SHA=${{ steps.image-tag.outputs.image_tag }}
             cache-from: type=gha,scope=web-pr-v2
             cache-to: type=gha,scope=web-pr-v2,mode=max
 
@@ -800,7 +838,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [preflight, terraform-staging, deploy-api, deploy-web, staging-integration-tests]
-    if: always()
+    # No PR to comment on under merge_group (context.issue.number is undefined
+    # there), and this job isn't a required check — skip it entirely (#694).
+    if: always() && github.event_name == 'pull_request'
     permissions:
       pull-requests: write
 

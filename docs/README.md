@@ -161,6 +161,7 @@ monorepo/
 | [ADR-027](adr/ADR-027-deploy-pipeline-migrations.md)        | Database Migrations via In-VPC Cloud Run Job in the Deploy Pipeline | Accepted |
 | [ADR-028](adr/ADR-028-web-runtime-public-config.md)         | Runtime Injection of apps/web Public Config                         | Accepted |
 | [ADR-029](adr/ADR-029-per-env-artifact-registry-push.md)    | Per-Environment Artifact Registry Push                              | Accepted |
+| [ADR-030](adr/ADR-030-github-merge-queue-adoption.md)       | GitHub Merge Queue Adoption                                         | Accepted |
 
 ---
 
