@@ -162,6 +162,7 @@ monorepo/
 | [ADR-028](adr/ADR-028-web-runtime-public-config.md)         | Runtime Injection of apps/web Public Config                         | Accepted |
 | [ADR-029](adr/ADR-029-per-env-artifact-registry-push.md)    | Per-Environment Artifact Registry Push                              | Accepted |
 | [ADR-030](adr/ADR-030-github-merge-queue-adoption.md)       | GitHub Merge Queue Adoption                                         | Accepted |
+| [ADR-031](adr/ADR-031-mandatory-review-gate.md)             | Mandatory Review Gate via GitHub Required Status Check              | Accepted |
 
 ---
 
