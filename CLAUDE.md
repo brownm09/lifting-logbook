@@ -496,6 +496,26 @@ gh pr view <N> --json mergeable,mergeStateStatus
 
 Motivating incident: [PR #604](https://github.com/brownm09/lifting-logbook/pull/604).
 
+### Staging-deploy queue starvation — cross-PR mutex preemption
+
+**Pattern:** `.github/workflows/staging.yml`'s `deploy-api`/`deploy-web` jobs serialize writes to the one shared staging Cloud Run service / Helm release via job-level concurrency groups (`staging-deploy-mutex-api`, `staging-deploy-mutex-web`, both `cancel-in-progress: false`). These groups are global, not per-PR. GitHub Actions keeps only the most-recently-queued run per concurrency group — when a third PR pushes while a second PR's deploy is already queued behind a first PR's running deploy, the second PR's queued run is silently cancelled and the third takes its place. Under sustained multi-PR throughput this can repeat for an unlucky PR across many cycles.
+
+**Symptom:** The required `Staging Integration Tests` check fails with "Staging did not become ready in time" or an empty `WEB_URL`, even on a PR whose diff cannot plausibly affect staging (e.g. docs-only). The `deploy-api` or `deploy-web` job's own result shows `cancelled` rather than `failure`.
+
+**Diagnosis:**
+```bash
+gh run list --workflow=staging.yml -R brownm09/lifting-logbook --limit 20
+```
+Open the cancelled run's job log — GitHub Actions annotates the cancellation directly: `Canceling since a higher priority waiting request for staging-deploy-mutex-web exists`.
+
+**Fix:** Re-run once the queue has a lull:
+```bash
+gh run rerun <run-id> --failed
+```
+This is a known, already-diagnosed CI mechanic, not a new bug — see [#673](https://github.com/brownm09/lifting-logbook/issues/673) for the full root-cause analysis and [ADR-030](docs/adr/ADR-030-github-merge-queue-adoption.md) for the accepted structural fix (GitHub merge queue). Activation is tracked in [#695](https://github.com/brownm09/lifting-logbook/issues/695); until it lands, re-running after the queue clears is the only workaround.
+
+Motivating incidents: [PR #703](https://github.com/brownm09/lifting-logbook/pull/703), [PR #711](https://github.com/brownm09/lifting-logbook/pull/711).
+
 ---
 
 ## Observability
