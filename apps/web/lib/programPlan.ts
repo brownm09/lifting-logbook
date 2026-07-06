@@ -9,6 +9,11 @@ import {
   type ProgramLengthMeta,
 } from '@lifting-logbook/core';
 
+// Phase rendering type. Built-in programs are autoregulated (Leangains, RPT) or a
+// no-deload wave (5/3/1), so their presets tag no deload/test weeks and
+// buildPhaseTemplate currently only emits 'training'. 'deload'/'test' (and their
+// plan.module.css styles) are retained for programs that define weekType-tagged
+// weeks — not dead code until such a program exists. See issue #680.
 export type PhaseType = 'training' | 'deload' | 'test';
 export type PhaseStatus = 'completed' | 'in-progress' | 'upcoming';
 

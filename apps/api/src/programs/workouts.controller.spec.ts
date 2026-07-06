@@ -192,10 +192,44 @@ describe('WorkoutsController', () => {
         activation: 'compound',
       },
     ]);
+    // No scheduled row for workoutNum 2 (getScheduledWorkouts defaults to []), so
+    // week falls back to weekForWorkoutNum → undefined → 400. getWorkout is now
+    // reached before that check, so mock it explicitly.
+    workoutRepo.getWorkout.mockResolvedValue([]);
 
     await expect(controller.getWorkout('5-3-1', '2', MOCK_USER)).rejects.toBeInstanceOf(
       BadRequestException,
     );
+  });
+
+  it('resolves week from the scheduled row for a tiled week-2+ workout (issue #680)', async () => {
+    // A 12-week Leangains schedule tiles a 1-week block, so workoutNum 4 lands in
+    // week 2 — beyond the block's 2 distinct offsets. Without sourcing week from
+    // the scheduled row this would 400; planned lifts must still come from the block.
+    dashboardRepo.getCycleDashboard.mockResolvedValue({
+      program: 'leangains',
+      cycleUnit: 'week',
+      cycleNum: 1,
+      cycleDate: new Date('2026-04-20T00:00:00.000Z'),
+      sheetName: '',
+      cycleStartWeekday: Weekday.Monday,
+    });
+    specRepo.getProgramSpec.mockResolvedValue([
+      { week: 1, offset: 0, lift: 'Bench Press', increment: 5, order: 1, sets: 3, reps: 6, amrap: true, warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
+      { week: 1, offset: 2, lift: 'Squat', increment: 10, order: 1, sets: 3, reps: 6, amrap: true, warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
+    ]);
+    workoutRepo.getWorkout.mockResolvedValue([]); // upcoming — no records yet
+    scheduledWorkoutRepo.getScheduledWorkouts.mockResolvedValue([
+      { workoutNum: 1, weekNum: 1, scheduledDate: new Date('2026-04-20T00:00:00.000Z') },
+      { workoutNum: 4, weekNum: 2, scheduledDate: new Date('2026-04-27T00:00:00.000Z') },
+    ]);
+
+    const result = await controller.getWorkout('leangains', '4', MOCK_USER);
+
+    expect(result.week).toBe(2);
+    // Planned lifts come from the tiled block week (block week 1 for a 1-week block).
+    expect(result.lifts.map((l) => l.lift).sort()).toEqual(['Bench Press', 'Squat']);
+    expect(result.lifts.every((l) => l.planned)).toBe(true);
   });
 
   describe('overrideDate', () => {

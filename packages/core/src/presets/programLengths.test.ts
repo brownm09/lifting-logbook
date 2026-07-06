@@ -81,6 +81,25 @@ describe('PROGRAM_LENGTHS', () => {
       expect(meta.lengthWeeks % meta.blockWeeks).toBe(0);
     }
   });
+
+  it('registers a canonical length for every seeded preset', () => {
+    // Any program with a PRESET_BASE_SPECS entry is schedulable/planable, so it
+    // must also have a canonical length here — otherwise programLengthWeeks silently
+    // falls back to the block size and the advertised length collapses (issue #680).
+    // This is the reciprocal guard: adding a preset without a length fails loudly.
+    for (const program of Object.keys(PRESET_BASE_SPECS)) {
+      expect(PROGRAM_LENGTHS[program]).toBeDefined();
+    }
+  });
+
+  it('every wave program has a multi-week block', () => {
+    // buildPhaseTemplate only renders per-wave phases when phaseStyle==='wave' AND
+    // blockWeeks>1; a wave program with a 1-week block would silently degrade to a
+    // single flat phase. Enforce the contract the plan renderer assumes.
+    for (const meta of Object.values(PROGRAM_LENGTHS)) {
+      if (meta.phaseStyle === 'wave') expect(meta.blockWeeks).toBeGreaterThan(1);
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -167,7 +186,7 @@ describe('expandSpecToLength', () => {
 
   it('preserves all non-week row fields', () => {
     const expanded = expandSpecToLength(block1, 3);
-    const first = expanded[0]!;
+    const first = expanded[0];
     expect(first).toMatchObject({
       lift: 'A',
       offset: 0,

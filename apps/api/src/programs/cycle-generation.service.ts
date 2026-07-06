@@ -42,7 +42,10 @@ type CycleRepos = Pick<
  * Without a spec, getProgramSpec() returns [] for that program. Users with a
  * workout schedule will have saveScheduledDates silently skipped (degraded but
  * safe), and the cycle view will render with no program spec data.
- * These two registries must stay in sync.
+ * ALSO add a canonical length to PROGRAM_LENGTHS (packages/core/src/presets/
+ * programLengths.ts), or the program's schedule and plan collapse to its 1-block
+ * length instead of the advertised duration (issue #680).
+ * These three registries must stay in sync.
  */
 const PROGRAM_DEFAULTS: Record<string, { cycleUnit: string; programType: string }> = {
   '5-3-1': { cycleUnit: 'week', programType: '5-3-1' },

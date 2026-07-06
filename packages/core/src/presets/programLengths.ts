@@ -34,6 +34,11 @@ export interface ProgramLengthMeta {
  * entry (custom user programs, not-yet-wired presets) fall back to their base-spec
  * block length via {@link programLengthWeeks}, preserving the historical
  * `Math.max(...spec.week)` behavior.
+ *
+ * KEEP IN SYNC: every {@link PRESET_BASE_SPECS} key must have an entry here — a
+ * seeded (schedulable) program without a canonical length silently collapses to
+ * its 1-block length. This is the third registry alongside PRESET_BASE_SPECS and
+ * apps/api `PROGRAM_DEFAULTS`; the reciprocal guard lives in `programLengths.test.ts`.
  */
 export const PROGRAM_LENGTHS: Record<string, ProgramLengthMeta> = {
   // 1-week repeating block tiled across 12 weeks; autoregulated (RPT + IF protocol).
