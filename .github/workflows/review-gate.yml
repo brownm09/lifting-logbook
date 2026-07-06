@@ -39,6 +39,10 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ github.token }}
+      # No actions/checkout step -- gh normally infers the target repo from the local
+      # git checkout, which doesn't exist here. Without this, every `gh pr view` call
+      # fails with "not a git repository" and the check silently fails open every run.
+      GH_REPO: ${{ github.repository }}
       EVENT_NAME: ${{ github.event_name }}
       ISSUE_COMMENT_PR_NUMBER: ${{ github.event.issue.number }}
       PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
@@ -125,6 +129,12 @@ jobs:
                       check=True, capture_output=True, text=True,
                   )
                   pr = json.loads(result.stdout)
+              except subprocess.CalledProcessError as e:
+                  # e's own str() omits stderr -- surface it explicitly, or a real
+                  # failure here (as opposed to a transient blip) is undiagnosable from
+                  # the commit-status description alone.
+                  fail_open(target_sha, f"gh pr view failed: {e}: {e.stderr.strip()}")
+                  return
               except Exception as e:
                   fail_open(target_sha, f"gh pr view failed: {e}")
                   return
