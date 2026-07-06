@@ -2,10 +2,9 @@ import {
   fetchProgramSpec,
   fetchTrainingMaxes,
   fetchTrainingMaxHistory,
-  fetchUserSettings,
 } from '@/lib/api';
 import { DEFAULT_WEIGHT_INCREMENT } from '@lifting-logbook/types';
-import { getActiveProgram } from '@/lib/active-program';
+import { getActiveProgram, getUserSettings } from '@/lib/active-program';
 import TrainingMaxesForm from './TrainingMaxesForm';
 import { resolveStepIncrements } from './increments';
 import MaxHistory from './MaxHistory';
@@ -16,7 +15,7 @@ export default async function TrainingMaxesPage() {
     fetchTrainingMaxes(program),
     fetchTrainingMaxHistory(program),
     fetchProgramSpec(program),
-    fetchUserSettings(),
+    getUserSettings(),
   ]);
   const lifts = maxes.map((m) => m.lift);
   const defaultIncrement =
