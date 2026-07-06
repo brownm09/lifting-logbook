@@ -50,6 +50,11 @@ kubectl rollout history deployment/api --revision=<latest-revision>
 
 Note the image tag. In the GitHub repository, find the commit corresponding to that tag.
 
+**Faster alternative:** `bash scripts/check-deployed-version.sh` curls each service's
+`/version` endpoint directly and prints `git log -1` context for the returned SHA in one step,
+skipping the manual `kubectl rollout history` + tag lookup. See
+[`checking-deployed-version.md`](checking-deployed-version.md).
+
 ### 3. Identify the failing code path
 
 In Grafana Explore → Tempo:
