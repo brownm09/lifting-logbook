@@ -92,12 +92,19 @@ jobs:
   # mask an apps/api regression (or vice versa). This job aggregates both
   # results and files/updates a single tracking issue — mirrors
   # required-checks-drift.yml's idempotent create-or-comment pattern.
+  #
+  # Checks != 'success' rather than == 'failure': build-web/build-api have no
+  # if: of their own, so their only possible results are success, failure, or
+  # cancelled. A genuine hang that trips the 45-minute timeout-minutes bound is
+  # reported by GitHub Actions as cancelled, not failure — == 'failure' alone
+  # would silently skip the tracking-issue mechanism for exactly the kind of
+  # unattended regression this workflow exists to surface (review finding on #719).
   report-failure:
     name: Report build failure
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: [build-web, build-api]
-    if: always() && (needs.build-web.result == 'failure' || needs.build-api.result == 'failure')
+    if: always() && (needs.build-web.result != 'success' || needs.build-api.result != 'success')
     permissions:
       issues: write
     steps:
@@ -111,12 +118,15 @@ jobs:
             --color B60205 \
             --force
 
+          # != "success" (not = "failure") to stay consistent with the job-level
+          # if: above — a timed-out/cancelled build must still be named here, or a
+          # hang would open an issue with an empty "Failing Dockerfile(s)" list.
           FAILED=""
-          if [ "${{ needs.build-web.result }}" = "failure" ]; then
-            FAILED="${FAILED}- \`apps/web/Dockerfile\`\n"
+          if [ "${{ needs.build-web.result }}" != "success" ]; then
+            FAILED="${FAILED}- \`apps/web/Dockerfile\` (${{ needs.build-web.result }})\n"
           fi
-          if [ "${{ needs.build-api.result }}" = "failure" ]; then
-            FAILED="${FAILED}- \`apps/api/Dockerfile\`\n"
+          if [ "${{ needs.build-api.result }}" != "success" ]; then
+            FAILED="${FAILED}- \`apps/api/Dockerfile\` (${{ needs.build-api.result }})\n"
           fi
 
           {
