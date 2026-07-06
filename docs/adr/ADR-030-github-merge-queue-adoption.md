@@ -2,8 +2,9 @@
 
 **Status:** Accepted (Amended 2026-07-06)
 **Date:** 2026-07-05
-**Closes:** [#673](https://github.com/brownm09/lifting-logbook/issues/673) (staged across [#694](https://github.com/brownm09/lifting-logbook/issues/694), [#695](https://github.com/brownm09/lifting-logbook/issues/695), now also [#729](https://github.com/brownm09/lifting-logbook/issues/729))
+**Closes:** [#673](https://github.com/brownm09/lifting-logbook/issues/673) (staged across [#694](https://github.com/brownm09/lifting-logbook/issues/694), [#695](https://github.com/brownm09/lifting-logbook/issues/695))
 **Related:** [ADR-023](ADR-023-staging-integration-test-design.md) (the `Staging Integration Tests` required check this decision protects the throughput of)
+**Blocked by:** [#729](https://github.com/brownm09/lifting-logbook/issues/729) (transfer to an organization — discovered post-#694, not part of the originally planned two-PR staging)
 
 > **Amendment (2026-07-06):** the original Decision/Rationale below assumed public repo visibility alone was sufficient for merge queue eligibility. That assumption was **wrong** — merge queue requires the repository be **owned by an organization**, regardless of visibility. `brownm09/lifting-logbook` is owned by a personal user account (`owner.type: User`), confirmed live via `gh api repos/brownm09/lifting-logbook`. This blocks #695 until [#729](https://github.com/brownm09/lifting-logbook/issues/729) (transfer to an organization) lands. See [#730](https://github.com/brownm09/lifting-logbook/issues/730) for this correction. The sections below are corrected in place rather than struck through, since the underlying decision (adopt merge queue) still stands — only the eligibility assumption was wrong.
 
