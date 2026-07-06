@@ -5,7 +5,7 @@ import {
   Inject,
   Param,
 } from '@nestjs/common';
-import { LiftRecord } from '@lifting-logbook/core';
+import { baseSpecBlockWeeks, LiftRecord } from '@lifting-logbook/core';
 import { WorkoutResponse } from '@lifting-logbook/types';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthUser } from '../ports/auth';
@@ -45,16 +45,6 @@ export class WorkoutsController {
       }),
       liftingProgramSpec.getProgramSpec(program),
     ]);
-    const week = weekForWorkoutNum(spec, workoutNum);
-    if (week === undefined) {
-      throw new BadRequestException(
-        `workoutNum ${workoutNum} exceeds program spec (${new Set(spec.map((s) => s.offset)).size} workout days)`,
-      );
-    }
-
-    // Spec lifts for this workout's week — used to build the planned lift list.
-    const specLifts = [...new Set(spec.filter((s) => s.week === week).map((s) => s.lift))];
-
     const [records, overrideDate, liftOverrides, scheduledWorkouts, skippedNums] = await Promise.all([
       // fallback-covered-by: apps/api/src/programs/workouts.controller.spec.ts
       workout
@@ -73,7 +63,26 @@ export class WorkoutsController {
         return new Set<number>();
       }),
     ]);
-    const scheduledDate = scheduledWorkouts.find((s) => s.workoutNum === workoutNum)?.scheduledDate;
+    const scheduledWorkout = scheduledWorkouts.find((s) => s.workoutNum === workoutNum);
+    const scheduledDate = scheduledWorkout?.scheduledDate;
+
+    // The scheduled row's weekNum is authoritative for the program week. A global
+    // workoutNum spans the full tiled schedule, so it can exceed the base block's
+    // distinct-offset count — weekForWorkoutNum (offset-indexed within one block)
+    // only covers the no-schedule fallback. Without this, week-2+ workouts of a
+    // tiled program (Leangains 12w, 5-3-1 12w) would 400 (issue #680).
+    const week = scheduledWorkout?.weekNum ?? weekForWorkoutNum(spec, workoutNum);
+    if (week === undefined) {
+      throw new BadRequestException(
+        `workoutNum ${workoutNum} exceeds program spec (${new Set(spec.map((s) => s.offset)).size} workout days)`,
+      );
+    }
+
+    // Planned lifts come from the tiled block week: the stored spec is one block,
+    // so map the program week (which may exceed blockWeeks) back into the block.
+    const blockWeeks = baseSpecBlockWeeks(spec);
+    const blockWeek = blockWeeks > 0 ? ((week - 1) % blockWeeks) + 1 : week;
+    const specLifts = [...new Set(spec.filter((s) => s.week === blockWeek).map((s) => s.lift))];
 
     const plannedLifts = applyLiftOverrides(specLifts, liftOverrides);
 

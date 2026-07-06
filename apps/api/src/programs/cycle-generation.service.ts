@@ -4,9 +4,11 @@ import {
   CycleDashboard,
   LiftingProgramSpec,
   distributeWorkouts,
+  expandSpecToLength,
   formatDateYYYYMMDD,
   getScheduleWorkoutsPerWeek,
   MaxReductionFlag,
+  programLengthWeeks,
   TrainingMax,
   TrainingMaxHistoryEntry,
   updateCycle,
@@ -40,7 +42,10 @@ type CycleRepos = Pick<
  * Without a spec, getProgramSpec() returns [] for that program. Users with a
  * workout schedule will have saveScheduledDates silently skipped (degraded but
  * safe), and the cycle view will render with no program spec data.
- * These two registries must stay in sync.
+ * ALSO add a canonical length to PROGRAM_LENGTHS (packages/core/src/presets/
+ * programLengths.ts), or the program's schedule and plan collapse to its 1-block
+ * length instead of the advertised duration (issue #680).
+ * These three registries must stay in sync.
  */
 const PROGRAM_DEFAULTS: Record<string, { cycleUnit: string; programType: string }> = {
   '5-3-1': { cycleUnit: 'week', programType: '5-3-1' },
@@ -67,10 +72,18 @@ async function saveScheduledDates(
   programSpec: LiftingProgramSpec[],
   workoutSchedule: UserWorkoutSchedule,
 ): Promise<void> {
+  // Schedule the program's canonical length, not its stored block: repeating
+  // programs (Leangains, RPT) persist a 1-week block but run 8–12 weeks, so tile
+  // the base spec to full length before distributing so the workout calendar
+  // spans the whole program (issue #680). Expanding an empty spec yields [] —
+  // the guard covers custom/unseeded programs, since Math.max(...[]) is -Infinity
+  // and would drive distributeWorkouts negative.
+  const fullSpec = expandSpecToLength(programSpec, programLengthWeeks(program, programSpec));
+  if (fullSpec.length === 0) return;
   // numWeeks * workoutsPerWeek assumes schedule days/week equals program
   // workouts/week. Phase 5 adds a user-confirmation prompt that validates
   // this match before schedule mode is activated.
-  const numWeeks = Math.max(...programSpec.map((s) => s.week));
+  const numWeeks = fullSpec.reduce((max, s) => Math.max(max, s.week), 0);
   const workoutsPerWeek = getScheduleWorkoutsPerWeek(workoutSchedule);
   const distributed = distributeWorkouts(numWeeks * workoutsPerWeek, workoutSchedule, cycleDate);
 

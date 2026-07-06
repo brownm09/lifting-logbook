@@ -26,7 +26,7 @@ export default async function CycleProgramPage({
   }
 
   const { durationWeeks, frequency, exercises, warmUpSets, workingSets } =
-    deriveProgramSummary(specs);
+    deriveProgramSummary(specs, program);
 
   return (
     <section className={styles.container}>
