@@ -1,0 +1,164 @@
+name: Docker No-Cache Build
+
+# Scheduled, cache-free rebuild of both production Dockerfiles. Unlike every other
+# workflow in this repo that builds a Docker image, this one never pushes anywhere —
+# its only output is pass/fail. It exists because #674 (fixed by #691) was a real
+# production-build regression that stayed invisible for a while: `deploy.yml` and
+# `staging.yml` both build with GHA layer caching (cache-from/cache-to: type=gha),
+# so a broken RUN/COPY layer can hide behind a stale-but-working cached layer
+# indefinitely. `npm run typecheck` deliberately can't catch this class of bug
+# either — it resolves workspace packages to source, not dist, specifically so it
+# stays cacheable without an upstream build (#651/#656) — so a dist/declaration-emit
+# regression like #674's is invisible to it by design. This workflow runs both
+# Dockerfiles through a genuinely fresh `docker build --no-cache` on a schedule, so
+# a similar regression surfaces within a day instead of only via manual
+# investigation (as #674 was, per #691). See #693.
+
+on:
+  schedule:
+    # Nightly, not weekly: the whole point of this workflow is to catch a build
+    # regression sooner than "someone happens to run an uncached build by hand"
+    # (#693) — a week is a long time to leave that invisible. 05:14 UTC is
+    # off-peak and avoids top-of-hour scheduler congestion (same rationale as
+    # required-checks-drift.yml).
+    - cron: '14 5 * * *'
+  workflow_dispatch:
+
+# Prevents a manual dispatch from racing the nightly tick and filing two issues
+# for the same failure. cancel-in-progress: false so an in-flight build always
+# finishes and reports, rather than being cancelled mid-build by an overlapping
+# trigger (same rationale as required-checks-drift.yml).
+concurrency:
+  group: docker-nocache-build
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # ── Build apps/web ──────────────────────────────────────────────────────────
+  build-web:
+    name: Build apps/web (no cache)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # push: false, no cache-from/cache-to: this build's only purpose is to prove
+      # the Dockerfile still builds clean, so no registry auth is needed at all.
+      # no-cache: true forces every RUN/COPY instruction to re-execute from
+      # scratch (this is what actually re-exercises the `turbo run build` / .d.ts
+      # emission step that broke in #674) — it does not force re-pulling the
+      # pinned node:20.11.1-alpine base image if the runner already has that
+      # exact tag cached, which is fine: the regression this guards against lives
+      # in the RUN layers, not the base image. No wretry wrapper (unlike
+      # deploy.yml/staging.yml): that retry exists solely to absorb transient
+      # Artifact Registry 504s on registry push, which cannot happen when
+      # push: false.
+      - name: Build apps/web image (no cache, not pushed)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: false
+          no-cache: true
+          tags: lifting-logbook-web:nocache-check
+
+  # ── Build apps/api ──────────────────────────────────────────────────────────
+  build-api:
+    name: Build apps/api (no cache)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build apps/api image (no cache, not pushed)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: false
+          no-cache: true
+          tags: lifting-logbook-api:nocache-check
+
+  # ── Report failure ───────────────────────────────────────────────────────────
+  # Independent jobs above run in parallel so a broken apps/web build can never
+  # mask an apps/api regression (or vice versa). This job aggregates both
+  # results and files/updates a single tracking issue — mirrors
+  # required-checks-drift.yml's idempotent create-or-comment pattern.
+  report-failure:
+    name: Report build failure
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [build-web, build-api]
+    if: always() && (needs.build-web.result == 'failure' || needs.build-api.result == 'failure')
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update failure issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh label create docker-nocache-build-failure \
+            --description "A scheduled --no-cache Docker build failed for apps/web and/or apps/api" \
+            --color B60205 \
+            --force
+
+          FAILED=""
+          if [ "${{ needs.build-web.result }}" = "failure" ]; then
+            FAILED="${FAILED}- \`apps/web/Dockerfile\`\n"
+          fi
+          if [ "${{ needs.build-api.result }}" = "failure" ]; then
+            FAILED="${FAILED}- \`apps/api/Dockerfile\`\n"
+          fi
+
+          {
+            echo "# Docker no-cache build failing"
+            echo ""
+            echo "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo ""
+            echo "## Failing Dockerfile(s)"
+            echo ""
+            printf "%b" "$FAILED"
+            echo ""
+            echo "## Why this matters"
+            echo ""
+            echo "A fresh, uncached \`docker build\` failed for the Dockerfile(s) above. This class of regression (e.g. #674) can hide behind GHA layer caching in \`deploy.yml\`/\`staging.yml\`, and is invisible to \`npm run typecheck\` by design (#651/#656). See #693."
+            echo ""
+            echo "## Reproduce locally"
+            echo ""
+            echo '```'
+            echo "docker build --no-cache -f apps/web/Dockerfile ."
+            echo "docker build --no-cache -f apps/api/Dockerfile ."
+            echo '```'
+          } > body.md
+
+          mapfile -t EXISTING < <(gh issue list \
+            --label docker-nocache-build-failure \
+            --state open \
+            --json number \
+            --jq '.[].number')
+          if [ "${#EXISTING[@]}" -gt 0 ]; then
+            for N in "${EXISTING[@]}"; do
+              echo "Updating existing issue #$N"
+              gh issue comment "$N" --body-file body.md
+            done
+          else
+            echo "Creating new failure issue"
+            gh issue create \
+              --label docker-nocache-build-failure \
+              --title "Docker no-cache build failing" \
+              --body-file body.md
+          fi
+
+      - name: Fail run
+        run: |
+          echo "Docker no-cache build failed — see the opened/updated issue."
+          exit 1
