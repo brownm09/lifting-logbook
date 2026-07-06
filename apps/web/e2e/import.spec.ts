@@ -2,6 +2,20 @@ import { test, expect } from '@playwright/test';
 
 const MOCK_API = 'http://localhost:3004';
 
+// The heavy /import route compiles on-demand in Next dev. On Windows local dev the first,
+// cold compile of ImportWizard can exceed Playwright's 30s default test timeout, so the
+// first navigating test would otherwise fail at page.goto before any assertion runs. Warm
+// the route once here (with generous headroom) so every test navigates to an already-
+// compiled /import. CI (Linux) compiles fast enough that this is effectively a no-op.
+// See https://github.com/brownm09/lifting-logbook/issues/698.
+test.beforeAll(async ({ browser }, testInfo) => {
+  test.setTimeout(120_000);
+  const page = await browser.newPage({ baseURL: testInfo.project.use.baseURL });
+  await page.goto('/import', { timeout: 90_000 });
+  await expect(page.getByRole('heading', { name: 'Import a file' })).toBeVisible({ timeout: 90_000 });
+  await page.close();
+});
+
 // The Source step's program-picker lists custom programs; opt the mock into one.
 test.beforeEach(async ({ request }) => {
   await request.get(`${MOCK_API}/__reset?withCustomProgram=true`);
@@ -11,7 +25,7 @@ test('import wizard: Source → Classify → Review → Preview → Done', async
   await page.goto('/import');
 
   // Source step: pick a program (pre-selected) and upload a CSV.
-  await expect(page.getByRole('heading', { name: 'Import a file' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Import a file' })).toBeVisible({ timeout: 15_000 });
   await page.getByLabel('CSV file').setInputFiles({
     name: 'training_maxes.csv',
     mimeType: 'text/csv',
@@ -102,7 +116,7 @@ test('import wizard MAP_COLUMNS: fuzzy-matched columns shown; override unmapped 
   await page.goto('/import');
 
   // Source step: upload a CSV with non-standard headers (Date, Exercise, Max Weight).
-  await expect(page.getByRole('heading', { name: 'Import a file' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Import a file' })).toBeVisible({ timeout: 15_000 });
   await page.getByLabel('CSV file').setInputFiles({
     name: 'nonstandard.csv',
     mimeType: 'text/csv',
