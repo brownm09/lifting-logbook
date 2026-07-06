@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { TrainingMaxResponse } from '@lifting-logbook/types';
+import { DEFAULT_WEIGHT_INCREMENT, type TrainingMaxResponse } from '@lifting-logbook/types';
 import { saveTrainingMaxes } from './actions';
 import styles from './TrainingMaxesForm.module.css';
 
@@ -34,10 +34,13 @@ export default function TrainingMaxesForm({
   program,
   lifts,
   maxes,
+  increments,
 }: {
   program: string;
   lifts: string[];
   maxes: TrainingMaxResponse[];
+  /** Per-lift spinner `step`, keyed by lift name (see resolveStepIncrements). */
+  increments: Record<string, number>;
 }) {
   const [rows, setRows] = useState<Record<string, RowState>>(() =>
     buildInitialState(lifts, maxes),
@@ -135,6 +138,7 @@ export default function TrainingMaxesForm({
                   <td className={styles.weightCell} data-label="Weight">
                     <input
                       type="number"
+                      step={increments[lift] ?? DEFAULT_WEIGHT_INCREMENT}
                       value={row.value}
                       placeholder="—"
                       aria-label={`${lift} training max`}

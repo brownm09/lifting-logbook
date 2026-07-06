@@ -1,19 +1,36 @@
-import { fetchTrainingMaxes, fetchTrainingMaxHistory } from '@/lib/api';
+import {
+  fetchProgramSpec,
+  fetchTrainingMaxes,
+  fetchTrainingMaxHistory,
+  fetchUserSettings,
+} from '@/lib/api';
+import { DEFAULT_WEIGHT_INCREMENT } from '@lifting-logbook/types';
 import { getActiveProgram } from '@/lib/active-program';
 import TrainingMaxesForm from './TrainingMaxesForm';
+import { resolveStepIncrements } from './increments';
 import MaxHistory from './MaxHistory';
 
 export default async function TrainingMaxesPage() {
   const program = await getActiveProgram();
-  const [maxes, history] = await Promise.all([
+  const [maxes, history, specs, settings] = await Promise.all([
     fetchTrainingMaxes(program),
     fetchTrainingMaxHistory(program),
+    fetchProgramSpec(program),
+    fetchUserSettings(),
   ]);
   const lifts = maxes.map((m) => m.lift);
+  const defaultIncrement =
+    settings.defaultWeightIncrement ?? DEFAULT_WEIGHT_INCREMENT;
+  const increments = resolveStepIncrements(lifts, specs, defaultIncrement);
 
   return (
     <>
-      <TrainingMaxesForm program={program} lifts={lifts} maxes={maxes} />
+      <TrainingMaxesForm
+        program={program}
+        lifts={lifts}
+        maxes={maxes}
+        increments={increments}
+      />
       <MaxHistory initialEntries={history.entries} program={program} />
     </>
   );
