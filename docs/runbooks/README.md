@@ -13,6 +13,7 @@ For severity levels, escalation paths, and the incident response checklist, see
 | Runbook | Trigger | Default severity |
 |---|---|---|
 | [Observability stack](observability.md) | Local dev / Grafana access reference | N/A |
+| [Checking the deployed version](checking-deployed-version.md) | Confirming what commit is live in staging/production | N/A |
 | [API 5xx surge](api-5xx-surge.md) | `APIHighErrorRate` alert | SEV2 |
 | [Database unreachable](database-unreachable.md) | DB connection errors in structured logs | SEV1 |
 | [Auth provider outage](auth-provider-outage.md) | 401/403 surge + Clerk status incident | SEV2 |
