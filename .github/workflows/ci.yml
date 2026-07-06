@@ -72,6 +72,9 @@ jobs:
       - name: Verify turbo version pin sync (Dockerfile ↔ package.json)
         run: node scripts/check-turbo-version-sync.mjs
 
+      - name: Unit test turbo version pin sync parsing
+        run: node --test scripts/check-turbo-version-sync.test.mjs
+
   db-integration:
     name: DB Integration Tests
     runs-on: ubuntu-latest
