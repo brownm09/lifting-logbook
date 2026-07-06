@@ -325,6 +325,29 @@ describe('CycleGenerationService', () => {
       );
     });
 
+    it('schedules the full canonical program length, not the stored block (issue #680)', async () => {
+      // PROGRAM = '5-3-1' has a canonical length of 12 weeks. Even though the stub
+      // spec is a single block week, the schedule must span all 12 weeks so the
+      // workout calendar matches the advertised plan length.
+      cycleDashboardRepo.getCycleDashboard.mockRejectedValue(
+        new ProgramNotFoundError(PROGRAM),
+      );
+      programSpecRepo.getProgramSpec.mockResolvedValue(stubProgramSpec());
+      userSettingsRepo.getSettings.mockResolvedValue({
+        activeProgram: null,
+        workoutSchedule: { type: 'fixed', days: [0, 2, 4] },
+        defaultWeightIncrement: null,
+      });
+
+      await service.initializeFirstCycle(repos, PROGRAM, { cycleDate: '2026-05-12' });
+
+      const calls = cycleScheduledWorkoutRepo.saveScheduledWorkouts.mock.calls;
+      expect(calls).toHaveLength(1);
+      const workouts: Array<{ weekNum: number }> = calls[0]?.[2] ?? [];
+      const weeks = [...new Set(workouts.map((w) => w.weekNum))].sort((a, b) => a - b);
+      expect(weeks).toEqual(Array.from({ length: 12 }, (_, i) => i + 1));
+    });
+
     it('does not save scheduled dates when user has no workout schedule', async () => {
       cycleDashboardRepo.getCycleDashboard.mockRejectedValue(
         new ProgramNotFoundError(PROGRAM),

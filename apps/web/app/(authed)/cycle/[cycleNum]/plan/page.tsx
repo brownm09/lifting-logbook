@@ -2,7 +2,11 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { fetchCycleDashboard, fetchProgramSpec } from '@/lib/api';
 import { getActiveProgram } from '@/lib/active-program';
-import { deriveProgramPhases, deriveProgramSummary } from '@/lib/programPlan';
+import {
+  deriveProgramPhases,
+  deriveProgramSummary,
+  resolveProgramPlanMeta,
+} from '@/lib/programPlan';
 import styles from './plan.module.css';
 
 const STATUS_ICON: Record<string, string> = {
@@ -36,9 +40,10 @@ export default async function ProgramPlanPage({
     redirect(`/cycle/${dashboard?.cycleNum ?? 1}/plan`);
   }
 
-  const { durationWeeks } = deriveProgramSummary(specs);
+  const meta = resolveProgramPlanMeta(program, specs);
+  const { durationWeeks } = deriveProgramSummary(specs, program);
   const today = new Date().toISOString().slice(0, 10);
-  const phases = deriveProgramPhases(dashboard.weeks, today);
+  const phases = deriveProgramPhases(dashboard.weeks, today, meta);
   const estCompletion = addDays(dashboard.cycleStartDate, durationWeeks * 7);
 
   return (

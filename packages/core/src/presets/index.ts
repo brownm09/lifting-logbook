@@ -1,5 +1,8 @@
 import { LiftingProgramSpec } from '../models/LiftingProgramSpec';
 
+// Canonical program-length registry + read-time block expansion (issue #680).
+export * from './programLengths';
+
 /**
  * Built-in program specs, keyed by program ID.
  *

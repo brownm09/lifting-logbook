@@ -1,4 +1,4 @@
-import { LiftingProgramSpec, PRESET_BASE_SPECS } from '@lifting-logbook/core';
+import { LiftingProgramSpec, PRESET_BASE_SPECS, PROGRAM_LENGTHS } from '@lifting-logbook/core';
 
 export type Experience = 'beginner' | 'intermediate' | 'advanced';
 export type Goal = 'strength' | 'muscle-gain' | 'body-composition' | 'fat-loss';
@@ -45,7 +45,11 @@ export const TEMPLATE_BUILDERS: Record<string, () => LiftingProgramSpec[]> = {
   [SEED_LEANGAINS]: seedLeangainsSpec,
 };
 
-export const PROGRAMS: Program[] = [
+// Base program catalog. `weeks` for programs wired to a core preset is reconciled
+// below from the canonical PROGRAM_LENGTHS registry, so onboarding copy can never
+// drift from the length the API actually schedules (issue #680). Unregistered
+// (marketing-only) programs keep their catalog literal.
+const PROGRAM_CATALOG: Program[] = [
   {
     id: 'starting-strength',
     name: 'Starting Strength',
@@ -383,3 +387,14 @@ export const PROGRAMS: Program[] = [
     available: false,
   },
 ];
+
+/**
+ * Onboarding/browse program catalog. For programs registered in the canonical
+ * core `PROGRAM_LENGTHS` (currently Leangains, RPT, 5-3-1), the advertised `weeks`
+ * is derived from that single source of truth rather than a standalone literal —
+ * see issue #680. Programs without a registry entry pass through unchanged.
+ */
+export const PROGRAMS: Program[] = PROGRAM_CATALOG.map((program) => {
+  const canonical = PROGRAM_LENGTHS[program.id];
+  return canonical ? { ...program, weeks: canonical.lengthWeeks } : program;
+});
