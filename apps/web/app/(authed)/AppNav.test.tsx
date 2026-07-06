@@ -22,7 +22,7 @@ describe('AppNav', () => {
     expect(screen.getByRole('link', { name: 'Programs' })).toHaveAttribute('href', '/programs');
     expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute(
       'href',
-      '/settings/training-maxes',
+      '/settings',
     );
   });
 
