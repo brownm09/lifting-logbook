@@ -13,6 +13,7 @@ type Row = {
   activeProgram: string | null;
   workoutSchedule: unknown;
   defaultWeightIncrement: number | null;
+  unit: string | null;
 };
 
 function makePrismaMock(): { service: PrismaService; store: Map<string, Row> } {
@@ -45,6 +46,7 @@ function makePrismaMock(): { service: PrismaService; store: Map<string, Row> } {
                 activeProgram: create.activeProgram ?? null,
                 workoutSchedule: create.workoutSchedule ?? null,
                 defaultWeightIncrement: create.defaultWeightIncrement ?? null,
+                unit: create.unit ?? null,
               };
           store.set(where.userId, next);
           return next;
@@ -74,6 +76,7 @@ describe('UserSettingsController', () => {
       activeProgram: null,
       workoutSchedule: null,
       defaultWeightIncrement: null,
+      unit: null,
     });
   });
 
@@ -95,12 +98,40 @@ describe('UserSettingsController', () => {
       activeProgram: null,
       workoutSchedule: null,
       defaultWeightIncrement: 2.5,
+      unit: null,
     });
     const dto = plainToInstance(UpdateSettingsDto, { defaultWeightIncrement: null });
     const errors = await validate(dto);
     expect(errors).toEqual([]);
     const result = await controller.updateSettings(MOCK_USER, dto);
     expect(result.defaultWeightIncrement).toBeNull();
+  });
+
+  it('persists a unit preference and reads it back', async () => {
+    const dto = plainToInstance(UpdateSettingsDto, { unit: 'kg' });
+    const errors = await validate(dto);
+    expect(errors).toEqual([]);
+
+    const patched = await controller.updateSettings(MOCK_USER, dto);
+    expect(patched.unit).toBe('kg');
+
+    const fetched = await controller.getSettings(MOCK_USER);
+    expect(fetched.unit).toBe('kg');
+  });
+
+  it('clears the unit preference when patched with null', async () => {
+    prismaMock.store.set(MOCK_USER.id, {
+      userId: MOCK_USER.id,
+      activeProgram: null,
+      workoutSchedule: null,
+      defaultWeightIncrement: null,
+      unit: 'kg',
+    });
+    const dto = plainToInstance(UpdateSettingsDto, { unit: null });
+    const errors = await validate(dto);
+    expect(errors).toEqual([]);
+    const result = await controller.updateSettings(MOCK_USER, dto);
+    expect(result.unit).toBeNull();
   });
 
   it('persists a fixed schedule and reads it back', async () => {
@@ -126,6 +157,7 @@ describe('UserSettingsController', () => {
       activeProgram: null,
       workoutSchedule: { type: 'fixed', days: [0, 99] },
       defaultWeightIncrement: null,
+      unit: null,
     });
     const result = await controller.getSettings(MOCK_USER);
     expect(result.workoutSchedule).toBeNull();
@@ -137,6 +169,7 @@ describe('UserSettingsController', () => {
       activeProgram: null,
       workoutSchedule: { type: 'fixed', days: [0, 2, 4] },
       defaultWeightIncrement: null,
+      unit: null,
     });
     const dto = plainToInstance(UpdateSettingsDto, { workoutSchedule: null });
     const errors = await validate(dto);
@@ -215,6 +248,19 @@ describe('UpdateSettingsDto validation', () => {
 
   it.each([0, 1, 3, 10, -2.5])('rejects %s as an out-of-range defaultWeightIncrement', async (value) => {
     const errs = await check({ defaultWeightIncrement: value });
+    expect(errs.length).toBeGreaterThan(0);
+  });
+
+  it.each(['lbs', 'kg'])('accepts %s as a valid unit', async (value) => {
+    expect(await check({ unit: value })).toEqual([]);
+  });
+
+  it('accepts an explicit null to clear unit', async () => {
+    expect(await check({ unit: null })).toEqual([]);
+  });
+
+  it.each(['pounds', 'KG', ''])('rejects %s as an invalid unit', async (value) => {
+    const errs = await check({ unit: value });
     expect(errs.length).toBeGreaterThan(0);
   });
 

@@ -1,15 +1,17 @@
 import { fetchLiftRecords, fetchTrainingMaxHistory } from '@/lib/api';
 import { getActiveProgram } from '@/lib/active-program';
+import { getPreferredUnit } from '@/lib/preferences';
 import type {
   LiftRecordResponse,
   TrainingMaxHistoryEntryResponse,
+  WeightUnit,
 } from '@lifting-logbook/types';
 import HistoryTabs from './HistoryTabs';
 import styles from './history.module.css';
 
 export type EnrichedRecord = LiftRecordResponse & {
   tmAtTime: number | null;
-  tmUnit: string | null;
+  tmUnit: WeightUnit | null;
   tmPercent: number | null;
   isPR: boolean;
 };
@@ -32,9 +34,10 @@ export default async function HistoryPage() {
   // Wrap API calls so transient failures (expired session token, API unavailable)
   // render an empty history page rather than crashing the server component.
   // Pattern mirrors ProgramsPage — tabs always render; data may be empty.
-  const [records, { entries: tmEntries }] = await Promise.all([
+  const [records, { entries: tmEntries }, unit] = await Promise.all([
     fetchLiftRecords(program).catch((): LiftRecordResponse[] => []),
     fetchTrainingMaxHistory(program).catch(() => ({ entries: [] as TrainingMaxHistoryEntryResponse[] })),
+    getPreferredUnit(),
   ]);
 
   const sortedRecords = records.slice().sort((a, b) => b.date.localeCompare(a.date));
@@ -71,7 +74,7 @@ export default async function HistoryPage() {
   return (
     <main className={styles.pageContainer}>
       <h1 className={styles.pageHeading}>Lift History</h1>
-      <HistoryTabs records={enriched} tmEntries={tmEntries} />
+      <HistoryTabs records={enriched} tmEntries={tmEntries} unit={unit} />
     </main>
   );
 }

@@ -9,10 +9,10 @@ test.beforeEach(async ({ request }) => {
 });
 
 // ---------------------------------------------------------------------------
-// Settings hub: the four section tabs are present and cross-navigate.
+// Settings hub: the section tabs are present and cross-navigate.
 // ---------------------------------------------------------------------------
 
-test('settings hub exposes the four sections and the sub-nav cross-navigates', async ({ page }) => {
+test('settings hub exposes the sections and the sub-nav cross-navigates', async ({ page }) => {
   await page.goto('/settings');
 
   const subNav = page.getByRole('navigation', { name: 'Settings sections' });
@@ -32,6 +32,10 @@ test('settings hub exposes the four sections and the sub-nav cross-navigates', a
     'href',
     '/settings/weight-rounding',
   );
+  await expect(subNav.getByRole('link', { name: 'Units' })).toHaveAttribute(
+    'href',
+    '/settings/units',
+  );
 
   // The sub-nav actually moves between sections and marks the target active.
   await subNav.getByRole('link', { name: 'Weight Rounding' }).click();
@@ -39,6 +43,21 @@ test('settings hub exposes the four sections and the sub-nav cross-navigates', a
   await expect(
     page.getByRole('navigation', { name: 'Settings sections' }).getByRole('link', { name: 'Weight Rounding' }),
   ).toHaveAttribute('aria-current', 'page');
+});
+
+// ---------------------------------------------------------------------------
+// Settings hub: the Units section round-trips the lbs/kg preference.
+// ---------------------------------------------------------------------------
+
+test('units section saves the selected weight unit', async ({ page }) => {
+  await page.goto('/settings/units');
+
+  await expect(page.getByRole('heading', { name: 'Units' })).toBeVisible();
+  await page.getByLabel('Weight unit').selectOption('kg');
+  await page.getByRole('button', { name: 'Save' }).click();
+
+  await expect(page.getByText(/^Saved at /)).toBeVisible();
+  await expect(page.getByLabel('Weight unit')).toHaveValue('kg');
 });
 
 // ---------------------------------------------------------------------------

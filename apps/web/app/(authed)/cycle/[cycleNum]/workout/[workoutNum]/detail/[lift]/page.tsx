@@ -1,7 +1,9 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import { formatWeight } from '@lifting-logbook/core';
 import { fetchTrainingMaxes, fetchTrainingMaxHistory, fetchLiftRecords } from '@/lib/api';
 import { getActiveProgram } from '@/lib/active-program';
+import { getPreferredUnit } from '@/lib/preferences';
 import LiftHistoryFilters from './LiftHistoryFilters';
 import styles from './lift.module.css';
 
@@ -21,10 +23,11 @@ export default async function LiftDetailPage({
 
   const program = await getActiveProgram();
 
-  const [maxes, history, allRecords] = await Promise.all([
+  const [maxes, history, allRecords, unit] = await Promise.all([
     fetchTrainingMaxes(program),
     fetchTrainingMaxHistory(program),
     fetchLiftRecords(program),
+    getPreferredUnit(),
   ]);
 
   const currentMax = maxes.find((m) => m.lift === lift);
@@ -53,7 +56,7 @@ export default async function LiftDetailPage({
         <h2 className={styles.sectionHeading}>Current Training Max</h2>
         {currentMax ? (
           <p className={styles.currentMax}>
-            {currentMax.weight} {currentMax.unit}
+            {formatWeight(currentMax.weight, currentMax.unit, unit)}
           </p>
         ) : (
           <p className={styles.empty}>No training max set.</p>
@@ -79,7 +82,7 @@ export default async function LiftDetailPage({
                   <tr key={entry.id}>
                     <td>{entry.date}</td>
                     <td>
-                      {entry.weight} {entry.unit}
+                      {formatWeight(entry.weight, entry.unit, unit)}
                     </td>
                     <td>{entry.isPR && <span className={styles.prBadge}>PR</span>}</td>
                   </tr>
@@ -94,7 +97,7 @@ export default async function LiftDetailPage({
         {setHistory.length === 0 ? (
           <p className={styles.empty}>No sets logged yet.</p>
         ) : (
-          <LiftHistoryFilters records={setHistory} />
+          <LiftHistoryFilters records={setHistory} unit={unit} />
         )}
       </section>
     </main>

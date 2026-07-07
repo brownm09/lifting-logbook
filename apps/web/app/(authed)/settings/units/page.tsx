@@ -1,6 +1,6 @@
 import { fetchUserSettings } from '@/lib/api';
 import type { UserSettingsResponse } from '@lifting-logbook/types';
-import WeightIncrementForm from './WeightIncrementForm';
+import UnitForm from './UnitForm';
 
 const DEFAULT_SETTINGS: UserSettingsResponse = {
   activeProgram: null,
@@ -9,11 +9,11 @@ const DEFAULT_SETTINGS: UserSettingsResponse = {
   unit: null,
 };
 
-export default async function WeightRoundingPage() {
+export default async function UnitsPage() {
   // Fall back to empty settings when the API is unreachable — matches
-  // settings/schedule/page.tsx, and keeps the build-time prerender from crashing
+  // settings/weight-rounding/page.tsx, and keeps the build-time prerender from crashing
   // when no API is running.
-  // fallback-covered-by: apps/web/app/(authed)/settings/weight-rounding/page.test.tsx
+  // fallback-covered-by: apps/web/app/(authed)/settings/units/page.test.tsx
   const settings = await fetchUserSettings().catch(() => DEFAULT_SETTINGS);
-  return <WeightIncrementForm initialIncrement={settings.defaultWeightIncrement} />;
+  return <UnitForm initialUnit={settings.unit} />;
 }

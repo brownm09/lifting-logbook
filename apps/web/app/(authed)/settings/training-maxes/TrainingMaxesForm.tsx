@@ -1,13 +1,18 @@
 'use client';
 
 import { useState } from 'react';
-import { DEFAULT_WEIGHT_INCREMENT, type TrainingMaxResponse } from '@lifting-logbook/types';
+import { formatWeight } from '@lifting-logbook/core';
+import {
+  DEFAULT_WEIGHT_INCREMENT,
+  type TrainingMaxResponse,
+  type WeightUnit,
+} from '@lifting-logbook/types';
 import { saveTrainingMaxes } from './actions';
 import styles from './TrainingMaxesForm.module.css';
 
 type RowState = {
   value: string;
-  unit: string;
+  unit: WeightUnit;
   dateUpdated: string | null;
   error: string | null;
 };
@@ -35,12 +40,22 @@ export default function TrainingMaxesForm({
   lifts,
   maxes,
   increments,
+  unit = 'lbs',
 }: {
   program: string;
   lifts: string[];
   maxes: TrainingMaxResponse[];
   /** Per-lift spinner `step`, keyed by lift name (see resolveStepIncrements). */
   increments: Record<string, number>;
+  /**
+   * Display-only preference, used for a read-only conversion hint next to the
+   * input. The input itself and everything submitted on Save always stay in
+   * the record's native unit — training maxes are directly-known values (see
+   * docs/standards/training-max-precision.md), and this API has no real
+   * per-record unit storage today, so converting the editable value itself
+   * would risk silently corrupting a saved max.
+   */
+  unit?: WeightUnit;
 }) {
   const [rows, setRows] = useState<Record<string, RowState>>(() =>
     buildInitialState(lifts, maxes),
@@ -83,7 +98,7 @@ export default function TrainingMaxesForm({
       .map((lift) => ({
         lift: lift as TrainingMaxResponse['lift'],
         weight: Number(rows[lift].value),
-        unit: rows[lift].unit as TrainingMaxResponse['unit'],
+        unit: rows[lift].unit,
       }));
 
     if (changed.length === 0) {
@@ -149,6 +164,11 @@ export default function TrainingMaxesForm({
                     />
                     {row.error && (
                       <span className={styles.errorText}>{row.error}</span>
+                    )}
+                    {unit !== row.unit && row.value !== '' && !isNaN(Number(row.value)) && (
+                      <span className={styles.conversionHint}>
+                        ≈ {formatWeight(Number(row.value), row.unit, unit)}
+                      </span>
                     )}
                   </td>
                   <td className={styles.unit} data-label="Unit">{row.unit}</td>

@@ -36,6 +36,7 @@ describe('WeightIncrementForm', () => {
       activeProgram: null,
       workoutSchedule: null,
       defaultWeightIncrement: 5,
+      unit: null,
     });
 
     render(<WeightIncrementForm initialIncrement={1.25} />);

@@ -27,6 +27,7 @@ describe('WeightRoundingPage — fetch fallback', () => {
       activeProgram: null,
       workoutSchedule: null,
       defaultWeightIncrement: 0.625,
+      unit: null,
     });
 
     const element = (await WeightRoundingPage()) as ReactElement;

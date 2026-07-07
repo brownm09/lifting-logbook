@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import type { TrainingMaxHistoryEntryResponse } from '@lifting-logbook/types';
+import { formatWeight } from '@lifting-logbook/core';
+import type { TrainingMaxHistoryEntryResponse, WeightUnit } from '@lifting-logbook/types';
 import { toggleHistoryPR, toggleHistoryGoalMet } from './actions';
 
 type View = 'timeline' | 'list';
@@ -10,9 +11,11 @@ type Filter = 'pr' | 'test' | 'goalMet';
 export default function MaxHistory({
   initialEntries,
   program,
+  unit,
 }: {
   initialEntries: TrainingMaxHistoryEntryResponse[];
   program: string;
+  unit: WeightUnit;
 }) {
   const [entries, setEntries] = useState(initialEntries);
   const [view, setView] = useState<View>('list');
@@ -142,6 +145,7 @@ export default function MaxHistory({
           pending={pending}
           onTogglePR={handleTogglePR}
           onToggleGoalMet={handleToggleGoalMet}
+          unit={unit}
         />
       ) : (
         <TimelineView
@@ -149,6 +153,7 @@ export default function MaxHistory({
           pending={pending}
           onTogglePR={handleTogglePR}
           onToggleGoalMet={handleToggleGoalMet}
+          unit={unit}
         />
       )}
     </section>
@@ -159,6 +164,7 @@ type EntryHandlers = {
   pending: Set<string>;
   onTogglePR: (e: TrainingMaxHistoryEntryResponse) => void;
   onToggleGoalMet: (e: TrainingMaxHistoryEntryResponse) => void;
+  unit: WeightUnit;
 };
 
 function ListView({
@@ -224,13 +230,14 @@ function EntryRow({
   pending,
   onTogglePR,
   onToggleGoalMet,
+  unit,
 }: { entry: TrainingMaxHistoryEntryResponse } & EntryHandlers) {
   const busy = pending.has(entry.id);
   return (
     <tr>
       <td>{entry.date}</td>
       <td>{entry.lift}</td>
-      <td style={{ textAlign: 'right' }}>{entry.weight} {entry.unit}</td>
+      <td style={{ textAlign: 'right' }}>{formatWeight(entry.weight, entry.unit, unit)}</td>
       <td style={{ textAlign: 'center' }}>
         <span title={entry.source === 'test' ? 'Test week' : 'Program cycle'}>
           {entry.source === 'test' ? 'Test' : 'Program'}

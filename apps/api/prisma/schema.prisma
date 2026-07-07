@@ -171,6 +171,7 @@ model UserSettings {
   activeProgram          String?
   workoutSchedule        Json?
   defaultWeightIncrement Float?
+  unit                   String?
 
   @@map("user_settings")
 }
