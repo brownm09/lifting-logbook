@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { convertWeight, evaluateStrengthTier, formatWeight } from '@lifting-logbook/core';
+import { convertWeight, evaluateStrengthTier, formatWeight, roundToDisplay } from '@lifting-logbook/core';
 import type {
   BodyWeightResponse,
   StrengthGoalResponse,
@@ -28,30 +28,45 @@ interface GoalRowState {
   error: string | null;
 }
 
-// trainingMaxWeight is always stored in lbs (see docs/standards/training-max-precision.md);
-// bw and target are user-facing values in whatever unit is currently selected for each. Convert
-// the training max into that unit before comparing so progress is correct regardless of which
-// unit the user picked for body weight vs. this specific goal.
-function computeProgress(
-  trainingMaxWeight: number,
-  trainingMaxUnit: WeightUnit,
-  bw: number,
-  bwUnit: WeightUnit,
-  goalType: 'absolute' | 'relative',
-  target: string,
-  targetUnit: WeightUnit,
-  ratio: string,
-): number | null {
+// The training max is always stored in lbs (see docs/standards/training-max-precision.md);
+// `bw` and `target` are user-facing values in whatever unit is currently selected for each.
+// Convert the training max into that unit before comparing so progress is correct regardless
+// of which unit the user picked for body weight vs. this specific goal.
+//
+// Passed as a single options object rather than positional args: `tmUnit`, `bwUnit`, and
+// `targetUnit` are all `WeightUnit`, so a positional signature would let two units be
+// transposed silently — reintroducing exactly the cross-unit class of bug this function fixes.
+interface ProgressArgs {
+  tmWeight: number;
+  tmUnit: WeightUnit;
+  bw: number;
+  bwUnit: WeightUnit;
+  goalType: 'absolute' | 'relative';
+  target: string;
+  targetUnit: WeightUnit;
+  ratio: string;
+}
+
+function computeProgress({
+  tmWeight,
+  tmUnit,
+  bw,
+  bwUnit,
+  goalType,
+  target,
+  targetUnit,
+  ratio,
+}: ProgressArgs): number | null {
   if (goalType === 'relative') {
     const r = parseFloat(ratio);
     if (!isNaN(r) && r > 0 && bw > 0) {
-      const tmInBwUnit = convertWeight(trainingMaxWeight, trainingMaxUnit, bwUnit);
+      const tmInBwUnit = convertWeight(tmWeight, tmUnit, bwUnit);
       return evaluateStrengthTier(tmInBwUnit, bw, r).progressRatio;
     }
   } else {
     const t = parseFloat(target);
     if (!isNaN(t) && t > 0) {
-      const tmInTargetUnit = convertWeight(trainingMaxWeight, trainingMaxUnit, targetUnit);
+      const tmInTargetUnit = convertWeight(tmWeight, tmUnit, targetUnit);
       return tmInTargetUnit / t;
     }
   }
@@ -198,7 +213,7 @@ export default function StrengthGoalsForm({ program, trainingMaxes, goals, bodyW
               setEditingBw(true);
               setBwInput(
                 currentBw !== null
-                  ? String(Math.round(convertWeight(currentBw, currentBwUnit, preferredUnit) * 100) / 100)
+                  ? String(roundToDisplay(convertWeight(currentBw, currentBwUnit, preferredUnit)))
                   : '',
               );
             }}
@@ -221,7 +236,16 @@ export default function StrengthGoalsForm({ program, trainingMaxes, goals, bodyW
           const hasGoal = savedGoals[m.lift];
           const bwInRowUnit = currentBw !== null ? convertWeight(currentBw, currentBwUnit, row.unit) : null;
           const progress = currentBw
-            ? computeProgress(m.weight, m.unit, currentBw, currentBwUnit, row.goalType, row.target, row.unit, row.ratio)
+            ? computeProgress({
+                tmWeight: m.weight,
+                tmUnit: m.unit,
+                bw: currentBw,
+                bwUnit: currentBwUnit,
+                goalType: row.goalType,
+                target: row.target,
+                targetUnit: row.unit,
+                ratio: row.ratio,
+              })
             : null;
 
           const computedTarget =

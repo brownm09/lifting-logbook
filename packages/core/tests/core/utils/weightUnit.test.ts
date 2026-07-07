@@ -1,4 +1,4 @@
-import { convertWeight, formatWeight } from "@src/core";
+import { convertWeight, formatWeight, roundToDisplay } from "@src/core";
 
 describe("weightUnit", () => {
   describe("convertWeight", () => {
@@ -33,8 +33,25 @@ describe("weightUnit", () => {
       expect(formatWeight(100, "kg", "lbs")).toBe("220.46 lbs");
     });
 
-    it("does not convert or round when from and to units match", () => {
-      expect(formatWeight(316.25, "lbs", "lbs")).toBe("316.25 lbs");
+    it("does not convert or round a directly-known value shown in its own unit", () => {
+      // A >2-decimal training max (0.625 plate increment) must render at full
+      // precision when displayed in its stored unit — see
+      // docs/standards/training-max-precision.md category 1. Uses a 3-decimal
+      // fixture so a reintroduced same-unit round() would fail this assertion.
+      expect(formatWeight(316.875, "lbs", "lbs")).toBe("316.875 lbs");
+      expect(formatWeight(142.881, "kg", "kg")).toBe("142.881 kg");
+    });
+  });
+
+  describe("roundToDisplay", () => {
+    it("rounds to 2 decimal places", () => {
+      expect(roundToDisplay(142.881596)).toBe(142.88);
+      expect(roundToDisplay(220.462262)).toBe(220.46);
+    });
+
+    it("leaves a value with <=2 decimals unchanged", () => {
+      expect(roundToDisplay(316.25)).toBe(316.25);
+      expect(roundToDisplay(100)).toBe(100);
     });
   });
 });

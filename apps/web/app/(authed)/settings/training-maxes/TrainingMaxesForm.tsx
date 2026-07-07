@@ -12,7 +12,7 @@ import styles from './TrainingMaxesForm.module.css';
 
 type RowState = {
   value: string;
-  unit: string;
+  unit: WeightUnit;
   dateUpdated: string | null;
   error: string | null;
 };
@@ -98,7 +98,7 @@ export default function TrainingMaxesForm({
       .map((lift) => ({
         lift: lift as TrainingMaxResponse['lift'],
         weight: Number(rows[lift].value),
-        unit: rows[lift].unit as TrainingMaxResponse['unit'],
+        unit: rows[lift].unit,
       }));
 
     if (changed.length === 0) {
@@ -167,7 +167,7 @@ export default function TrainingMaxesForm({
                     )}
                     {unit !== row.unit && row.value !== '' && !isNaN(Number(row.value)) && (
                       <span className={styles.conversionHint}>
-                        ≈ {formatWeight(Number(row.value), row.unit as WeightUnit, unit)}
+                        ≈ {formatWeight(Number(row.value), row.unit, unit)}
                       </span>
                     )}
                   </td>

@@ -11,11 +11,11 @@ type Filter = 'pr' | 'test' | 'goalMet';
 export default function MaxHistory({
   initialEntries,
   program,
-  unit = 'lbs',
+  unit,
 }: {
   initialEntries: TrainingMaxHistoryEntryResponse[];
   program: string;
-  unit?: WeightUnit;
+  unit: WeightUnit;
 }) {
   const [entries, setEntries] = useState(initialEntries);
   const [view, setView] = useState<View>('list');
