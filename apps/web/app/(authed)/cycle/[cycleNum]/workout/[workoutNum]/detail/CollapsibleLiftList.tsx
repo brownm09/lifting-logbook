@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { formatWeight } from '@lifting-logbook/core';
+import type { WeightUnit } from '@lifting-logbook/types';
 import type { PlannedSet } from '@/lib/workoutPlan';
 import styles from './detail.module.css';
 
@@ -17,12 +19,14 @@ interface Props {
   liftDetails: LiftDetail[];
   cycleNum: number;
   workoutNum: number;
+  unit: WeightUnit;
 }
 
 export default function CollapsibleLiftList({
   liftDetails,
   cycleNum,
   workoutNum,
+  unit,
 }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -63,7 +67,7 @@ export default function CollapsibleLiftList({
                 <span className={styles.liftName}>
                   {lift}
                   {tm > 0 && (
-                    <span className={styles.liftTM}>TM: {tm} lbs</span>
+                    <span className={styles.liftTM}>TM: {formatWeight(tm, 'lbs', unit)}</span>
                   )}
                 </span>
 
@@ -93,7 +97,7 @@ export default function CollapsibleLiftList({
                       <div key={s.setLabel} className={styles.setRow}>
                         <span className={styles.setLabel}>{s.setLabel}</span>
                         <span className={styles.setSpec}>
-                          {s.reps} × {s.weight} lbs
+                          {s.reps} × {formatWeight(s.weight, 'lbs', unit)}
                         </span>
                       </div>
                     ))}
@@ -107,7 +111,7 @@ export default function CollapsibleLiftList({
                       <div key={s.setLabel} className={styles.setRow}>
                         <span className={styles.setLabel}>{s.setLabel}</span>
                         <span className={styles.setSpec}>
-                          {s.reps} × {s.weight} lbs
+                          {s.reps} × {formatWeight(s.weight, 'lbs', unit)}
                         </span>
                       </div>
                     ))}

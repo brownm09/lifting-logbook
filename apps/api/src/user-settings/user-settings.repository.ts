@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import {
   UserSettingsResponse,
   UserWorkoutSchedule,
+  WeightUnit,
   isValidSchedule,
 } from '@lifting-logbook/types';
 import { PrismaExecutor } from '../adapters/prisma/prisma-tx.util';
@@ -14,6 +15,9 @@ export interface UpsertSettingsPatch {
   // Explicit `null` clears the override (falls back to the 1.25 app default);
   // `undefined` leaves it unchanged.
   defaultWeightIncrement?: number | null;
+  // Explicit `null` clears the preference (falls back to 'lbs'); `undefined`
+  // leaves it unchanged.
+  unit?: WeightUnit | null;
 }
 
 // Runtime guard for values read from the JSONB column. Prisma returns whatever JSON is
@@ -23,6 +27,12 @@ export interface UpsertSettingsPatch {
 function parseSchedule(value: unknown): UserWorkoutSchedule | null {
   if (value === null || value === undefined) return null;
   return isValidSchedule(value) ? value : null;
+}
+
+// Runtime guard for the plain-string `unit` column — same rationale as parseSchedule
+// above. The column has no DB-level CHECK constraint, only DTO validation on write.
+function parseUnit(value: unknown): WeightUnit | null {
+  return value === 'lbs' || value === 'kg' ? value : null;
 }
 
 export class UserSettingsRepository implements IUserSettingsRepository {
@@ -42,6 +52,7 @@ export class UserSettingsRepository implements IUserSettingsRepository {
       activeProgram: row?.activeProgram ?? null,
       workoutSchedule: parseSchedule(row?.workoutSchedule),
       defaultWeightIncrement: row?.defaultWeightIncrement ?? null,
+      unit: parseUnit(row?.unit),
     };
   }
 
@@ -58,6 +69,7 @@ export class UserSettingsRepository implements IUserSettingsRepository {
     if (patch.defaultWeightIncrement !== undefined) {
       update.defaultWeightIncrement = patch.defaultWeightIncrement;
     }
+    if (patch.unit !== undefined) update.unit = patch.unit;
 
     const create: Prisma.UserSettingsUncheckedCreateInput = { userId: this.userId };
     if (patch.activeProgram !== undefined) create.activeProgram = patch.activeProgram;
@@ -67,6 +79,7 @@ export class UserSettingsRepository implements IUserSettingsRepository {
     if (patch.defaultWeightIncrement != null) {
       create.defaultWeightIncrement = patch.defaultWeightIncrement;
     }
+    if (patch.unit != null) create.unit = patch.unit;
 
     const row = await this.prisma.userSettings.upsert({
       where: { userId: this.userId },
@@ -77,6 +90,7 @@ export class UserSettingsRepository implements IUserSettingsRepository {
       activeProgram: row.activeProgram ?? null,
       workoutSchedule: parseSchedule(row.workoutSchedule),
       defaultWeightIncrement: row.defaultWeightIncrement ?? null,
+      unit: parseUnit(row.unit),
     };
   }
 }

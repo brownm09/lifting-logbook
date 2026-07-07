@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { fetchWorkout, fetchProgramSpec, fetchTrainingMaxes } from '@/lib/api';
 import { getActiveProgram } from '@/lib/active-program';
+import { getPreferredUnit } from '@/lib/preferences';
 import { computePlannedSets } from '@/lib/workoutPlan';
 import CollapsibleLiftList from './CollapsibleLiftList';
 import RescheduleForm from './RescheduleForm';
@@ -35,10 +36,11 @@ export default async function WorkoutDetailPage({
 
   const program = await getActiveProgram();
 
-  const [workout, specs, maxes] = await Promise.all([
+  const [workout, specs, maxes, unit] = await Promise.all([
     fetchWorkout(program, workoutNum),
     fetchProgramSpec(program),
     fetchTrainingMaxes(program),
+    getPreferredUnit(),
   ]);
 
   if (!workout) {
@@ -117,6 +119,7 @@ export default async function WorkoutDetailPage({
           liftDetails={liftDetails}
           cycleNum={cycleNum}
           workoutNum={workoutNum}
+          unit={unit}
         />
       </section>
 

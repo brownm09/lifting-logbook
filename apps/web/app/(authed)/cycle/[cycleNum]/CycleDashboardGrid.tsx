@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { formatWeight } from '@lifting-logbook/core';
+import type { WeightUnit } from '@lifting-logbook/types';
 import type { WeekRow, WorkoutCell } from '@/lib/workoutPlan';
 import styles from './CycleDashboardGrid.module.css';
 
@@ -32,9 +34,11 @@ function StatusBadge({ status }: { status: WorkoutCell['status'] }) {
 function WorkoutCard({
   cell,
   cycleNum,
+  unit,
 }: {
   cell: WorkoutCell;
   cycleNum: number;
+  unit: WeightUnit;
 }) {
   return (
     <Link
@@ -52,7 +56,7 @@ function WorkoutCard({
             <ol className={styles.setList}>
               {lift.sets.map((s) => (
                 <li key={s.setLabel}>
-                  {s.setLabel}: {s.weight} lbs × {s.reps}
+                  {s.setLabel}: {formatWeight(s.weight, 'lbs', unit)} × {s.reps}
                 </li>
               ))}
             </ol>
@@ -66,9 +70,11 @@ function WorkoutCard({
 export default function CycleDashboardGrid({
   cycleNum,
   weeks,
+  unit,
 }: {
   cycleNum: number;
   weeks: WeekRow[];
+  unit: WeightUnit;
 }) {
   const currentWeek = findCurrentWeek(weeks);
 
@@ -118,7 +124,7 @@ export default function CycleDashboardGrid({
               {isExpanded && (
                 <div className={styles.workouts}>
                   {row.workouts.map((cell) => (
-                    <WorkoutCard key={cell.workoutNum} cell={cell} cycleNum={cycleNum} />
+                    <WorkoutCard key={cell.workoutNum} cell={cell} cycleNum={cycleNum} unit={unit} />
                   ))}
                 </div>
               )}

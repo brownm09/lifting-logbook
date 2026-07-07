@@ -39,4 +39,9 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     description:
       'Set the smallest weight increment used when rounding calculated loads to a loadable weight.',
   },
+  {
+    href: '/settings/units',
+    label: 'Units',
+    description: 'Choose lbs or kg for how weights are displayed across the app.',
+  },
 ];

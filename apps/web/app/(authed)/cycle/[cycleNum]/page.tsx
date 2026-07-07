@@ -6,6 +6,7 @@ import {
   fetchWorkout,
 } from '@/lib/api';
 import { getActiveProgram } from '@/lib/active-program';
+import { getPreferredUnit } from '@/lib/preferences';
 import {
   buildWorkoutDays,
   computePlannedSets,
@@ -23,10 +24,11 @@ export default async function CycleDashboardPage({
   const requestedCycleNum = Number(cycleNumParam);
   const program = await getActiveProgram();
 
-  const [dashboard, specs, maxes] = await Promise.all([
+  const [dashboard, specs, maxes, unit] = await Promise.all([
     fetchCycleDashboard(program),
     fetchProgramSpec(program),
     fetchTrainingMaxes(program),
+    getPreferredUnit(),
   ]);
 
   if (!dashboard || dashboard.cycleNum !== requestedCycleNum) {
@@ -85,5 +87,5 @@ export default async function CycleDashboardPage({
       }),
   }));
 
-  return <CycleDashboardGrid cycleNum={dashboard.cycleNum} weeks={weeks} />;
+  return <CycleDashboardGrid cycleNum={dashboard.cycleNum} weeks={weeks} unit={unit} />;
 }

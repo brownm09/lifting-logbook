@@ -369,17 +369,25 @@ export interface UserSettingsResponse {
   workoutSchedule: UserWorkoutSchedule | null;
   /** Null when unset — callers fall back to 1.25 (see docs/standards/training-max-precision.md). */
   defaultWeightIncrement: number | null;
+  /** Null when unset — callers fall back to 'lbs' (see DEFAULT_WEIGHT_UNIT). Display preference only; stored weights are unaffected. */
+  unit: WeightUnit | null;
 }
 
 export interface UpdateUserSettingsRequest {
   workoutSchedule?: UserWorkoutSchedule | null;
   defaultWeightIncrement?: number | null;
+  unit?: WeightUnit | null;
 }
 
 /** The only values `defaultWeightIncrement` may take, matching plate sizes users actually have. */
 export const WEIGHT_INCREMENT_OPTIONS = [0.625, 1.25, 2.5, 5] as const;
 
 export const DEFAULT_WEIGHT_INCREMENT = 1.25;
+
+/** The only values the global `unit` preference may take. */
+export const WEIGHT_UNIT_OPTIONS = ['lbs', 'kg'] as const;
+
+export const DEFAULT_WEIGHT_UNIT: WeightUnit = 'lbs';
 
 // ---------------------------------------------------------------------------
 // Custom Programs

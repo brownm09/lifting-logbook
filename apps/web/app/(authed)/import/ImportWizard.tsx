@@ -11,8 +11,9 @@ import type {
   ImportKind,
   ImportPreviewResponse,
   ImportUndoResponse,
+  WeightUnit,
 } from '@lifting-logbook/types';
-import { CANONICAL_LIFT_IDS } from '@lifting-logbook/core';
+import { CANONICAL_LIFT_IDS, formatWeight } from '@lifting-logbook/core';
 import { commitImport, previewImport, undoImport } from '@/lib/client-api';
 import { Step, STEP_LABELS } from './steps';
 import styles from './import.module.css';
@@ -101,7 +102,20 @@ function filterDeltas(deltas: ImportDelta[], filter: ReviewFilter): ImportDelta[
   return deltas;
 }
 
-export function ImportWizard({ programs }: { programs: CustomProgramSummaryResponse[] }) {
+export function ImportWizard({
+  programs,
+  unit = 'lbs',
+}: {
+  programs: CustomProgramSummaryResponse[];
+  /**
+   * Display-only preference for a read-only conversion hint. Imported
+   * training-max values are directly-known (see
+   * docs/standards/training-max-precision.md) and always committed in lbs —
+   * this API has no real per-record unit storage — so the editable weight
+   * value itself is never converted.
+   */
+  unit?: WeightUnit;
+}) {
   const [step, setStep] = useState<typeof Step[keyof typeof Step]>(Step.SOURCE);
   const [programId, setProgramId] = useState<string>(programs[0]?.id ?? '');
   const [file, setFile] = useState<File | null>(null);
@@ -610,6 +624,11 @@ export function ImportWizard({ programs }: { programs: CustomProgramSummaryRespo
                                 }
                               />
                               <span className={styles.stepHint}>lbs</span>
+                              {unit !== 'lbs' && row.weight !== '' && !isNaN(Number(row.weight)) && (
+                                <span className={styles.stepHint}>
+                                  ≈ {formatWeight(Number(row.weight), 'lbs', unit)}
+                                </span>
+                              )}
                               <button
                                 type="button"
                                 className={styles.maxEditRemove}

@@ -1,8 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { evaluateStrengthTier } from '@lifting-logbook/core';
-import type { BodyWeightResponse, StrengthGoalResponse, TrainingMaxResponse } from '@lifting-logbook/types';
+import { convertWeight, evaluateStrengthTier, formatWeight } from '@lifting-logbook/core';
+import type {
+  BodyWeightResponse,
+  StrengthGoalResponse,
+  TrainingMaxResponse,
+  WeightUnit,
+} from '@lifting-logbook/types';
 import { saveStrengthGoal, removeStrengthGoal, saveBodyWeight } from './actions';
 
 interface Props {
@@ -10,6 +15,8 @@ interface Props {
   trainingMaxes: TrainingMaxResponse[];
   goals: StrengthGoalResponse[];
   bodyWeight: BodyWeightResponse | null;
+  /** Global display preference — also the default unit for new goal/body-weight entries. */
+  preferredUnit: WeightUnit;
 }
 
 interface GoalRowState {
@@ -21,29 +28,39 @@ interface GoalRowState {
   error: string | null;
 }
 
+// trainingMaxWeight is always stored in lbs (see docs/standards/training-max-precision.md);
+// bw and target are user-facing values in whatever unit is currently selected for each. Convert
+// the training max into that unit before comparing so progress is correct regardless of which
+// unit the user picked for body weight vs. this specific goal.
 function computeProgress(
   trainingMaxWeight: number,
+  trainingMaxUnit: WeightUnit,
   bw: number,
+  bwUnit: WeightUnit,
   goalType: 'absolute' | 'relative',
   target: string,
+  targetUnit: WeightUnit,
   ratio: string,
 ): number | null {
   if (goalType === 'relative') {
     const r = parseFloat(ratio);
     if (!isNaN(r) && r > 0 && bw > 0) {
-      return evaluateStrengthTier(trainingMaxWeight, bw, r).progressRatio;
+      const tmInBwUnit = convertWeight(trainingMaxWeight, trainingMaxUnit, bwUnit);
+      return evaluateStrengthTier(tmInBwUnit, bw, r).progressRatio;
     }
   } else {
     const t = parseFloat(target);
     if (!isNaN(t) && t > 0) {
-      return trainingMaxWeight / t;
+      const tmInTargetUnit = convertWeight(trainingMaxWeight, trainingMaxUnit, targetUnit);
+      return tmInTargetUnit / t;
     }
   }
   return null;
 }
 
-export default function StrengthGoalsForm({ program, trainingMaxes, goals, bodyWeight }: Props) {
+export default function StrengthGoalsForm({ program, trainingMaxes, goals, bodyWeight, preferredUnit }: Props) {
   const [currentBw, setCurrentBw] = useState<number | null>(bodyWeight?.weight ?? null);
+  const [currentBwUnit, setCurrentBwUnit] = useState<WeightUnit>(bodyWeight?.unit ?? preferredUnit);
   const [bwInput, setBwInput] = useState(String(bodyWeight?.weight ?? ''));
   const [editingBw, setEditingBw] = useState(false);
   const [savingBw, setSavingBw] = useState(false);
@@ -57,7 +74,7 @@ export default function StrengthGoalsForm({ program, trainingMaxes, goals, bodyW
         {
           goalType: (existing?.goalType ?? 'relative') as 'absolute' | 'relative',
           target: String(existing?.target ?? ''),
-          unit: (existing?.unit ?? 'lbs') as 'lbs' | 'kg',
+          unit: (existing?.unit ?? preferredUnit) as 'lbs' | 'kg',
           ratio: String(existing?.ratio ?? ''),
           saving: false,
           error: null,
@@ -84,8 +101,9 @@ export default function StrengthGoalsForm({ program, trainingMaxes, goals, bodyW
     setSavingBw(true);
     setBwError(null);
     try {
-      await saveBodyWeight(program, w, 'lbs');
+      await saveBodyWeight(program, w, preferredUnit);
       setCurrentBw(w);
+      setCurrentBwUnit(preferredUnit);
       setEditingBw(false);
     } catch {
       setBwError('Save failed');
@@ -154,7 +172,7 @@ export default function StrengthGoalsForm({ program, trainingMaxes, goals, bodyW
               aria-label="Body weight"
               autoFocus
             />
-            <span>lbs</span>
+            <span>{preferredUnit}</span>
             <button type="button" onClick={handleSaveBw} disabled={savingBw}>
               {savingBw ? '…' : '✓'}
             </button>
@@ -176,12 +194,19 @@ export default function StrengthGoalsForm({ program, trainingMaxes, goals, bodyW
               cursor: 'pointer',
               width: 'fit-content',
             }}
-            onClick={() => { setEditingBw(true); setBwInput(String(currentBw ?? '')); }}
+            onClick={() => {
+              setEditingBw(true);
+              setBwInput(
+                currentBw !== null
+                  ? String(Math.round(convertWeight(currentBw, currentBwUnit, preferredUnit) * 100) / 100)
+                  : '',
+              );
+            }}
             role="button"
             aria-label="Record new body weight"
           >
             <span style={{ fontWeight: 600 }}>
-              {currentBw !== null ? `${currentBw} lbs` : 'No weight recorded'}
+              {currentBw !== null ? formatWeight(currentBw, currentBwUnit, preferredUnit) : 'No weight recorded'}
             </span>
             <span style={{ fontSize: '0.8rem', color: '#7f8c8d' }}>✎ Record new weight</span>
           </div>
@@ -194,18 +219,19 @@ export default function StrengthGoalsForm({ program, trainingMaxes, goals, bodyW
         {trainingMaxes.map((m) => {
           const row = rows[m.lift];
           const hasGoal = savedGoals[m.lift];
+          const bwInRowUnit = currentBw !== null ? convertWeight(currentBw, currentBwUnit, row.unit) : null;
           const progress = currentBw
-            ? computeProgress(m.weight, currentBw, row.goalType, row.target, row.ratio)
+            ? computeProgress(m.weight, m.unit, currentBw, currentBwUnit, row.goalType, row.target, row.unit, row.ratio)
             : null;
 
           const computedTarget =
-            row.goalType === 'relative' && currentBw && parseFloat(row.ratio) > 0
-              ? Math.round(currentBw * parseFloat(row.ratio))
+            row.goalType === 'relative' && bwInRowUnit && parseFloat(row.ratio) > 0
+              ? Math.round(bwInRowUnit * parseFloat(row.ratio))
               : null;
 
           const bwPercent =
-            row.goalType === 'absolute' && currentBw && parseFloat(row.target) > 0
-              ? Math.round((parseFloat(row.target) / currentBw) * 100)
+            row.goalType === 'absolute' && bwInRowUnit && parseFloat(row.target) > 0
+              ? Math.round((parseFloat(row.target) / bwInRowUnit) * 100)
               : null;
 
           return (
@@ -221,7 +247,7 @@ export default function StrengthGoalsForm({ program, trainingMaxes, goals, bodyW
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.5rem' }}>
                 <strong>{m.lift}</strong>
                 <span style={{ fontSize: '0.85rem', color: '#666' }}>
-                  Current max: {m.weight} {m.unit}
+                  Current max: {formatWeight(m.weight, m.unit, preferredUnit)}
                 </span>
               </div>
 
@@ -262,9 +288,9 @@ export default function StrengthGoalsForm({ program, trainingMaxes, goals, bodyW
                   {computedTarget !== null && (
                     <span
                       style={{ fontSize: '0.8rem', color: '#666' }}
-                      title={`${row.ratio}× BW = ${computedTarget} lbs at current weight`}
+                      title={`${row.ratio}× BW = ${computedTarget} ${row.unit} at current weight`}
                     >
-                      = {computedTarget} lbs
+                      = {computedTarget} {row.unit}
                     </span>
                   )}
                   <select

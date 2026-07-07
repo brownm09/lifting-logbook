@@ -1071,6 +1071,25 @@ describeOrSkip('Programs HTTP (e2e, PrismaRepositoryFactory)', () => {
       expect(getRes.json()).toMatchObject({ activeProgram: SEED_PROGRAM });
     });
 
+    it('PATCH /users/me/settings updates unit and persists to DB', async () => {
+      const injectRaw = app.getHttpAdapter().getInstance().inject.bind(app.getHttpAdapter().getInstance());
+
+      const patchRes = await injectRaw({
+        method: 'PATCH',
+        url: '/users/me/settings',
+        headers: { 'content-type': 'application/json', ...AS_SETT },
+        payload: JSON.stringify({ unit: 'kg' }),
+      });
+      expect(patchRes.statusCode).toBe(200);
+      expect(patchRes.json()).toMatchObject({ unit: 'kg' });
+
+      const row = await prisma.userSettings.findFirst({ where: { userId: USER_SETT } });
+      expect(row?.unit).toBe('kg');
+
+      const getRes = await injectRaw({ method: 'GET', url: '/users/me/settings', headers: AS_SETT });
+      expect(getRes.json()).toMatchObject({ unit: 'kg' });
+    });
+
     it('user isolation — settings are scoped to userId', async () => {
       const injectRaw = app.getHttpAdapter().getInstance().inject.bind(app.getHttpAdapter().getInstance());
       const AS_OTHER = { authorization: `Bearer ${USER_SETT_OTHER}` };
