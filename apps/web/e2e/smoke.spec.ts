@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 
-const MOCK_API = 'http://localhost:3004';
+// 127.0.0.1 (not localhost): IPv4-only dev servers + Windows localhost -> ::1 (#741, CLAUDE.md).
+const MOCK_API = 'http://127.0.0.1:3004';
 
 test.beforeEach(async ({ request }) => {
   await request.get(`${MOCK_API}/__reset`);
