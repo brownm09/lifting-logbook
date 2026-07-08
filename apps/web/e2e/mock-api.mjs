@@ -282,14 +282,21 @@ const server = createServer(async (req, res) => {
     const id = decodeURIComponent(parts[2]);
     const body = await readBody(req);
     if (rejectIfInvalidBody(res, body)) return;
-    json(res, {
+    const existing = state.customPrograms.find((p) => p.id === id);
+    const updated = {
       id,
       name: body.name ?? 'Custom Program',
       description: body.description ?? null,
-      baseTemplate: null,
-      createdAt: '2026-01-01',
+      baseTemplate: body.baseTemplate ?? existing?.baseTemplate ?? null,
+      createdAt: existing?.createdAt ?? '2026-01-01',
       specs: Array.isArray(body.specs) ? body.specs : [],
-    });
+    };
+    // Mirror POST: persist to state so a later GET /programs/custom reflects the
+    // edit — an edit-mode e2e asserting a rename would otherwise pass on stale data.
+    const { specs: _specs, ...summary } = updated;
+    if (existing) Object.assign(existing, summary);
+    else state.customPrograms.push(summary);
+    json(res, updated);
     return;
   }
 

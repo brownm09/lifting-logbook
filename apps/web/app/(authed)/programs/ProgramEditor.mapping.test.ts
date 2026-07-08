@@ -157,4 +157,26 @@ describe('daysFromSpecs', () => {
     expect(inst?.weeks[2].sets).toBe(4); // fell back to week 1
     expect(inst?.weeks[3].reps).toBe(6);
   });
+
+  it('keeps both lifts when two different lifts share the same (offset, order)', () => {
+    // Not producible by the editor or presets (they assign each lift a distinct
+    // order), but reachable via the custom-program spec-import path — the natural
+    // key includes `lift`, so the store permits it. Grouping by `order` alone would
+    // silently drop one lift on edit-load, then delete it permanently on re-save.
+    const specs: CustomProgramSpecRow[] = [1, 2, 3].flatMap((week) => [
+      legacyRow(week, 'Squat', 1, 0),
+      legacyRow(week, 'Bench Press', 1, 0),
+    ]);
+    const days = daysFromSpecs(specs);
+    expect(days).toHaveLength(1);
+    const lifts = days[0]?.instances.map((i) => i.lift) ?? [];
+    expect(lifts).toHaveLength(2);
+    expect([...lifts].sort()).toEqual(['Bench Press', 'Squat']);
+    // Re-saving renumbers order so the two instances no longer collide.
+    const resaved = specsFromDays(days);
+    const week1Day0 = resaved.filter((s) => s.week === 1 && s.offset === 0);
+    expect(week1Day0.map((s) => s.order).sort()).toEqual([1, 2]);
+    const keys = resaved.map(naturalKey);
+    expect(new Set(keys).size).toBe(keys.length); // no duplicate natural key
+  });
 });

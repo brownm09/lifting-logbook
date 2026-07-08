@@ -66,7 +66,10 @@ export default function ProgramEditor({
   );
 
   const [days, setDays] = useState<WorkoutDayModel[]>(() => {
-    if (mode === 'edit' && existing?.specs && existing.specs.length > 0) {
+    // Load an existing program's specs whenever they are provided, regardless of
+    // mode — so a future "clone an existing custom program" flow (which would pass
+    // `existing` under mode="clone") starts from the source specs instead of empty.
+    if (existing?.specs && existing.specs.length > 0) {
       return daysFromSpecs(existing.specs);
     }
     if (mode === 'clone' && baseTemplateId) {
@@ -243,14 +246,14 @@ export default function ProgramEditor({
               {day.instances.length === 0 ? (
                 <p className={styles.infoText}>No exercises yet — add one below.</p>
               ) : (
-                day.instances.map((inst) => (
+                day.instances.map((inst, i) => (
                   <div key={inst.id} className={styles.instanceRow}>
                     <div className={styles.instanceHeader}>
                       <strong>{inst.lift}</strong>
                       <button
                         type="button"
                         className={styles.btnSecondary}
-                        aria-label={`Remove ${inst.lift} from Day ${n}`}
+                        aria-label={`Remove ${inst.lift} #${i + 1} from Day ${n}`}
                         onClick={() => removeInstance(day.id, inst.id)}
                       >
                         Remove
@@ -281,7 +284,7 @@ export default function ProgramEditor({
                                     min={1}
                                     max={20}
                                     value={p.sets}
-                                    aria-label={`${inst.lift} Day ${n} Week ${week} sets`}
+                                    aria-label={`${inst.lift} #${i + 1} Day ${n} Week ${week} sets`}
                                     onChange={(e) => updateInstanceWeek(day.id, inst.id, week, 'sets', Number(e.target.value))}
                                   />
                                 </td>
@@ -292,7 +295,7 @@ export default function ProgramEditor({
                                     min={1}
                                     max={20}
                                     value={p.reps}
-                                    aria-label={`${inst.lift} Day ${n} Week ${week} reps`}
+                                    aria-label={`${inst.lift} #${i + 1} Day ${n} Week ${week} reps`}
                                     onChange={(e) => updateInstanceWeek(day.id, inst.id, week, 'reps', Number(e.target.value))}
                                   />
                                 </td>
@@ -300,7 +303,7 @@ export default function ProgramEditor({
                                   <input
                                     type="checkbox"
                                     checked={p.amrap}
-                                    aria-label={`${inst.lift} Day ${n} Week ${week} AMRAP`}
+                                    aria-label={`${inst.lift} #${i + 1} Day ${n} Week ${week} AMRAP`}
                                     onChange={(e) => updateInstanceWeek(day.id, inst.id, week, 'amrap', e.target.checked)}
                                   />
                                 </td>
@@ -311,7 +314,7 @@ export default function ProgramEditor({
                                     min={0}
                                     step={2.5}
                                     value={p.increment}
-                                    aria-label={`${inst.lift} Day ${n} Week ${week} increment`}
+                                    aria-label={`${inst.lift} #${i + 1} Day ${n} Week ${week} increment`}
                                     onChange={(e) => updateInstanceWeek(day.id, inst.id, week, 'increment', Number(e.target.value))}
                                   />
                                 </td>
@@ -321,7 +324,7 @@ export default function ProgramEditor({
                                     style={{ width: '120px' }}
                                     type="text"
                                     value={p.warmUpPct}
-                                    aria-label={`${inst.lift} Day ${n} Week ${week} warmup percents`}
+                                    aria-label={`${inst.lift} #${i + 1} Day ${n} Week ${week} warmup percents`}
                                     onChange={(e) => updateInstanceWeek(day.id, inst.id, week, 'warmUpPct', e.target.value)}
                                     placeholder="0.4,0.5,0.6"
                                   />
