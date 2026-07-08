@@ -2,7 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import type { LiftRecordResponse } from '@lifting-logbook/types';
+import type { LiftRecordResponse, WeightUnit } from '@lifting-logbook/types';
+import { convertWeight, formatWeight, roundToDisplay } from '@lifting-logbook/core';
 import {
   createLiftRecord,
   recordBodyWeight,
@@ -16,30 +17,42 @@ import type { LiftData, WorkingSetData, WorkoutLoggerProps } from './types';
 // Helpers
 // ---------------------------------------------------------------------------
 
+// Plan loads and logged lift records are always stored in lbs; `unit` is the
+// user's display preference. These format helpers convert for display only — the
+// numeric value logged to the API is never converted (see
+// docs/standards/training-max-precision.md).
+
 function formatWarmUpWeight(
   totalLoad: number,
   bodyWeight: number | null,
   isBodyweightComponent: boolean,
+  unit: WeightUnit,
 ): string {
   if (!isBodyweightComponent || bodyWeight === null) {
-    return `${totalLoad} lbs`;
+    return formatWeight(totalLoad, 'lbs', unit);
   }
   if (totalLoad <= bodyWeight) {
     return 'BW';
   }
-  return `+${totalLoad - bodyWeight} lbs`;
+  return `+${formatWeight(totalLoad - bodyWeight, 'lbs', unit)}`;
 }
 
 function formatWorkingWeight(
   totalLoad: number,
   bodyWeight: number | null,
   isBodyweightComponent: boolean,
+  unit: WeightUnit,
 ): { display: string; value: number } {
   if (!isBodyweightComponent || bodyWeight === null) {
-    return { display: `${totalLoad} lbs`, value: totalLoad };
+    return { display: formatWeight(totalLoad, 'lbs', unit), value: totalLoad };
   }
-  const added = Math.max(0, totalLoad - bodyWeight);
-  return { display: `+${added} lbs`, value: added };
+  // Round the added lbs load: a kg-entered body weight is a full-precision
+  // conversion, so `totalLoad - bodyWeight` carries float noise that would
+  // otherwise surface raw in the pre-filled (lbs) weight input. `value` stays in
+  // lbs — never the converted display number, or logging would corrupt the stored
+  // weight.
+  const added = roundToDisplay(Math.max(0, totalLoad - bodyWeight));
+  return { display: `+${formatWeight(added, 'lbs', unit)}`, value: added };
 }
 
 // ---------------------------------------------------------------------------
@@ -48,12 +61,19 @@ function formatWorkingWeight(
 
 function BodyWeightGate({
   onSubmit,
+  unit,
 }: {
   onSubmit: (weight: number) => Promise<void>;
+  unit: WeightUnit;
 }) {
   const [input, setInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Realistic body-weight bounds are defined in lbs; convert them so the input's
+  // min/max stay sensible when the preferred unit is kg.
+  const minWeight = Math.round(convertWeight(50, 'lbs', unit));
+  const maxWeight = Math.round(convertWeight(500, 'lbs', unit));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -81,14 +101,14 @@ function BodyWeightGate({
       </p>
       <form className={styles.gateForm} onSubmit={handleSubmit}>
         <label className={styles.gateLabel} htmlFor="bw-input">
-          Body weight (lbs)
+          Body weight ({unit})
         </label>
         <input
           id="bw-input"
           className={styles.gateInput}
           type="number"
-          min="50"
-          max="500"
+          min={minWeight}
+          max={maxWeight}
           step="0.5"
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -113,14 +133,16 @@ function WarmUpRow({
   reps,
   bodyWeight,
   isBodyweightComponent,
+  unit,
 }: {
   label: string;
   totalLoad: number;
   reps: number;
   bodyWeight: number | null;
   isBodyweightComponent: boolean;
+  unit: WeightUnit;
 }) {
-  const weightStr = formatWarmUpWeight(totalLoad, bodyWeight, isBodyweightComponent);
+  const weightStr = formatWarmUpWeight(totalLoad, bodyWeight, isBodyweightComponent, unit);
   return (
     <li className={styles.warmUpRow}>
       <span className={styles.warmUpLabel}>{label}</span>
@@ -143,6 +165,7 @@ function WorkingSetRow({
   cycleNum,
   workoutNum,
   date,
+  unit,
   onLogged,
   onEditStart,
   onEditSave,
@@ -158,6 +181,7 @@ function WorkingSetRow({
   cycleNum: number;
   workoutNum: number;
   date: string;
+  unit: WeightUnit;
   onLogged: (record: LiftRecordResponse) => void;
   onEditStart: () => void;
   onEditSave: (record: LiftRecordResponse) => void;
@@ -166,11 +190,14 @@ function WorkingSetRow({
     set.totalLoad,
     bodyWeight,
     isBodyweightComponent,
+    unit,
   );
   // Pre-fill from the logged record when entering edit mode; fall back to plan defaults for new logs.
+  // The pre-filled value is always the native lbs number — the input and everything submitted stay
+  // in lbs (lift records have no per-record unit); `unit` only drives the read-only ≈ hint below.
   const [weightInput, setWeightInput] = useState(
     loggedRecord
-      ? String(formatWorkingWeight(loggedRecord.weight, null, false).value)
+      ? String(formatWorkingWeight(loggedRecord.weight, null, false, unit).value)
       : String(defaultWeight),
   );
   const [repsInput, setRepsInput] = useState(String(loggedRecord?.reps ?? set.reps));
@@ -235,15 +262,15 @@ function WorkingSetRow({
 
   if (isReadOnly || isLogged) {
     const displayWeight = loggedRecord
-      ? formatWorkingWeight(loggedRecord.weight, null, false).display
-      : formatWorkingWeight(set.totalLoad, bodyWeight, isBodyweightComponent).display;
+      ? formatWorkingWeight(loggedRecord.weight, null, false, unit).display
+      : formatWorkingWeight(set.totalLoad, bodyWeight, isBodyweightComponent, unit).display;
     return (
       <li className={`${styles.setRow} ${styles.setRowLogged}`}>
         <span className={styles.setNum}>Set {set.setNum}</span>
         <span className={styles.setCheck}>✓</span>
         <span className={styles.setSummary}>
           {loggedRecord
-            ? `${loggedRecord.weight} lbs × ${loggedRecord.reps}`
+            ? `${formatWeight(loggedRecord.weight, 'lbs', unit)} × ${loggedRecord.reps}`
             : `${displayWeight} × ${set.reps}`}
           {set.amrap ? ' (AMRAP)' : ''}
         </span>
@@ -332,6 +359,12 @@ function WorkingSetRow({
             Cancel
           </button>
         )}
+        {/* Entry stays in lbs; show the preferred-unit equivalent as a read-only hint. */}
+        {unit !== 'lbs' && weightInput !== '' && !isNaN(Number(weightInput)) && (
+          <span className={styles.conversionHint}>
+            ≈ {formatWeight(Number(weightInput), 'lbs', unit)}
+          </span>
+        )}
       </form>
     </li>
   );
@@ -347,6 +380,7 @@ function LiftView({
   cycleNum,
   workoutNum,
   date,
+  unit,
   onLogged,
   onEditStart,
   onEditSave,
@@ -360,6 +394,7 @@ function LiftView({
   cycleNum: number;
   workoutNum: number;
   date: string;
+  unit: WeightUnit;
   onLogged: (key: string, record: LiftRecordResponse) => void;
   onEditStart: (key: string) => void;
   onEditSave: (key: string, record: LiftRecordResponse) => void;
@@ -384,6 +419,7 @@ function LiftView({
                 reps={s.reps}
                 bodyWeight={bodyWeight}
                 isBodyweightComponent={lift.isBodyweightComponent}
+                unit={unit}
               />
             ))}
           </ul>
@@ -408,6 +444,7 @@ function LiftView({
                 cycleNum={cycleNum}
                 workoutNum={workoutNum}
                 date={date}
+                unit={unit}
                 onLogged={(record) => onLogged(key, record)}
                 onEditStart={() => onEditStart(key)}
                 onEditSave={(record) => onEditSave(key, record)}
@@ -424,11 +461,13 @@ function OverviewRow({
   lift,
   bodyWeight,
   loggedSets,
+  unit,
   onGoTo,
 }: {
   lift: LiftData;
   bodyWeight: number | null;
   loggedSets: Map<string, LiftRecordResponse>;
+  unit: WeightUnit;
   onGoTo: () => void;
 }) {
   const logged = lift.workingSets.filter((ws) =>
@@ -454,6 +493,7 @@ function OverviewRow({
             firstWarmUp.totalLoad,
             bodyWeight,
             lift.isBodyweightComponent,
+            unit,
           )}{' '}
           × {firstWarmUp.reps}
           {lift.warmUpSets.length > 1 ? ` (+${lift.warmUpSets.length - 1} more)` : ''}
@@ -476,6 +516,7 @@ export default function WorkoutLogger({
   hasBodyweightComponent,
   isReadOnly,
   initialBodyWeight,
+  unit,
 }: WorkoutLoggerProps) {
   const router = useRouter();
 
@@ -500,19 +541,22 @@ export default function WorkoutLogger({
   const [editingSet, setEditingSet] = useState<string | null>(null);
   const [currentLiftIdx, setCurrentLiftIdx] = useState(0);
   const [viewMode, setViewMode] = useState<'per-lift' | 'overview'>('per-lift');
-  // initialBodyWeight is non-null when the server found a same-day body weight entry.
+  // initialBodyWeight is non-null (and in lbs) when the server found a same-day body weight entry.
   const [bodyWeight, setBodyWeight] = useState<number | null>(initialBodyWeight);
   const [bodyWeightDone, setBodyWeightDone] = useState(
     !hasBodyweightComponent || isReadOnly || initialBodyWeight !== null,
   );
 
   async function handleBodyWeightSubmit(weight: number) {
+    // The gate collects body weight in the preferred unit, and body-weight records
+    // persist a per-record unit, so save it as entered. Keep the in-memory bodyWeight
+    // in lbs, though — every added-load calculation subtracts it from an lbs plan load.
     await recordBodyWeight(program, {
       date: effectiveDate,
       weight,
-      unit: 'lbs',
+      unit,
     });
-    setBodyWeight(weight);
+    setBodyWeight(convertWeight(weight, unit, 'lbs'));
     setBodyWeightDone(true);
   }
 
@@ -536,7 +580,7 @@ export default function WorkoutLogger({
 
   // Body weight gate
   if (!bodyWeightDone) {
-    return <BodyWeightGate onSubmit={handleBodyWeightSubmit} />;
+    return <BodyWeightGate onSubmit={handleBodyWeightSubmit} unit={unit} />;
   }
 
   const currentLift = lifts[currentLiftIdx];
@@ -564,6 +608,7 @@ export default function WorkoutLogger({
               lift={lift}
               bodyWeight={bodyWeight}
               loggedSets={loggedSets}
+              unit={unit}
               onGoTo={() => {
                 setCurrentLiftIdx(i);
                 setViewMode('per-lift');
@@ -653,6 +698,7 @@ export default function WorkoutLogger({
           cycleNum={cycleNum}
           workoutNum={workoutNum}
           date={effectiveDate}
+          unit={unit}
           onLogged={handleLogged}
           onEditStart={handleEditStart}
           onEditSave={handleEditSave}
@@ -671,6 +717,7 @@ export default function WorkoutLogger({
                   nextLift.warmUpSets[0].totalLoad,
                   bodyWeight,
                   nextLift.isBodyweightComponent,
+                  unit,
                 )}{' '}
                 × {nextLift.warmUpSets[0].reps}
               </span>

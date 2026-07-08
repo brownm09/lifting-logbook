@@ -1,4 +1,4 @@
-import type { LiftRecordResponse } from '@lifting-logbook/types';
+import type { LiftRecordResponse, WeightUnit } from '@lifting-logbook/types';
 
 export interface WarmUpSetData {
   /** Number of reps for this warm-up set. */
@@ -43,9 +43,19 @@ export interface WorkoutLoggerProps {
   hasBodyweightComponent: boolean;
   isReadOnly: boolean;
   /**
-   * Body weight (lbs) already recorded for this workout's date, if any.
+   * Body weight in lbs already recorded for this workout's date, if any.
+   * page.tsx normalizes from the stored per-record unit so this is always lbs —
+   * every added-load calculation subtracts it from an lbs plan load.
    * When set, the bodyweight gate is skipped and this value is used directly.
    * When null, the gate fires on first render (unless isReadOnly or !hasBodyweightComponent).
    */
   initialBodyWeight: number | null;
+  /**
+   * Global weight-unit display preference. Planned and logged weights are
+   * rendered in this unit; the working-set weight input and everything submitted
+   * stay in lbs (lift records have no per-record unit), while body weight is
+   * entered and persisted in this unit. Display preference only — see
+   * docs/standards/training-max-precision.md.
+   */
+  unit: WeightUnit;
 }

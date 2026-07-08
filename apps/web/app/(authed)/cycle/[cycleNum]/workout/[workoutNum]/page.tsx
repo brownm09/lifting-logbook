@@ -5,6 +5,7 @@ import {
   PROG_SPEC_WARMUP_PCTS,
   WARMUP_BASE_REPS,
   DEFAULT_SLOT_MAP,
+  convertWeight,
 } from '@lifting-logbook/core';
 import {
   fetchLatestBodyWeight,
@@ -14,6 +15,7 @@ import {
   fetchWorkout,
 } from '@/lib/api';
 import { getActiveProgram } from '@/lib/active-program';
+import { getPreferredUnit } from '@/lib/preferences';
 import WorkoutLogger from './WorkoutLogger';
 import type { LiftData, WarmUpSetData, WorkingSetData, WorkoutLoggerProps } from './types';
 
@@ -48,12 +50,13 @@ export default async function WorkoutLoggingPage({
 
   const program = await getActiveProgram();
 
-  const [workout, specs, maxes, allRecords, latestBodyWeight] = await Promise.all([
+  const [workout, specs, maxes, allRecords, latestBodyWeight, unit] = await Promise.all([
     fetchWorkout(program, workoutNum),
     fetchProgramSpec(program),
     fetchTrainingMaxes(program),
     fetchLiftRecords(program),
     fetchLatestBodyWeight(program),
+    getPreferredUnit(),
   ]);
 
   if (!workout) {
@@ -114,9 +117,11 @@ export default async function WorkoutLoggingPage({
 
   // Re-use a same-day body weight so the gate doesn't re-fire mid-session.
   // If the stored entry is from a different day, pass null → gate fires again.
+  // Body weight may be stored in kg, but WorkoutLogger's added-load math runs in
+  // lbs, so normalize to lbs here (the per-record unit is preserved server-side).
   const initialBodyWeight =
     latestBodyWeight && latestBodyWeight.date === workout.date
-      ? latestBodyWeight.weight
+      ? convertWeight(latestBodyWeight.weight, latestBodyWeight.unit, 'lbs')
       : null;
 
   const props: WorkoutLoggerProps = {
@@ -128,6 +133,7 @@ export default async function WorkoutLoggingPage({
     hasBodyweightComponent,
     isReadOnly,
     initialBodyWeight,
+    unit,
   };
 
   return <WorkoutLogger {...props} />;
