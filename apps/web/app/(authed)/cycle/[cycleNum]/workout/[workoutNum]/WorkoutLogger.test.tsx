@@ -1,0 +1,176 @@
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import type { LiftRecordResponse } from '@lifting-logbook/types';
+import WorkoutLogger from './WorkoutLogger';
+import type { LiftData, WorkoutLoggerProps } from './types';
+import { createLiftRecord, recordBodyWeight } from '@/lib/client-api';
+
+// jest.mock is hoisted above the imports, so `createLiftRecord`/`recordBodyWeight`
+// resolve to the jest.fn() mocks below.
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ push: jest.fn() }),
+}));
+
+jest.mock('@/lib/client-api', () => ({
+  createLiftRecord: jest.fn(),
+  updateLiftRecord: jest.fn(),
+  recordBodyWeight: jest.fn(),
+  rescheduleWorkout: jest.fn(),
+}));
+
+const mockCreateLiftRecord = createLiftRecord as jest.MockedFunction<typeof createLiftRecord>;
+const mockRecordBodyWeight = recordBodyWeight as jest.MockedFunction<typeof recordBodyWeight>;
+
+function makeLift(overrides: Partial<LiftData> = {}): LiftData {
+  return {
+    lift: 'Back Squat',
+    isBodyweightComponent: false,
+    warmUpSets: [],
+    workingSets: [{ setNum: 1, totalLoad: 100, reps: 5, amrap: false }],
+    ...overrides,
+  };
+}
+
+function makeProps(overrides: Partial<WorkoutLoggerProps> = {}): WorkoutLoggerProps {
+  return {
+    program: '5-3-1',
+    cycleNum: 1,
+    workoutNum: 1,
+    date: '2026-07-08',
+    lifts: [makeLift()],
+    hasBodyweightComponent: false,
+    isReadOnly: false,
+    initialBodyWeight: null,
+    unit: 'lbs',
+    ...overrides,
+  };
+}
+
+const LOGGED: LiftRecordResponse = {
+  id: 'rec-1',
+  program: '5-3-1',
+  cycleNum: 1,
+  workoutNum: 1,
+  date: '2026-07-08',
+  lift: 'Back Squat',
+  setNum: 1,
+  weight: 225,
+  reps: 5,
+  notes: '',
+};
+
+beforeEach(() => {
+  jest.clearAllMocks();
+});
+
+describe('WorkoutLogger — weight-unit display preference', () => {
+  it('renders planned warm-up and working-set weights converted to the preferred unit', () => {
+    render(
+      <WorkoutLogger
+        {...makeProps({
+          unit: 'kg',
+          isReadOnly: true,
+          lifts: [
+            makeLift({
+              warmUpSets: [{ reps: 5, totalLoad: 95 }],
+              workingSets: [{ setNum: 1, totalLoad: 100, reps: 5, amrap: false }],
+            }),
+          ],
+        })}
+      />,
+    );
+
+    // 95 lbs -> 43.09 kg (warm-up), 100 lbs -> 45.36 kg (working set).
+    expect(screen.getByText(/43\.09 kg/)).toBeInTheDocument();
+    expect(screen.getByText(/45\.36 kg/)).toBeInTheDocument();
+  });
+
+  it('renders a logged set summary in the preferred unit', () => {
+    render(
+      <WorkoutLogger
+        {...makeProps({
+          unit: 'kg',
+          lifts: [
+            makeLift({
+              workingSets: [
+                { setNum: 1, totalLoad: 100, reps: 5, amrap: false, existing: LOGGED },
+              ],
+            }),
+          ],
+        })}
+      />,
+    );
+
+    // LOGGED.weight is 225 lbs -> 102.06 kg.
+    expect(screen.getByText(/102\.06 kg/)).toBeInTheDocument();
+  });
+
+  it('leaves lbs display byte-identical and shows no conversion hint for lbs users', () => {
+    const { container } = render(
+      <WorkoutLogger
+        {...makeProps({
+          unit: 'lbs',
+          lifts: [makeLift({ warmUpSets: [{ reps: 5, totalLoad: 95 }] })],
+        })}
+      />,
+    );
+
+    expect(screen.getByText(/95 lbs/)).toBeInTheDocument();
+    // No approximate-conversion hint is rendered when the display unit is lbs.
+    expect(container.textContent).not.toContain('≈');
+  });
+
+  it('logs the weight in lbs, unchanged by the kg display preference', async () => {
+    const user = userEvent.setup();
+    mockCreateLiftRecord.mockResolvedValue(LOGGED);
+    render(<WorkoutLogger {...makeProps({ unit: 'kg' })} />);
+
+    const weightInput = screen.getByLabelText('Weight in lbs');
+    await user.clear(weightInput);
+    await user.type(weightInput, '225');
+
+    // A read-only kg hint is shown, but the editable value itself stays in lbs.
+    expect(screen.getByText(/≈ 102\.06 kg/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Log' }));
+
+    await waitFor(() => expect(mockCreateLiftRecord).toHaveBeenCalledTimes(1));
+    // The submitted weight is the lbs number the user typed — never the kg display value.
+    expect(mockCreateLiftRecord).toHaveBeenCalledWith(
+      '5-3-1',
+      expect.objectContaining({ weight: 225, reps: 5, setNum: 1, lift: 'Back Squat' }),
+    );
+  });
+
+  it('saves body weight in the preferred unit', async () => {
+    const user = userEvent.setup();
+    mockRecordBodyWeight.mockResolvedValue(undefined);
+    render(
+      <WorkoutLogger
+        {...makeProps({
+          unit: 'kg',
+          hasBodyweightComponent: true,
+          initialBodyWeight: null,
+          lifts: [
+            makeLift({
+              lift: 'Chin-up',
+              isBodyweightComponent: true,
+              workingSets: [{ setNum: 1, totalLoad: 100, reps: 5, amrap: false }],
+            }),
+          ],
+        })}
+      />,
+    );
+
+    const bwInput = screen.getByLabelText('Body weight (kg)');
+    await user.type(bwInput, '80');
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() => expect(mockRecordBodyWeight).toHaveBeenCalledTimes(1));
+    // Persisted in the entered (preferred) unit — body-weight records store a per-record unit.
+    expect(mockRecordBodyWeight).toHaveBeenCalledWith(
+      '5-3-1',
+      { date: '2026-07-08', weight: 80, unit: 'kg' },
+    );
+  });
+});

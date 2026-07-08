@@ -270,6 +270,14 @@
   margin: 0;
 }
 
+/* Read-only preferred-unit equivalent shown under the (lbs) weight input. */
+.conversionHint {
+  width: 100%;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  margin: 0;
+}
+
 .logBtn,
 .editBtn,
 .cancelBtn {
