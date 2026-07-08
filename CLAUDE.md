@@ -494,7 +494,7 @@ gh pr view <N> --json mergeable,mergeStateStatus
 # mergeable: "CONFLICTING" — direct conflict indicator; mergeStateStatus will also be "DIRTY"
 ```
 
-**Fix:** Rebase (or squash-rebase) the branch onto `origin/main` and force-push. Once the conflict is resolved, GitHub recreates the merge ref and CI fires normally on the next push.
+**Fix:** `git fetch origin` first (the rebase target is only as current as this repo's local `origin/main` tracking ref — a stale ref means the rebase resolves against outdated content and doesn't actually clear the conflict against the real current `main`). Then rebase (or squash-rebase) the branch onto `origin/main` and force-push. Once the conflict is resolved, GitHub recreates the merge ref and CI fires normally on the next push.
 
 Motivating incident: [PR #604](https://github.com/brownm09/lifting-logbook/pull/604).
 
