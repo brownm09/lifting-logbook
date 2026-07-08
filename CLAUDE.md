@@ -441,6 +441,8 @@ Playwright browsers must be installed once (`npx playwright install chromium`; C
 
 **Heavy on-demand-compiled routes need a `beforeAll` warmup.** When a Playwright e2e spec targets a heavy App Router route that Next dev compiles on-demand (e.g. `/import`), the first cold compile on Windows local dev can exceed Playwright's default `expect` (5s) *and* per-test (30s) timeouts — the first `page.goto` dies before any assertion runs. Warm the route once in a `test.beforeAll` that navigates a throwaway page to it with generous headroom (`test.setTimeout(120_000)` plus a ~90s `goto`/`expect` timeout), so every test then runs against an already-compiled route; CI (Linux) compiles fast enough that the warmup is a no-op there. Reference implementation: [`apps/web/e2e/import.spec.ts`](apps/web/e2e/import.spec.ts); motivating incident [#698](https://github.com/brownm09/lifting-logbook/issues/698) / [PR #715](https://github.com/brownm09/lifting-logbook/pull/715).
 
+**Troubleshooting — `ECONNREFUSED` on Windows (all e2e tests fail at once).** If every test fails with `apiRequestContext.get: connect ECONNREFUSED` (on `::1:3004` *or* `127.0.0.1:3004`) and `page.goto` hangs until it times out, the cause is an IPv4/IPv6 loopback mismatch, not a UI-string regression. On Windows the `webServer` processes (`node e2e/mock-api.mjs` on :3004, `next dev` on :3000) bind loopback **non-deterministically** — the default `server.listen(port)` / `next dev` host can come up IPv4-only *or* `::1`-only across runs — while Node 18+'s `verbatim` DNS resolves `localhost` to `::1` first. So a client dialing one family can reach a server listening on the other and get refused. The harness pins **everything** to `127.0.0.1` (unambiguous IPv4 loopback on every platform) so client, server bind, and readiness probe always agree: Playwright `use.baseURL`, the webServer `API_URL` / `PUBLIC_API_URL` env, `next dev --hostname 127.0.0.1`, the `url:` readiness probes (not bare `port:`) — all in [`apps/web/playwright.config.ts`](apps/web/playwright.config.ts) — plus the mock's `server.listen(PORT, '127.0.0.1')` bind in [`apps/web/e2e/mock-api.mjs`](apps/web/e2e/mock-api.mjs) and the `MOCK_API` constant in each spec. Linux CI is unaffected (`localhost` and `127.0.0.1` both resolve to IPv4 loopback there), so **keep these on `127.0.0.1`, never `localhost`** — reverting any one of them reintroduces the Windows failure. Because `reuseExistingServer` is on locally, a leftover/zombie server from a prior run — or a concurrent worktree, and this repo runs many — can be silently reused with a mismatched bind; if a run fails oddly, confirm nothing is already listening on :3000/:3004, or run with `CI=1` to force fresh servers. Motivating incident: [#741](https://github.com/brownm09/lifting-logbook/issues/741).
+
 ### Turbo version pin sync (Dockerfile ↔ package.json)
 
 `apps/web/Dockerfile`'s installer stage pins `npx turbo@<version> prune` to an exact version — `node_modules` is dockerignored ahead of that step, so a bare `npx turbo` has no local install to prefer and would fetch whatever the registry currently tags `latest`. That pin must match the root `package.json`'s `devDependencies.turbo` exactly, or the prune step and the later `npm ci`/build step in the same image run under two different turbo versions with nothing to catch the drift until an uncached Docker build. See [#674](https://github.com/brownm09/lifting-logbook/issues/674) / [#692](https://github.com/brownm09/lifting-logbook/issues/692).
@@ -495,6 +497,26 @@ gh pr view <N> --json mergeable,mergeStateStatus
 **Fix:** Rebase (or squash-rebase) the branch onto `origin/main` and force-push. Once the conflict is resolved, GitHub recreates the merge ref and CI fires normally on the next push.
 
 Motivating incident: [PR #604](https://github.com/brownm09/lifting-logbook/pull/604).
+
+### Staging-deploy queue starvation — cross-PR mutex preemption
+
+**Pattern:** `.github/workflows/staging.yml`'s `deploy-api`/`deploy-web` jobs serialize writes to the one shared staging Cloud Run service / Helm release via job-level concurrency groups (`staging-deploy-mutex-api`, `staging-deploy-mutex-web`, both `cancel-in-progress: false`). These groups are global, not per-PR. GitHub Actions keeps only the most-recently-queued run per concurrency group — when a third PR pushes while a second PR's deploy is already queued behind a first PR's running deploy, the second PR's queued run is silently cancelled and the third takes its place. Under sustained multi-PR throughput this can repeat for an unlucky PR across many cycles.
+
+**Symptom:** The required `Staging Integration Tests` check fails with "Staging did not become ready in time" or an empty `WEB_URL`, even on a PR whose diff cannot plausibly affect staging (e.g. docs-only). The `deploy-api` or `deploy-web` job's own result shows `cancelled` rather than `failure`.
+
+**Diagnosis:**
+```bash
+gh run list --workflow=staging.yml -R brownm09/lifting-logbook --limit 20
+```
+Open the cancelled run's job log — GitHub Actions annotates the cancellation directly: `Canceling since a higher priority waiting request for staging-deploy-mutex-web exists`.
+
+**Fix:** Re-run once the queue has a lull:
+```bash
+gh run rerun <run-id> --failed
+```
+This is a known, already-diagnosed CI mechanic, not a new bug — see [#673](https://github.com/brownm09/lifting-logbook/issues/673) for the full root-cause analysis and [ADR-030](docs/adr/ADR-030-github-merge-queue-adoption.md) for the accepted structural fix (GitHub merge queue). Activation is tracked in [#695](https://github.com/brownm09/lifting-logbook/issues/695); until it lands, re-running after the queue clears is the only workaround.
+
+Motivating incidents: [PR #703](https://github.com/brownm09/lifting-logbook/pull/703), [PR #711](https://github.com/brownm09/lifting-logbook/pull/711).
 
 ---
 

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import type { CustomProgramSummaryResponse } from '@lifting-logbook/types';
 import { fetchCustomPrograms } from '@/lib/api';
+import { getPreferredUnit } from '@/lib/preferences';
 import { ImportWizard } from './ImportWizard';
 
 export const metadata: Metadata = {
@@ -21,6 +22,7 @@ export default async function ImportPage() {
     console.error('ImportPage: custom programs fetch failed, rendering empty picker', e);
     programs = [];
   }
+  const unit = await getPreferredUnit();
 
-  return <ImportWizard programs={programs} />;
+  return <ImportWizard programs={programs} unit={unit} />;
 }

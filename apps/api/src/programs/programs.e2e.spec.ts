@@ -99,6 +99,19 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
     expect(body.lifts.length).toBeGreaterThan(0);
   });
 
+  it('GET /programs/:program/workouts/:workoutNum resolves a tiled week-2 workout in no-schedule mode (issue #740)', async () => {
+    // The seeded 5-3-1 program is a 3-week block of offsets {0,3} but a canonical
+    // length of 12 weeks, and the seeded user has no workout schedule. Workout 3 is
+    // the first workout of week 2. Pre-#740 the no-schedule cap was the block's 2
+    // distinct offsets, so this 400'd; now it tiles to the full length and resolves.
+    const res = await get(`/programs/${SEED_PROGRAM}/workouts/3`);
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.workoutNum).toBe(3);
+    expect(body.week).toBe(2);
+    expect(body.lifts.length).toBeGreaterThan(0);
+  });
+
   it('GET /programs/:program/training-maxes returns the seeded maxes', async () => {
     const res = await get(`/programs/${SEED_PROGRAM}/training-maxes`);
     expect(res.statusCode).toBe(200);
@@ -117,6 +130,19 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
     const res = await get(`/programs/${SEED_PROGRAM}/spec`);
     expect(res.statusCode).toBe(200);
     expect(res.json().length).toBeGreaterThan(0);
+  });
+
+  it('GET /programs/rpt/spec returns the full seeded RPT spec (regression: issue #739)', async () => {
+    // `rpt` was added to PRESET_BASE_SPECS in #596 but never seeded into the
+    // in-memory adapter, so this endpoint silently returned [] for every
+    // onboarded RPT user. The RPT split is 9 rows across 3 workout days
+    // (offsets 0/2/4), each a distinct lift.
+    const res = await get('/programs/rpt/spec');
+    expect(res.statusCode).toBe(200);
+    const rows: { offset: number; lift: string }[] = res.json();
+    expect(rows).toHaveLength(9);
+    expect(new Set(rows.map((r) => r.offset))).toEqual(new Set([0, 2, 4]));
+    expect(new Set(rows.map((r) => r.lift)).size).toBe(9);
   });
 
   it('GET unknown program returns 404', async () => {

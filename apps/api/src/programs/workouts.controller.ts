@@ -5,7 +5,7 @@ import {
   Inject,
   Param,
 } from '@nestjs/common';
-import { LiftRecord } from '@lifting-logbook/core';
+import { baseSpecBlockWeeks, blockWeekForProgramWeek, LiftRecord, programLengthWeeks } from '@lifting-logbook/core';
 import { WorkoutResponse } from '@lifting-logbook/types';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthUser } from '../ports/auth';
@@ -45,16 +45,6 @@ export class WorkoutsController {
       }),
       liftingProgramSpec.getProgramSpec(program),
     ]);
-    const week = weekForWorkoutNum(spec, workoutNum);
-    if (week === undefined) {
-      throw new BadRequestException(
-        `workoutNum ${workoutNum} exceeds program spec (${new Set(spec.map((s) => s.offset)).size} workout days)`,
-      );
-    }
-
-    // Spec lifts for this workout's week — used to build the planned lift list.
-    const specLifts = [...new Set(spec.filter((s) => s.week === week).map((s) => s.lift))];
-
     const [records, overrideDate, liftOverrides, scheduledWorkouts, skippedNums] = await Promise.all([
       // fallback-covered-by: apps/api/src/programs/workouts.controller.spec.ts
       workout
@@ -73,7 +63,27 @@ export class WorkoutsController {
         return new Set<number>();
       }),
     ]);
-    const scheduledDate = scheduledWorkouts.find((s) => s.workoutNum === workoutNum)?.scheduledDate;
+    const scheduledWorkout = scheduledWorkouts.find((s) => s.workoutNum === workoutNum);
+    const scheduledDate = scheduledWorkout?.scheduledDate;
+
+    // The scheduled row's weekNum is authoritative for the program week. With no
+    // schedule, weekForWorkoutNum tiles the stored block to the program's canonical
+    // length and indexes the global workoutNum into the ordered (week, offset)
+    // workout days — so week-2+ workouts of a tiled program (Leangains 12w, 5-3-1
+    // 12w) resolve in no-schedule mode too, not only schedule mode (#680 completed
+    // by #740). Undefined now means workoutNum is past the *full* canonical length.
+    const week = scheduledWorkout?.weekNum ?? weekForWorkoutNum(spec, workoutNum, program);
+    if (week === undefined) {
+      throw new BadRequestException(
+        `workoutNum ${workoutNum} exceeds the program's ${programLengthWeeks(program, spec)}-week schedule`,
+      );
+    }
+
+    // Planned lifts come from the tiled block week: the stored spec is one block,
+    // so map the program week (which may exceed blockWeeks) back into the block —
+    // via the same helper expandSpecToLength tiles with, so the two never disagree.
+    const blockWeek = blockWeekForProgramWeek(week, baseSpecBlockWeeks(spec));
+    const specLifts = [...new Set(spec.filter((s) => s.week === blockWeek).map((s) => s.lift))];
 
     const plannedLifts = applyLiftOverrides(specLifts, liftOverrides);
 

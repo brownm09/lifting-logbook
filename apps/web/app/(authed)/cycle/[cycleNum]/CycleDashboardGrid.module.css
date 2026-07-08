@@ -4,9 +4,58 @@
   margin: 0 auto;
 }
 
+.eyebrow {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-1);
+}
+
 .heading {
   font-size: var(--font-size-xl);
   margin-bottom: var(--space-4);
+}
+
+.progressSection {
+  margin-bottom: var(--space-4);
+}
+
+.progressHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-2);
+}
+
+.progressLabel {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.progressCount {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.progressTrack {
+  height: 8px;
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--color-accent);
+  border-radius: var(--radius-full);
+  transition: width var(--transition-base);
+}
+
+.progressFill_complete {
+  background: var(--color-success);
 }
 
 .quickNav {

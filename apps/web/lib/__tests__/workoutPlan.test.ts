@@ -1,5 +1,10 @@
 import type { LiftingProgramSpecResponse } from '@lifting-logbook/types';
-import { buildWorkoutDays, computePlannedSets } from '../workoutPlan';
+import {
+  buildWorkoutDays,
+  computeCycleProgress,
+  computePlannedSets,
+} from '../workoutPlan';
+import type { WeekRow, WorkoutCell } from '../workoutPlan';
 
 const makeSpec = (
   overrides: Partial<LiftingProgramSpecResponse>,
@@ -78,6 +83,63 @@ describe('buildWorkoutDays', () => {
   });
 });
 
+describe('buildWorkoutDays — multi-week grouping and canonical-length expansion (issue #740)', () => {
+  it('does not collide workouts that share an offset across different weeks', () => {
+    // 5-3-1-shaped base spec: offsets {0,3} repeated across weeks 1..3. Grouping by
+    // offset alone would collapse the three weeks' offset-0 (and offset-3) workouts
+    // into two mega-cards of 6 lifts. No `program` → canonical length falls back to
+    // the base-spec block size (3 weeks), isolating the grouping behavior.
+    const specs = [1, 2, 3].flatMap((week) => [
+      makeSpec({ week, offset: 0, lift: 'Squat', order: 1 }),
+      makeSpec({ week, offset: 0, lift: 'Bench Press', order: 2 }),
+      makeSpec({ week, offset: 3, lift: 'Deadlift', order: 1 }),
+      makeSpec({ week, offset: 3, lift: 'Overhead Press', order: 2 }),
+    ]);
+
+    const days = buildWorkoutDays(specs, '2026-01-05');
+
+    expect(days).toHaveLength(6); // 3 weeks × 2 offsets — NOT 2 collided cards
+    expect(days.every((d) => d.lifts.length === 2)).toBe(true); // 2 lifts each, not 6
+    expect(days.map((d) => d.week)).toEqual([1, 1, 2, 2, 3, 3]);
+    expect(days.map((d) => d.workoutNum)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(days[0]?.lifts.map((l) => l.lift)).toEqual(['Squat', 'Bench Press']);
+    // Dates advance a full week per program week: week-2 offset-0 is 7 days after week-1 offset-0.
+    expect(days[0]?.date).toBe('2026-01-05');
+    expect(days[2]?.date).toBe('2026-01-12');
+  });
+
+  it('expands a single-week repeating program to its canonical length', () => {
+    // Leangains: a 1-week block of 3 offsets tiled across 12 canonical weeks.
+    const base = [0, 2, 4].map((offset, i) =>
+      makeSpec({ week: 1, offset, lift: `Lift${i}` }),
+    );
+
+    const days = buildWorkoutDays(base, '2026-01-05', 'leangains');
+
+    expect(days).toHaveLength(36); // 12 weeks × 3 workouts
+    expect(new Set(days.map((d) => d.week)).size).toBe(12);
+    expect(days.filter((d) => d.week === 12)).toHaveLength(3);
+    // workoutNum is a global sequential index over (week, offset).
+    expect(days[3]?.workoutNum).toBe(4);
+    expect(days[3]?.week).toBe(2);
+  });
+
+  it('does not collide a 3-week custom program whose lifts all share offset 0', () => {
+    // Every ProgramEditor custom program is a 3-week spec with all lifts at offset 0.
+    const specs = [1, 2, 3].flatMap((week) =>
+      ['Squat', 'Bench Press'].map((lift, i) =>
+        makeSpec({ week, offset: 0, lift, order: i + 1 }),
+      ),
+    );
+
+    const days = buildWorkoutDays(specs, '2026-01-05');
+
+    expect(days).toHaveLength(3); // one workout per week — NOT one collided card of 6 lifts
+    expect(days.map((d) => d.week)).toEqual([1, 2, 3]);
+    expect(days.every((d) => d.lifts.length === 2)).toBe(true);
+  });
+});
+
 describe('computePlannedSets', () => {
   it('computes warmup and work sets from training max', () => {
     const spec = makeSpec({
@@ -140,5 +202,69 @@ describe('computePlannedSets', () => {
     const warmups = sets.filter((s) => s.setLabel.startsWith('Warm-up'));
     expect(warmups).toHaveLength(6);
     expect(warmups[5]?.reps).toBe(1);
+  });
+});
+
+const makeCell = (
+  status: WorkoutCell['status'],
+  workoutNum = 1,
+): WorkoutCell => ({
+  workoutNum,
+  date: '2026-01-05',
+  status,
+  lifts: [],
+});
+
+const makeWeek = (
+  week: number,
+  statuses: WorkoutCell['status'][],
+): WeekRow => ({
+  week,
+  workouts: statuses.map((status, i) => makeCell(status, i + 1)),
+});
+
+describe('computeCycleProgress', () => {
+  it('returns zeroes for an empty cycle', () => {
+    expect(computeCycleProgress([])).toEqual({
+      completedWorkouts: 0,
+      totalWorkouts: 0,
+      percent: 0,
+    });
+  });
+
+  it('reports 100% when every workout is completed', () => {
+    const weeks: WeekRow[] = [makeWeek(1, ['completed', 'completed'])];
+    expect(computeCycleProgress(weeks)).toEqual({
+      completedWorkouts: 2,
+      totalWorkouts: 2,
+      percent: 100,
+    });
+  });
+
+  it('counts only completed toward the numerator; skipped/missed count toward the denominator only', () => {
+    const weeks: WeekRow[] = [
+      makeWeek(1, ['completed', 'skipped', 'missed', 'upcoming']),
+    ];
+    const progress = computeCycleProgress(weeks);
+    expect(progress.completedWorkouts).toBe(1);
+    expect(progress.totalWorkouts).toBe(4);
+    expect(progress.percent).toBe(25);
+  });
+
+  it('sums totals across multiple week rows', () => {
+    const weeks: WeekRow[] = [
+      makeWeek(1, ['completed', 'completed', 'completed']),
+      makeWeek(2, ['completed', 'upcoming', 'upcoming']),
+    ];
+    const progress = computeCycleProgress(weeks);
+    expect(progress.completedWorkouts).toBe(4);
+    expect(progress.totalWorkouts).toBe(6);
+    expect(progress.percent).toBe(67); // 4 / 6 = 66.67 → 67
+  });
+
+  it('rounds percent to the nearest integer', () => {
+    // 1 of 3 completed = 33.33% → 33
+    const weeks: WeekRow[] = [makeWeek(1, ['completed', 'upcoming', 'upcoming'])];
+    expect(computeCycleProgress(weeks).percent).toBe(33);
   });
 });

@@ -3,7 +3,7 @@ import SettingsIndexPage from './page';
 import { SETTINGS_SECTIONS } from './sections';
 
 describe('Settings hub (index)', () => {
-  it('links to all four settings sections with a description each', () => {
+  it('links to all settings sections with a description each', () => {
     render(<SettingsIndexPage />);
 
     // Scope to the "Sections" region so the section links can never collide with
@@ -16,7 +16,7 @@ describe('Settings hub (index)', () => {
       expect(sections.getByText(description)).toBeInTheDocument();
     }
 
-    // Exactly the four sections — no extra/missing cards.
+    // Exactly SETTINGS_SECTIONS.length cards — no extra/missing entries.
     expect(sections.getAllByRole('link')).toHaveLength(SETTINGS_SECTIONS.length);
   });
 

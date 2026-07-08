@@ -14,7 +14,12 @@ export default defineConfig({
   workers: 1,
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:3000',
+    // 127.0.0.1 (not localhost): the webServers below bind IPv4-only (0.0.0.0) on
+    // Windows, while Node's verbatim DNS resolves localhost -> ::1 first, which those
+    // servers refuse (ECONNREFUSED ::1). 127.0.0.1 is unambiguous IPv4 on every
+    // platform and matches the bind; Linux CI is unaffected. See CLAUDE.md
+    // "apps/web Playwright E2E (local)" and issue #741.
+    baseURL: 'http://127.0.0.1:3000',
     trace: 'on-first-retry',
   },
   projects: [
@@ -26,7 +31,10 @@ export default defineConfig({
   webServer: [
     {
       command: 'node e2e/mock-api.mjs',
-      port: 3004,
+      // Wait on an explicit 127.0.0.1 URL, not a bare port: the mock binds 127.0.0.1 and the
+      // readiness probe must dial the same address the tests use, so a localhost->::1 default
+      // can't leave the probe hanging (or pass against a stale ::1 server). See issue #741.
+      url: 'http://127.0.0.1:3004/__reset',
       reuseExistingServer: !process.env.CI,
     },
     {
@@ -34,13 +42,17 @@ export default defineConfig({
       // next start with output:standalone breaks router.refresh(). Use
       // the dev server for E2E in all environments — it supports full
       // App Router cache invalidation and starts quickly with Turbopack.
-      command: 'npm run dev',
-      port: 3000,
+      // --hostname 127.0.0.1 forces next dev to bind IPv4 loopback (its default host can
+      // resolve to ::1-only on Windows); the explicit url readiness probe dials the same
+      // 127.0.0.1 the browser baseURL uses, keeping them in agreement. See issue #741.
+      command: 'npm run dev -- --hostname 127.0.0.1',
+      url: 'http://127.0.0.1:3000',
       env: {
         // Runtime public config (#396 / ADR-028): no NEXT_PUBLIC_ prefix — the root layout
         // reads these at request time and injects them into window.__PUBLIC_CONFIG__.
-        API_URL: 'http://localhost:3004',
-        PUBLIC_API_URL: 'http://localhost:3004',
+        // 127.0.0.1 (not localhost) — see the note on `use.baseURL` above (issue #741).
+        API_URL: 'http://127.0.0.1:3004',
+        PUBLIC_API_URL: 'http://127.0.0.1:3004',
         DEFAULT_PROGRAM: '5-3-1',
         DEV_AUTH_TOKEN: 'e2e-test',
         // @clerk/testing@2 upgraded @clerk/clerk-react to a version that throws

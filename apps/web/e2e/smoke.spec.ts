@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 
-const MOCK_API = 'http://localhost:3004';
+// 127.0.0.1 (not localhost): IPv4-only dev servers + Windows localhost -> ::1 (#741, CLAUDE.md).
+const MOCK_API = 'http://127.0.0.1:3004';
 
 test.beforeEach(async ({ request }) => {
   await request.get(`${MOCK_API}/__reset`);
@@ -74,8 +75,39 @@ test('onboarding: choose program → enter lifts → confirm → lands on cycle'
 test('cycle dashboard renders workout grid', async ({ page }) => {
   await page.goto('/cycle');
   await expect(page).toHaveURL(/\/cycle\/1/);
-  // Dashboard should show at least one workout entry from the mock (week 1, workouts 1-3)
+  await expect(page.getByRole('heading', { name: 'Cycle 1' })).toBeVisible();
+  // The grid renders one collapsible section per program week (issue #740). The mock
+  // cycle's dates are all in the past, so the current-week heuristic expands a later
+  // week and Week 1 starts collapsed — expand it, then assert its workout entry shows.
+  await page.getByRole('button', { name: 'Week 1', exact: true }).click();
   await expect(page.locator('text=2025-01-06').first()).toBeVisible();
+
+  // The screen is discoverably labeled as the dashboard.
+  await expect(page.getByText('Dashboard', { exact: true })).toBeVisible();
+
+  // Cycle Progress bar renders with an "N of M workouts" readout and an
+  // accessible progressbar role. The regex keeps this robust to whatever
+  // completed/total counts the mock fixture produces.
+  await expect(page.getByText(/\d+ of \d+ workouts/)).toBeVisible();
+  await expect(
+    page.getByRole('progressbar', { name: 'Cycle progress' }),
+  ).toBeVisible();
+});
+
+// ---------------------------------------------------------------------------
+// 4b. Cycle program page: "Edit Program" reads as disabled-with-reason
+// ---------------------------------------------------------------------------
+
+test('cycle program page marks Edit Program as coming soon', async ({ page }) => {
+  await page.goto('/cycle/1/program');
+
+  // The action is not built yet: the button is aria-disabled (still focusable, so
+  // the reason is reachable by AT) with a visible "Coming soon" affordance beside
+  // it — not a bare `disabled` button whose title tooltip a keyboard user cannot reach.
+  const editButton = page.getByRole('button', { name: 'Edit Program' });
+  await expect(editButton).toBeVisible();
+  await expect(editButton).toHaveAttribute('aria-disabled', 'true');
+  await expect(page.getByText('Coming soon')).toBeVisible();
 });
 
 // ---------------------------------------------------------------------------

@@ -3,9 +3,9 @@ import {
   fetchCycleDashboard,
   fetchProgramSpec,
   fetchTrainingMaxes,
-  fetchWorkout,
 } from '@/lib/api';
 import { getActiveProgram } from '@/lib/active-program';
+import { getPreferredUnit } from '@/lib/preferences';
 import {
   buildWorkoutDays,
   computePlannedSets,
@@ -23,34 +23,42 @@ export default async function CycleDashboardPage({
   const requestedCycleNum = Number(cycleNumParam);
   const program = await getActiveProgram();
 
-  const [dashboard, specs, maxes] = await Promise.all([
+  const [dashboard, specs, maxes, unit] = await Promise.all([
     fetchCycleDashboard(program),
     fetchProgramSpec(program),
     fetchTrainingMaxes(program),
+    getPreferredUnit(),
   ]);
 
   if (!dashboard || dashboard.cycleNum !== requestedCycleNum) {
     notFound();
   }
 
-  const workoutDays = buildWorkoutDays(specs, dashboard.cycleStartDate);
-  const workoutResponseList = await Promise.all(
-    workoutDays.map((w) => fetchWorkout(program, w.workoutNum)),
-  );
-  const workoutResponseMap = new Map(
-    workoutDays.map((w, i) => [w.workoutNum, workoutResponseList[i]]),
-  );
+  // Grid spans the program's full canonical length (leangains 12w → 36 workout
+  // days). We eagerly compute planned sets for every tiled workout here: the RSC
+  // payload now scales with program length rather than a single block, a conscious
+  // trade for dropping the per-workout fetch fan-out below. CycleDashboardGrid only
+  // mounts the current week's cards, so client render stays cheap regardless.
+  const workoutDays = buildWorkoutDays(specs, dashboard.cycleStartDate, program);
 
-  // Build a flat workoutNum → scheduled date lookup from the cycle dashboard response.
-  // This is populated when schedule mode is active; empty when no schedule is set.
+  // Per-workout status comes entirely from the cycle dashboard response — no
+  // per-workout fetch. `weeks` carries schedule-mode dates; the top-level maps
+  // cover both modes and, crucially, the tiled week-2+ workouts a no-schedule
+  // cycle would otherwise 400 on if fetched one-by-one (issue #740). The `?.`/`?? []`
+  // guards tolerate a response missing the (required) fields — e.g. an older API
+  // pod during a non-atomic web/api rolling deploy — degrading rather than crashing
+  // the whole dashboard, matching how the two Sets already tolerate `undefined`.
   const scheduledDateMap = new Map<number, string>();
-  const skippedWorkoutNums = new Set<number>();
   for (const week of dashboard.weeks) {
     for (const ws of week.workouts) {
       scheduledDateMap.set(ws.workoutNum, ws.date);
-      if (ws.skipped) skippedWorkoutNums.add(ws.workoutNum);
     }
   }
+  const skippedWorkoutNums = new Set(dashboard.skippedWorkoutNums ?? []);
+  // `logged` derives from lift records (like the dashboard's own week-completion,
+  // cycle-dashboard.controller.ts) rather than the removed per-workout response, so a
+  // workout with any logged record counts as done — consistent across the dashboard.
+  const completedWorkoutNums = new Set(dashboard.completedWorkoutNums ?? []);
 
   const today = new Date().toISOString().slice(0, 10);
   const maxMap = new Map(maxes.map((m) => [m.lift, m.weight]));
@@ -62,10 +70,12 @@ export default async function CycleDashboardPage({
     workouts: workoutDays
       .filter((w) => w.week === week)
       .map((w): WorkoutCell => {
-        const response = workoutResponseMap.get(w.workoutNum);
-        const logged = response != null && response.lifts.some((l) => !l.planned);
+        const logged = completedWorkoutNums.has(w.workoutNum);
         // Priority: user override date > API scheduled date > spec-computed date.
-        const effectiveDate = response?.overrideDate ?? scheduledDateMap.get(w.workoutNum) ?? w.date;
+        const effectiveDate =
+          dashboard.dateOverrides?.[w.workoutNum] ??
+          scheduledDateMap.get(w.workoutNum) ??
+          w.date;
         const status: WorkoutCell['status'] = logged
           ? 'completed'
           : skippedWorkoutNums.has(w.workoutNum)
@@ -85,5 +95,5 @@ export default async function CycleDashboardPage({
       }),
   }));
 
-  return <CycleDashboardGrid cycleNum={dashboard.cycleNum} weeks={weeks} />;
+  return <CycleDashboardGrid cycleNum={dashboard.cycleNum} weeks={weeks} unit={unit} />;
 }

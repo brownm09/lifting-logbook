@@ -19,8 +19,13 @@ import {
   ValidatorConstraintInterface,
   ValidationArguments,
 } from 'class-validator';
-import { SCHEDULE_LIMITS, WEIGHT_INCREMENT_OPTIONS, isValidSchedule } from '@lifting-logbook/types';
-import type { UserWorkoutSchedule } from '@lifting-logbook/types';
+import {
+  SCHEDULE_LIMITS,
+  WEIGHT_INCREMENT_OPTIONS,
+  WEIGHT_UNIT_OPTIONS,
+  isValidSchedule,
+} from '@lifting-logbook/types';
+import type { UserWorkoutSchedule, WeightUnit } from '@lifting-logbook/types';
 
 // Delegates to the shared `isValidSchedule` predicate so the write-side and read-side
 // bounds (range, uniqueness, max weeks, max days/week) cannot drift.
@@ -97,4 +102,11 @@ export class UpdateSettingsDto {
   @ValidateIf((o: UpdateSettingsDto) => o.defaultWeightIncrement !== null)
   @IsIn(WEIGHT_INCREMENT_OPTIONS)
   defaultWeightIncrement?: number | null;
+
+  // null clears the preference (falls back to 'lbs'); undefined leaves it unchanged.
+  // Display preference only — never rounds or rewrites stored weights.
+  @IsOptional()
+  @ValidateIf((o: UpdateSettingsDto) => o.unit !== null)
+  @IsIn(WEIGHT_UNIT_OPTIONS)
+  unit?: WeightUnit | null;
 }

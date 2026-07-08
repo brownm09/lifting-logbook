@@ -26,7 +26,7 @@ export default async function CycleProgramPage({
   }
 
   const { durationWeeks, frequency, exercises, warmUpSets, workingSets } =
-    deriveProgramSummary(specs);
+    deriveProgramSummary(specs, program);
 
   return (
     <section className={styles.container}>
@@ -36,9 +36,19 @@ export default async function CycleProgramPage({
 
       <div className={styles.header}>
         <h1 className={styles.heading}>{program}</h1>
-        <button type="button" className={styles.editButton} disabled title="Coming soon">
-          Edit Program
-        </button>
+        <div className={styles.editGroup}>
+          <button
+            type="button"
+            className={styles.editButton}
+            aria-disabled="true"
+            aria-describedby="edit-program-status"
+          >
+            Edit Program
+          </button>
+          <span id="edit-program-status" className={styles.editHint}>
+            Coming soon
+          </span>
+        </div>
       </div>
 
       <dl className={styles.dataList}>

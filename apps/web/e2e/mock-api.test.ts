@@ -12,7 +12,8 @@ import { join } from 'node:path';
 // Run the mock on a dedicated port so this unit test never collides with a running
 // Playwright/dev mock on the default 3004 (mock-api.mjs honours MOCK_API_PORT).
 const PORT = 3105;
-const BASE = `http://localhost:${PORT}`;
+// 127.0.0.1 (not localhost): IPv4-only mock bind + Windows localhost -> ::1 (#741, CLAUDE.md).
+const BASE = `http://127.0.0.1:${PORT}`;
 let mock: ChildProcess | undefined;
 
 async function waitForReady(timeoutMs = 15000): Promise<void> {

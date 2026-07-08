@@ -33,7 +33,7 @@ test('home page redirects signed-in users to /cycle (or /onboarding)', async ({ 
 // Structure-only assertion is intentional: the program catalog is rendered
 // from static data in apps/web/lib/programs.ts, so the page renders even
 // when the `.catch(() => DEFAULT_SETTINGS)` and `.catch(() => [])` fallbacks
-// in apps/web/app/(authed)/programs/page.tsx:14-15 are exercised. The staging test
+// in apps/web/app/(authed)/programs/page.tsx:15-16 are exercised. The staging test
 // user has no custom programs, so no real-data assertion would distinguish
 // the success and fallback paths here. API-success detection is delegated
 // to test 5 (auth/API propagation against /api/health).
@@ -49,10 +49,14 @@ test('programs page catalog loads', async ({ page }) => {
 // 3. History page tabs render
 //
 // Structure-only assertion is intentional: the staging test user has no
-// records, so neither real data nor the fallback `[]` from
-// apps/web/app/(authed)/history/page.tsx:36-37 produces visible content. The API
-// success path for history fetches is covered indirectly by test 5
-// (auth/API propagation against /api/health).
+// records, so the success path renders empty tabs with no visible rows. The
+// two fetches in apps/web/app/(authed)/history/page.tsx:41-48 catch a failure
+// into a `[]` fallback that also flips a `loadFailed` flag driving a
+// non-blocking "couldn't load" banner — but that banner appears only when a
+// fetch REJECTS, which the live staging API (asserted up by test 5,
+// /api/health) does not do here. So no real-data assertion distinguishes the
+// success and fallback paths on this page; API-success detection stays
+// delegated to test 5.
 // ---------------------------------------------------------------------------
 
 test('history page renders both tabs', async ({ page }) => {

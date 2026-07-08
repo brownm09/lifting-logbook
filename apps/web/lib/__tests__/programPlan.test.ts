@@ -1,5 +1,10 @@
 import type { CycleWeekSummary, LiftingProgramSpecResponse } from '@lifting-logbook/types';
-import { deriveProgramPhases, deriveProgramSummary } from '../programPlan';
+import type { ProgramLengthMeta } from '@lifting-logbook/core';
+import {
+  deriveProgramPhases,
+  deriveProgramSummary,
+  resolveProgramPlanMeta,
+} from '../programPlan';
 
 const makeWeek = (
   week: number,
@@ -28,77 +33,132 @@ const makeSpec = (
   ...overrides,
 });
 
+// Leangains/RPT-shaped (autoregulated, repeating block) and 5-3-1-shaped (wave).
+const REPEATING_12: ProgramLengthMeta = { lengthWeeks: 12, blockWeeks: 1, phaseStyle: 'repeating' };
+const REPEATING_8: ProgramLengthMeta = { lengthWeeks: 8, blockWeeks: 1, phaseStyle: 'repeating' };
+const WAVE_12: ProgramLengthMeta = { lengthWeeks: 12, blockWeeks: 3, phaseStyle: 'wave' };
+
 // ---------------------------------------------------------------------------
-// deriveProgramPhases
+// resolveProgramPlanMeta
 // ---------------------------------------------------------------------------
 
-describe('deriveProgramPhases', () => {
-  const weeks12 = Array.from({ length: 12 }, (_, i) =>
-    makeWeek(i + 1, [`2026-01-${String(i * 7 + 1).padStart(2, '0')}`], false),
+describe('resolveProgramPlanMeta', () => {
+  it('resolves registered built-ins from the canonical registry', () => {
+    expect(resolveProgramPlanMeta('leangains', [])).toEqual(REPEATING_12);
+    expect(resolveProgramPlanMeta('rpt', [])).toEqual(REPEATING_8);
+    expect(resolveProgramPlanMeta('5-3-1', [])).toEqual(WAVE_12);
+  });
+
+  it('falls back to a flat block of the spec length for unregistered programs', () => {
+    const specs = [makeSpec({ week: 1 }), makeSpec({ week: 2 }), makeSpec({ week: 3 })];
+    expect(resolveProgramPlanMeta('custom-uuid', specs)).toEqual({
+      lengthWeeks: 3,
+      blockWeeks: 3,
+      phaseStyle: 'repeating',
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deriveProgramPhases — repeating (Leangains / RPT)
+// ---------------------------------------------------------------------------
+
+describe('deriveProgramPhases — repeating programs', () => {
+  const futureWeeks12 = Array.from({ length: 12 }, (_, i) =>
+    makeWeek(i + 1, ['2099-01-01'], false),
   );
 
-  it('returns 6 phases for a 12-week input', () => {
-    const phases = deriveProgramPhases(weeks12, '2025-01-01');
-    expect(phases).toHaveLength(6);
+  it('renders a single flat Training phase spanning the whole program', () => {
+    const phases = deriveProgramPhases(futureWeeks12, '2026-01-01', REPEATING_12);
+    expect(phases).toHaveLength(1);
+    expect(phases[0]).toMatchObject({
+      name: 'Training',
+      startWeek: 1,
+      endWeek: 12,
+      type: 'training',
+    });
   });
 
-  it('phase names match the 5-3-1 block sequence', () => {
-    const phases = deriveProgramPhases(weeks12, '2025-01-01');
-    expect(phases.map((p) => p.name)).toEqual([
-      'Accumulation',
-      'Deload',
-      'Intensification',
-      'Deload',
-      'Realization',
-      'Test',
+  it('never fabricates a Test or Deload phase (issue #680)', () => {
+    const phases = deriveProgramPhases(futureWeeks12, '2026-01-01', REPEATING_12);
+    expect(phases.every((p) => p.type === 'training')).toBe(true);
+    expect(phases.some((p) => p.name === 'Test')).toBe(false);
+  });
+
+  it('spans the program length for an 8-week program', () => {
+    const weeks8 = Array.from({ length: 8 }, (_, i) => makeWeek(i + 1, ['2099-01-01'], false));
+    const phases = deriveProgramPhases(weeks8, '2026-01-01', REPEATING_8);
+    expect(phases).toHaveLength(1);
+    expect(phases[0]).toMatchObject({ startWeek: 1, endWeek: 8, type: 'training' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deriveProgramPhases — wave (5/3/1)
+// ---------------------------------------------------------------------------
+
+describe('deriveProgramPhases — wave programs', () => {
+  const futureWeeks12 = Array.from({ length: 12 }, (_, i) =>
+    makeWeek(i + 1, ['2099-01-01'], false),
+  );
+
+  it('renders one training phase per wave with correct week ranges', () => {
+    const phases = deriveProgramPhases(futureWeeks12, '2026-01-01', WAVE_12);
+    expect(phases.map((p) => [p.name, p.startWeek, p.endWeek])).toEqual([
+      ['Wave 1', 1, 3],
+      ['Wave 2', 4, 6],
+      ['Wave 3', 7, 9],
+      ['Wave 4', 10, 12],
     ]);
   });
 
-  it('phase types are correct', () => {
-    const phases = deriveProgramPhases(weeks12, '2025-01-01');
-    expect(phases.map((p) => p.type)).toEqual([
-      'training',
-      'deload',
-      'training',
-      'deload',
-      'training',
-      'test',
-    ]);
+  it('keeps every wave a training phase — no fabricated Test week', () => {
+    const phases = deriveProgramPhases(futureWeeks12, '2026-01-01', WAVE_12);
+    expect(phases.every((p) => p.type === 'training')).toBe(true);
   });
+});
 
-  it('status is completed when all weeks in phase are completed', () => {
-    const completedWeeks = [
+// ---------------------------------------------------------------------------
+// deriveProgramPhases — status
+// ---------------------------------------------------------------------------
+
+describe('deriveProgramPhases — status', () => {
+  it('marks a wave completed only when all its weeks are completed', () => {
+    const weeks = [
       makeWeek(1, ['2026-01-01'], true),
       makeWeek(2, ['2026-01-08'], true),
       makeWeek(3, ['2026-01-15'], true),
-      ...Array.from({ length: 9 }, (_, i) =>
-        makeWeek(i + 4, ['2099-01-01'], false),
-      ),
+      ...Array.from({ length: 9 }, (_, i) => makeWeek(i + 4, ['2099-01-01'], false)),
     ];
-    const phases = deriveProgramPhases(completedWeeks, '2026-02-01');
-    expect(phases[0]?.status).toBe('completed');
+    const phases = deriveProgramPhases(weeks, '2026-02-01', WAVE_12);
+    expect(phases[0]?.status).toBe('completed'); // Wave 1 (weeks 1-3)
+    expect(phases[1]?.status).toBe('upcoming'); // Wave 2 (weeks 4-6)
   });
 
-  it('status is in-progress when phase has past dates but not all weeks completed', () => {
-    const today = '2026-01-10';
-    const inProgressWeeks = [
+  it('marks a wave in-progress when it has past dates but is not fully completed', () => {
+    const weeks = [
       makeWeek(1, ['2026-01-01'], true),
       makeWeek(2, ['2026-01-08'], false),
       makeWeek(3, ['2026-01-15'], false),
-      ...Array.from({ length: 9 }, (_, i) =>
-        makeWeek(i + 4, ['2099-01-01'], false),
-      ),
+      ...Array.from({ length: 9 }, (_, i) => makeWeek(i + 4, ['2099-01-01'], false)),
     ];
-    const phases = deriveProgramPhases(inProgressWeeks, today);
+    const phases = deriveProgramPhases(weeks, '2026-01-10', WAVE_12);
     expect(phases[0]?.status).toBe('in-progress');
   });
 
-  it('status is upcoming when no workout dates have passed', () => {
-    const futureWeeks = Array.from({ length: 12 }, (_, i) =>
-      makeWeek(i + 1, ['2099-01-01'], false),
-    );
-    const phases = deriveProgramPhases(futureWeeks, '2026-01-01');
+  it('marks all phases upcoming when no workout dates have passed', () => {
+    const weeks = Array.from({ length: 12 }, (_, i) => makeWeek(i + 1, ['2099-01-01'], false));
+    const phases = deriveProgramPhases(weeks, '2026-01-01', REPEATING_12);
     expect(phases.every((p) => p.status === 'upcoming')).toBe(true);
+  });
+
+  it('shows the full-length plan as upcoming for a pre-#680 cycle with only week 1 scheduled', () => {
+    // Storage predates full-length expansion: only week 1 exists in the dashboard,
+    // but the plan still renders the canonical 12-week overview (weeks 2-12 upcoming).
+    const weeks = [makeWeek(1, ['2099-01-01'], false)];
+    const phases = deriveProgramPhases(weeks, '2026-01-01', REPEATING_12);
+    expect(phases).toHaveLength(1);
+    expect(phases[0]).toMatchObject({ startWeek: 1, endWeek: 12, status: 'upcoming' });
   });
 });
 
@@ -107,9 +167,18 @@ describe('deriveProgramPhases', () => {
 // ---------------------------------------------------------------------------
 
 describe('deriveProgramSummary', () => {
-  it('returns durationWeeks as the max week in specs', () => {
+  it('uses the canonical program length for duration, not the stored block', () => {
+    // A Leangains-shaped 1-week spec must still report its advertised 12 weeks.
+    const oneWeekSpecs = [
+      makeSpec({ week: 1 }),
+      makeSpec({ week: 1, lift: 'Bench Press', offset: 2 }),
+    ];
+    expect(deriveProgramSummary(oneWeekSpecs, 'leangains').durationWeeks).toBe(12);
+  });
+
+  it('falls back to the max spec week for unregistered programs', () => {
     const specs = [makeSpec({ week: 1 }), makeSpec({ week: 12 }), makeSpec({ week: 7 })];
-    expect(deriveProgramSummary(specs).durationWeeks).toBe(12);
+    expect(deriveProgramSummary(specs, 'custom-uuid').durationWeeks).toBe(12);
   });
 
   it('counts unique offsets in week 1 for frequency', () => {
@@ -119,7 +188,7 @@ describe('deriveProgramSummary', () => {
       makeSpec({ week: 1, offset: 4, lift: 'Deadlift' }),
       makeSpec({ week: 2, offset: 0 }),
     ];
-    expect(deriveProgramSummary(specs).frequency).toBe(3);
+    expect(deriveProgramSummary(specs, 'custom').frequency).toBe(3);
   });
 
   it('returns unique exercise names preserving insertion order', () => {
@@ -129,7 +198,7 @@ describe('deriveProgramSummary', () => {
       makeSpec({ lift: 'Squat', week: 2 }),
       makeSpec({ lift: 'Deadlift', week: 1 }),
     ];
-    expect(deriveProgramSummary(specs).exercises).toEqual([
+    expect(deriveProgramSummary(specs, 'custom').exercises).toEqual([
       'Squat',
       'Bench Press',
       'Deadlift',
@@ -138,21 +207,21 @@ describe('deriveProgramSummary', () => {
 
   it('derives warmUpSets from comma-separated warmUpPct on first week-1 spec', () => {
     const specs = [makeSpec({ week: 1, warmUpPct: '0.4,0.5,0.6' })];
-    expect(deriveProgramSummary(specs).warmUpSets).toBe(3);
+    expect(deriveProgramSummary(specs, 'custom').warmUpSets).toBe(3);
   });
 
   it('returns 0 warmUpSets when warmUpPct is empty', () => {
     const specs = [makeSpec({ week: 1, warmUpPct: '' })];
-    expect(deriveProgramSummary(specs).warmUpSets).toBe(0);
+    expect(deriveProgramSummary(specs, 'custom').warmUpSets).toBe(0);
   });
 
   it('returns 0 warmUpSets when warmUpPct is null (API omits field)', () => {
     const specs = [makeSpec({ week: 1, warmUpPct: null as unknown as string })];
-    expect(deriveProgramSummary(specs).warmUpSets).toBe(0);
+    expect(deriveProgramSummary(specs, 'custom').warmUpSets).toBe(0);
   });
 
   it('returns working sets from first week-1 spec sets field', () => {
     const specs = [makeSpec({ week: 1, sets: 5 })];
-    expect(deriveProgramSummary(specs).workingSets).toBe(5);
+    expect(deriveProgramSummary(specs, 'custom').workingSets).toBe(5);
   });
 });

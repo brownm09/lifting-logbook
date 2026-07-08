@@ -2,7 +2,9 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import type { WeekRow, WorkoutCell } from '@/lib/workoutPlan';
+import { formatWeight } from '@lifting-logbook/core';
+import type { WeightUnit } from '@lifting-logbook/types';
+import { computeCycleProgress, type WeekRow, type WorkoutCell } from '@/lib/workoutPlan';
 import styles from './CycleDashboardGrid.module.css';
 
 function findCurrentWeek(weeks: WeekRow[]): number {
@@ -32,9 +34,11 @@ function StatusBadge({ status }: { status: WorkoutCell['status'] }) {
 function WorkoutCard({
   cell,
   cycleNum,
+  unit,
 }: {
   cell: WorkoutCell;
   cycleNum: number;
+  unit: WeightUnit;
 }) {
   return (
     <Link
@@ -52,7 +56,7 @@ function WorkoutCard({
             <ol className={styles.setList}>
               {lift.sets.map((s) => (
                 <li key={s.setLabel}>
-                  {s.setLabel}: {s.weight} lbs × {s.reps}
+                  {s.setLabel}: {formatWeight(s.weight, 'lbs', unit)} × {s.reps}
                 </li>
               ))}
             </ol>
@@ -66,9 +70,11 @@ function WorkoutCard({
 export default function CycleDashboardGrid({
   cycleNum,
   weeks,
+  unit,
 }: {
   cycleNum: number;
   weeks: WeekRow[];
+  unit: WeightUnit;
 }) {
   const currentWeek = findCurrentWeek(weeks);
 
@@ -80,9 +86,39 @@ export default function CycleDashboardGrid({
     return initial;
   });
 
+  const progress = computeCycleProgress(weeks);
+
   return (
     <section className={styles.container}>
+      <p className={styles.eyebrow}>Dashboard</p>
       <h1 className={styles.heading}>Cycle {cycleNum}</h1>
+      {progress.totalWorkouts > 0 && (
+        <div className={styles.progressSection}>
+          <div className={styles.progressHeader}>
+            <span className={styles.progressLabel}>Cycle Progress</span>
+            <span className={styles.progressCount}>
+              {progress.completedWorkouts} of {progress.totalWorkouts} workouts
+            </span>
+          </div>
+          <div
+            className={styles.progressTrack}
+            role="progressbar"
+            aria-label="Cycle progress"
+            aria-valuenow={progress.completedWorkouts}
+            aria-valuemin={0}
+            aria-valuemax={progress.totalWorkouts}
+          >
+            <div
+              className={`${styles.progressFill} ${
+                progress.completedWorkouts === progress.totalWorkouts
+                  ? styles.progressFill_complete
+                  : ''
+              }`}
+              style={{ width: `${progress.percent}%` }}
+            />
+          </div>
+        </div>
+      )}
       <nav className={styles.quickNav}>
         <Link href={`/cycle/${cycleNum}/program`}>📋 Cycle Program</Link>
         <Link href={`/cycle/${cycleNum}/plan`}>🗓 Program Plan</Link>
@@ -118,7 +154,7 @@ export default function CycleDashboardGrid({
               {isExpanded && (
                 <div className={styles.workouts}>
                   {row.workouts.map((cell) => (
-                    <WorkoutCard key={cell.workoutNum} cell={cell} cycleNum={cycleNum} />
+                    <WorkoutCard key={cell.workoutNum} cell={cell} cycleNum={cycleNum} unit={unit} />
                   ))}
                 </div>
               )}

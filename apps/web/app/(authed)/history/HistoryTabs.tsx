@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import type { TrainingMaxHistoryEntryResponse } from '@lifting-logbook/types';
+import { formatWeight } from '@lifting-logbook/core';
+import type { TrainingMaxHistoryEntryResponse, WeightUnit } from '@lifting-logbook/types';
 import type { EnrichedRecord } from './page';
 import styles from './history.module.css';
 
@@ -10,9 +11,11 @@ type Tab = 'history' | 'timeline';
 export default function HistoryTabs({
   records,
   tmEntries,
+  unit,
 }: {
   records: EnrichedRecord[];
   tmEntries: TrainingMaxHistoryEntryResponse[];
+  unit: WeightUnit;
 }) {
   const [tab, setTab] = useState<Tab>('history');
 
@@ -41,16 +44,16 @@ export default function HistoryTabs({
 
       <div role="tabpanel">
         {tab === 'history' ? (
-          <LiftHistoryTab records={records} />
+          <LiftHistoryTab records={records} unit={unit} />
         ) : (
-          <TmTimelineTab entries={tmEntries} />
+          <TmTimelineTab entries={tmEntries} unit={unit} />
         )}
       </div>
     </div>
   );
 }
 
-function LiftHistoryTab({ records }: { records: EnrichedRecord[] }) {
+function LiftHistoryTab({ records, unit }: { records: EnrichedRecord[]; unit: WeightUnit }) {
   const [search, setSearch] = useState('');
   const [liftFilter, setLiftFilter] = useState('');
 
@@ -120,11 +123,11 @@ function LiftHistoryTab({ records }: { records: EnrichedRecord[] }) {
                   <td>{r.date}</td>
                   <td>{r.lift}</td>
                   <td>
-                    {r.weight} {r.tmUnit ?? 'lbs'} × {r.reps}
+                    {formatWeight(r.weight, 'lbs', unit)} × {r.reps}
                   </td>
                   <td>
                     {r.tmAtTime !== null
-                      ? `${r.tmAtTime} ${r.tmUnit ?? 'lbs'}`
+                      ? formatWeight(r.tmAtTime, r.tmUnit ?? 'lbs', unit)
                       : '—'}
                   </td>
                   <td>{r.tmPercent !== null ? `${r.tmPercent}%` : '—'}</td>
@@ -147,8 +150,10 @@ function LiftHistoryTab({ records }: { records: EnrichedRecord[] }) {
 
 function TmTimelineTab({
   entries,
+  unit,
 }: {
   entries: TrainingMaxHistoryEntryResponse[];
+  unit: WeightUnit;
 }) {
   const [liftFilter, setLiftFilter] = useState('');
 
@@ -212,7 +217,7 @@ function TmTimelineTab({
                     <tr key={e.id}>
                       <td>{e.date}</td>
                       <td>
-                        {e.weight} {e.unit}
+                        {formatWeight(e.weight, e.unit, unit)}
                       </td>
                       <td>
                         {e.source === 'test' ? 'Test Week' : 'Program'}

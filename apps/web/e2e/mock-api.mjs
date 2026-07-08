@@ -23,6 +23,11 @@ const CYCLE_DASHBOARD = {
       ],
     },
   ],
+  // Top-level per-workout metadata the Cycle Dashboard reads instead of a
+  // per-workout fetch (issue #740). skippedWorkoutNums is filled from state below.
+  dateOverrides: {},
+  skippedWorkoutNums: [],
+  completedWorkoutNums: [],
 };
 
 const WORKOUT = {
@@ -102,6 +107,7 @@ function createInitialState() {
     skippedWorkouts: new Set(),
     workoutSchedule: null,
     defaultWeightIncrement: null,
+    unit: null,
     // Empty by default so the /programs page test still sees RPT as the only
     // program; the import test opts in via /__reset?withCustomProgram=true.
     customPrograms: [],
@@ -216,6 +222,25 @@ const server = createServer(async (req, res) => {
       activeProgram: '5-3-1',
       workoutSchedule: state.workoutSchedule,
       defaultWeightIncrement: state.defaultWeightIncrement,
+      unit: state.unit,
+    });
+    return;
+  }
+
+  // -------------------------------------------------------------------------
+  // PATCH /users/me/settings
+  // -------------------------------------------------------------------------
+  if (method === 'PATCH' && url.pathname === '/users/me/settings') {
+    const body = await readBody(req);
+    if (rejectIfInvalidBody(res, body)) return;
+    if ('workoutSchedule' in body) state.workoutSchedule = body.workoutSchedule;
+    if ('defaultWeightIncrement' in body) state.defaultWeightIncrement = body.defaultWeightIncrement;
+    if ('unit' in body) state.unit = body.unit;
+    json(res, {
+      activeProgram: '5-3-1',
+      workoutSchedule: state.workoutSchedule,
+      defaultWeightIncrement: state.defaultWeightIncrement,
+      unit: state.unit,
     });
     return;
   }
@@ -246,6 +271,7 @@ const server = createServer(async (req, res) => {
           }
           week.completed = week.workouts.every((wo) => wo.skipped);
         }
+        dashboard.skippedWorkoutNums = [...state.skippedWorkouts];
         json(res, dashboard);
       }
       return;
@@ -448,6 +474,10 @@ const server = createServer(async (req, res) => {
 // Port defaults to 3004 (what playwright.config expects); overridable via MOCK_API_PORT so a
 // unit test can spawn an isolated instance without colliding with a running Playwright/dev mock.
 const PORT = Number(process.env.MOCK_API_PORT) || 3004;
-server.listen(PORT, () => {
-  console.log(`[mock-api] Listening on http://localhost:${PORT}`);
+// Bind explicitly to 127.0.0.1 (IPv4 loopback) rather than the default all-interfaces
+// address: on Windows the default bind is non-deterministic (sometimes ::1-only), so a
+// client dialing 127.0.0.1 can get ECONNREFUSED. Pinning the bind and every client to
+// 127.0.0.1 keeps them in agreement on every platform. See CLAUDE.md / issue #741.
+server.listen(PORT, '127.0.0.1', () => {
+  console.log(`[mock-api] Listening on http://127.0.0.1:${PORT}`);
 });
