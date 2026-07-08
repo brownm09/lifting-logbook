@@ -9,8 +9,9 @@
 | `Observability Stack Smoke Test` | `.github/workflows/ci.yml` | `observability-smoke` |
 | `Playwright E2E` | `.github/workflows/ci.yml` | `e2e` |
 | `Staging Integration Tests` | `.github/workflows/staging.yml` | `staging-integration-tests` |
+| `Review Gate` | `.github/workflows/review-gate.yml` | `review-gate` |
 
-The job `name:` values match the required-check contexts character-for-character. Renaming any job is a breaking change to branch protection.
+The job `name:` values match the required-check contexts character-for-character — with one exception: `Review Gate` reports via the Commit Status API (`gh api .../statuses/{sha} -f context=Review Gate`), not the Checks API, so its context string is hardcoded in the workflow's script step rather than derived from the job name. See [ADR-031](../adr/ADR-031-mandatory-review-gate.md) ("Why the Commit Status API, not the Checks API") for why. Renaming any job (or, for Review Gate, changing the hardcoded `context=` value) is a breaking change to branch protection.
 
 ## Source of truth
 
@@ -25,7 +26,7 @@ When changing the required-check set, edit the JSON in the same PR that updates 
 
 ## Staging-credential dependency
 
-One of the five required checks — `Staging Integration Tests` — is gated by the staging workflow's preflight. The `staging-integration-tests` job's `if:` condition is:
+One of the six required checks — `Staging Integration Tests` — is gated by the staging workflow's preflight. The `staging-integration-tests` job's `if:` condition is:
 
 ```yaml
 if: always() && needs.preflight.outputs.should_run == 'true'
@@ -33,7 +34,7 @@ if: always() && needs.preflight.outputs.should_run == 'true'
 
 `should_run` is `false` when the `GCP_STAGING_WORKLOAD_IDENTITY_PROVIDER` secret is unset. In that case the job is skipped and the required check never reports — every PR will be stuck at `mergeStateStatus: BLOCKED` until the secret is restored. If staging is intentionally decommissioned, remove `Staging Integration Tests` from `.github/expected-required-checks.json` and from live branch protection in the same PR.
 
-The other four required checks (`Lint & Test`, `DB Integration Tests`, `Observability Stack Smoke Test`, `Playwright E2E`) live in `ci.yml` and have no staging-credential dependency.
+The other four checks that live in `ci.yml` (`Lint & Test`, `DB Integration Tests`, `Observability Stack Smoke Test`, `Playwright E2E`) have no staging-credential dependency. `Review Gate` (its own workflow, `review-gate.yml`) likewise has no staging-credential dependency, but has its own fail-open behavior on `gh`/network errors and on an unparseable `merge_group` PR-number resolution — see [ADR-031](../adr/ADR-031-mandatory-review-gate.md).
 
 ## Inspecting and updating
 
@@ -48,7 +49,8 @@ gh api -X PATCH repos/brownm09/lifting-logbook/branches/main/protection/required
   -f 'contexts[]=DB Integration Tests' \
   -f 'contexts[]=Observability Stack Smoke Test' \
   -f 'contexts[]=Playwright E2E' \
-  -f 'contexts[]=Staging Integration Tests'
+  -f 'contexts[]=Staging Integration Tests' \
+  -f 'contexts[]=Review Gate'
 ```
 
 `strict=true` means PRs must be up to date with `main` before the checks count.

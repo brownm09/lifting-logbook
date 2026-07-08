@@ -4,6 +4,7 @@
     "Lint & Test",
     "Observability Stack Smoke Test",
     "Playwright E2E",
+    "Review Gate",
     "Staging Integration Tests"
   ]
 }
