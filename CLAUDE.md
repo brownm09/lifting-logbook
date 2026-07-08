@@ -506,12 +506,13 @@ Motivating incident: [PR #604](https://github.com/brownm09/lifting-logbook/pull/
 
 **Diagnosis:** After calling `update-branch`, check the resulting merge commit's second parent directly against `main`'s real tip:
 ```bash
-git log -1 --format="%P" <merge-commit-sha>   # second hash is the merged-in main SHA
+gh pr view <N> --json headRefOid --jq .headRefOid   # PR branch tip after update-branch
+git log -1 --format="%P" <merge-commit-sha>          # second hash is the merged-in main SHA
 git rev-parse origin/main
 ```
 If they don't match, the API used a stale snapshot.
 
-**Fix:** Don't rely on the `update-branch` API for this repo. Instead, manually merge: create a worktree for the PR's branch, `git merge origin/main`, resolve any conflicts, `git push`. This is deterministic and uses the actual current `main` tip.
+**Fix:** Don't rely on the `update-branch` API for this repo. Instead, manually merge: create a worktree for the PR's branch, `git fetch origin` (the merge is only as current as this repo's local `origin/main` tracking ref), `git merge origin/main`, resolve any conflicts, `git push`. This is deterministic and uses the actual current `main` tip.
 
 Motivating incident: [PR #722](https://github.com/brownm09/lifting-logbook/pull/722) merge session, 2026-07-08.
 
