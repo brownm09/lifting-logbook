@@ -77,6 +77,17 @@ test('cycle dashboard renders workout grid', async ({ page }) => {
   await expect(page).toHaveURL(/\/cycle\/1/);
   // Dashboard should show at least one workout entry from the mock (week 1, workouts 1-3)
   await expect(page.locator('text=2025-01-06').first()).toBeVisible();
+
+  // The screen is discoverably labeled as the dashboard.
+  await expect(page.getByText('Dashboard', { exact: true })).toBeVisible();
+
+  // Cycle Progress bar renders with an "N of M workouts" readout and an
+  // accessible progressbar role. The regex keeps this robust to whatever
+  // completed/total counts the mock fixture produces.
+  await expect(page.getByText(/\d+ of \d+ workouts/)).toBeVisible();
+  await expect(
+    page.getByRole('progressbar', { name: 'Cycle progress' }),
+  ).toBeVisible();
 });
 
 // ---------------------------------------------------------------------------

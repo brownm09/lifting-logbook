@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import {
   LiftingProgramSpec,
+  PRESET_BASE_SPECS,
   classifyAndCount,
   programSpecNaturalKey,
   programSpecRowKind,
@@ -9,7 +10,6 @@ import {
   ILiftingProgramSpecRepository,
   SaveProgramSpecResult,
 } from '../../ports/ILiftingProgramSpecRepository';
-import { SEED_PROGRAM, seedProgramSpec, SEED_LEANGAINS, seedLeangainsSpec } from './fixtures';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -19,11 +19,16 @@ export class InMemoryLiftingProgramSpecRepository
   private specByProgram: Map<string, LiftingProgramSpec[]>;
 
   constructor(_preSeed = false) {
-    // Program specs are global (not per-user), so always seed them.
-    this.specByProgram = new Map([
-      [SEED_PROGRAM, seedProgramSpec()],
-      [SEED_LEANGAINS, seedLeangainsSpec()],
-    ]);
+    // Program specs are global (not per-user), so always seed them. Seed every
+    // built-in preset from the single source of truth (PRESET_BASE_SPECS) so a
+    // newly added preset is served automatically, with no second wiring step
+    // here (issue #739). `.slice()` hands out a copy so callers cannot mutate
+    // the shared module-level constant.
+    this.specByProgram = new Map(
+      Object.entries(PRESET_BASE_SPECS).map(
+        ([program, spec]): [string, LiftingProgramSpec[]] => [program, spec.slice()],
+      ),
+    );
   }
 
   async getProgramSpec(program: string): Promise<LiftingProgramSpec[]> {
