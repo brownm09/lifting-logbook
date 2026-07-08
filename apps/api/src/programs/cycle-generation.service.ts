@@ -45,9 +45,14 @@ type CycleRepos = Pick<
  * ALSO add a canonical length to PROGRAM_LENGTHS (packages/core/src/presets/
  * programLengths.ts), or the program's schedule and plan collapse to its 1-block
  * length instead of the advertised duration (issue #680).
- * These three registries must stay in sync.
+ * These three registries must stay in sync. The PRESET_BASE_SPECS ⊆ PROGRAM_DEFAULTS
+ * direction is enforced by program-defaults.registry-sync.spec.ts (issue #747); the
+ * reciprocal PRESET_BASE_SPECS ⊆ PROGRAM_LENGTHS guard lives in core's
+ * programLengths.test.ts.
+ *
+ * Exported for that guard test.
  */
-const PROGRAM_DEFAULTS: Record<string, { cycleUnit: string; programType: string }> = {
+export const PROGRAM_DEFAULTS: Record<string, { cycleUnit: string; programType: string }> = {
   '5-3-1': { cycleUnit: 'week', programType: '5-3-1' },
   'rpt': { cycleUnit: 'week', programType: 'rpt' },
   'starting-strength': { cycleUnit: 'week', programType: 'starting-strength' },
