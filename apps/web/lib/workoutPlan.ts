@@ -103,3 +103,31 @@ export function computePlannedSets(
 
   return [...warmupSets, ...workSets];
 }
+
+export interface CycleProgress {
+  completedWorkouts: number;
+  totalWorkouts: number;
+  /** 0–100, rounded to the nearest integer. 0 when totalWorkouts is 0. */
+  percent: number;
+}
+
+/**
+ * Workout-completion progress for the current cycle, derived from the WeekRow[]
+ * the dashboard already assembles (see CycleDashboardGrid). Only
+ * status === 'completed' counts toward the numerator; skipped and missed
+ * workouts still count toward the denominator (they're part of the cycle) but
+ * weren't performed, so they don't count as done.
+ */
+export function computeCycleProgress(weeks: WeekRow[]): CycleProgress {
+  let completedWorkouts = 0;
+  let totalWorkouts = 0;
+  for (const row of weeks) {
+    for (const cell of row.workouts) {
+      totalWorkouts++;
+      if (cell.status === 'completed') completedWorkouts++;
+    }
+  }
+  const percent =
+    totalWorkouts > 0 ? Math.round((completedWorkouts / totalWorkouts) * 100) : 0;
+  return { completedWorkouts, totalWorkouts, percent };
+}
