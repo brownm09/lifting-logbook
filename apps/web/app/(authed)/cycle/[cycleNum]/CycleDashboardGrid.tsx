@@ -110,7 +110,9 @@ export default function CycleDashboardGrid({
           >
             <div
               className={`${styles.progressFill} ${
-                progress.percent >= 100 ? styles.progressFill_complete : ''
+                progress.completedWorkouts === progress.totalWorkouts
+                  ? styles.progressFill_complete
+                  : ''
               }`}
               style={{ width: `${progress.percent}%` }}
             />
