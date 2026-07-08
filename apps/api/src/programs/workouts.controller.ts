@@ -111,18 +111,13 @@ export class WorkoutsController {
         return renamed !== undefined ? { ...r, lift: renamed } : r;
       });
 
-    return toWorkoutResponse(
-      program,
-      dashboard.cycleNum,
-      workoutNum,
-      week,
-      adjustedRecords,
-      overrideDate ?? undefined,
+    return toWorkoutResponse(program, dashboard.cycleNum, workoutNum, week, adjustedRecords, {
+      overrideDate: overrideDate ?? undefined,
       plannedLifts,
       scheduledDate,
-      skippedNums.has(workoutNum),
+      skipped: skippedNums.has(workoutNum),
       cycleStartDate,
-      workoutKey?.offset,
-    );
+      offset: workoutKey?.offset,
+    });
   }
 }
