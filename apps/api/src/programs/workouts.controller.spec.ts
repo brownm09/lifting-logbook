@@ -132,23 +132,17 @@ describe('WorkoutsController', () => {
     ]);
   });
 
-  it('throws BadRequestException when workoutNum exceeds spec offset count', async () => {
+  it('returns 400 only when workoutNum exceeds the full canonical length, not one block (issue #740)', async () => {
+    // Leangains tiles a 1-week / 3-offset block across 12 weeks = 36 workout days.
+    // Pre-#740 the no-schedule cap was 3 (one block); now it is the full 36, so a
+    // 400 means the workoutNum is past the whole cycle, not merely past week 1.
     specRepo.getProgramSpec.mockResolvedValue([
-      {
-        offset: 0,
-        lift: 'Squat',
-        increment: 5,
-        order: 1,
-        sets: 3,
-        reps: 5,
-        amrap: true,
-        warmUpPct: '0.4,0.5,0.6',
-        wtDecrementPct: 0.1,
-        activation: 'compound',
-      },
+      { week: 1, offset: 0, lift: 'Bench Press', increment: 5, order: 1, sets: 3, reps: 6, amrap: true, warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
+      { week: 1, offset: 2, lift: 'Squat', increment: 10, order: 1, sets: 3, reps: 6, amrap: true, warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
+      { week: 1, offset: 4, lift: 'Overhead Press', increment: 5, order: 1, sets: 3, reps: 6, amrap: true, warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
     ]);
     dashboardRepo.getCycleDashboard.mockResolvedValue({
-      program: '5-3-1',
+      program: 'leangains',
       cycleUnit: 'week',
       cycleNum: 3,
       cycleDate: new Date('2026-04-20T00:00:00.000Z'),
@@ -157,7 +151,7 @@ describe('WorkoutsController', () => {
     });
     workoutRepo.getWorkout.mockResolvedValue([]);
 
-    await expect(controller.getWorkout('5-3-1', '2', MOCK_USER)).rejects.toBeInstanceOf(
+    await expect(controller.getWorkout('leangains', '37', MOCK_USER)).rejects.toBeInstanceOf(
       BadRequestException,
     );
   });
@@ -168,9 +162,13 @@ describe('WorkoutsController', () => {
     );
   });
 
-  it('rejects workoutNum that exceeds the number of offset groups in the spec', async () => {
+  it('resolves a no-schedule tiled week-2 workout to its program week (issue #740)', async () => {
+    // Leangains 1-week block of 2 offsets tiled across 12 weeks; workout 3 lands in
+    // week 2. Pre-#740 this 400'd in no-schedule mode — #680 fixed only schedule
+    // mode (see the scheduled-row test below). Planned lifts still come from the
+    // tiled block week (block week 1 for a 1-week block).
     dashboardRepo.getCycleDashboard.mockResolvedValue({
-      program: '5-3-1',
+      program: 'leangains',
       cycleUnit: 'week',
       cycleNum: 3,
       cycleDate: new Date('2026-04-20T00:00:00.000Z'),
@@ -178,28 +176,16 @@ describe('WorkoutsController', () => {
       cycleStartWeekday: Weekday.Monday,
     });
     specRepo.getProgramSpec.mockResolvedValue([
-      {
-        week: 1,
-        offset: 0,
-        lift: 'Squat',
-        increment: 5,
-        order: 1,
-        sets: 3,
-        reps: 5,
-        amrap: true,
-        warmUpPct: '0.4,0.5,0.6',
-        wtDecrementPct: 0.1,
-        activation: 'compound',
-      },
+      { week: 1, offset: 0, lift: 'Bench Press', increment: 5, order: 1, sets: 3, reps: 6, amrap: true, warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
+      { week: 1, offset: 2, lift: 'Squat', increment: 10, order: 1, sets: 3, reps: 6, amrap: true, warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
     ]);
-    // No scheduled row for workoutNum 2 (getScheduledWorkouts defaults to []), so
-    // week falls back to weekForWorkoutNum → undefined → 400. getWorkout is now
-    // reached before that check, so mock it explicitly.
-    workoutRepo.getWorkout.mockResolvedValue([]);
+    workoutRepo.getWorkout.mockResolvedValue([]); // upcoming — no records, no schedule
 
-    await expect(controller.getWorkout('5-3-1', '2', MOCK_USER)).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    const result = await controller.getWorkout('leangains', '3', MOCK_USER);
+
+    expect(result.week).toBe(2);
+    expect(result.lifts.map((l) => l.lift).sort()).toEqual(['Bench Press', 'Squat']);
+    expect(result.lifts.every((l) => l.planned)).toBe(true);
   });
 
   it('resolves week from the scheduled row for a tiled week-2+ workout (issue #680)', async () => {

@@ -75,7 +75,11 @@ test('onboarding: choose program → enter lifts → confirm → lands on cycle'
 test('cycle dashboard renders workout grid', async ({ page }) => {
   await page.goto('/cycle');
   await expect(page).toHaveURL(/\/cycle\/1/);
-  // Dashboard should show at least one workout entry from the mock (week 1, workouts 1-3)
+  await expect(page.getByRole('heading', { name: 'Cycle 1' })).toBeVisible();
+  // The grid renders one collapsible section per program week (issue #740). The mock
+  // cycle's dates are all in the past, so the current-week heuristic expands a later
+  // week and Week 1 starts collapsed — expand it, then assert its workout entry shows.
+  await page.getByRole('button', { name: 'Week 1', exact: true }).click();
   await expect(page.locator('text=2025-01-06').first()).toBeVisible();
 
   // The screen is discoverably labeled as the dashboard.

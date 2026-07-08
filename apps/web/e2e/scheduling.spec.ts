@@ -39,7 +39,10 @@ test('skip a workout — cycle dashboard card shows Skipped status', async ({ pa
   await page.goto('/cycle/1');
   await expect(page).toHaveURL(/\/cycle\/1/);
 
-  // The workout card for workout 1 should show the Skipped badge
+  // The grid renders one collapsible section per program week (issue #740); the mock
+  // cycle's dates are in the past, so Week 1 (holding workout 1) starts collapsed —
+  // expand it, then assert the workout card's Skipped badge.
+  await page.getByRole('button', { name: 'Week 1', exact: true }).click();
   await expect(page.locator('text=Skipped').first()).toBeVisible();
 });
 

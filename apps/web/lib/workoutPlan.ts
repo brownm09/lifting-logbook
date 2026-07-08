@@ -4,6 +4,9 @@ import {
   PROG_SPEC_WORK_PCTS,
   WARMUP_BASE_REPS,
   addDaysUTC,
+  expandSpecToLength,
+  orderedWorkoutKeys,
+  programLengthWeeks,
 } from '@lifting-logbook/core';
 import type { LiftingProgramSpecResponse } from '@lifting-logbook/types';
 
@@ -34,15 +37,24 @@ export interface WeekRow {
 }
 
 /**
- * Groups program specs by their offset (workout day) and returns an ordered
- * list of workout days with derived dates.
+ * Tiles a program's stored block to its canonical length and returns the ordered
+ * list of workout days, one per distinct `(week, offset)`, with derived dates.
  *
- * Lifts sharing the same offset belong to the same workout session. Offsets
- * are sorted ascending so workoutNum maps 1:1 to chronological order.
+ * Grouping is by `(week, offset)` — not `offset` alone, which collides workouts
+ * that share an offset across weeks (5-3-1's 6 workouts, or a 3-week custom
+ * program with every lift at offset 0) into a single card. The stored spec is
+ * only one repeating block, so it is first expanded to `programLengthWeeks`
+ * (leangains 12 wks, rpt 8, etc.); `program` is optional and falls back to the
+ * base-spec block length for custom / unregistered programs.
+ *
+ * `workoutNum` is a global sequential index over {@link orderedWorkoutKeys} — the
+ * same helper the API's no-schedule `weekForWorkoutNum` uses — so a card's
+ * `workoutNum` always resolves to the workout it links to (issue #740).
  */
 export function buildWorkoutDays(
   specs: LiftingProgramSpecResponse[],
   cycleStartDate: string,
+  program?: string,
 ): WorkoutDay[] {
   const [y, m, d] = cycleStartDate.split('-').map(Number) as [
     number,
@@ -51,24 +63,32 @@ export function buildWorkoutDays(
   ];
   const startDate = new Date(Date.UTC(y, m - 1, d));
 
-  const byOffset = new Map<number, LiftingProgramSpecResponse[]>();
-  for (const spec of specs) {
-    const lifts = byOffset.get(spec.offset) ?? [];
+  const fullSpec = expandSpecToLength(specs, programLengthWeeks(program ?? '', specs));
+
+  const byKey = new Map<string, LiftingProgramSpecResponse[]>();
+  for (const spec of fullSpec) {
+    const key = `${spec.week}:${spec.offset}`;
+    const lifts = byKey.get(key) ?? [];
     lifts.push(spec);
-    byOffset.set(spec.offset, lifts);
+    byKey.set(key, lifts);
   }
 
-  return Array.from(byOffset.keys())
-    .sort((a, b) => a - b)
-    .map((offset, i) => {
-      const lifts = (byOffset.get(offset) ?? []).sort((a, b) => a.order - b.order);
-      return {
-        workoutNum: i + 1,
-        week: lifts[0]?.week ?? 1,
-        date: addDaysUTC(startDate, offset).toISOString().slice(0, 10),
-        lifts,
-      };
-    });
+  return orderedWorkoutKeys(fullSpec).map((k, i) => {
+    const lifts = (byKey.get(`${k.week}:${k.offset}`) ?? []).sort(
+      (a, b) => a.order - b.order,
+    );
+    return {
+      workoutNum: i + 1,
+      week: k.week,
+      // Program weeks are 7 calendar days (distributeWorkouts), so a workout's
+      // absolute offset from the cycle start is (week-1)*7 + its in-week offset.
+      // Week 1 is unchanged from the pre-#740 single-block behavior.
+      date: addDaysUTC(startDate, (k.week - 1) * 7 + k.offset)
+        .toISOString()
+        .slice(0, 10),
+      lifts,
+    };
+  });
 }
 
 /**
