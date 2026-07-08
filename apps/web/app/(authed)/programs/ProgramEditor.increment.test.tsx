@@ -26,26 +26,29 @@ function renderNew(defaultWeightIncrement: number | null) {
   );
 }
 
-async function selectFirstLift(user: ReturnType<typeof userEvent.setup>) {
-  const checkboxes = screen.getAllByRole('checkbox');
-  await user.click(checkboxes[0]!);
+// A `new` program starts with one empty Day 1; adding an exercise to it seeds three
+// week rows whose increment inputs carry the configured default.
+async function addFirstExerciseToDay1(user: ReturnType<typeof userEvent.setup>) {
+  // 'Back Squat' is the first catalog lift; selecting by option value keeps this
+  // independent of catalog ordering and avoids a non-null index assertion.
+  await user.selectOptions(screen.getByLabelText('Add exercise to Day 1'), 'Back Squat');
 }
 
-describe('ProgramEditor — new spec rows seed from the configured weight increment', () => {
-  it('seeds new rows with the user-configured default', async () => {
+describe('ProgramEditor — new instances seed from the configured weight increment', () => {
+  it('seeds a new exercise instance with the user-configured default', async () => {
     const user = userEvent.setup();
     renderNew(0.625);
-    await selectFirstLift(user);
+    await addFirstExerciseToDay1(user);
 
     const incrementInputs = screen.getAllByDisplayValue('0.625');
-    // One row per week (3) for the single selected lift.
+    // One row per week (3) for the single added instance.
     expect(incrementInputs).toHaveLength(3);
   });
 
   it('falls back to 1.25 when no default is configured yet', async () => {
     const user = userEvent.setup();
     renderNew(null);
-    await selectFirstLift(user);
+    await addFirstExerciseToDay1(user);
 
     const incrementInputs = screen.getAllByDisplayValue('1.25');
     expect(incrementInputs).toHaveLength(3);

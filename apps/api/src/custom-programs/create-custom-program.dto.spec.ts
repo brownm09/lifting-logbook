@@ -24,6 +24,13 @@ function dtoWith(specOverride: Record<string, unknown>): CreateCustomProgramDto 
   });
 }
 
+function dtoWithSpecs(overrides: Record<string, unknown>[]): CreateCustomProgramDto {
+  return plainToInstance(CreateCustomProgramDto, {
+    name: 'My Program',
+    specs: overrides.map((o) => ({ ...VALID_SPEC_ROW, ...o })),
+  });
+}
+
 async function flattenConstraintKeys(dto: CreateCustomProgramDto): Promise<string[]> {
   const errors = await validate(dto, { whitelist: true });
   const keys: string[] = [];
@@ -70,5 +77,38 @@ describe('CreateCustomProgramDto validation', () => {
     // 1 - (3-1)*0.5 = 0 → allowed (mirrors the core guard).
     const errors = await validate(dtoWith({ wtDecrementPct: 0.5, sets: 3 }), { whitelist: true });
     expect(errors).toHaveLength(0);
+  });
+
+  // ----- Workout-day grouping (issue #751): offset/order carry the day structure -----
+
+  it('accepts an offset greater than 0 (an exercise on a later workout day)', async () => {
+    const errors = await validate(dtoWith({ offset: 2 }), { whitelist: true });
+    expect(errors).toHaveLength(0);
+  });
+
+  it('accepts the same lift on two different offsets (trained on multiple days)', async () => {
+    const dto = dtoWithSpecs([
+      { offset: 0, lift: 'Squat', order: 1 },
+      { offset: 2, lift: 'Squat', order: 1 },
+    ]);
+    const errors = await validate(dto, { whitelist: true });
+    expect(errors).toHaveLength(0);
+  });
+
+  it('accepts the same lift twice within one day (distinct order)', async () => {
+    const dto = dtoWithSpecs([
+      { offset: 0, lift: 'Squat', order: 1 },
+      { offset: 0, lift: 'Squat', order: 2 },
+    ]);
+    const errors = await validate(dto, { whitelist: true });
+    expect(errors).toHaveLength(0);
+  });
+
+  it('rejects an order below 1', async () => {
+    expect(await flattenConstraintKeys(dtoWith({ order: 0 }))).toContain('min');
+  });
+
+  it('rejects a negative offset', async () => {
+    expect(await flattenConstraintKeys(dtoWith({ offset: -1 }))).toContain('min');
   });
 });

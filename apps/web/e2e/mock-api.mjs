@@ -254,6 +254,46 @@ const server = createServer(async (req, res) => {
   }
 
   // -------------------------------------------------------------------------
+  // POST /programs/custom — create a custom program (echoes the posted specs)
+  // -------------------------------------------------------------------------
+  if (method === 'POST' && url.pathname === '/programs/custom') {
+    const body = await readBody(req);
+    if (rejectIfInvalidBody(res, body)) return;
+    const created = {
+      id: `cust-${state.customPrograms.length + 1}`,
+      name: body.name ?? 'Custom Program',
+      description: body.description ?? null,
+      baseTemplate: body.baseTemplate ?? null,
+      createdAt: '2026-01-01',
+      specs: Array.isArray(body.specs) ? body.specs : [],
+    };
+    const { specs: _specs, ...summary } = created;
+    state.customPrograms.push(summary);
+    json(res, created, 201);
+    return;
+  }
+
+  // -------------------------------------------------------------------------
+  // PUT /programs/custom/:id — update a custom program (echoes the posted specs).
+  // Declared before the generic /programs/:program/... block so :program is not
+  // matched as "custom".
+  // -------------------------------------------------------------------------
+  if (method === 'PUT' && parts[0] === 'programs' && parts[1] === 'custom' && parts.length === 3) {
+    const id = decodeURIComponent(parts[2]);
+    const body = await readBody(req);
+    if (rejectIfInvalidBody(res, body)) return;
+    json(res, {
+      id,
+      name: body.name ?? 'Custom Program',
+      description: body.description ?? null,
+      baseTemplate: null,
+      createdAt: '2026-01-01',
+      specs: Array.isArray(body.specs) ? body.specs : [],
+    });
+    return;
+  }
+
+  // -------------------------------------------------------------------------
   // Program-scoped routes: /programs/:program/...
   // -------------------------------------------------------------------------
   if (parts[0] === 'programs' && parts.length >= 3) {

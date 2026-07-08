@@ -6,7 +6,19 @@ import { useRouter } from 'next/navigation';
 import { DEFAULT_WEIGHT_INCREMENT } from '@lifting-logbook/types';
 import type { CustomProgramResponse, CustomProgramSpecRow } from '@lifting-logbook/types';
 import { createCustomProgram, updateCustomProgram, switchProgram } from './actions';
-import { TEMPLATE_BUILDERS } from '@/lib/programs';
+import { templateSeedSpecs } from '@/lib/programs';
+import {
+  MAX_DAYS,
+  MAX_INSTANCES_PER_DAY,
+  WEEKS,
+  daysFromSpecs,
+  defaultWeeks,
+  specsFromDays,
+  uid,
+  type EditableWeek,
+  type WeekParams,
+  type WorkoutDayModel,
+} from './programSpecMapping';
 import styles from './programs.module.css';
 
 type Mode = 'new' | 'clone' | 'edit';
@@ -21,65 +33,13 @@ type Props = {
   onCancel: () => void;
 };
 
-const WEEK_LABELS: Record<number, string> = {
+const WEEK_LABELS: Record<EditableWeek, string> = {
   1: 'Week 1',
   2: 'Week 2',
   3: 'Week 3',
 };
 
 const ALL_LIFTS: string[] = LIFT_CATALOG.map((l) => l.name as string);
-
-const DEFAULT_ROW = (
-  week: number,
-  lift: string,
-  order: number,
-  increment: number,
-): CustomProgramSpecRow => ({
-  week,
-  offset: 0,
-  lift,
-  increment,
-  order,
-  sets: 3,
-  reps: 5,
-  amrap: false,
-  warmUpPct: '0.4,0.5,0.6',
-  wtDecrementPct: 0.1,
-  activation: 'compound',
-});
-
-function buildDefaultSpecs(lifts: string[], increment: number): CustomProgramSpecRow[] {
-  const rows: CustomProgramSpecRow[] = [];
-  for (const week of [1, 2, 3] as const) {
-    lifts.forEach((lift, i) => {
-      rows.push(DEFAULT_ROW(week, lift, i + 1, increment));
-    });
-  }
-  return rows;
-}
-
-function buildSpecsFromTemplate(
-  templateId: string,
-  lifts: string[],
-  increment: number,
-): CustomProgramSpecRow[] {
-  const builder = TEMPLATE_BUILDERS[templateId];
-  const seeded = builder ? builder() : null;
-  if (seeded) {
-    // Single-week repeating templates (maxWeek === 1) define one week's structure that
-    // repeats unchanged. Expand to all three editor weeks so weeks 2 and 3 don't fall
-    // through to DEFAULT_ROW when the user clones the template.
-    const maxWeek = Math.max(...seeded.map((s) => s.week));
-    const expanded =
-      maxWeek === 1
-        ? [1, 2, 3].flatMap((w) => seeded.map((s) => ({ ...s, week: w })))
-        : seeded;
-    const seededLifts = new Set(lifts);
-    const filtered = expanded.filter((s) => seededLifts.has(s.lift));
-    if (filtered.length > 0) return filtered.map((s) => ({ ...s, amrap: Boolean(s.amrap) }));
-  }
-  return buildDefaultSpecs(lifts, increment);
-}
 
 export default function ProgramEditor({
   mode,
@@ -93,9 +53,9 @@ export default function ProgramEditor({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  // Seeds new spec rows (custom programs only — see docs/standards/training-max-precision.md).
-  // Preset-derived templates keep their own hardcoded per-lift increments in
-  // buildSpecsFromTemplate; this is the fallback for lifts with no preset data.
+  // Seeds new instances (custom programs only — see docs/standards/training-max-precision.md).
+  // Clone templates carry their own per-lift increments via templateSeedSpecs; this is the
+  // fallback for lifts added by hand.
   const increment = defaultWeightIncrement ?? DEFAULT_WEIGHT_INCREMENT;
 
   const [name, setName] = useState(
@@ -105,67 +65,112 @@ export default function ProgramEditor({
     mode === 'edit' ? (existing?.description ?? '') : '',
   );
 
-  const initialLifts = existing?.specs
-    ? [...new Set(existing.specs.map((s) => s.lift))]
-    : [];
-  const [selectedLifts, setSelectedLifts] = useState<string[]>(initialLifts);
-
-  const [specs, setSpecs] = useState<CustomProgramSpecRow[]>(() => {
-    if (existing?.specs && existing.specs.length > 0) return existing.specs;
-    if (baseTemplateId) return buildSpecsFromTemplate(baseTemplateId, initialLifts, increment);
-    return buildDefaultSpecs(initialLifts, increment);
+  const [days, setDays] = useState<WorkoutDayModel[]>(() => {
+    if (mode === 'edit' && existing?.specs && existing.specs.length > 0) {
+      return daysFromSpecs(existing.specs);
+    }
+    if (mode === 'clone' && baseTemplateId) {
+      const seeded = daysFromSpecs(templateSeedSpecs(baseTemplateId));
+      if (seeded.length > 0) return seeded;
+    }
+    // New program (or a clone of a template with no registered builder): start
+    // with one empty day so there is somewhere to add the first exercise.
+    return [{ id: uid(), instances: [] }];
   });
 
-  function toggleLift(lift: string) {
-    setSelectedLifts((prev) => {
-      const next = prev.includes(lift)
-        ? prev.filter((l) => l !== lift)
-        : [...prev, lift];
-      // Rebuild spec rows to match new lift selection
-      rebuildSpecs(next);
-      return next;
-    });
+  function addDay() {
+    setDays((prev) => (prev.length >= MAX_DAYS ? prev : [...prev, { id: uid(), instances: [] }]));
   }
 
-  function rebuildSpecs(lifts: string[]) {
-    setSpecs((prev) => {
-      const rows: CustomProgramSpecRow[] = [];
-      for (const week of [1, 2, 3] as const) {
-        lifts.forEach((lift, i) => {
-          const existing_ = prev.find((s) => s.week === week && s.lift === lift);
-          rows.push(existing_ ?? DEFAULT_ROW(week, lift, i + 1, increment));
-        });
-      }
-      return rows;
-    });
+  function removeDay(dayId: string) {
+    setDays((prev) => prev.filter((d) => d.id !== dayId));
   }
 
-  function updateSpec(week: number, lift: string, field: keyof CustomProgramSpecRow, value: string | number | boolean) {
-    setSpecs((prev) =>
-      prev.map((s) =>
-        s.week === week && s.lift === lift ? { ...s, [field]: value } : s,
+  function addInstance(dayId: string, lift: string) {
+    if (!lift) return;
+    setDays((prev) =>
+      prev.map((d) =>
+        d.id !== dayId
+          ? d
+          : d.instances.length >= MAX_INSTANCES_PER_DAY
+            ? d
+            : { ...d, instances: [...d.instances, { id: uid(), lift, weeks: defaultWeeks(increment) }] },
       ),
     );
   }
 
-  function handleSave() {
-    if (!name.trim()) { setError('Name is required.'); return; }
-    if (selectedLifts.length === 0) { setError('Select at least one lift.'); return; }
-    setError(null);
+  function removeInstance(dayId: string, instId: string) {
+    setDays((prev) =>
+      prev.map((d) => (d.id !== dayId ? d : { ...d, instances: d.instances.filter((i) => i.id !== instId) })),
+    );
+  }
 
+  function updateInstanceWeek(
+    dayId: string,
+    instId: string,
+    week: EditableWeek,
+    field: keyof WeekParams,
+    value: number | boolean | string,
+  ) {
+    setDays((prev) =>
+      prev.map((d) =>
+        d.id !== dayId
+          ? d
+          : {
+              ...d,
+              instances: d.instances.map((inst) =>
+                inst.id !== instId
+                  ? inst
+                  : {
+                      ...inst,
+                      weeks: { ...inst.weeks, [week]: { ...inst.weeks[week], [field]: value } },
+                    },
+              ),
+            },
+      ),
+    );
+  }
+
+  // Validates name + at least one exercise and returns the spec rows, or null
+  // (with an error set) when invalid. Uniqueness of (week, offset, lift, order)
+  // is guaranteed by construction — offset is the day index and order is the
+  // within-day position — so no duplicate-key guard is needed here.
+  function collectSpecs(): CustomProgramSpecRow[] | null {
+    if (!name.trim()) {
+      setError('Name is required.');
+      return null;
+    }
+    const specs = specsFromDays(days);
+    if (specs.length === 0) {
+      setError('Add at least one exercise to a workout day.');
+      return null;
+    }
+    setError(null);
+    return specs;
+  }
+
+  async function persist(specs: CustomProgramSpecRow[]): Promise<CustomProgramResponse> {
+    if (mode === 'edit' && existing) {
+      return updateCustomProgram(existing.id, {
+        name: name.trim(),
+        description: description.trim() || undefined,
+        specs,
+      });
+    }
+    return createCustomProgram({
+      name: name.trim(),
+      description: description.trim() || undefined,
+      baseTemplate: baseTemplateId,
+      specs,
+    });
+  }
+
+  function handleSave() {
+    const specs = collectSpecs();
+    if (!specs) return;
     startTransition(async () => {
       try {
-        let saved: CustomProgramResponse;
-        if (mode === 'edit' && existing) {
-          saved = await updateCustomProgram(existing.id, { name: name.trim(), description: description.trim() || undefined, specs });
-        } else {
-          saved = await createCustomProgram({
-            name: name.trim(),
-            description: description.trim() || undefined,
-            baseTemplate: baseTemplateId,
-            specs,
-          });
-        }
+        const saved = await persist(specs);
         onSaved(saved.id);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to save program.');
@@ -173,24 +178,12 @@ export default function ProgramEditor({
     });
   }
 
-  async function handleSaveAndSwitch() {
-    if (!name.trim()) { setError('Name is required.'); return; }
-    if (selectedLifts.length === 0) { setError('Select at least one lift.'); return; }
-    setError(null);
-
+  function handleSaveAndSwitch() {
+    const specs = collectSpecs();
+    if (!specs) return;
     startTransition(async () => {
       try {
-        let saved: CustomProgramResponse;
-        if (mode === 'edit' && existing) {
-          saved = await updateCustomProgram(existing.id, { name: name.trim(), description: description.trim() || undefined, specs });
-        } else {
-          saved = await createCustomProgram({
-            name: name.trim(),
-            description: description.trim() || undefined,
-            baseTemplate: baseTemplateId,
-            specs,
-          });
-        }
+        const saved = await persist(specs);
         const result = await switchProgram(saved.id);
         router.push(`/cycle/${result.cycleNum}`);
         router.refresh();
@@ -199,8 +192,6 @@ export default function ProgramEditor({
       }
     });
   }
-
-  const weeks = [1, 2, 3];
 
   return (
     <div className={styles.editorForm}>
@@ -227,103 +218,151 @@ export default function ProgramEditor({
       </div>
 
       <div className={styles.formField}>
-        <p className={styles.formLabel}>Lifts</p>
-        <div className={styles.liftCheckboxList}>
-          {ALL_LIFTS.map((lift) => (
-            <label key={lift} className={styles.liftCheckbox}>
-              <input
-                type="checkbox"
-                checked={selectedLifts.includes(lift)}
-                onChange={() => toggleLift(lift)}
-              />
-              {lift}
-            </label>
-          ))}
-        </div>
-      </div>
+        <p className={styles.formLabel}>Workout Days</p>
+        <p className={styles.infoText}>
+          Group exercises into workout days. Add an exercise to more than one day to train it
+          multiple times in a week.
+        </p>
 
-      {selectedLifts.length > 0 && (
-        <div className={styles.formField}>
-          <p className={styles.formLabel}>Weekly Spec</p>
-          <p className={styles.infoText}>Sets, reps, and progression per lift per week.</p>
-          <div className={styles.specTableWrapper}>
-            <table className={styles.specTable}>
-              <thead>
-                <tr>
-                  <th>Week</th>
-                  <th>Lift</th>
-                  <th>Sets</th>
-                  <th>Reps</th>
-                  <th>AMRAP</th>
-                  <th>Increment</th>
-                  <th>Warmup %</th>
-                </tr>
-              </thead>
-              <tbody>
-                {weeks.flatMap((week) =>
-                  selectedLifts.map((lift) => {
-                    const row = specs.find((s) => s.week === week && s.lift === lift) ??
-                      DEFAULT_ROW(week, lift, selectedLifts.indexOf(lift) + 1, increment);
-                    return (
-                      <tr key={`${week}-${lift}`}>
-                        <td>{WEEK_LABELS[week]}</td>
-                        <td style={{ textAlign: 'left' }}>{lift}</td>
-                        <td>
-                          <input
-                            className={styles.specInput}
-                            type="number"
-                            min={1}
-                            max={20}
-                            value={row.sets}
-                            onChange={(e) => updateSpec(week, lift, 'sets', Number(e.target.value))}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            className={styles.specInput}
-                            type="number"
-                            min={1}
-                            max={20}
-                            value={row.reps}
-                            onChange={(e) => updateSpec(week, lift, 'reps', Number(e.target.value))}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={row.amrap}
-                            onChange={(e) => updateSpec(week, lift, 'amrap', e.target.checked)}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            className={styles.specInput}
-                            type="number"
-                            min={0}
-                            step={2.5}
-                            value={row.increment}
-                            onChange={(e) => updateSpec(week, lift, 'increment', Number(e.target.value))}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            className={styles.specInput}
-                            style={{ width: '120px' }}
-                            type="text"
-                            value={row.warmUpPct}
-                            onChange={(e) => updateSpec(week, lift, 'warmUpPct', e.target.value)}
-                            placeholder="0.4,0.5,0.6"
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+        {days.map((day, dayIdx) => {
+          const n = dayIdx + 1;
+          return (
+            <div key={day.id} className={styles.dayCard} role="group" aria-label={`Day ${n}`}>
+              <div className={styles.dayHeader}>
+                <span className={styles.dayTitle}>Day {n}</span>
+                <button
+                  type="button"
+                  className={styles.btnDanger}
+                  aria-label={`Remove Day ${n}`}
+                  onClick={() => removeDay(day.id)}
+                >
+                  Remove Day
+                </button>
+              </div>
+
+              {day.instances.length === 0 ? (
+                <p className={styles.infoText}>No exercises yet — add one below.</p>
+              ) : (
+                day.instances.map((inst) => (
+                  <div key={inst.id} className={styles.instanceRow}>
+                    <div className={styles.instanceHeader}>
+                      <strong>{inst.lift}</strong>
+                      <button
+                        type="button"
+                        className={styles.btnSecondary}
+                        aria-label={`Remove ${inst.lift} from Day ${n}`}
+                        onClick={() => removeInstance(day.id, inst.id)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <div className={styles.instanceSpec}>
+                      <table className={styles.specTable}>
+                        <thead>
+                          <tr>
+                            <th>Week</th>
+                            <th>Sets</th>
+                            <th>Reps</th>
+                            <th>AMRAP</th>
+                            <th>Increment</th>
+                            <th>Warmup %</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {WEEKS.map((week) => {
+                            const p = inst.weeks[week];
+                            return (
+                              <tr key={week}>
+                                <td>{WEEK_LABELS[week]}</td>
+                                <td>
+                                  <input
+                                    className={styles.specInput}
+                                    type="number"
+                                    min={1}
+                                    max={20}
+                                    value={p.sets}
+                                    aria-label={`${inst.lift} Day ${n} Week ${week} sets`}
+                                    onChange={(e) => updateInstanceWeek(day.id, inst.id, week, 'sets', Number(e.target.value))}
+                                  />
+                                </td>
+                                <td>
+                                  <input
+                                    className={styles.specInput}
+                                    type="number"
+                                    min={1}
+                                    max={20}
+                                    value={p.reps}
+                                    aria-label={`${inst.lift} Day ${n} Week ${week} reps`}
+                                    onChange={(e) => updateInstanceWeek(day.id, inst.id, week, 'reps', Number(e.target.value))}
+                                  />
+                                </td>
+                                <td>
+                                  <input
+                                    type="checkbox"
+                                    checked={p.amrap}
+                                    aria-label={`${inst.lift} Day ${n} Week ${week} AMRAP`}
+                                    onChange={(e) => updateInstanceWeek(day.id, inst.id, week, 'amrap', e.target.checked)}
+                                  />
+                                </td>
+                                <td>
+                                  <input
+                                    className={styles.specInput}
+                                    type="number"
+                                    min={0}
+                                    step={2.5}
+                                    value={p.increment}
+                                    aria-label={`${inst.lift} Day ${n} Week ${week} increment`}
+                                    onChange={(e) => updateInstanceWeek(day.id, inst.id, week, 'increment', Number(e.target.value))}
+                                  />
+                                </td>
+                                <td>
+                                  <input
+                                    className={styles.specInput}
+                                    style={{ width: '120px' }}
+                                    type="text"
+                                    value={p.warmUpPct}
+                                    aria-label={`${inst.lift} Day ${n} Week ${week} warmup percents`}
+                                    onChange={(e) => updateInstanceWeek(day.id, inst.id, week, 'warmUpPct', e.target.value)}
+                                    placeholder="0.4,0.5,0.6"
+                                  />
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))
+              )}
+
+              <div className={styles.addExerciseRow}>
+                <select
+                  className={styles.formSelect}
+                  value=""
+                  aria-label={`Add exercise to Day ${n}`}
+                  disabled={day.instances.length >= MAX_INSTANCES_PER_DAY}
+                  onChange={(e) => addInstance(day.id, e.target.value)}
+                >
+                  <option value="" disabled>Add exercise…</option>
+                  {ALL_LIFTS.map((lift) => (
+                    <option key={lift} value={lift}>{lift}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          );
+        })}
+
+        <button
+          type="button"
+          className={styles.addDayButton}
+          onClick={addDay}
+          disabled={days.length >= MAX_DAYS}
+        >
+          + Add Day
+        </button>
+      </div>
 
       {error && <p className={styles.errorNote}>{error}</p>}
 
