@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 
-const MOCK_API = 'http://localhost:3004';
+// 127.0.0.1 (not localhost): IPv4-only dev servers + Windows localhost -> ::1 (#741, CLAUDE.md).
+const MOCK_API = 'http://127.0.0.1:3004';
 
 // The heavy /import route compiles on-demand in Next dev. On Windows local dev the first,
 // cold compile of ImportWizard can exceed Playwright's 30s default test timeout, so the
