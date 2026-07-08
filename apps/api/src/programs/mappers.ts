@@ -270,6 +270,31 @@ export const weekForWorkoutNum = (
 ): WeekNumber | undefined => workoutKeyForWorkoutNum(spec, workoutNum, program)?.week;
 
 /**
+ * Optional inputs to {@link toWorkoutResponse}. Collapsed into an options object
+ * (issue #750) so call sites pass them by name — the two adjacent `Date` fields
+ * (`scheduledDate`, `cycleStartDate`) can no longer be transposed without a
+ * TypeScript error, the silent-wrong-date failure mode #749 fixed.
+ */
+export interface WorkoutResponseOptions {
+  // Each field is `T | undefined` (not just `T?`): the pre-#750 positional params
+  // these replace all accepted `undefined`, and the controller passes values that
+  // may be undefined (`overrideDate ?? undefined`, `scheduledDate`, `cycleStartDate`,
+  // `workoutKey?.offset`). Required under this workspace's `exactOptionalPropertyTypes`.
+  /** User override date for the workout; surfaced as `overrideDate` on the response. */
+  overrideDate?: Date | undefined;
+  /** Spec-derived + override lift list; drives lift ordering and the `planned` flags. */
+  plannedLifts?: string[] | undefined;
+  /** System-assigned scheduled date (schedule mode). */
+  scheduledDate?: Date | undefined;
+  /** Whether the workout is explicitly skipped. */
+  skipped?: boolean | undefined;
+  /** Cycle start date; anchors the no-schedule spec-relative date. */
+  cycleStartDate?: Date | undefined;
+  /** This workout's `(week, offset)` key offset; feeds the no-schedule date. */
+  offset?: number | undefined;
+}
+
+/**
  * Groups a workout's lift records into the WorkoutResponse shape.
  * Caller must validate `workoutNum` with `isValidWorkoutNum` and derive
  * `week` via `weekForWorkoutNum` before invoking.
@@ -296,13 +321,17 @@ export const toWorkoutResponse = (
   workoutNum: number,
   week: WeekNumber,
   records: LiftRecord[],
-  overrideDate?: Date,
-  plannedLifts?: string[],
-  scheduledDate?: Date,
-  skipped = false,
-  cycleStartDate?: Date,
-  offset?: number,
+  options: WorkoutResponseOptions = {},
 ): WorkoutResponse => {
+  const {
+    overrideDate,
+    plannedLifts,
+    scheduledDate,
+    skipped = false,
+    cycleStartDate,
+    offset,
+  } = options;
+
   const liftMap = new Map<string, SetResponse[]>();
   for (const r of records) {
     const set: SetResponse = {
