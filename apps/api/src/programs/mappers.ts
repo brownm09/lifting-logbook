@@ -7,6 +7,7 @@ import {
   TrainingMaxHistoryEntry,
   expandSpecToLength,
   normalizeAmrap,
+  noScheduleWorkoutDateUTC,
   orderedWorkoutKeys,
   programLengthWeeks,
 } from '@lifting-logbook/core';
@@ -233,29 +234,40 @@ export const isValidWorkoutNum = (n: number): boolean =>
   Number.isInteger(n) && n >= 1;
 
 /**
- * Derives the training week for a global `workoutNum` from the program spec — the
- * no-schedule fallback (a scheduled row's `weekNum` is authoritative when present).
- *
- * The stored spec is one repeating block, so it is first tiled to the program's
- * canonical length ({@link expandSpecToLength} + {@link programLengthWeeks}); the
- * `workoutNum` then indexes into the ordered `(week, offset)` workout days
- * ({@link orderedWorkoutKeys}) — the *same* mapping the web Cycle Dashboard grid
- * (`buildWorkoutDays`) uses, so a card and the workout it opens never disagree.
+ * The `(week, offset)` workout-day key for a global `workoutNum`, or undefined when
+ * `workoutNum` exceeds the program's canonical length. The stored spec is one
+ * repeating block, so it is first tiled to the program's canonical length
+ * ({@link expandSpecToLength} + {@link programLengthWeeks}); the `workoutNum` then
+ * indexes into the ordered `(week, offset)` workout days ({@link orderedWorkoutKeys})
+ * — the *same* mapping the web Cycle Dashboard grid (`buildWorkoutDays`) uses, so a
+ * card and the workout it opens can never disagree on week, offset, or the
+ * spec-relative date derived from them (issues #740, #745). `program` defaults to
+ * the base-spec block length for custom / unregistered programs.
+ */
+export const workoutKeyForWorkoutNum = (
+  spec: LiftingProgramSpec[],
+  workoutNum: number,
+  program = '',
+): { week: WeekNumber; offset: number } | undefined => {
+  const fullSpec = expandSpecToLength(spec, programLengthWeeks(program, spec));
+  return orderedWorkoutKeys(fullSpec)[workoutNum - 1];
+};
+
+/**
+ * The training week for a global `workoutNum` — the no-schedule fallback (a
+ * scheduled row's `weekNum` is authoritative when present). A thin `.week` accessor
+ * over {@link workoutKeyForWorkoutNum}; see it for the tiling contract.
  *
  * Returns undefined only when `workoutNum` exceeds the *full* canonical length
  * (surfaced as 400 by the controller). Before #740 the cap was one block's
  * distinct-offset count, which 400'd every week-2+ workout of a tiled program in
- * no-schedule mode (#680 fixed this only for schedule mode). `program` defaults to
- * the base-spec block length for custom / unregistered programs.
+ * no-schedule mode (#680 fixed this only for schedule mode).
  */
 export const weekForWorkoutNum = (
   spec: LiftingProgramSpec[],
   workoutNum: number,
   program = '',
-): WeekNumber | undefined => {
-  const fullSpec = expandSpecToLength(spec, programLengthWeeks(program, spec));
-  return orderedWorkoutKeys(fullSpec)[workoutNum - 1]?.week;
-};
+): WeekNumber | undefined => workoutKeyForWorkoutNum(spec, workoutNum, program)?.week;
 
 /**
  * Groups a workout's lift records into the WorkoutResponse shape.
@@ -267,6 +279,16 @@ export const weekForWorkoutNum = (
  * `planned: true`. Logged lifts not in the planned list are appended with
  * `planned: false`. When `plannedLifts` is omitted, all logged lifts are emitted
  * in record order with `planned: false` (preserves pre-override behaviour).
+ *
+ * The response `date` is the first logged record's date, else `scheduledDate`
+ * (schedule mode), else — for a no-schedule unlogged workout — the spec-relative
+ * date `cycleStart + (week-1)*7 + offset` derived from `cycleStartDate` + `offset`
+ * (this workout's `(week, offset)` key offset, from `workoutKeyForWorkoutNum`) via
+ * the shared {@link noScheduleWorkoutDateUTC}. That is the SAME date the Cycle
+ * Dashboard card shows (`buildWorkoutDays` calls the same helper), so the card and
+ * this detail page can never diverge (issue #745). Omitting `cycleStartDate` /
+ * `offset` falls back to today only as a defensive last resort (e.g. no cycle
+ * dashboard), which is what the pre-#745 code always did in no-schedule mode.
  */
 export const toWorkoutResponse = (
   program: string,
@@ -278,6 +300,8 @@ export const toWorkoutResponse = (
   plannedLifts?: string[],
   scheduledDate?: Date,
   skipped = false,
+  cycleStartDate?: Date,
+  offset?: number,
 ): WorkoutResponse => {
   const liftMap = new Map<string, SetResponse[]>();
   for (const r of records) {
@@ -318,7 +342,9 @@ export const toWorkoutResponse = (
     ? isoDate(records[0].date)
     : scheduledDate
       ? isoDate(scheduledDate)
-      : isoDate(new Date());
+      : cycleStartDate !== undefined && offset !== undefined
+        ? isoDate(noScheduleWorkoutDateUTC(cycleStartDate, week, offset))
+        : isoDate(new Date());
   return {
     program,
     cycleNum,
