@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { formatWeight } from '@lifting-logbook/core';
 import type { WeightUnit } from '@lifting-logbook/types';
-import type { WeekRow, WorkoutCell } from '@/lib/workoutPlan';
+import { computeCycleProgress, type WeekRow, type WorkoutCell } from '@/lib/workoutPlan';
 import styles from './CycleDashboardGrid.module.css';
 
 function findCurrentWeek(weeks: WeekRow[]): number {
@@ -86,9 +86,39 @@ export default function CycleDashboardGrid({
     return initial;
   });
 
+  const progress = computeCycleProgress(weeks);
+
   return (
     <section className={styles.container}>
+      <p className={styles.eyebrow}>Dashboard</p>
       <h1 className={styles.heading}>Cycle {cycleNum}</h1>
+      {progress.totalWorkouts > 0 && (
+        <div className={styles.progressSection}>
+          <div className={styles.progressHeader}>
+            <span className={styles.progressLabel}>Cycle Progress</span>
+            <span className={styles.progressCount}>
+              {progress.completedWorkouts} of {progress.totalWorkouts} workouts
+            </span>
+          </div>
+          <div
+            className={styles.progressTrack}
+            role="progressbar"
+            aria-label="Cycle progress"
+            aria-valuenow={progress.completedWorkouts}
+            aria-valuemin={0}
+            aria-valuemax={progress.totalWorkouts}
+          >
+            <div
+              className={`${styles.progressFill} ${
+                progress.completedWorkouts === progress.totalWorkouts
+                  ? styles.progressFill_complete
+                  : ''
+              }`}
+              style={{ width: `${progress.percent}%` }}
+            />
+          </div>
+        </div>
+      )}
       <nav className={styles.quickNav}>
         <Link href={`/cycle/${cycleNum}/program`}>📋 Cycle Program</Link>
         <Link href={`/cycle/${cycleNum}/plan`}>🗓 Program Plan</Link>

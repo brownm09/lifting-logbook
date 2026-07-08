@@ -1,5 +1,10 @@
 import type { LiftingProgramSpecResponse } from '@lifting-logbook/types';
-import { buildWorkoutDays, computePlannedSets } from '../workoutPlan';
+import {
+  buildWorkoutDays,
+  computeCycleProgress,
+  computePlannedSets,
+} from '../workoutPlan';
+import type { WeekRow, WorkoutCell } from '../workoutPlan';
 
 const makeSpec = (
   overrides: Partial<LiftingProgramSpecResponse>,
@@ -140,5 +145,69 @@ describe('computePlannedSets', () => {
     const warmups = sets.filter((s) => s.setLabel.startsWith('Warm-up'));
     expect(warmups).toHaveLength(6);
     expect(warmups[5]?.reps).toBe(1);
+  });
+});
+
+const makeCell = (
+  status: WorkoutCell['status'],
+  workoutNum = 1,
+): WorkoutCell => ({
+  workoutNum,
+  date: '2026-01-05',
+  status,
+  lifts: [],
+});
+
+const makeWeek = (
+  week: number,
+  statuses: WorkoutCell['status'][],
+): WeekRow => ({
+  week,
+  workouts: statuses.map((status, i) => makeCell(status, i + 1)),
+});
+
+describe('computeCycleProgress', () => {
+  it('returns zeroes for an empty cycle', () => {
+    expect(computeCycleProgress([])).toEqual({
+      completedWorkouts: 0,
+      totalWorkouts: 0,
+      percent: 0,
+    });
+  });
+
+  it('reports 100% when every workout is completed', () => {
+    const weeks: WeekRow[] = [makeWeek(1, ['completed', 'completed'])];
+    expect(computeCycleProgress(weeks)).toEqual({
+      completedWorkouts: 2,
+      totalWorkouts: 2,
+      percent: 100,
+    });
+  });
+
+  it('counts only completed toward the numerator; skipped/missed count toward the denominator only', () => {
+    const weeks: WeekRow[] = [
+      makeWeek(1, ['completed', 'skipped', 'missed', 'upcoming']),
+    ];
+    const progress = computeCycleProgress(weeks);
+    expect(progress.completedWorkouts).toBe(1);
+    expect(progress.totalWorkouts).toBe(4);
+    expect(progress.percent).toBe(25);
+  });
+
+  it('sums totals across multiple week rows', () => {
+    const weeks: WeekRow[] = [
+      makeWeek(1, ['completed', 'completed', 'completed']),
+      makeWeek(2, ['completed', 'upcoming', 'upcoming']),
+    ];
+    const progress = computeCycleProgress(weeks);
+    expect(progress.completedWorkouts).toBe(4);
+    expect(progress.totalWorkouts).toBe(6);
+    expect(progress.percent).toBe(67); // 4 / 6 = 66.67 → 67
+  });
+
+  it('rounds percent to the nearest integer', () => {
+    // 1 of 3 completed = 33.33% → 33
+    const weeks: WeekRow[] = [makeWeek(1, ['completed', 'upcoming', 'upcoming'])];
+    expect(computeCycleProgress(weeks).percent).toBe(33);
   });
 });
