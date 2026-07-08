@@ -468,6 +468,10 @@ const server = createServer(async (req, res) => {
 // Port defaults to 3004 (what playwright.config expects); overridable via MOCK_API_PORT so a
 // unit test can spawn an isolated instance without colliding with a running Playwright/dev mock.
 const PORT = Number(process.env.MOCK_API_PORT) || 3004;
-server.listen(PORT, () => {
-  console.log(`[mock-api] Listening on http://localhost:${PORT}`);
+// Bind explicitly to 127.0.0.1 (IPv4 loopback) rather than the default all-interfaces
+// address: on Windows the default bind is non-deterministic (sometimes ::1-only), so a
+// client dialing 127.0.0.1 can get ECONNREFUSED. Pinning the bind and every client to
+// 127.0.0.1 keeps them in agreement on every platform. See CLAUDE.md / issue #741.
+server.listen(PORT, '127.0.0.1', () => {
+  console.log(`[mock-api] Listening on http://127.0.0.1:${PORT}`);
 });
