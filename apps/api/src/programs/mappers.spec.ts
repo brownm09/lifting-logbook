@@ -21,50 +21,54 @@ const spec = (offset: number, lift: string, week?: number): LiftingProgramSpec =
   ...(week !== undefined ? { week } : {}),
 });
 
+// Pre-#740 weekForWorkoutNum indexed workoutNum into the stored block's distinct
+// offsets and returned undefined (→ 400) beyond that count. #740 tiles the block to
+// the program's canonical length first and indexes into the ordered (week, offset)
+// workout days (the same orderedWorkoutKeys mapping the web grid uses), so week-2+
+// workouts resolve in no-schedule mode too; undefined now means past the *full*
+// canonical length. These tests replace the old offset-cap assertions.
 describe('weekForWorkoutNum', () => {
-  it('returns 1 (default) when spec has no week field and workoutNum is 1', () => {
-    const s = [spec(0, 'Squat'), spec(0, 'Bench Press')];
-    expect(weekForWorkoutNum(s, 1)).toBe(1);
-  });
-
   it('returns undefined for empty spec', () => {
     expect(weekForWorkoutNum([], 1)).toBeUndefined();
   });
 
-  it('returns undefined when workoutNum exceeds distinct offset count', () => {
-    const s = [spec(0, 'Squat'), spec(2, 'Deadlift')];
-    expect(weekForWorkoutNum(s, 3)).toBeUndefined();
-  });
-
-  it('returns explicit week value when spec entries carry week', () => {
-    const s = [spec(0, 'Squat', 1), spec(2, 'Deadlift', 1), spec(4, 'OHP', 2)];
-    expect(weekForWorkoutNum(s, 3)).toBe(2);
-  });
-
-  it('correctly maps workoutNum across multiple distinct offsets', () => {
+  it('maps workoutNum to the (week, offset) day in order for a multi-week block', () => {
+    // Two offsets per week across weeks 1..2. No registered program → canonical
+    // length falls back to the base block size (2 weeks) = 4 workout days.
     const s = [
       spec(0, 'Squat', 1),
-      spec(0, 'Bench Press', 1),
-      spec(2, 'Deadlift', 1),
-      spec(4, 'OHP', 2),
+      spec(3, 'Deadlift', 1),
+      spec(0, 'Squat', 2),
+      spec(3, 'Deadlift', 2),
     ];
-    expect(weekForWorkoutNum(s, 1)).toBe(1);
-    expect(weekForWorkoutNum(s, 2)).toBe(1);
-    expect(weekForWorkoutNum(s, 3)).toBe(2);
-    expect(weekForWorkoutNum(s, 4)).toBeUndefined();
+    expect(weekForWorkoutNum(s, 1)).toBe(1); // (w1, o0)
+    expect(weekForWorkoutNum(s, 2)).toBe(1); // (w1, o3)
+    expect(weekForWorkoutNum(s, 3)).toBe(2); // (w2, o0)
+    expect(weekForWorkoutNum(s, 4)).toBe(2); // (w2, o3)
+    expect(weekForWorkoutNum(s, 5)).toBeUndefined(); // past full length
   });
 
-  it('deduplicates offsets — two lifts at the same offset count as one workout', () => {
-    const s = [spec(0, 'Squat', 1), spec(0, 'Bench Press', 1), spec(7, 'Deadlift', 2)];
+  it('deduplicates offsets — two lifts at the same offset are one workout day', () => {
+    const s = [spec(0, 'Squat', 1), spec(0, 'Bench Press', 1), spec(3, 'Deadlift', 1)];
+    // 1-week block of 2 offsets → base length 1 week → 2 workout days.
     expect(weekForWorkoutNum(s, 1)).toBe(1);
-    expect(weekForWorkoutNum(s, 2)).toBe(2);
+    expect(weekForWorkoutNum(s, 2)).toBe(1);
     expect(weekForWorkoutNum(s, 3)).toBeUndefined();
   });
 
-  it('uses ?? 1 fallback when first matching spec entry has no week field', () => {
-    const s = [spec(0, 'Squat'), spec(7, 'Deadlift')];
-    expect(weekForWorkoutNum(s, 1)).toBe(1);
-    expect(weekForWorkoutNum(s, 2)).toBe(1);
+  it('tiles a single-week repeating block to the program canonical length (issue #740)', () => {
+    // Leangains: a 1-week block of offsets {0,2,4} tiled across 12 weeks = 36 days.
+    const s = [spec(0, 'Bench Press', 1), spec(2, 'Squat', 1), spec(4, 'Overhead Press', 1)];
+    expect(weekForWorkoutNum(s, 3, 'leangains')).toBe(1); // last workout of week 1
+    expect(weekForWorkoutNum(s, 4, 'leangains')).toBe(2); // first of week 2 — 400'd pre-#740
+    expect(weekForWorkoutNum(s, 36, 'leangains')).toBe(12); // final workout
+    expect(weekForWorkoutNum(s, 37, 'leangains')).toBeUndefined(); // beyond 12 weeks
+  });
+
+  it('falls back to the base-spec block length for an unregistered program', () => {
+    const s = [spec(0, 'Squat', 1), spec(0, 'Squat', 2), spec(0, 'Squat', 3)];
+    expect(weekForWorkoutNum(s, 3, 'a-custom-uuid')).toBe(3);
+    expect(weekForWorkoutNum(s, 4, 'a-custom-uuid')).toBeUndefined();
   });
 });
 
@@ -254,5 +258,31 @@ describe('buildCycleDashboardResponse', () => {
     const skipped = new Set([1]);
     const result = buildCycleDashboardResponse(baseDashboard, WEEK_TYPE, scheduled, new Map(), new Set(), skipped);
     expect(result.weeks[0]!.completed).toBe(false);
+  });
+
+  it('surfaces per-workout metadata top-level in no-schedule mode (issue #740)', () => {
+    const overrides = new Map([[2, new Date('2026-05-22T00:00:00.000Z')]]);
+    const result = buildCycleDashboardResponse(
+      baseDashboard,
+      WEEK_TYPE,
+      [], // no schedule → weeks: []
+      overrides,
+      new Set([1]), // completed
+      new Set([3]), // skipped
+    );
+    expect(result.weeks).toEqual([]);
+    expect(result.dateOverrides).toEqual({ 2: '2026-05-22' });
+    expect(result.completedWorkoutNums).toEqual([1]);
+    expect(result.skippedWorkoutNums).toEqual([3]);
+  });
+
+  it('surfaces the same top-level metadata in schedule mode', () => {
+    const scheduled = [sw(1, 1, '2026-05-19'), sw(2, 1, '2026-05-21')];
+    const overrides = new Map([[1, new Date('2026-05-20T00:00:00.000Z')]]);
+    const result = buildCycleDashboardResponse(baseDashboard, WEEK_TYPE, scheduled, overrides, new Set([1]), new Set());
+    expect(result.weeks).toHaveLength(1);
+    expect(result.dateOverrides).toEqual({ 1: '2026-05-20' });
+    expect(result.completedWorkoutNums).toEqual([1]);
+    expect(result.skippedWorkoutNums).toEqual([]);
   });
 });

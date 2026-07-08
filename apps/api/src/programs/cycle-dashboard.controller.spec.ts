@@ -119,6 +119,9 @@ describe('CycleDashboardController', () => {
       cycleStartDate: '2026-04-20',
       weeks: [],
       currentWeekType: 'training',
+      dateOverrides: {},
+      skippedWorkoutNums: [],
+      completedWorkoutNums: [],
     });
   });
 
@@ -208,6 +211,29 @@ describe('CycleDashboardController', () => {
     const result = await controller.getCurrentCycle('5-3-1', MOCK_USER);
 
     expect(result.weeks[0]?.completed).toBe(false);
+  });
+
+  it('surfaces per-workout metadata top-level in no-schedule mode (issue #740)', async () => {
+    // In no-schedule mode weeks is empty, so the Cycle Dashboard reads these
+    // top-level maps to render every tiled workout's status without a per-workout
+    // fetch. Verify they are populated from the bulk override/skip/record sources.
+    repo.getCycleDashboard.mockResolvedValue(stubDashboard());
+    specRepo.getProgramSpec.mockResolvedValue(stubSpec());
+    scheduledRepo.getScheduledWorkouts.mockResolvedValue([]);
+    overrideRepo.getOverridesForCycle.mockResolvedValue(
+      new Map([[2, new Date('2026-04-30T00:00:00.000Z')]]),
+    );
+    skipRepo.getSkipsForCycle.mockResolvedValue(new Set([3]));
+    liftRecordRepo.getLiftRecords.mockResolvedValue([
+      { program: '5-3-1', cycleNum: 2, workoutNum: 1, date: new Date(), lift: 'Squat', setNum: 1, weight: 200, reps: 5, notes: '' },
+    ]);
+
+    const result = await controller.getCurrentCycle('5-3-1', MOCK_USER);
+
+    expect(result.weeks).toEqual([]);
+    expect(result.dateOverrides).toEqual({ 2: '2026-04-30' });
+    expect(result.skippedWorkoutNums).toEqual([3]);
+    expect(result.completedWorkoutNums).toEqual([1]);
   });
 
   it('DELETE /programs/:program/cycles/current calls service.deleteCurrentCycle with repos and program', async () => {

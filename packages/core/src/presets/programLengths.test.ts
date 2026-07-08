@@ -2,8 +2,10 @@ import {
   PRESET_BASE_SPECS,
   PROGRAM_LENGTHS,
   baseSpecBlockWeeks,
+  blockWeekForProgramWeek,
   programLengthWeeks,
   expandSpecToLength,
+  orderedWorkoutKeys,
 } from '.';
 import { LiftingProgramSpec } from '../models/LiftingProgramSpec';
 
@@ -230,5 +232,78 @@ describe('expandSpecToLength', () => {
     expect(baseSpecBlockWeeks(expanded)).toBe(12);
     // Same rows per week as the 1-week block, tiled 12×.
     expect(expanded).toHaveLength(base.length * 12);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// blockWeekForProgramWeek — inverse of expandSpecToLength's tiling (issue #740)
+// ---------------------------------------------------------------------------
+
+describe('blockWeekForProgramWeek', () => {
+  it('maps a program week back into a 3-week block (5-3-1 waves)', () => {
+    expect(blockWeekForProgramWeek(1, 3)).toBe(1);
+    expect(blockWeekForProgramWeek(2, 3)).toBe(2);
+    expect(blockWeekForProgramWeek(3, 3)).toBe(3);
+    expect(blockWeekForProgramWeek(4, 3)).toBe(1); // wave 2, block week 1
+    expect(blockWeekForProgramWeek(12, 3)).toBe(3);
+  });
+
+  it('is the identity for a 1-week repeating block', () => {
+    expect(blockWeekForProgramWeek(1, 1)).toBe(1);
+    expect(blockWeekForProgramWeek(12, 1)).toBe(1);
+  });
+
+  it('returns the program week unchanged when blockWeeks <= 0 (empty spec)', () => {
+    expect(blockWeekForProgramWeek(5, 0)).toBe(5);
+  });
+
+  it('stays in lockstep with expandSpecToLength tiling', () => {
+    // Every tiled row's program week must map back to the block week it came from
+    // — this is the invariant the workouts controller relies on for planned lifts.
+    // block3 encodes its block week in `reps` (wk1→5, wk2→3, wk3→1).
+    const repsForBlockWeek: Record<number, number> = { 1: 5, 2: 3, 3: 1 };
+    for (const row of expandSpecToLength(block3, 12)) {
+      expect(row.reps).toBe(repsForBlockWeek[blockWeekForProgramWeek(row.week, 3)]);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// orderedWorkoutKeys — the shared workoutNum ↔ (week, offset) mapping (issue #740)
+// ---------------------------------------------------------------------------
+
+describe('orderedWorkoutKeys', () => {
+  it('returns distinct (week, offset) keys ordered by week then offset', () => {
+    // Rows deliberately out of order, with duplicate (week, offset) pairs and
+    // multiple lifts sharing a workout day.
+    const spec = [
+      makeRow({ week: 2, offset: 3, lift: 'A' }),
+      makeRow({ week: 1, offset: 3, lift: 'B' }),
+      makeRow({ week: 1, offset: 0, lift: 'C' }),
+      makeRow({ week: 1, offset: 0, lift: 'D' }), // duplicate key with row C
+      makeRow({ week: 2, offset: 0, lift: 'E' }),
+    ];
+    expect(orderedWorkoutKeys(spec)).toEqual([
+      { week: 1, offset: 0 },
+      { week: 1, offset: 3 },
+      { week: 2, offset: 0 },
+      { week: 2, offset: 3 },
+    ]);
+  });
+
+  it('returns [] for an empty spec', () => {
+    expect(orderedWorkoutKeys([])).toEqual([]);
+  });
+
+  it('indexes workoutNum → (week, offset) consistently with a tiled Leangains block', () => {
+    // Both the web grid (buildWorkoutDays) and the API (weekForWorkoutNum) call
+    // orderedWorkoutKeys(expandSpecToLength(...)), so this is the single contract
+    // that keeps a Dashboard card's workoutNum aligned with the workout it opens.
+    const base = (PRESET_BASE_SPECS['leangains'] ?? []);
+    const keys = orderedWorkoutKeys(expandSpecToLength(base, 12));
+    expect(keys).toHaveLength(36); // 12 weeks × 3 offsets {0,2,4}
+    expect(keys[0]).toEqual({ week: 1, offset: 0 });
+    expect(keys[3]).toEqual({ week: 2, offset: 0 }); // workoutNum 4 → week 2
+    expect(keys[35]?.week).toBe(12);
   });
 });
