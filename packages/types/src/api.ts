@@ -206,6 +206,11 @@ export interface CycleDashboardResponse {
    * modes — `weeks` is empty in no-schedule mode, so the Cycle Dashboard reads
    * these to render every tiled workout's status without a per-workout fetch
    * (issue #740). Keys are global `workoutNum`s.
+   *
+   * These three are the canonical per-workout source of truth. The per-week
+   * `weeks[].workouts[].date` / `.skipped` fields are a schedule-mode display
+   * projection derived from the same override/skip data — prefer these top-level
+   * maps in new consumers.
    */
   /** `workoutNum` → override date (ISO 8601). Absent key = no override. */
   dateOverrides: Record<number, string>;

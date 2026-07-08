@@ -2,6 +2,7 @@ import {
   PRESET_BASE_SPECS,
   PROGRAM_LENGTHS,
   baseSpecBlockWeeks,
+  blockWeekForProgramWeek,
   programLengthWeeks,
   expandSpecToLength,
   orderedWorkoutKeys,
@@ -231,6 +232,39 @@ describe('expandSpecToLength', () => {
     expect(baseSpecBlockWeeks(expanded)).toBe(12);
     // Same rows per week as the 1-week block, tiled 12×.
     expect(expanded).toHaveLength(base.length * 12);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// blockWeekForProgramWeek — inverse of expandSpecToLength's tiling (issue #740)
+// ---------------------------------------------------------------------------
+
+describe('blockWeekForProgramWeek', () => {
+  it('maps a program week back into a 3-week block (5-3-1 waves)', () => {
+    expect(blockWeekForProgramWeek(1, 3)).toBe(1);
+    expect(blockWeekForProgramWeek(2, 3)).toBe(2);
+    expect(blockWeekForProgramWeek(3, 3)).toBe(3);
+    expect(blockWeekForProgramWeek(4, 3)).toBe(1); // wave 2, block week 1
+    expect(blockWeekForProgramWeek(12, 3)).toBe(3);
+  });
+
+  it('is the identity for a 1-week repeating block', () => {
+    expect(blockWeekForProgramWeek(1, 1)).toBe(1);
+    expect(blockWeekForProgramWeek(12, 1)).toBe(1);
+  });
+
+  it('returns the program week unchanged when blockWeeks <= 0 (empty spec)', () => {
+    expect(blockWeekForProgramWeek(5, 0)).toBe(5);
+  });
+
+  it('stays in lockstep with expandSpecToLength tiling', () => {
+    // Every tiled row's program week must map back to the block week it came from
+    // — this is the invariant the workouts controller relies on for planned lifts.
+    // block3 encodes its block week in `reps` (wk1→5, wk2→3, wk3→1).
+    const repsForBlockWeek: Record<number, number> = { 1: 5, 2: 3, 3: 1 };
+    for (const row of expandSpecToLength(block3, 12)) {
+      expect(row.reps).toBe(repsForBlockWeek[blockWeekForProgramWeek(row.week, 3)]);
+    }
   });
 });
 

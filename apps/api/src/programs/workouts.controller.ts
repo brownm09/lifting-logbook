@@ -5,7 +5,7 @@ import {
   Inject,
   Param,
 } from '@nestjs/common';
-import { baseSpecBlockWeeks, LiftRecord, programLengthWeeks } from '@lifting-logbook/core';
+import { baseSpecBlockWeeks, blockWeekForProgramWeek, LiftRecord, programLengthWeeks } from '@lifting-logbook/core';
 import { WorkoutResponse } from '@lifting-logbook/types';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthUser } from '../ports/auth';
@@ -80,9 +80,9 @@ export class WorkoutsController {
     }
 
     // Planned lifts come from the tiled block week: the stored spec is one block,
-    // so map the program week (which may exceed blockWeeks) back into the block.
-    const blockWeeks = baseSpecBlockWeeks(spec);
-    const blockWeek = blockWeeks > 0 ? ((week - 1) % blockWeeks) + 1 : week;
+    // so map the program week (which may exceed blockWeeks) back into the block —
+    // via the same helper expandSpecToLength tiles with, so the two never disagree.
+    const blockWeek = blockWeekForProgramWeek(week, baseSpecBlockWeeks(spec));
     const specLifts = [...new Set(spec.filter((s) => s.week === blockWeek).map((s) => s.lift))];
 
     const plannedLifts = applyLiftOverrides(specLifts, liftOverrides);

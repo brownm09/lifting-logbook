@@ -73,6 +73,18 @@ export function programLengthWeeks(
 }
 
 /**
+ * Maps a program week (`1..lengthWeeks`) back to its week within the repeating
+ * block. This is the inverse of {@link expandSpecToLength}'s tiling: the workouts
+ * controller derives a tiled workout's planned lifts from its block week, so it
+ * must pick the *same* block week `expandSpecToLength` tiled into that program
+ * week — sharing this one function keeps the two in lockstep (issue #740).
+ * `blockWeeks <= 0` (empty spec) returns the program week unchanged.
+ */
+export function blockWeekForProgramWeek(week: number, blockWeeks: number): number {
+  return blockWeeks > 0 ? ((week - 1) % blockWeeks) + 1 : week;
+}
+
+/**
  * Tiles a base spec (one repeating block) across `lengthWeeks` by repeating the
  * block's rows with incremented `week` numbers. Read-time expansion only — stored
  * specs are never mutated, so there is no DB migration and revert is a pure code
@@ -107,7 +119,7 @@ export function expandSpecToLength<T extends { week: WeekNumber }>(
 
   const expanded: T[] = [];
   for (let week = 1; week <= lengthWeeks; week++) {
-    const blockWeek = ((week - 1) % blockWeeks) + 1;
+    const blockWeek = blockWeekForProgramWeek(week, blockWeeks);
     for (const row of rowsByWeek.get(blockWeek) ?? []) {
       expanded.push({ ...row, week });
     }
