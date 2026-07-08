@@ -4,12 +4,16 @@ import { LiftingProgramSpec } from '../models/LiftingProgramSpec';
 export * from './programLengths';
 
 /**
- * Built-in program specs, keyed by program ID.
+ * Built-in program specs, keyed by program ID. Single source of truth for
+ * built-in spec data: the in-memory spec adapter
+ * (apps/api/src/adapters/in-memory/lifting-program-spec.adapter.ts) seeds itself
+ * from every entry here, so a preset added here is automatically served by
+ * getProgramSpec — no separate seed wiring step is required (issue #739).
  *
  * ADD AN ENTRY HERE when a new program is made available in onboarding.
- * Also update PROGRAM_DEFAULTS in apps/api/src/programs/cycle-generation.service.ts.
- * These two registries must stay in sync — a missing entry in either causes
- * a broken or degraded experience for new users of that program.
+ * Also update PROGRAM_DEFAULTS in apps/api/src/programs/cycle-generation.service.ts —
+ * that registry is separate, and a missing entry there degrades cycle generation
+ * for the new program.
  */
 export const PRESET_BASE_SPECS: Record<string, LiftingProgramSpec[]> = {
   // Presets are ordered most-specific first so inferProgramFromLiftRecords returns the tightest match.

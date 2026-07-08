@@ -1,20 +1,15 @@
-import {
-  CycleDashboard,
-  LiftRecord,
-  LiftingProgramSpec,
-  PRESET_BASE_SPECS,
-  TrainingMax,
-  Weekday,
-} from '@lifting-logbook/core';
+import { CycleDashboard, LiftRecord, TrainingMax, Weekday } from '@lifting-logbook/core';
 
 /**
  * Seed data for the in-memory adapters used in v0.2 to wire the API end-to-end
  * before real persistence (Google Sheets adapters + auth) lands. One program,
  * one cycle, enough records to render the "today's workout" UI path.
+ *
+ * Built-in program *specs* are no longer seeded here: the in-memory spec adapter
+ * seeds every entry of PRESET_BASE_SPECS directly (issue #739).
  */
 
 export const SEED_PROGRAM = '5-3-1';
-export const SEED_LEANGAINS = 'leangains';
 
 export const seedCycleDashboard = (): CycleDashboard => ({
   program: SEED_PROGRAM,
@@ -68,7 +63,3 @@ export const seedLiftRecords = (): LiftRecord[] => [
     notes: 'AMRAP',
   },
 ];
-
-export const seedLeangainsSpec = (): LiftingProgramSpec[] => PRESET_BASE_SPECS['leangains']?.slice() ?? [];
-
-export const seedProgramSpec = (): LiftingProgramSpec[] => PRESET_BASE_SPECS['5-3-1']?.slice() ?? [];

@@ -119,6 +119,19 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
     expect(res.json().length).toBeGreaterThan(0);
   });
 
+  it('GET /programs/rpt/spec returns the full seeded RPT spec (regression: issue #739)', async () => {
+    // `rpt` was added to PRESET_BASE_SPECS in #596 but never seeded into the
+    // in-memory adapter, so this endpoint silently returned [] for every
+    // onboarded RPT user. The RPT split is 9 rows across 3 workout days
+    // (offsets 0/2/4), each a distinct lift.
+    const res = await get('/programs/rpt/spec');
+    expect(res.statusCode).toBe(200);
+    const rows: { offset: number; lift: string }[] = res.json();
+    expect(rows).toHaveLength(9);
+    expect(new Set(rows.map((r) => r.offset))).toEqual(new Set([0, 2, 4]));
+    expect(new Set(rows.map((r) => r.lift)).size).toBe(9);
+  });
+
   it('GET unknown program returns 404', async () => {
     const res = await get('/programs/does-not-exist/cycles/current');
     expect(res.statusCode).toBe(404);
