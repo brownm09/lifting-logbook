@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { LiftingProgramSpec } from '@lifting-logbook/core';
+import { LiftingProgramSpec, PRESET_BASE_SPECS } from '@lifting-logbook/core';
 import { HybridLiftingProgramSpecRepository } from './hybrid-program-spec.repository';
 
 const CUSTOM_PROGRAM_ID = '11111111-1111-4111-8111-111111111111';
@@ -68,6 +68,27 @@ describe('HybridLiftingProgramSpecRepository', () => {
     expect(leangainsSpec.length).toBeGreaterThan(0);
     expect(prisma.customProgramSpec.findMany).not.toHaveBeenCalled();
   });
+
+  // Regression guard for issue #739. The Hybrid repo delegates every built-in
+  // (non-UUID) program to the shared in-memory adapter — the exact path
+  // production traffic uses, in both the in-memory and Prisma factories. That
+  // adapter must serve EVERY PRESET_BASE_SPECS entry, not a hardcoded subset:
+  // `rpt` was added to PRESET_BASE_SPECS in #596 but never seeded, so
+  // getProgramSpec('rpt') silently returned []. Iterating the registry means a
+  // future preset cannot regress the same way without failing here.
+  it.each(Object.entries(PRESET_BASE_SPECS))(
+    'serves the full built-in %s spec from the in-memory adapter (issue #739)',
+    async (program, expectedSpec) => {
+      const prisma = makePrisma();
+      const repo = new HybridLiftingProgramSpecRepository(prisma, 'user-1');
+
+      const result = await repo.getProgramSpec(program);
+
+      expect(result.length).toBeGreaterThan(0);
+      expect(result).toHaveLength(expectedSpec.length);
+      expect(prisma.customProgramSpec.findMany).not.toHaveBeenCalled();
+    },
+  );
 
   it('scopes custom-program lookups to the requesting user (isolation guard)', async () => {
     const prisma = makePrisma();
