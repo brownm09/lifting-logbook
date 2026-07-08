@@ -173,4 +173,27 @@ describe('WorkoutLogger — weight-unit display preference', () => {
       { date: '2026-07-08', weight: 80, unit: 'kg' },
     );
   });
+
+  it('rounds the bodyweight-component added-weight default (no float-precision artifact)', () => {
+    render(
+      <WorkoutLogger
+        {...makeProps({
+          // Body weight already recorded in lbs (page.tsx normalizes from the stored unit,
+          // so this value is a kg-derived conversion carrying float noise); gate is skipped.
+          initialBodyWeight: 176.3699237,
+          hasBodyweightComponent: true,
+          lifts: [
+            makeLift({
+              lift: 'Chin-up',
+              isBodyweightComponent: true,
+              workingSets: [{ setNum: 1, totalLoad: 200, reps: 5, amrap: false }],
+            }),
+          ],
+        })}
+      />,
+    );
+
+    // 200 - 176.3699237 = 23.6300763… -> rounded to 23.63, never a raw float like 23.630076300000013.
+    expect(screen.getByLabelText('Weight in lbs')).toHaveValue(23.63);
+  });
 });

@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { LiftRecordResponse, WeightUnit } from '@lifting-logbook/types';
-import { convertWeight, formatWeight } from '@lifting-logbook/core';
+import { convertWeight, formatWeight, roundToDisplay } from '@lifting-logbook/core';
 import {
   createLiftRecord,
   recordBodyWeight,
@@ -46,9 +46,12 @@ function formatWorkingWeight(
   if (!isBodyweightComponent || bodyWeight === null) {
     return { display: formatWeight(totalLoad, 'lbs', unit), value: totalLoad };
   }
-  const added = Math.max(0, totalLoad - bodyWeight);
-  // `value` stays in lbs — it pre-fills the (lbs) weight input and must never be
-  // the converted display number, or logging would corrupt the stored weight.
+  // Round the added lbs load: a kg-entered body weight is a full-precision
+  // conversion, so `totalLoad - bodyWeight` carries float noise that would
+  // otherwise surface raw in the pre-filled (lbs) weight input. `value` stays in
+  // lbs — never the converted display number, or logging would corrupt the stored
+  // weight.
+  const added = roundToDisplay(Math.max(0, totalLoad - bodyWeight));
   return { display: `+${formatWeight(added, 'lbs', unit)}`, value: added };
 }
 
