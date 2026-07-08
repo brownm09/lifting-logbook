@@ -90,6 +90,22 @@ test('cycle dashboard renders workout grid', async ({ page }) => {
 });
 
 // ---------------------------------------------------------------------------
+// 4b. Cycle program page: "Edit Program" reads as disabled-with-reason
+// ---------------------------------------------------------------------------
+
+test('cycle program page marks Edit Program as coming soon', async ({ page }) => {
+  await page.goto('/cycle/1/program');
+
+  // The action is not built yet: the button is aria-disabled (still focusable, so
+  // the reason is reachable by AT) with a visible "Coming soon" affordance beside
+  // it — not a bare `disabled` button whose title tooltip a keyboard user cannot reach.
+  const editButton = page.getByRole('button', { name: 'Edit Program' });
+  await expect(editButton).toBeVisible();
+  await expect(editButton).toHaveAttribute('aria-disabled', 'true');
+  await expect(page.getByText('Coming soon')).toBeVisible();
+});
+
+// ---------------------------------------------------------------------------
 // 5. Workout logger renders sets/reps and accepts a log submission
 // ---------------------------------------------------------------------------
 

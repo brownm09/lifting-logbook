@@ -21,6 +21,13 @@
   margin: 0;
 }
 
+.editGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+}
+
 .editButton {
   padding: var(--space-2) var(--space-4);
   border: 1px solid var(--color-border-strong);
@@ -28,6 +35,18 @@
   background: var(--color-surface);
   cursor: not-allowed;
   font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* Focusable because it is aria-disabled (not `disabled`), so the "Coming soon"
+   reason is reachable by keyboard/AT users — give it a visible focus ring. */
+.editButton:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.editHint {
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
 

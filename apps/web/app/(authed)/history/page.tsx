@@ -31,12 +31,21 @@ function findTmAtTime(
 export default async function HistoryPage() {
   const program = await getActiveProgram();
 
-  // Wrap API calls so transient failures (expired session token, API unavailable)
-  // render an empty history page rather than crashing the server component.
-  // Pattern mirrors ProgramsPage — tabs always render; data may be empty.
+  // Wrap the API calls so a transient failure (expired session token, API
+  // unavailable) surfaces a non-blocking notice rather than crashing the server
+  // component or silently rendering an empty page that reads as "no history yet".
+  // The `.catch()` fallbacks keep the tabs rendering (graceful degradation);
+  // `loadFailed` distinguishes a real fetch failure from a genuinely empty history.
+  let loadFailed = false;
   const [records, { entries: tmEntries }, unit] = await Promise.all([
-    fetchLiftRecords(program).catch((): LiftRecordResponse[] => []),
-    fetchTrainingMaxHistory(program).catch(() => ({ entries: [] as TrainingMaxHistoryEntryResponse[] })),
+    fetchLiftRecords(program).catch((): LiftRecordResponse[] => {
+      loadFailed = true;
+      return [];
+    }),
+    fetchTrainingMaxHistory(program).catch(() => {
+      loadFailed = true;
+      return { entries: [] as TrainingMaxHistoryEntryResponse[] };
+    }),
     getPreferredUnit(),
   ]);
 
@@ -74,6 +83,15 @@ export default async function HistoryPage() {
   return (
     <main className={styles.pageContainer}>
       <h1 className={styles.pageHeading}>Lift History</h1>
+      <p className={styles.pageIntro}>
+        Your logged lifts and Training Max (TM) progression over time.
+      </p>
+      {loadFailed && (
+        <p role="status" className={styles.loadError}>
+          We couldn’t load your latest history just now. This is usually
+          temporary — refresh the page in a moment to try again.
+        </p>
+      )}
       <HistoryTabs records={enriched} tmEntries={tmEntries} unit={unit} />
     </main>
   );
