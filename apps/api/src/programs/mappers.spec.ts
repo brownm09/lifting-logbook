@@ -169,13 +169,13 @@ describe('toWorkoutResponse with plannedLifts', () => {
 
   it('marks logged lifts as planned:false', () => {
     const records = [record('Squat', 1, 200)];
-    const result = toWorkoutResponse(program, cycleNum, workoutNum, week, records, undefined, ['Squat']);
+    const result = toWorkoutResponse(program, cycleNum, workoutNum, week, records, { plannedLifts: ['Squat'] });
     expect(result.lifts[0]).toMatchObject({ lift: 'Squat', planned: false });
     expect(result.lifts[0]?.sets).toHaveLength(1);
   });
 
   it('marks unlogged planned lifts as planned:true with empty sets', () => {
-    const result = toWorkoutResponse(program, cycleNum, workoutNum, week, [], undefined, ['Squat', 'Bench Press']);
+    const result = toWorkoutResponse(program, cycleNum, workoutNum, week, [], { plannedLifts: ['Squat', 'Bench Press'] });
     expect(result.lifts).toHaveLength(2);
     expect(result.lifts[0]).toMatchObject({ lift: 'Squat', sets: [], planned: true });
     expect(result.lifts[1]).toMatchObject({ lift: 'Bench Press', sets: [], planned: true });
@@ -183,7 +183,7 @@ describe('toWorkoutResponse with plannedLifts', () => {
 
   it('appends logged lifts not in planned list as planned:false', () => {
     const records = [record('Squat', 1, 200), record('Chin-up', 1, 0)];
-    const result = toWorkoutResponse(program, cycleNum, workoutNum, week, records, undefined, ['Squat']);
+    const result = toWorkoutResponse(program, cycleNum, workoutNum, week, records, { plannedLifts: ['Squat'] });
     expect(result.lifts).toHaveLength(2);
     expect(result.lifts[0]).toMatchObject({ lift: 'Squat', planned: false });
     expect(result.lifts[1]).toMatchObject({ lift: 'Chin-up', planned: false });
@@ -197,14 +197,14 @@ describe('toWorkoutResponse with plannedLifts', () => {
 
   it('uses scheduledDate as date when no records exist', () => {
     const scheduledDate = new Date('2026-06-02T00:00:00.000Z');
-    const result = toWorkoutResponse(program, cycleNum, workoutNum, week, [], undefined, undefined, scheduledDate);
+    const result = toWorkoutResponse(program, cycleNum, workoutNum, week, [], { scheduledDate });
     expect(result.date).toBe('2026-06-02');
   });
 
   it('prefers first record date over scheduledDate when records exist', () => {
     const records = [record('Squat', 1, 200)];
     const scheduledDate = new Date('2026-06-02T00:00:00.000Z');
-    const result = toWorkoutResponse(program, cycleNum, workoutNum, week, records, undefined, undefined, scheduledDate);
+    const result = toWorkoutResponse(program, cycleNum, workoutNum, week, records, { scheduledDate });
     expect(result.date).toBe(records[0]!.date.toISOString().slice(0, 10));
   });
 
@@ -214,26 +214,33 @@ describe('toWorkoutResponse with plannedLifts', () => {
     // week, offset) — both route through the shared noScheduleWorkoutDateUTC.
     const cycleStart = new Date('2026-04-20T00:00:00.000Z');
     // week 2, offset 0 → 2026-04-20 + 7 = 2026-04-27 (NOT today).
-    const result = toWorkoutResponse(
-      program, cycleNum, 3, 2, [], undefined, ['Squat'], undefined, false, cycleStart, 0,
-    );
+    const result = toWorkoutResponse(program, cycleNum, 3, 2, [], {
+      plannedLifts: ['Squat'],
+      cycleStartDate: cycleStart,
+      offset: 0,
+    });
     expect(result.date).toBe('2026-04-27');
   });
 
   it('no-schedule week-1 date is cycleStart + offset', () => {
     const cycleStart = new Date('2026-04-20T00:00:00.000Z');
-    const result = toWorkoutResponse(
-      program, cycleNum, 2, 1, [], undefined, ['Squat'], undefined, false, cycleStart, 2,
-    );
+    const result = toWorkoutResponse(program, cycleNum, 2, 1, [], {
+      plannedLifts: ['Squat'],
+      cycleStartDate: cycleStart,
+      offset: 2,
+    });
     expect(result.date).toBe('2026-04-22');
   });
 
   it('scheduledDate still wins over the cycleStart-derived no-schedule date', () => {
     const cycleStart = new Date('2026-04-20T00:00:00.000Z');
     const scheduledDate = new Date('2026-06-02T00:00:00.000Z');
-    const result = toWorkoutResponse(
-      program, cycleNum, 3, 2, [], undefined, ['Squat'], scheduledDate, false, cycleStart, 0,
-    );
+    const result = toWorkoutResponse(program, cycleNum, 3, 2, [], {
+      plannedLifts: ['Squat'],
+      scheduledDate,
+      cycleStartDate: cycleStart,
+      offset: 0,
+    });
     expect(result.date).toBe('2026-06-02');
   });
 
