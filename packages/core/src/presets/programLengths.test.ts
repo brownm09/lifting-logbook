@@ -6,6 +6,7 @@ import {
   programLengthWeeks,
   expandSpecToLength,
   orderedWorkoutKeys,
+  noScheduleWorkoutDateUTC,
 } from '.';
 import { LiftingProgramSpec } from '../models/LiftingProgramSpec';
 
@@ -305,5 +306,39 @@ describe('orderedWorkoutKeys', () => {
     expect(keys[0]).toEqual({ week: 1, offset: 0 });
     expect(keys[3]).toEqual({ week: 2, offset: 0 }); // workoutNum 4 → week 2
     expect(keys[35]?.week).toBe(12);
+  });
+});
+
+describe('noScheduleWorkoutDateUTC', () => {
+  const cycleStart = new Date('2026-04-20T00:00:00.000Z'); // a Monday, UTC midnight
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+
+  it('week 1 is cycleStart + offset (no week term)', () => {
+    expect(iso(noScheduleWorkoutDateUTC(cycleStart, 1, 0))).toBe('2026-04-20');
+    expect(iso(noScheduleWorkoutDateUTC(cycleStart, 1, 2))).toBe('2026-04-22');
+  });
+
+  it('advances a full 7 days per program week: (week-1)*7 + offset', () => {
+    expect(iso(noScheduleWorkoutDateUTC(cycleStart, 2, 0))).toBe('2026-04-27'); // +7
+    expect(iso(noScheduleWorkoutDateUTC(cycleStart, 3, 4))).toBe('2026-05-08'); // +14+4
+    expect(iso(noScheduleWorkoutDateUTC(cycleStart, 12, 0))).toBe('2026-07-06'); // +77
+  });
+
+  it('returns a fresh UTC-midnight Date and does not mutate the input', () => {
+    const out = noScheduleWorkoutDateUTC(cycleStart, 2, 0);
+    expect(out.getUTCHours()).toBe(0);
+    expect(iso(cycleStart)).toBe('2026-04-20'); // input unchanged
+  });
+
+  it('is the date-side companion to orderedWorkoutKeys — one date per tiled workoutNum', () => {
+    // buildWorkoutDays (web card) and toWorkoutResponse (API detail) both resolve a
+    // workoutNum to its (week, offset) via orderedWorkoutKeys(expandSpecToLength(...))
+    // then feed it to this helper, so this is the single contract that keeps a card's
+    // date aligned with the workout it opens (issue #745).
+    const base = PRESET_BASE_SPECS['leangains'] ?? [];
+    const keys = orderedWorkoutKeys(expandSpecToLength(base, 12));
+    expect(keys[3]).toEqual({ week: 2, offset: 0 }); // workoutNum 4 → week 2, offset 0
+    // …and that (week, offset) yields the card/detail date cycleStart + 7.
+    expect(iso(noScheduleWorkoutDateUTC(cycleStart, 2, 0))).toBe('2026-04-27');
   });
 });

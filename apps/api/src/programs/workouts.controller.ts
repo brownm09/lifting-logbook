@@ -16,7 +16,7 @@ import {
   applyLiftOverrides,
   isValidWorkoutNum,
   toWorkoutResponse,
-  weekForWorkoutNum,
+  workoutKeyForWorkoutNum,
 } from './mappers';
 
 @Controller('programs/:program')
@@ -67,12 +67,15 @@ export class WorkoutsController {
     const scheduledDate = scheduledWorkout?.scheduledDate;
 
     // The scheduled row's weekNum is authoritative for the program week. With no
-    // schedule, weekForWorkoutNum tiles the stored block to the program's canonical
-    // length and indexes the global workoutNum into the ordered (week, offset)
-    // workout days — so week-2+ workouts of a tiled program (Leangains 12w, 5-3-1
-    // 12w) resolve in no-schedule mode too, not only schedule mode (#680 completed
-    // by #740). Undefined now means workoutNum is past the *full* canonical length.
-    const week = scheduledWorkout?.weekNum ?? weekForWorkoutNum(spec, workoutNum, program);
+    // schedule, workoutKeyForWorkoutNum tiles the stored block to the program's
+    // canonical length and indexes the global workoutNum into the ordered
+    // (week, offset) workout days — so week-2+ workouts of a tiled program
+    // (Leangains 12w, 5-3-1 12w) resolve in no-schedule mode too, not only schedule
+    // mode (#680 completed by #740). Undefined means workoutNum is past the *full*
+    // canonical length. The key's `offset` also feeds the no-schedule detail date
+    // below, keeping it aligned with the Cycle Dashboard card (issue #745).
+    const workoutKey = workoutKeyForWorkoutNum(spec, workoutNum, program);
+    const week = scheduledWorkout?.weekNum ?? workoutKey?.week;
     if (week === undefined) {
       throw new BadRequestException(
         `workoutNum ${workoutNum} exceeds the program's ${programLengthWeeks(program, spec)}-week schedule`,
@@ -86,6 +89,12 @@ export class WorkoutsController {
     const specLifts = [...new Set(spec.filter((s) => s.week === blockWeek).map((s) => s.lift))];
 
     const plannedLifts = applyLiftOverrides(specLifts, liftOverrides);
+
+    // cycleDate is absent only on the ProgramNotFoundError fallback ({ cycleNum: 1 }),
+    // where the spec is empty so the workoutNum guard above already 400'd. When
+    // present it anchors the no-schedule detail date to the same cycle start the
+    // dashboard card derives its date from (issue #745).
+    const cycleStartDate = 'cycleDate' in dashboard ? dashboard.cycleDate : undefined;
 
     // Apply overrides to logged records so removed/replaced lifts don't
     // re-appear via the "append ad-hoc logged lifts" path in toWorkoutResponse.
@@ -112,6 +121,8 @@ export class WorkoutsController {
       plannedLifts,
       scheduledDate,
       skippedNums.has(workoutNum),
+      cycleStartDate,
+      workoutKey?.offset,
     );
   }
 }

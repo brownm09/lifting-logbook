@@ -3,8 +3,8 @@ import {
   PROG_SPEC_WARMUP_PCTS,
   PROG_SPEC_WORK_PCTS,
   WARMUP_BASE_REPS,
-  addDaysUTC,
   expandSpecToLength,
+  noScheduleWorkoutDateUTC,
   orderedWorkoutKeys,
   programLengthWeeks,
 } from '@lifting-logbook/core';
@@ -80,10 +80,10 @@ export function buildWorkoutDays(
     return {
       workoutNum: i + 1,
       week: k.week,
-      // Program weeks are 7 calendar days (distributeWorkouts), so a workout's
-      // absolute offset from the cycle start is (week-1)*7 + its in-week offset.
-      // Week 1 is unchanged from the pre-#740 single-block behavior.
-      date: addDaysUTC(startDate, (k.week - 1) * 7 + k.offset)
+      // cycleStart + (week-1)*7 + offset, via the shared core helper the API's
+      // no-schedule detail fallback (toWorkoutResponse) also calls — so a card's
+      // date can never drift from the workout it opens (issues #740, #745).
+      date: noScheduleWorkoutDateUTC(startDate, k.week, k.offset)
         .toISOString()
         .slice(0, 10),
       lifts,
