@@ -1,5 +1,11 @@
 import { CycleDashboard, LiftingProgramSpec, Weekday } from '@lifting-logbook/core';
-import { applyLiftOverrides, buildCycleDashboardResponse, toWorkoutResponse, weekForWorkoutNum } from './mappers';
+import {
+  applyLiftOverrides,
+  buildCycleDashboardResponse,
+  toWorkoutResponse,
+  weekForWorkoutNum,
+  workoutKeyForWorkoutNum,
+} from './mappers';
 import { LiftOverride } from '../ports/IWorkoutLiftOverrideRepository';
 import { ScheduledWorkout } from '../ports/ICycleScheduledWorkoutRepository';
 
@@ -69,6 +75,30 @@ describe('weekForWorkoutNum', () => {
     const s = [spec(0, 'Squat', 1), spec(0, 'Squat', 2), spec(0, 'Squat', 3)];
     expect(weekForWorkoutNum(s, 3, 'a-custom-uuid')).toBe(3);
     expect(weekForWorkoutNum(s, 4, 'a-custom-uuid')).toBeUndefined();
+  });
+});
+
+describe('workoutKeyForWorkoutNum', () => {
+  it('returns the (week, offset) key for a tiled Leangains block', () => {
+    // 1-week block of offsets {0,2} → tiled to 12 weeks = 24 workout days. The offset
+    // (not just the week) is what the no-schedule detail date needs (issue #745).
+    const s = [spec(0, 'Bench Press', 1), spec(2, 'Squat', 1)];
+    expect(workoutKeyForWorkoutNum(s, 1, 'leangains')).toEqual({ week: 1, offset: 0 });
+    expect(workoutKeyForWorkoutNum(s, 2, 'leangains')).toEqual({ week: 1, offset: 2 });
+    expect(workoutKeyForWorkoutNum(s, 3, 'leangains')).toEqual({ week: 2, offset: 0 }); // week-2 day
+    expect(workoutKeyForWorkoutNum(s, 24, 'leangains')).toEqual({ week: 12, offset: 2 });
+  });
+
+  it('returns undefined past the full canonical length', () => {
+    const s = [spec(0, 'Bench Press', 1), spec(2, 'Squat', 1)];
+    expect(workoutKeyForWorkoutNum(s, 25, 'leangains')).toBeUndefined();
+  });
+
+  it('weekForWorkoutNum is exactly its .week projection', () => {
+    const s = [spec(0, 'Squat', 1), spec(3, 'Deadlift', 1), spec(0, 'Squat', 2), spec(3, 'Deadlift', 2)];
+    for (const n of [1, 2, 3, 4, 5]) {
+      expect(weekForWorkoutNum(s, n)).toBe(workoutKeyForWorkoutNum(s, n)?.week);
+    }
   });
 });
 
@@ -176,6 +206,48 @@ describe('toWorkoutResponse with plannedLifts', () => {
     const scheduledDate = new Date('2026-06-02T00:00:00.000Z');
     const result = toWorkoutResponse(program, cycleNum, workoutNum, week, records, undefined, undefined, scheduledDate);
     expect(result.date).toBe(records[0]!.date.toISOString().slice(0, 10));
+  });
+
+  it('no-schedule, unlogged: derives date from cycleStart + (week-1)*7 + offset (issue #745)', () => {
+    // No records, no scheduledDate. Pre-#745 this fell back to today(); now it must
+    // equal the date the Cycle Dashboard card computes for the same (cycleStart,
+    // week, offset) — both route through the shared noScheduleWorkoutDateUTC.
+    const cycleStart = new Date('2026-04-20T00:00:00.000Z');
+    // week 2, offset 0 → 2026-04-20 + 7 = 2026-04-27 (NOT today).
+    const result = toWorkoutResponse(
+      program, cycleNum, 3, 2, [], undefined, ['Squat'], undefined, false, cycleStart, 0,
+    );
+    expect(result.date).toBe('2026-04-27');
+  });
+
+  it('no-schedule week-1 date is cycleStart + offset', () => {
+    const cycleStart = new Date('2026-04-20T00:00:00.000Z');
+    const result = toWorkoutResponse(
+      program, cycleNum, 2, 1, [], undefined, ['Squat'], undefined, false, cycleStart, 2,
+    );
+    expect(result.date).toBe('2026-04-22');
+  });
+
+  it('scheduledDate still wins over the cycleStart-derived no-schedule date', () => {
+    const cycleStart = new Date('2026-04-20T00:00:00.000Z');
+    const scheduledDate = new Date('2026-06-02T00:00:00.000Z');
+    const result = toWorkoutResponse(
+      program, cycleNum, 3, 2, [], undefined, ['Squat'], scheduledDate, false, cycleStart, 0,
+    );
+    expect(result.date).toBe('2026-06-02');
+  });
+
+  it('falls back to today only when cycleStartDate/offset are absent (defensive last resort)', () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-08-15T12:00:00.000Z'));
+    try {
+      // No records, no scheduledDate, and no cycleStart/offset threaded → retains the
+      // pre-#745 today() behavior so a degenerate call (e.g. missing cycle dashboard)
+      // never crashes. The controller always threads them in real no-schedule mode.
+      const result = toWorkoutResponse(program, cycleNum, workoutNum, week, []);
+      expect(result.date).toBe('2026-08-15');
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
 

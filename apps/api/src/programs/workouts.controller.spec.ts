@@ -188,6 +188,31 @@ describe('WorkoutsController', () => {
     expect(result.lifts.every((l) => l.planned)).toBe(true);
   });
 
+  it('sets the no-schedule detail date to the Cycle Dashboard card date, not today (issue #745)', async () => {
+    // Same leangains 2-offset block + cycleStart as the web buildWorkoutDays card
+    // test, so this asserts card date == detail date end-to-end. workout 3 → (week 2,
+    // offset 0) → cycleStart 2026-04-20 + 7 = 2026-04-27. Pre-#745 the no-schedule,
+    // unlogged detail fell back to today() and diverged from the card.
+    dashboardRepo.getCycleDashboard.mockResolvedValue({
+      program: 'leangains',
+      cycleUnit: 'week',
+      cycleNum: 3,
+      cycleDate: new Date('2026-04-20T00:00:00.000Z'),
+      sheetName: '',
+      cycleStartWeekday: Weekday.Monday,
+    });
+    specRepo.getProgramSpec.mockResolvedValue([
+      { week: 1, offset: 0, lift: 'Bench Press', increment: 5, order: 1, sets: 3, reps: 6, amrap: true, warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
+      { week: 1, offset: 2, lift: 'Squat', increment: 10, order: 1, sets: 3, reps: 6, amrap: true, warmUpPct: '0.4,0.5,0.6', wtDecrementPct: 0.1, activation: 'compound' },
+    ]);
+    workoutRepo.getWorkout.mockResolvedValue([]); // upcoming — no records, no schedule
+
+    const result = await controller.getWorkout('leangains', '3', MOCK_USER);
+
+    expect(result.week).toBe(2);
+    expect(result.date).toBe('2026-04-27');
+  });
+
   it('resolves week from the scheduled row for a tiled week-2+ workout (issue #680)', async () => {
     // A 12-week Leangains schedule tiles a 1-week block, so workoutNum 4 lands in
     // week 2 — beyond the block's 2 distinct offsets. Without sourcing week from

@@ -124,6 +124,19 @@ describe('buildWorkoutDays — multi-week grouping and canonical-length expansio
     expect(days[3]?.week).toBe(2);
   });
 
+  it('no-schedule card date is cycleStart + (week-1)*7 + offset — matches the workout-detail date (issue #745)', () => {
+    // Same leangains 2-offset block + cycleStart the API mappers/controller specs use
+    // for the detail page, so this locks card date == detail date. workout 3 →
+    // (week 2, offset 0) → 2026-04-20 + 7 = 2026-04-27 (the API asserts the same).
+    const base = [0, 2].map((offset, i) => makeSpec({ week: 1, offset, lift: `Lift${i}` }));
+
+    const days = buildWorkoutDays(base, '2026-04-20', 'leangains');
+
+    expect(days[2]?.workoutNum).toBe(3);
+    expect(days[2]?.week).toBe(2);
+    expect(days[2]?.date).toBe('2026-04-27');
+  });
+
   it('does not collide a 3-week custom program whose lifts all share offset 0', () => {
     // Every ProgramEditor custom program is a 3-week spec with all lifts at offset 0.
     const specs = [1, 2, 3].flatMap((week) =>

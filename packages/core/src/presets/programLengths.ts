@@ -1,4 +1,5 @@
 import { WeekNumber } from '@lifting-logbook/types';
+import { addDaysUTC } from '../utils/jsUtil';
 
 /**
  * How a program's weeks are periodized for plan display.
@@ -150,4 +151,26 @@ export function orderedWorkoutKeys(
     keys.push({ week: row.week, offset: row.offset });
   }
   return keys.sort((a, b) => a.week - b.week || a.offset - b.offset);
+}
+
+/**
+ * The UTC calendar date of a no-schedule workout day, from its `(week, offset)`
+ * key relative to the cycle start: `cycleStart + (week-1)*7 + offset` days.
+ * Program weeks are 7 calendar days (see `distributeWorkouts`), so a workout in
+ * program week W at in-week `offset` lands `(W-1)*7 + offset` days after the
+ * cycle start. Week 1 (`week === 1`) is just `cycleStart + offset`.
+ *
+ * The single source of truth for the spec-relative (no-schedule) workout date,
+ * shared by the web Cycle Dashboard grid (`buildWorkoutDays`) and the API
+ * no-schedule workout-detail fallback (`toWorkoutResponse`) so a card's date and
+ * the detail page it opens can never drift (issue #745). This is the date-side
+ * companion to {@link orderedWorkoutKeys}, which shares the `workoutNum ↔
+ * (week, offset)` mapping the same two callers use (issue #740).
+ */
+export function noScheduleWorkoutDateUTC(
+  cycleStart: Date,
+  week: number,
+  offset: number,
+): Date {
+  return addDaysUTC(cycleStart, (week - 1) * 7 + offset);
 }
