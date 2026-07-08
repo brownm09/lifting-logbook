@@ -20,6 +20,23 @@
   margin-bottom: 1.5rem;
 }
 
+.pageIntro {
+  margin: -0.75rem 0 1.5rem;
+  color: var(--color-text-muted, #6b7280);
+  font-size: 0.875rem;
+}
+
+/* Non-blocking notice shown when a history fetch fails (page still renders). */
+.loadError {
+  margin-bottom: 1.5rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-warn-border, #ffeaa7);
+  border-radius: var(--radius-md, 6px);
+  background: var(--color-warn-bg, #fff3cd);
+  color: var(--color-warn-text, #856404);
+  font-size: 0.875rem;
+}
+
 .tabs {
   display: flex;
   gap: 0.5rem;
