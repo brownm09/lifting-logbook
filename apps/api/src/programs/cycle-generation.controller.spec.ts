@@ -75,6 +75,9 @@ describe('CycleGenerationController', () => {
         cycleStartDate: '2026-04-27',
         weeks: [],
         currentWeekType: 'training',
+        dateOverrides: {},
+        skippedWorkoutNums: [],
+        completedWorkoutNums: [],
       });
     });
 
@@ -125,6 +128,9 @@ describe('CycleGenerationController', () => {
         cycleStartDate: '2026-05-12',
         weeks: [],
         currentWeekType: 'training',
+        dateOverrides: {},
+        skippedWorkoutNums: [],
+        completedWorkoutNums: [],
       });
     });
 

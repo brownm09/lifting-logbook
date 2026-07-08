@@ -1,5 +1,4 @@
 import { WeekNumber } from '@lifting-logbook/types';
-import { LiftingProgramSpec } from '../models/LiftingProgramSpec';
 
 /**
  * How a program's weeks are periodized for plan display.
@@ -86,23 +85,27 @@ export function programLengthWeeks(
  * Returns `[]` for an empty base spec (zero-spec guard) or `lengthWeeks <= 0`,
  * so callers computing `Math.max(...expanded.map(s => s.week))` must still guard
  * the empty case (`Math.max(...[])` is `-Infinity`).
+ *
+ * Generic over the row type so both the domain {@link LiftingProgramSpec} (API)
+ * and its serialized `LiftingProgramSpecResponse` (web) can be tiled without a
+ * cast — only the `week` field is read or rewritten.
  */
-export function expandSpecToLength(
-  baseSpec: LiftingProgramSpec[],
+export function expandSpecToLength<T extends { week: WeekNumber }>(
+  baseSpec: T[],
   lengthWeeks: number,
-): LiftingProgramSpec[] {
+): T[] {
   const blockWeeks = baseSpecBlockWeeks(baseSpec);
   if (blockWeeks <= 0 || lengthWeeks <= 0) return [];
 
   // Group rows by their in-block week once, preserving each week's row order.
-  const rowsByWeek = new Map<number, LiftingProgramSpec[]>();
+  const rowsByWeek = new Map<number, T[]>();
   for (const row of baseSpec) {
     const arr = rowsByWeek.get(row.week) ?? [];
     arr.push(row);
     rowsByWeek.set(row.week, arr);
   }
 
-  const expanded: LiftingProgramSpec[] = [];
+  const expanded: T[] = [];
   for (let week = 1; week <= lengthWeeks; week++) {
     const blockWeek = ((week - 1) % blockWeeks) + 1;
     for (const row of rowsByWeek.get(blockWeek) ?? []) {
@@ -110,4 +113,29 @@ export function expandSpecToLength(
     }
   }
   return expanded;
+}
+
+/**
+ * The distinct `(week, offset)` workout-day keys of a spec, ordered by week then
+ * offset. This is the canonical `workoutNum ↔ (week, offset)` mapping — the Nth
+ * entry (1-based) is `workoutNum` N.
+ *
+ * Both the web Cycle Dashboard grid (`buildWorkoutDays`) and the API's no-schedule
+ * `weekForWorkoutNum` fallback derive `workoutNum` from this single helper, so a
+ * card's `workoutNum` and the workout it opens can never disagree. Callers pass a
+ * spec already tiled to the canonical length via {@link expandSpecToLength}, so the
+ * ordering spans the whole cycle rather than a single repeating block (issue #740).
+ */
+export function orderedWorkoutKeys(
+  spec: ReadonlyArray<{ week: WeekNumber; offset: number }>,
+): { week: WeekNumber; offset: number }[] {
+  const seen = new Set<string>();
+  const keys: { week: WeekNumber; offset: number }[] = [];
+  for (const row of spec) {
+    const key = `${row.week}:${row.offset}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    keys.push({ week: row.week, offset: row.offset });
+  }
+  return keys.sort((a, b) => a.week - b.week || a.offset - b.offset);
 }

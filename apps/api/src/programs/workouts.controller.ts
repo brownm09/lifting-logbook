@@ -5,7 +5,7 @@ import {
   Inject,
   Param,
 } from '@nestjs/common';
-import { baseSpecBlockWeeks, LiftRecord } from '@lifting-logbook/core';
+import { baseSpecBlockWeeks, LiftRecord, programLengthWeeks } from '@lifting-logbook/core';
 import { WorkoutResponse } from '@lifting-logbook/types';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthUser } from '../ports/auth';
@@ -66,15 +66,16 @@ export class WorkoutsController {
     const scheduledWorkout = scheduledWorkouts.find((s) => s.workoutNum === workoutNum);
     const scheduledDate = scheduledWorkout?.scheduledDate;
 
-    // The scheduled row's weekNum is authoritative for the program week. A global
-    // workoutNum spans the full tiled schedule, so it can exceed the base block's
-    // distinct-offset count — weekForWorkoutNum (offset-indexed within one block)
-    // only covers the no-schedule fallback. Without this, week-2+ workouts of a
-    // tiled program (Leangains 12w, 5-3-1 12w) would 400 (issue #680).
-    const week = scheduledWorkout?.weekNum ?? weekForWorkoutNum(spec, workoutNum);
+    // The scheduled row's weekNum is authoritative for the program week. With no
+    // schedule, weekForWorkoutNum tiles the stored block to the program's canonical
+    // length and indexes the global workoutNum into the ordered (week, offset)
+    // workout days — so week-2+ workouts of a tiled program (Leangains 12w, 5-3-1
+    // 12w) resolve in no-schedule mode too, not only schedule mode (#680 completed
+    // by #740). Undefined now means workoutNum is past the *full* canonical length.
+    const week = scheduledWorkout?.weekNum ?? weekForWorkoutNum(spec, workoutNum, program);
     if (week === undefined) {
       throw new BadRequestException(
-        `workoutNum ${workoutNum} exceeds program spec (${new Set(spec.map((s) => s.offset)).size} workout days)`,
+        `workoutNum ${workoutNum} exceeds the program's ${programLengthWeeks(program, spec)}-week schedule`,
       );
     }
 

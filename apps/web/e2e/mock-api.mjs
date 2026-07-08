@@ -23,6 +23,11 @@ const CYCLE_DASHBOARD = {
       ],
     },
   ],
+  // Top-level per-workout metadata the Cycle Dashboard reads instead of a
+  // per-workout fetch (issue #740). skippedWorkoutNums is filled from state below.
+  dateOverrides: {},
+  skippedWorkoutNums: [],
+  completedWorkoutNums: [],
 };
 
 const WORKOUT = {
@@ -266,6 +271,7 @@ const server = createServer(async (req, res) => {
           }
           week.completed = week.workouts.every((wo) => wo.skipped);
         }
+        dashboard.skippedWorkoutNums = [...state.skippedWorkouts];
         json(res, dashboard);
       }
       return;

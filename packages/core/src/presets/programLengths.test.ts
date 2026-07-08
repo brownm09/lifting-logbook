@@ -4,6 +4,7 @@ import {
   baseSpecBlockWeeks,
   programLengthWeeks,
   expandSpecToLength,
+  orderedWorkoutKeys,
 } from '.';
 import { LiftingProgramSpec } from '../models/LiftingProgramSpec';
 
@@ -230,5 +231,45 @@ describe('expandSpecToLength', () => {
     expect(baseSpecBlockWeeks(expanded)).toBe(12);
     // Same rows per week as the 1-week block, tiled 12×.
     expect(expanded).toHaveLength(base.length * 12);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// orderedWorkoutKeys — the shared workoutNum ↔ (week, offset) mapping (issue #740)
+// ---------------------------------------------------------------------------
+
+describe('orderedWorkoutKeys', () => {
+  it('returns distinct (week, offset) keys ordered by week then offset', () => {
+    // Rows deliberately out of order, with duplicate (week, offset) pairs and
+    // multiple lifts sharing a workout day.
+    const spec = [
+      makeRow({ week: 2, offset: 3, lift: 'A' }),
+      makeRow({ week: 1, offset: 3, lift: 'B' }),
+      makeRow({ week: 1, offset: 0, lift: 'C' }),
+      makeRow({ week: 1, offset: 0, lift: 'D' }), // duplicate key with row C
+      makeRow({ week: 2, offset: 0, lift: 'E' }),
+    ];
+    expect(orderedWorkoutKeys(spec)).toEqual([
+      { week: 1, offset: 0 },
+      { week: 1, offset: 3 },
+      { week: 2, offset: 0 },
+      { week: 2, offset: 3 },
+    ]);
+  });
+
+  it('returns [] for an empty spec', () => {
+    expect(orderedWorkoutKeys([])).toEqual([]);
+  });
+
+  it('indexes workoutNum → (week, offset) consistently with a tiled Leangains block', () => {
+    // Both the web grid (buildWorkoutDays) and the API (weekForWorkoutNum) call
+    // orderedWorkoutKeys(expandSpecToLength(...)), so this is the single contract
+    // that keeps a Dashboard card's workoutNum aligned with the workout it opens.
+    const base = (PRESET_BASE_SPECS['leangains'] ?? []);
+    const keys = orderedWorkoutKeys(expandSpecToLength(base, 12));
+    expect(keys).toHaveLength(36); // 12 weeks × 3 offsets {0,2,4}
+    expect(keys[0]).toEqual({ week: 1, offset: 0 });
+    expect(keys[3]).toEqual({ week: 2, offset: 0 }); // workoutNum 4 → week 2
+    expect(keys[35]?.week).toBe(12);
   });
 });

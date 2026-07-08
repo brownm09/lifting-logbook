@@ -5,7 +5,10 @@ import {
   StrengthGoalEntry,
   TrainingMax,
   TrainingMaxHistoryEntry,
+  expandSpecToLength,
   normalizeAmrap,
+  orderedWorkoutKeys,
+  programLengthWeeks,
 } from '@lifting-logbook/core';
 import {
   CycleDashboardResponse,
@@ -102,12 +105,18 @@ export const toLiftingProgramSpecResponse = (
 export const toCycleDashboardResponse = (
   d: CycleDashboard,
   currentWeekType: WeekType,
+  dateOverrides: Record<number, string> = {},
+  skippedWorkoutNums: number[] = [],
+  completedWorkoutNums: number[] = [],
 ): CycleDashboardResponse => ({
   program: d.program,
   cycleNum: d.cycleNum,
   cycleStartDate: isoDate(d.cycleDate),
   weeks: [],
   currentWeekType,
+  dateOverrides,
+  skippedWorkoutNums,
+  completedWorkoutNums,
 });
 
 /**
@@ -124,8 +133,24 @@ export function buildCycleDashboardResponse(
   completedWorkoutNums: Set<number>,
   skippedNums: Set<number> = new Set(),
 ): CycleDashboardResponse {
+  // Per-workout metadata for the whole cycle, surfaced top-level so the Cycle
+  // Dashboard can render every tiled workout's status without a per-workout fetch
+  // (issue #740). Populated identically in both modes; only `weeks` differs.
+  const dateOverrides: Record<number, string> = {};
+  for (const [workoutNum, date] of overrides) {
+    dateOverrides[workoutNum] = isoDate(date);
+  }
+  const skippedList = [...skippedNums].sort((a, b) => a - b);
+  const completedList = [...completedWorkoutNums].sort((a, b) => a - b);
+
   if (scheduled.length === 0) {
-    return toCycleDashboardResponse(d, currentWeekType);
+    return toCycleDashboardResponse(
+      d,
+      currentWeekType,
+      dateOverrides,
+      skippedList,
+      completedList,
+    );
   }
 
   const weekAcc = new Map<number, { workouts: WorkoutSummary[]; scheduled: ScheduledWorkout[] }>();
@@ -160,6 +185,9 @@ export function buildCycleDashboardResponse(
     cycleStartDate: isoDate(d.cycleDate),
     weeks,
     currentWeekType,
+    dateOverrides,
+    skippedWorkoutNums: skippedList,
+    completedWorkoutNums: completedList,
   };
 }
 
@@ -205,21 +233,28 @@ export const isValidWorkoutNum = (n: number): boolean =>
   Number.isInteger(n) && n >= 1;
 
 /**
- * Derives the training week for a given workoutNum from the program spec.
- * Deduplicates offsets, sorts ascending, maps workoutNum to the Nth offset,
- * then reads the `week` field from the first matching spec entry (defaulting
- * to 1 when the field is absent). Returns undefined when workoutNum exceeds
- * the number of distinct offsets.
+ * Derives the training week for a global `workoutNum` from the program spec — the
+ * no-schedule fallback (a scheduled row's `weekNum` is authoritative when present).
+ *
+ * The stored spec is one repeating block, so it is first tiled to the program's
+ * canonical length ({@link expandSpecToLength} + {@link programLengthWeeks}); the
+ * `workoutNum` then indexes into the ordered `(week, offset)` workout days
+ * ({@link orderedWorkoutKeys}) — the *same* mapping the web Cycle Dashboard grid
+ * (`buildWorkoutDays`) uses, so a card and the workout it opens never disagree.
+ *
+ * Returns undefined only when `workoutNum` exceeds the *full* canonical length
+ * (surfaced as 400 by the controller). Before #740 the cap was one block's
+ * distinct-offset count, which 400'd every week-2+ workout of a tiled program in
+ * no-schedule mode (#680 fixed this only for schedule mode). `program` defaults to
+ * the base-spec block length for custom / unregistered programs.
  */
 export const weekForWorkoutNum = (
   spec: LiftingProgramSpec[],
   workoutNum: number,
+  program = '',
 ): WeekNumber | undefined => {
-  const offsets = [...new Set(spec.map((s) => s.offset))].sort((a, b) => a - b);
-  const offset = offsets[workoutNum - 1];
-  return offset !== undefined
-    ? (spec.find((s) => s.offset === offset)?.week ?? 1)
-    : undefined;
+  const fullSpec = expandSpecToLength(spec, programLengthWeeks(program, spec));
+  return orderedWorkoutKeys(fullSpec)[workoutNum - 1]?.week;
 };
 
 /**

@@ -201,6 +201,18 @@ export interface CycleDashboardResponse {
   cycleStartDate: string; // ISO 8601 date string
   weeks: CycleWeekSummary[];
   currentWeekType: WeekType;
+  /**
+   * Per-workout metadata for the *whole* cycle, in both schedule and no-schedule
+   * modes — `weeks` is empty in no-schedule mode, so the Cycle Dashboard reads
+   * these to render every tiled workout's status without a per-workout fetch
+   * (issue #740). Keys are global `workoutNum`s.
+   */
+  /** `workoutNum` → override date (ISO 8601). Absent key = no override. */
+  dateOverrides: Record<number, string>;
+  /** `workoutNum`s explicitly skipped in this cycle. */
+  skippedWorkoutNums: number[];
+  /** `workoutNum`s with at least one logged lift record in this cycle. */
+  completedWorkoutNums: number[];
 }
 
 // ---------------------------------------------------------------------------
