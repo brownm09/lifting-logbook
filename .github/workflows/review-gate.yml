@@ -1,0 +1,187 @@
+name: Review Gate
+
+# Reports a "Review Gate" commit status: mandatory /review must have a clean or disposed
+# marker comment before a PR can pass. See docs/adr/ADR-031-mandatory-review-gate.md.
+#
+# The /review marker is posted as a PR *comment*, which fires `issue_comment`, not
+# `pull_request` -- so both triggers are needed. `merge_group` is included per ADR-030's
+# convention (every required-check-eligible workflow must report against the merge queue's
+# synthetic validation commit, not only the PR's own head SHA).
+#
+# Marker/disposition regexes below must stay in sync with dev-env's
+# claude/scripts/pre-merge-findings-gate.py (the source of truth for the /review marker
+# format). This workflow deliberately differs from that hook in two ways: it fails the
+# check when NO marker exists at all (mandatory review, vs. the hook's lenient "optional
+# review" policy), and it fails OPEN rather than closed on any internal error, because once
+# required this check gates every merge in the repo with no fallback path.
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+  merge_group:
+    types: [checks_requested]
+
+permissions:
+  contents: read
+  pull-requests: read
+  statuses: write
+
+concurrency:
+  group: review-gate-${{ github.event.pull_request.number || github.event.issue.number || github.event.merge_group.head_sha }}
+  cancel-in-progress: true
+
+jobs:
+  review-gate:
+    # issue_comment fires for both issues and PRs -- skip plain issue comments cheaply.
+    if: github.event_name != 'issue_comment' || github.event.issue.pull_request != null
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      # No actions/checkout step -- gh normally infers the target repo from the local
+      # git checkout, which doesn't exist here. Without this, every `gh pr view` call
+      # fails with "not a git repository" and the check silently fails open every run.
+      GH_REPO: ${{ github.repository }}
+      EVENT_NAME: ${{ github.event_name }}
+      ISSUE_COMMENT_PR_NUMBER: ${{ github.event.issue.number }}
+      PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+      PULL_REQUEST_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      MERGE_GROUP_HEAD_REF: ${{ github.event.merge_group.head_ref }}
+      MERGE_GROUP_HEAD_SHA: ${{ github.event.merge_group.head_sha }}
+    steps:
+      - name: Evaluate review-findings marker and report status
+        shell: python3 {0}
+        run: |
+          import json
+          import os
+          import re
+          import subprocess
+          import sys
+
+          # Kept in sync with dev-env's claude/scripts/pre-merge-findings-gate.py.
+          MARKER_RE = re.compile(
+              r"<!--\s*review-findings:\s*blocking\s*=\s*(\d+)\s+non_blocking\s*=\s*(\d+)\s*-->"
+          )
+          DISPOSED_RE = re.compile(r"findings[\s\-]dispos", re.IGNORECASE)
+
+          REPO = os.environ["GITHUB_REPOSITORY"]
+
+
+          def warn(msg):
+              print(f"::warning::{msg}")
+
+
+          def set_status(sha, state, description):
+              if not sha:
+                  warn("No target SHA resolved -- cannot set commit status. Failing open (no-op).")
+                  return
+              subprocess.run(
+                  [
+                      "gh", "api", f"repos/{REPO}/statuses/{sha}",
+                      "-f", f"state={state}",
+                      "-f", "context=Review Gate",
+                      "-f", f"description={description[:140]}",
+                  ],
+                  check=True,
+              )
+
+
+          def fail_open(sha, reason):
+              # This check gates every merge once required, with no fallback path -- a
+              # transient error here must never block all merges repo-wide. See ADR-031
+              # Rationale ("Why fail OPEN on error").
+              warn(f"Review Gate failing OPEN: {reason}")
+              set_status(sha, "success", f"Could not evaluate (failing open): {reason}")
+
+
+          def main():
+              event = os.environ["EVENT_NAME"]
+              target_sha = None
+
+              if event == "issue_comment":
+                  pr_number = os.environ.get("ISSUE_COMMENT_PR_NUMBER", "")
+              elif event == "pull_request":
+                  pr_number = os.environ.get("PULL_REQUEST_NUMBER", "")
+                  target_sha = os.environ.get("PULL_REQUEST_HEAD_SHA", "")
+              elif event == "merge_group":
+                  # merge_group exposes no PR number directly (context.issue.number is
+                  # undefined) -- resolve it from GitHub's documented merge-queue temporary
+                  # branch naming: refs/heads/gh-readonly-queue/<base>/pr-<number>-<sha>.
+                  head_ref = os.environ.get("MERGE_GROUP_HEAD_REF", "")
+                  target_sha = os.environ.get("MERGE_GROUP_HEAD_SHA", "")
+                  match = re.search(r"/pr-(\d+)-", head_ref)
+                  if not match:
+                      fail_open(target_sha, f"unparseable merge_group head_ref: {head_ref!r}")
+                      return
+                  pr_number = match.group(1)
+              else:
+                  fail_open(None, f"unexpected event_name: {event}")
+                  return
+
+              if not pr_number:
+                  fail_open(target_sha, "could not resolve a PR number for this event")
+                  return
+
+              try:
+                  result = subprocess.run(
+                      ["gh", "pr", "view", str(pr_number), "--json", "body,comments,commits,headRefOid"],
+                      check=True, capture_output=True, text=True,
+                  )
+                  pr = json.loads(result.stdout)
+              except subprocess.CalledProcessError as e:
+                  # e's own str() omits stderr -- surface it explicitly, or a real
+                  # failure here (as opposed to a transient blip) is undiagnosable from
+                  # the commit-status description alone.
+                  fail_open(target_sha, f"gh pr view failed: {e}: {e.stderr.strip()}")
+                  return
+              except Exception as e:
+                  fail_open(target_sha, f"gh pr view failed: {e}")
+                  return
+
+              if target_sha is None:
+                  target_sha = pr.get("headRefOid")
+
+              commits = pr.get("commits") or []
+              if not commits:
+                  fail_open(target_sha, "PR has no commits data")
+                  return
+              # ISO-8601 UTC strings ("2026-07-04T06:52:08Z"), same format guaranteed by the
+              # GitHub API -- lexical comparison needs no datetime parsing (confirmed live
+              # during ADR-083's design in dev-env).
+              head_committed_at = commits[-1].get("committedDate", "")
+
+              comments = pr.get("comments") or []
+              marker_comments = [c for c in comments if MARKER_RE.search(c.get("body", ""))]
+
+              if not marker_comments:
+                  set_status(target_sha, "failure", "No /review found -- run /review <PR-URL> --post-comment")
+                  return
+
+              last = marker_comments[-1]
+              match = MARKER_RE.search(last["body"])
+              blocking, non_blocking = int(match.group(1)), int(match.group(2))
+              is_fresh = last.get("createdAt", "") >= head_committed_at
+
+              if not is_fresh:
+                  set_status(target_sha, "failure", "Review marker is stale -- re-run /review after the latest commit")
+                  return
+
+              if blocking + non_blocking == 0:
+                  set_status(target_sha, "success", "Clean /review, no findings")
+                  return
+
+              if DISPOSED_RE.search(pr.get("body") or ""):
+                  set_status(
+                      target_sha, "success",
+                      f"Review findings disposed ({blocking} blocking, {non_blocking} non-blocking)",
+                  )
+                  return
+
+              set_status(
+                  target_sha, "failure",
+                  f"{blocking} blocking / {non_blocking} non-blocking findings not yet disposed in PR body",
+              )
+
+
+          main()
