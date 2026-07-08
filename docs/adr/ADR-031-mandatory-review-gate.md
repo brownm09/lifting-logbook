@@ -1,11 +1,12 @@
 # ADR-031: Mandatory Review Gate via GitHub Required Status Check
 
-**Status:** Accepted
+**Status:** Accepted — implemented in the PR that closes
+[#757](https://github.com/brownm09/lifting-logbook/issues/757). See "Implementation" below.
 **Date:** 2026-07-06
 **Closes:** [#718](https://github.com/brownm09/lifting-logbook/issues/718) (staged across
 [#720](https://github.com/brownm09/lifting-logbook/issues/720) — this workflow, shipped but not
-yet required — and a second PR that rolls out the branch-protection change once #720 is proven
-green)
+yet required — and [#757](https://github.com/brownm09/lifting-logbook/issues/757), which rolls out
+the branch-protection change now that #720 is proven green)
 **Related:** dev-env [ADR-083](https://github.com/brownm09/dev-env/blob/main/docs/adr/083-auto-merge-checkpoint-gate.md)
 (the complementary client-side hook for the Claude-Code-mediated `--auto` path this check does not
 replace), [ADR-030](ADR-030-github-merge-queue-adoption.md) (this check ships `merge_group`-ready
@@ -110,6 +111,27 @@ fail open (pass, with a `::warning::` annotation) rather than closed.
 - **Comment-body authenticity is not verified**, same accepted limitation as the dev-env hook:
   anyone with comment access to the PR could hand-write the marker text. Accepted for the same
   reason ADR-083 accepts it — disproportionate scope creep for this repo's threat model.
+
+## Implementation
+
+[#757](https://github.com/brownm09/lifting-logbook/issues/757) (2026-07-08) added `Review Gate` to
+`main`'s branch-protection `required_status_checks.contexts`, alongside the five pre-existing
+contexts (`Lint & Test`, `DB Integration Tests`, `Observability Stack Smoke Test`,
+`Playwright E2E`, `Staging Integration Tests`) via a full-replacement `PATCH` — the same mutation
+shape as the `gh api -X PATCH` example in
+[`docs/operations/branch-protection.md`](../operations/branch-protection.md). Live state was
+snapshotted to `.claude/backups/branch-protection-snapshot-*.json` before mutating, and
+`.github/expected-required-checks.json` plus the branch-protection doc's table were updated in the
+same PR so the `Required Checks Drift` workflow does not immediately flag the new live state as
+unexpected.
+
+This closes the enforcement half of the gap #718 opened for: a human merging via the GitHub web UI,
+or GitHub's own auto-merge firing once CI is green, can no longer bypass review-findings
+enforcement on this repo — `Review Gate` now mechanically blocks any PR without a fresh, clean (or
+disposed) `/review` marker, regardless of who or what triggers the merge. See dev-env
+[ADR-083](https://github.com/brownm09/dev-env/blob/main/docs/adr/083-auto-merge-checkpoint-gate.md)'s
+dated addenda for the cross-repo history of this rollout, including the addendum this
+implementation prompted.
 
 ## Escalation trigger
 
