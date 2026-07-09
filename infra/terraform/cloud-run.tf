@@ -211,15 +211,36 @@ resource "google_service_account" "web_workload" {
 
 # ─── Access control ───────────────────────────────────────────────────────────
 #
-# Web service is publicly accessible (serves the Next.js frontend to browsers).
-# API service requires Cloud Run IAM authentication — only the web workload SA
-# is granted roles/run.invoker so server-side API calls from Next.js succeed.
-# See: https://cloud.google.com/run/docs/authenticating/service-to-service
+# Both services are publicly invokable at the Cloud Run IAM layer; Clerk JWT
+# verification (apps/api/src/auth/auth.guard.ts) is the real authorization
+# boundary, identical to how the web service has always worked. This is a
+# deliberate reversal of the original "API requires Cloud Run IAM auth" model
+# (ADR-032): ADR-028 wires PUBLIC_API_URL to the API's external Cloud Run URL
+# so browsers call it directly, which structurally cannot present a Cloud Run
+# IAM identity token (CORS preflights never carry the app's auth headers) —
+# see apps/web/lib/client-api.ts's "AUTH HEADER INVARIANT" comment. Without
+# this grant, every client-side write (reschedule, skip/unskip, lift records,
+# imports, ...) 403s at the Cloud Run front end before reaching the app.
+#
+# web_invoker_on_api is kept even though it's no longer strictly required for
+# access — the web workload SA still presents a real GCP identity token on its
+# server-to-server calls (X-Clerk-Authorization carries the Clerk JWT
+# separately), which is harmless and gives that traffic a distinct IAM audit
+# trail from anonymous callers.
+# See: https://cloud.google.com/run/docs/authenticating/public
 
 resource "google_cloud_run_v2_service_iam_member" "web_public" {
   project  = google_cloud_run_v2_service.web.project
   location = google_cloud_run_v2_service.web.location
   name     = google_cloud_run_v2_service.web.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+resource "google_cloud_run_v2_service_iam_member" "api_public" {
+  project  = google_cloud_run_v2_service.api.project
+  location = google_cloud_run_v2_service.api.location
+  name     = google_cloud_run_v2_service.api.name
   role     = "roles/run.invoker"
   member   = "allUsers"
 }

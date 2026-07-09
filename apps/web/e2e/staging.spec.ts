@@ -209,5 +209,36 @@ test.describe('onboarding write path (creates and cleans up real data)', () => {
     // Lands on the cycle dashboard — the actual write-path assertion.
     await expect(page).toHaveURL(/\/cycle\/1/, { timeout: 15_000 });
     await expect(page.getByRole('heading', { name: /cycle/i }).first()).toBeVisible();
+
+    // ---------------------------------------------------------------------
+    // Reschedule write path — appended here (rather than a standalone test)
+    // to reuse the cycle/workout this test already created and cleans up,
+    // avoiding new seed/cleanup plumbing.
+    //
+    // This specifically exercises RescheduleForm.tsx -> lib/client-api.ts,
+    // the ONLY write path in the app that fetches PUBLIC_API_URL directly
+    // from the browser (every other write in this file, including "Start My
+    // Program" above, goes through a Next.js Server Action using the
+    // server-side X-Clerk-Authorization header via lib/api.ts). A browser
+    // fetch to PUBLIC_API_URL is genuinely cross-origin against Cloud Run's
+    // own URL, so it is the only path that actually triggers a CORS
+    // preflight against the API's Cloud Run IAM policy — see ADR-032. None
+    // of the tests above would have caught the ~month-long production outage
+    // that motivated ADR-032 (#766); this one would have.
+    // ---------------------------------------------------------------------
+    await page.goto('/cycle/1/workout/1/detail');
+    await page.getByRole('button', { name: '📅 Reschedule' }).click();
+
+    const newDate = new Date();
+    newDate.setDate(newDate.getDate() + 3);
+    const newDateStr = newDate.toISOString().slice(0, 10);
+    await page.locator('#new-date').fill(newDateStr);
+    await page.getByRole('button', { name: 'Move' }).click();
+
+    // Success collapses the form back to the trigger button with no error
+    // shown; failure (including the pre-ADR-032 CORS 403) leaves the form
+    // open with the "Failed to reschedule" message visible.
+    await expect(page.getByText('Failed to reschedule. Please try again.')).not.toBeVisible();
+    await expect(page.getByRole('button', { name: '📅 Reschedule' })).toBeVisible({ timeout: 15_000 });
   });
 });

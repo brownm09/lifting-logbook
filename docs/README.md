@@ -163,6 +163,7 @@ monorepo/
 | [ADR-029](adr/ADR-029-per-env-artifact-registry-push.md)    | Per-Environment Artifact Registry Push                              | Accepted |
 | [ADR-030](adr/ADR-030-github-merge-queue-adoption.md)       | GitHub Merge Queue Adoption                                         | Accepted |
 | [ADR-031](adr/ADR-031-mandatory-review-gate.md)             | Mandatory Review Gate via GitHub Required Status Check              | Accepted |
+| [ADR-032](adr/ADR-032-cloud-run-api-public-invoker.md)      | API Cloud Run Service Is Publicly Invokable; Clerk Auth Is the Real Boundary | Accepted |
 
 ---
 
