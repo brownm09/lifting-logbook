@@ -182,6 +182,14 @@ describe('WorkoutSkipController', () => {
       expect(skipRepo.unskipWorkout).not.toHaveBeenCalled();
     });
 
+    it('propagates ProgramNotFoundError when the cycle dashboard is missing', async () => {
+      dashboardRepo.getCycleDashboard.mockRejectedValue(new ProgramNotFoundError('5-3-1'));
+      await expect(
+        controller.unskipWorkout('5-3-1', '2', '3', MOCK_USER),
+      ).rejects.toThrow(ProgramNotFoundError);
+      expect(skipRepo.unskipWorkout).not.toHaveBeenCalled();
+    });
+
     it('calls unskipWorkout with parsed params', async () => {
       await controller.unskipWorkout('5-3-1', '2', '3', MOCK_USER);
       expect(skipRepo.unskipWorkout).toHaveBeenCalledWith('5-3-1', 2, 3);
