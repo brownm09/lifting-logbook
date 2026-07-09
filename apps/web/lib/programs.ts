@@ -1,4 +1,5 @@
 import { LiftingProgramSpec, PRESET_BASE_SPECS, PROGRAM_LENGTHS } from '@lifting-logbook/core';
+import type { CustomProgramSpecRow } from '@lifting-logbook/types';
 
 export type Experience = 'beginner' | 'intermediate' | 'advanced';
 export type Goal = 'strength' | 'muscle-gain' | 'body-composition' | 'fat-loss';
@@ -44,6 +45,41 @@ export const TEMPLATE_BUILDERS: Record<string, () => LiftingProgramSpec[]> = {
   [SEED_PROGRAM]: seedProgramSpec,
   [SEED_LEANGAINS]: seedLeangainsSpec,
 };
+
+/**
+ * Full spec for a clone template, as CustomProgramSpecRow[], expanded across the
+ * editor's three weeks. Unlike the editor's older per-lift seeding, this is NOT
+ * filtered to a selected-lift set — it returns the template's entire workout-day
+ * structure (all offsets) so the editor can pre-populate days and instances when
+ * cloning (issue #751). Single-week templates (maxWeek === 1) are tiled across
+ * weeks 1/2/3. Returns [] for templates with no registered builder.
+ */
+export function templateSeedSpecs(templateId: string): CustomProgramSpecRow[] {
+  const builder = TEMPLATE_BUILDERS[templateId];
+  const seeded = builder ? builder() : null;
+  if (!seeded || seeded.length === 0) return [];
+
+  const maxWeek = Math.max(...seeded.map((s) => s.week));
+  const expanded =
+    maxWeek === 1
+      ? [1, 2, 3].flatMap((w) => seeded.map((s) => ({ ...s, week: w })))
+      : seeded;
+
+  return expanded.map((s) => ({
+    week: s.week,
+    offset: s.offset,
+    lift: s.lift as string,
+    increment: s.increment,
+    order: s.order,
+    sets: s.sets,
+    reps: s.reps,
+    amrap: Boolean(s.amrap),
+    warmUpPct: s.warmUpPct,
+    wtDecrementPct: s.wtDecrementPct,
+    activation: s.activation,
+    ...(s.weekType !== undefined ? { weekType: s.weekType as string } : {}),
+  }));
+}
 
 // Base program catalog. `weeks` for programs wired to a core preset is reconciled
 // below from the canonical PROGRAM_LENGTHS registry, so onboarding copy can never

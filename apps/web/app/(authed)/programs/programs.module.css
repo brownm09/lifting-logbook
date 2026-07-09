@@ -277,17 +277,7 @@
 
 .formTextarea { min-height: 80px; resize: vertical; }
 
-.liftCheckboxList {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 0.375rem;
-}
-
-.liftCheckbox { display: flex; align-items: center; gap: 0.375rem; font-size: 0.875rem; }
-
 /* Spec table */
-.specTableWrapper { overflow-x: auto; }
-
 .specTable {
   border-collapse: collapse;
   font-size: 0.8125rem;
@@ -311,6 +301,62 @@
   font-size: 0.8125rem;
   text-align: center;
 }
+
+/* ----- Workout-day builder (#751) ----- */
+.dayCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.875rem;
+  margin-bottom: 0.75rem;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 8px;
+  background: var(--color-surface, #fff);
+}
+
+.dayHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.dayTitle { font-size: 0.9375rem; font-weight: 600; }
+
+.instanceRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.625rem;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 6px;
+  background: var(--color-surface-hover, #f9fafb);
+}
+
+.instanceHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.instanceSpec { overflow-x: auto; }
+
+.addExerciseRow { display: flex; align-items: center; gap: 0.5rem; }
+
+.addDayButton {
+  align-self: flex-start;
+  padding: 0.5rem 0.875rem;
+  border: 1px dashed var(--color-border, #d1d5db);
+  border-radius: 6px;
+  background: none;
+  color: var(--color-primary, #2563eb);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.addDayButton:hover { background: var(--color-surface-hover, #f9fafb); }
+.addDayButton:disabled { opacity: 0.5; cursor: default; }
 
 .customProgramList { display: flex; flex-direction: column; gap: 0.5rem; }
 
