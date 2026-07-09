@@ -22,8 +22,9 @@ import { pinoHttpOptions } from './app.module';
 describe('OTel log export does not leak redacted fields', () => {
   const SECRET_TOKEN = 'super-secret-jwt-value';
   const SECRET_COOKIE = 'session=super-secret-cookie-value';
+  const SECRET_CLERK_JWT = 'super-secret-clerk-jwt-value';
 
-  it('keeps Authorization/Cookie values out of both the Pino wire format and the resulting OTel LogRecord', async () => {
+  it('keeps Authorization/Cookie/X-Clerk-Authorization values out of both the Pino wire format and the resulting OTel LogRecord', async () => {
     // 1. Log a request/response pair shaped like pino-http's own serialization,
     // through the app's REAL redact config, and capture the exact line pino
     // would have written to stdout.
@@ -43,6 +44,11 @@ describe('OTel log export does not leak redacted fields', () => {
           headers: {
             authorization: `Bearer ${SECRET_TOKEN}`,
             cookie: SECRET_COOKIE,
+            // Server-to-server calls (apps/web/lib/api.ts) carry the Clerk JWT
+            // here instead of `authorization` — see auth.guard.ts. Regression
+            // coverage for #767: this leaked into GCP Cloud Logging in plaintext
+            // because it wasn't in the original redact.paths list.
+            'x-clerk-authorization': `Bearer ${SECRET_CLERK_JWT}`,
           },
         },
         res: { statusCode: 500 },
@@ -54,6 +60,7 @@ describe('OTel log export does not leak redacted fields', () => {
 
     expect(serializedLine).not.toContain(SECRET_TOKEN);
     expect(serializedLine).not.toContain(SECRET_COOKIE);
+    expect(serializedLine).not.toContain(SECRET_CLERK_JWT);
     // Sanity check: the line is real content, not an empty/broken write.
     expect(serializedLine).toContain('42501');
 
@@ -89,6 +96,7 @@ describe('OTel log export does not leak redacted fields', () => {
 
     expect(serializedRecord).not.toContain(SECRET_TOKEN);
     expect(serializedRecord).not.toContain(SECRET_COOKIE);
+    expect(serializedRecord).not.toContain(SECRET_CLERK_JWT);
 
     await provider.shutdown();
   });
