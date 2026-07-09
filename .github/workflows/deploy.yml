@@ -533,29 +533,45 @@ jobs:
             --wait --timeout=10m
 
       # Cloud Run: A/B comparison target (10% traffic — ADR-009)
-      - name: Deploy API to Cloud Run (staging)
+      - name: Deploy API + OTel Collector sidecar to Cloud Run (staging)
         run: |
-          # --remove-secrets strips the unused owner/superuser SYSTEM_DATABASE_URL
-          # from the running service (#534). The deployed Prisma path never reads it
-          # (DATABASE_URL is always set → PrismaRepositoryFactory; SystemDbRepositoryFactory
-          # is only constructed when DATABASE_URL is unset), and the Terraform service
-          # template is lifecycle.ignore_changes, so this is the only place the env can be
-          # removed. Removing an already-absent secret is a no-op on subsequent deploys.
-          # --allow-unauthenticated: Cloud Run IAM is intentionally public here — Clerk
-          # JWT verification (apps/api auth.guard.ts) is the real authorization boundary.
-          # See infra/terraform/cloud-run.tf's access-control comment and ADR-032. Without
-          # this, browser CORS preflights to PUBLIC_API_URL (ADR-028) 403 at the Cloud Run
-          # front end before ever reaching the app — Terraform's allUsers invoker grant on
-          # the API service alone is not sufficient, since this flag re-asserts the opposite
-          # policy on every deploy.
-          gcloud run deploy lifting-logbook-stg-api \
-            --image="${{ needs.build-images.outputs.ar_repo }}/api:${{ github.sha }}" \
-            --region="${{ env.REGION }}" \
-            --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
-            --platform=managed \
-            --allow-unauthenticated \
-            --remove-secrets=SYSTEM_DATABASE_URL \
-            --quiet
+          # Wire the API into Grafana Cloud via a co-located otel-collector sidecar (#768).
+          # Cloud Run has no additive sidecar command and no ConfigMap volumes, and the api
+          # service is lifecycle.ignore_changes = [template] (Terraform never mutates the
+          # running revision), so the whole 2-container topology is owned here:
+          #   1. Ensure the collector config.yaml secret (non-sensitive; from the repo file;
+          #      a new version only when the content changed, to avoid per-deploy churn).
+          #   2. Describe the live service, inject the sidecar (+ the api's
+          #      OTEL_EXPORTER_OTLP_ENDPOINT; minus the unused SYSTEM_DATABASE_URL, #534), and
+          #      `gcloud run services replace`.
+          # Deriving the manifest from the live service preserves every Terraform-managed
+          # field (VPC connector, scaling, SA, startup probe) verbatim, and IAM is untouched
+          # (the api stays as-is: private until #766 opens it). `--container` was rejected
+          # (unresolvable sidecar port catch-22) — see scripts/inject-otel-sidecar.py.
+          # Grafana endpoints mirror infra/kubernetes/values/staging-otel-collector.yaml.
+          PROJECT="${{ vars.GCP_STAGING_PROJECT_ID }}"
+          CONFIG_SECRET="lifting-logbook-stg-otel-collector-config"
+          gcloud secrets describe "$CONFIG_SECRET" --project="$PROJECT" >/dev/null 2>&1 \
+            || gcloud secrets create "$CONFIG_SECRET" --replication-policy=automatic --project="$PROJECT" --quiet
+          CURRENT_CFG=$(gcloud secrets versions access latest --secret="$CONFIG_SECRET" --project="$PROJECT" 2>/dev/null || true)
+          if [ "$CURRENT_CFG" != "$(cat infra/cloud-run/otel-collector-config.yaml)" ]; then
+            gcloud secrets versions add "$CONFIG_SECRET" --data-file=infra/cloud-run/otel-collector-config.yaml --project="$PROJECT" --quiet
+            echo "otel-collector config secret: new version published."
+          else
+            echo "otel-collector config secret: unchanged."
+          fi
+          python3 -c "import yaml" 2>/dev/null || python3 -m pip install --quiet pyyaml
+          gcloud run services describe lifting-logbook-stg-api \
+            --region="${{ env.REGION }}" --project="$PROJECT" --format=export > "$RUNNER_TEMP/stg-api.yaml"
+          API_IMAGE="${{ needs.build-images.outputs.ar_repo }}/api:${{ github.sha }}" \
+          OTEL_CONFIG_SECRET="$CONFIG_SECRET" \
+          OTEL_OTLP_ENDPOINT="https://otlp-gateway-prod-us-central1.grafana.net/otlp" \
+          OTEL_LOKI_ENDPOINT="https://logs-prod-021.grafana.net/otlp" \
+          OTEL_OTLP_SECRET="lifting-logbook-stg-otel-otlp-auth-header" \
+          OTEL_LOKI_SECRET="lifting-logbook-stg-otel-loki-auth-header" \
+            python3 scripts/inject-otel-sidecar.py "$RUNNER_TEMP/stg-api.yaml" > "$RUNNER_TEMP/stg-api-sidecar.yaml"
+          gcloud run services replace "$RUNNER_TEMP/stg-api-sidecar.yaml" \
+            --region="${{ env.REGION }}" --project="$PROJECT" --quiet
 
       - name: Deploy web to Cloud Run (staging)
         run: |
@@ -1088,28 +1104,38 @@ jobs:
             --set env.PUBLIC_API_URL="${{ steps.tf-prod.outputs.cloud_run_api_url }}" \
             --wait --timeout=5m
 
-      - name: Deploy API to Cloud Run (production)
+      - name: Deploy API + OTel Collector sidecar to Cloud Run (production)
         run: |
-          # --remove-secrets strips the unused owner/superuser SYSTEM_DATABASE_URL
-          # from the running service (#534) — see the staging step for the full
-          # rationale. After the RLS cutover (#517) the runtime connects as the
-          # NOBYPASSRLS lifting_app role via DATABASE_URL; the owner credential is
-          # never read on the Prisma path, so it should not sit in the runtime env.
-          # --allow-unauthenticated: Cloud Run IAM is intentionally public here — Clerk
-          # JWT verification (apps/api auth.guard.ts) is the real authorization boundary.
-          # See infra/terraform/cloud-run.tf's access-control comment and ADR-032. Without
-          # this, browser CORS preflights to PUBLIC_API_URL (ADR-028) 403 at the Cloud Run
-          # front end before ever reaching the app — Terraform's allUsers invoker grant on
-          # the API service alone is not sufficient, since this flag re-asserts the opposite
-          # policy on every deploy.
-          gcloud run deploy lifting-logbook-prod-api \
-            --image="${{ steps.tf-prod.outputs.ar_repo }}/api:${{ github.sha }}" \
-            --region="${{ env.REGION }}" \
-            --project="${{ vars.GCP_PROD_PROJECT_ID }}" \
-            --platform=managed \
-            --allow-unauthenticated \
-            --remove-secrets=SYSTEM_DATABASE_URL \
-            --quiet
+          # Mirror of the staging step (see deploy-staging for the full rationale): wire the
+          # API into Grafana Cloud via a co-located otel-collector sidecar (#768) by ensuring
+          # the config.yaml secret, then describe → inject sidecar → `services replace`.
+          # Deriving the manifest from the live service preserves every Terraform-managed
+          # field verbatim and leaves IAM untouched (production stays as-is). The unused
+          # SYSTEM_DATABASE_URL (#534) is dropped by the injector. Grafana endpoints mirror
+          # infra/kubernetes/values/production-otel-collector.yaml.
+          PROJECT="${{ vars.GCP_PROD_PROJECT_ID }}"
+          CONFIG_SECRET="lifting-logbook-prod-otel-collector-config"
+          gcloud secrets describe "$CONFIG_SECRET" --project="$PROJECT" >/dev/null 2>&1 \
+            || gcloud secrets create "$CONFIG_SECRET" --replication-policy=automatic --project="$PROJECT" --quiet
+          CURRENT_CFG=$(gcloud secrets versions access latest --secret="$CONFIG_SECRET" --project="$PROJECT" 2>/dev/null || true)
+          if [ "$CURRENT_CFG" != "$(cat infra/cloud-run/otel-collector-config.yaml)" ]; then
+            gcloud secrets versions add "$CONFIG_SECRET" --data-file=infra/cloud-run/otel-collector-config.yaml --project="$PROJECT" --quiet
+            echo "otel-collector config secret: new version published."
+          else
+            echo "otel-collector config secret: unchanged."
+          fi
+          python3 -c "import yaml" 2>/dev/null || python3 -m pip install --quiet pyyaml
+          gcloud run services describe lifting-logbook-prod-api \
+            --region="${{ env.REGION }}" --project="$PROJECT" --format=export > "$RUNNER_TEMP/prod-api.yaml"
+          API_IMAGE="${{ steps.tf-prod.outputs.ar_repo }}/api:${{ github.sha }}" \
+          OTEL_CONFIG_SECRET="$CONFIG_SECRET" \
+          OTEL_OTLP_ENDPOINT="https://otlp-gateway-prod-us-central1.grafana.net/otlp" \
+          OTEL_LOKI_ENDPOINT="https://logs-prod-021.grafana.net/otlp" \
+          OTEL_OTLP_SECRET="lifting-logbook-prod-otel-otlp-auth-header" \
+          OTEL_LOKI_SECRET="lifting-logbook-prod-otel-loki-auth-header" \
+            python3 scripts/inject-otel-sidecar.py "$RUNNER_TEMP/prod-api.yaml" > "$RUNNER_TEMP/prod-api-sidecar.yaml"
+          gcloud run services replace "$RUNNER_TEMP/prod-api-sidecar.yaml" \
+            --region="${{ env.REGION }}" --project="$PROJECT" --quiet
 
       # ── Production DB-backed smoke test (#460) ─────────────────────────────
       # The migrate guard above prevents shipping against an unmigrated schema;
