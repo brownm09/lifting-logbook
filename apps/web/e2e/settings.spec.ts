@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test';
 
-// 127.0.0.1 (not localhost): IPv4-only dev servers + Windows localhost -> ::1 (#741, CLAUDE.md).
-const MOCK_API = 'http://127.0.0.1:3004';
+// Mock API base. Host pinned to 127.0.0.1 (not localhost): IPv4-only dev servers + Windows
+// localhost -> ::1 (#741). The PORT is injected per-run by playwright.config.ts so concurrent
+// worktree runs don't collide (#746); the literal is a fallback for a bare `playwright test`.
+const MOCK_API = process.env.PLAYWRIGHT_MOCK_API_URL ?? 'http://127.0.0.1:3004';
 
 test.beforeEach(async ({ request }) => {
   // The Import wizard's Source step lists custom programs; opt the mock into one
