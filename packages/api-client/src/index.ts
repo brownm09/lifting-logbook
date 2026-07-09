@@ -18,6 +18,7 @@ import type {
   LiftRecordResponse,
   PatchLiftMetadataRequest,
   RecordBodyWeightRequest,
+  RescheduleRequest,
   StrengthGoalResponse,
   SwitchProgramResponse,
   TrainingMaxHistoryResponse,
@@ -278,9 +279,12 @@ export function createApiClient(config: ApiClientConfig) {
       workoutNum: number,
       newDate: string,
     ): Promise<void> {
+      // Typed against the shared contract so a change to RescheduleRequest surfaces
+      // here at compile time rather than as a silently malformed request body.
+      const body: RescheduleRequest = { newDate };
       return request(
         `/programs/${enc(program)}/cycles/${cycleNum}/workouts/${workoutNum}/reschedule`,
-        { method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify({ newDate }), cache: 'no-store' },
+        { method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify(body), cache: 'no-store' },
       );
     },
     skipWorkout(

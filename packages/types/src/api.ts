@@ -97,6 +97,22 @@ export interface WorkoutResponse {
   bodyWeightEntry?: Pick<BodyWeightEntry, 'weight' | 'unit'>;
 }
 
+/**
+ * Request body for PATCH
+ * /programs/:program/cycles/:cycleNum/workouts/:workoutNum/reschedule.
+ *
+ * Shared contract for the reschedule request shape: the backend `RescheduleDto`
+ * (`apps/api`) implements this interface and the api-client builds its request
+ * body as this type, so the two cannot drift. The endpoint returns 204 No
+ * Content, so there is no corresponding response type — the reschedule result is
+ * surfaced on the read side via `WorkoutResponse.overrideDate` and
+ * `CycleDashboardResponse.dateOverrides`.
+ */
+export interface RescheduleRequest {
+  /** Target calendar date in `YYYY-MM-DD` format (no time or timezone component). */
+  newDate: string;
+}
+
 // ---------------------------------------------------------------------------
 // Lift Records
 // ---------------------------------------------------------------------------
