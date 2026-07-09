@@ -184,6 +184,26 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
       expect(res.statusCode).toBe(400);
     });
 
+    it('PATCH reschedule with out-of-range workoutNum returns 400', async () => {
+      // 9999 is a positive integer (passes the old check) but far past the
+      // program's canonical length — an override there is dead data.
+      const res = await patchJson(
+        `/programs/${SEED_PROGRAM}/cycles/1/workouts/9999/reschedule`,
+        { newDate: '2026-06-01' },
+      );
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('PATCH reschedule with non-active cycleNum returns 400', async () => {
+      // Seed's active cycle is 1 (these tests run before any new-cycle writes).
+      // Cycle 2 is not the active cycle, so an override there could never be read.
+      const res = await patchJson(
+        `/programs/${SEED_PROGRAM}/cycles/2/workouts/1/reschedule`,
+        { newDate: '2026-06-01' },
+      );
+      expect(res.statusCode).toBe(400);
+    });
+
     it('PATCH reschedule requires auth', async () => {
       const injectRaw = app.getHttpAdapter().getInstance().inject.bind(
         app.getHttpAdapter().getInstance(),
