@@ -497,7 +497,7 @@ on the five `page.test.tsx` files that `import { renderToStaticMarkup } from 're
 
 **Symptom that confirms it:** the error names a `server.node.js` runtime file (so `react-dom` IS installed) rather than "Cannot find module" (which would mean `react-dom` itself is missing); the same five files pass under `npm ci` or a completed `npm install`.
 
-**Fix:** run a full install in the worktree — `npm install`, or `rm -rf node_modules && npm ci` — then re-run `npm run typecheck`. `@types/react` and `@types/react-dom` are also declared in the **root** `package.json` devDependencies so they hoist to the root `node_modules` and stay resolvable from `apps/web` even when the workspace-local copy is missing. Motivating incident: [#769](https://github.com/brownm09/lifting-logbook/issues/769).
+**Fix:** run a full install in the worktree — `npm install`, or `rm -rf node_modules && npm ci` — then re-run `npm run typecheck`. (Root-hoisting `@types/react` + `@types/react-dom` into the **root** `package.json` so they always resolve from `apps/web` even when the workspace-local copy is missing would harden this further, but currently `ERESOLVE`s against `apps/mobile`'s Expo 54 / RN 0.81 `@types/react@19.1.x` pin vs. `@types/react-dom@19.2.3`'s `@types/react@^19.2.0` peer requirement — tracked in [#777](https://github.com/brownm09/lifting-logbook/issues/777).) Motivating incident: [#769](https://github.com/brownm09/lifting-logbook/issues/769).
 
 ### CI not firing — merge conflict silences GitHub Actions
 
