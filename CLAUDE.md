@@ -482,6 +482,23 @@ A label of "pre-existing" without an open-issue link is not acceptable. The moti
 
 When a PR adds or modifies a `.catch(() => default)`, `?? default`, or `try { … } catch { return neutral }` in a server component or API boundary, the test coverage for that code path must satisfy one of: (a) a data-level assertion the fallback would not produce, (b) a separate test that fails specifically when the upstream fails, or (c) an inline comment that names the swallowed-fallback source line and explains why structure-only is intentional. See [`docs/standards/error-fallback-test-coverage.md`](docs/standards/error-fallback-test-coverage.md) for the full rule and examples.
 
+### Typecheck TS7016 on `react-dom/server` — incomplete install, not a code defect
+
+**Pattern:** `npm run typecheck` fails on `apps/web` with:
+
+```
+error TS7016: Could not find a declaration file for module 'react-dom/server'.
+'.../apps/web/node_modules/react-dom/server.node.js' implicitly has an 'any' type.
+```
+
+on the five `page.test.tsx` files that `import { renderToStaticMarkup } from 'react-dom/server'`.
+
+**Root cause:** `react-dom@19`'s `package.json` `exports["./server"]` ships only runtime conditions (`node → server.node.js`, `browser`, `default`, …) and **no `types` condition**, so TypeScript cannot source the `react-dom/server` declaration from `react-dom` itself — it resolves the declaration solely from the **`@types/react-dom` devDependency** (whose `exports["./server"].types → server.d.ts`). `react-dom` is a runtime `dependency` while `@types/react-dom` is a `devDependency`, so any install that has deps but not devDeps — `npm install --omit=dev`, a partial/interrupted extract, or a worktree whose `npm install` never completed — leaves `react-dom` present but `@types/react-dom` absent → TS7016 on every `react-dom/server` import. It is **not** a version or `tsconfig` bug: a clean install (`npm ci` in CI, a fresh worktree `npm install`) always resolves it, and `@types/react-dom` resolves whether it sits in `apps/web/node_modules` or is hoisted to the repo-root `node_modules`.
+
+**Symptom that confirms it:** the error names a `server.node.js` runtime file (so `react-dom` IS installed) rather than "Cannot find module" (which would mean `react-dom` itself is missing); the same five files pass under `npm ci` or a completed `npm install`.
+
+**Fix:** run a full install in the worktree — `npm install`, or `rm -rf node_modules && npm ci` — then re-run `npm run typecheck`. `@types/react` and `@types/react-dom` are also declared in the **root** `package.json` devDependencies so they hoist to the root `node_modules` and stay resolvable from `apps/web` even when the workspace-local copy is missing. Motivating incident: [#769](https://github.com/brownm09/lifting-logbook/issues/769).
+
 ### CI not firing — merge conflict silences GitHub Actions
 
 **Pattern:** A PR in `CONFLICTING` (merge conflict) state causes GitHub Actions `pull_request` events to never fire. GitHub cannot create the virtual merge commit at `refs/pull/N/merge`, so the event is silently dropped — no checks are queued, no runs appear.
