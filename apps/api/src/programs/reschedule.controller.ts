@@ -49,9 +49,11 @@ export class RescheduleController {
       throw new NotFoundException(`Program '${program}' not found`);
     }
 
-    // Reject a workoutNum past the program's canonical length — the same bound the
-    // GET workout endpoint enforces (workouts.controller.ts, via workoutKeyForWorkoutNum).
-    // Without it an override is upserted for a workoutNum that maps to no real workout
+    // Reject a workoutNum past the program's spec-derived canonical length, via the
+    // same workoutKeyForWorkoutNum helper the GET workout endpoint uses. (GET also
+    // honors a scheduled row's weekNum, so its effective bound is marginally looser;
+    // the two align because schedules are never generated beyond the canonical length.)
+    // Without this an override is upserted for a workoutNum that maps to no real workout
     // day and is silently never surfaced (204 success, no visible effect).
     if (workoutKeyForWorkoutNum(spec, workoutNum, program) === undefined) {
       throw new BadRequestException(
