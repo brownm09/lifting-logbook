@@ -51,6 +51,30 @@ access — the web server's server-to-server calls still present a real GCP iden
 alongside the Clerk JWT (via the separate `X-Clerk-Authorization` header), which is harmless and
 gives that traffic a distinct IAM audit trail from anonymous callers.
 
+### Two independent layers had to change, not one
+
+Making the service publicly invokable removes the Cloud Run **front-end** `403`, but that only
+lets the browser's preflight `OPTIONS` reach the container — the **application** must still answer
+it with the right CORS headers, and it never did. `apps/api` shipped with no CORS configuration,
+so even a reachable API returns no `Access-Control-Allow-Origin` and the browser discards the
+response. The IAM grant alone is therefore necessary but not sufficient; this fix has two
+complementary parts:
+
+1. **Infrastructure (Cloud Run IAM):** grant `roles/run.invoker` to `allUsers` and drop
+   `--no-allow-unauthenticated` on every API deploy — `deploy.yml` (staging + production) *and*
+   the PR-staging `staging.yml`, which independently redeploys the staging API on each PR and
+   would otherwise silently re-lock it. Removes the front-end `403`.
+2. **Application (CORS):** `apps/api/src/main.ts` now calls `app.enableCors()` with an explicit
+   origin allowlist (`apps/api/src/cors.config.ts`) covering the web app's Cloud Run URLs (both
+   address formats Cloud Run serves each service at — the legacy `-<hash>-uc.a.run.app` and the
+   current `-<projectNumber>.us-central1.run.app`), the `liftinglogbook.com` custom domain, and
+   local dev. `@fastify/cors` (registered by `enableCors`) answers the preflight and echoes
+   `Access-Control-Allow-Origin`. It is an allowlist, not an origin reflector, so CORS stays a
+   same-origin-policy control while the Clerk JWT remains the authorization gate.
+
+Both parts are required for a browser write to succeed; shipping only the IAM change would have
+left the outage in place with a different (browser-side, silent) failure mode.
+
 ## Consequences
 
 **Positive:**
@@ -87,10 +111,12 @@ Cloud Run IAM layer emerges later.
 
 ## Verification
 
-- Staging: after deploy, replay the previously-failing CORS preflight
-  (`curl -X OPTIONS -H "Origin: https://staging.liftinglogbook.com" -H "Access-Control-Request-Method: PATCH" <staging-api-url>/programs/.../reschedule -i`)
-  and confirm a `2xx`/CORS-headers response instead of `403`; exercise the reschedule form
-  end-to-end in the running staging app.
+- Staging: after deploy, replay the previously-failing CORS preflight against the API using a
+  real web origin from the allowlist
+  (`curl -X OPTIONS -H "Origin: https://lifting-logbook-stg-web-910635705567.us-central1.run.app" -H "Access-Control-Request-Method: PATCH" -H "Access-Control-Request-Headers: authorization,content-type" <staging-api-url>/programs/.../reschedule -i`)
+  and confirm a `204`/`2xx` response carrying `Access-Control-Allow-Origin` (application CORS),
+  not the previous `403` (Cloud Run IAM); exercise the reschedule form end-to-end in the running
+  staging app.
 - Production: same, after the production deploy step change lands.
 - `gcloud run services get-iam-policy <service> --project=<project>` shows an `allUsers` /
   `roles/run.invoker` binding on the API service in both environments.
@@ -100,3 +126,5 @@ Cloud Run IAM layer emerges later.
 - [Google Cloud Run — Authentication overview](https://cloud.google.com/run/docs/authenticating/overview) — the IAM-invoker model this ADR partially opts out of, and the public-invocation ("allUsers") pattern it opts into instead.
 - [Google Cloud Run — Invoking a public (unauthenticated) service](https://cloud.google.com/run/docs/authenticating/public) — the specific `allUsers` grant used here, already in use for the web service.
 - [MDN — CORS: Preflighted requests](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS#preflighted_requests) — documents why a preflight `OPTIONS` request cannot carry the actual request's custom auth headers, which is why no client-side header change could have worked around the Cloud Run IAM gate.
+- [NestJS — CORS](https://docs.nestjs.com/security/cors) — `app.enableCors()`, the application-layer control added here so the API answers the browser's preflight after Cloud Run stops blocking it.
+- [`@fastify/cors`](https://github.com/fastify/fastify-cors) — the CORS plugin NestJS's Fastify adapter registers under the hood for `enableCors()`; supports the string/RegExp origin allowlist used in `cors.config.ts`.

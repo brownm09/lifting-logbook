@@ -114,6 +114,8 @@ Each entry links back to the ADR where it is discussed and provides a brief desc
 | [Google Cloud Run — Authentication overview](https://cloud.google.com/run/docs/authenticating/overview) | [ADR-032](adr/ADR-032-cloud-run-api-public-invoker.md) | The IAM-invoker model the API service partially opts out of, and the public-invocation pattern it opts into instead. |
 | [Google Cloud Run — Invoking a public (unauthenticated) service](https://cloud.google.com/run/docs/authenticating/public) | [ADR-032](adr/ADR-032-cloud-run-api-public-invoker.md) | The specific `allUsers` grant applied to the API service, mirroring the web service's existing configuration. |
 | [MDN — CORS: Preflighted requests](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS#preflighted_requests) | [ADR-032](adr/ADR-032-cloud-run-api-public-invoker.md) | Explains why a CORS preflight `OPTIONS` request cannot carry the actual request's custom auth headers — the reason no client-side header change could work around the Cloud Run IAM gate. |
+| [NestJS — CORS](https://docs.nestjs.com/security/cors) | [ADR-032](adr/ADR-032-cloud-run-api-public-invoker.md) | `app.enableCors()`, the application-layer control added so the API answers the browser's preflight after Cloud Run stops blocking it. |
+| [`@fastify/cors`](https://github.com/fastify/fastify-cors) | [ADR-032](adr/ADR-032-cloud-run-api-public-invoker.md) | The CORS plugin NestJS's Fastify adapter registers under the hood for `enableCors()`; supports the origin allowlist used in `cors.config.ts`. |
 
 ---
 

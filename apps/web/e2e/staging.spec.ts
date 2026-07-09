@@ -235,10 +235,15 @@ test.describe('onboarding write path (creates and cleans up real data)', () => {
     await page.locator('#new-date').fill(newDateStr);
     await page.getByRole('button', { name: 'Move' }).click();
 
-    // Success collapses the form back to the trigger button with no error
-    // shown; failure (including the pre-ADR-032 CORS 403) leaves the form
-    // open with the "Failed to reschedule" message visible.
-    await expect(page.getByText('Failed to reschedule. Please try again.')).not.toBeVisible();
+    // Success collapses the form back to the trigger button with no error shown; failure
+    // (including the pre-ADR-032 CORS 403) leaves the form open with the "Failed to
+    // reschedule" message visible. Assert the terminal success state FIRST: the trigger
+    // button only reappears after the request resolves successfully, so this is what
+    // actually proves the write path worked. Leading with the negative error assertion
+    // would false-green — immediately after "Move" the error is not yet rendered regardless
+    // of outcome, so `.not.toBeVisible()` would pass during the in-flight window even for a
+    // request that ultimately fails.
     await expect(page.getByRole('button', { name: '📅 Reschedule' })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('Failed to reschedule. Please try again.')).not.toBeVisible();
   });
 });
