@@ -1,0 +1,96 @@
+# Test fixture for scripts/inject-otel-sidecar.py (#786).
+#
+# A *representative, synthetic* `gcloud run services describe --format=export` of the
+# api Cloud Run service — modeled on infra/cloud-run/api-service.yaml and the real export
+# shape the deploy pipeline pipes into the injector. It is NOT a capture of a live service:
+# every project id, URL, revision, and secret *name* here is a placeholder, and a Cloud Run
+# manifest references Secret Manager secrets by name only (no secret material), so nothing
+# sensitive is committed.
+#
+# It deliberately exercises every branch of the injector:
+#   * one ingress container carrying a `ports:` block (how the injector identifies "api"),
+#   * a non-"api" container name (proves the unconditional rename),
+#   * a stale image ref (proves the image is replaced),
+#   * SYSTEM_DATABASE_URL present (proves it is dropped, #534),
+#   * a stale OTEL_EXPORTER_OTLP_ENDPOINT (proves it is replaced, not duplicated),
+#   * Terraform-managed base config — serviceAccountName, containerConcurrency, the
+#     VPC-connector annotation, unrelated secret env, an unrelated volume (all preserved),
+#   * server-assigned fields the injector strips — run.googleapis.com/urls,
+#     run.googleapis.com/ingress-status, the revision `name`, client.knative.dev/nonce.
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  annotations:
+    run.googleapis.com/client-name: gcloud
+    run.googleapis.com/ingress: all
+    run.googleapis.com/ingress-status: all
+    run.googleapis.com/urls: '["https://lifting-logbook-prod-api-000000000000.us-central1.run.app"]'
+  labels:
+    cloud.googleapis.com/location: us-central1
+  name: lifting-logbook-prod-api
+  namespace: '000000000000'
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/maxScale: '10'
+        autoscaling.knative.dev/minScale: '1'
+        run.googleapis.com/startup-cpu-boost: 'true'
+        run.googleapis.com/vpc-access-connector: projects/example-project/locations/us-central1/connectors/prod-connector
+        run.googleapis.com/vpc-access-egress: private-ranges-only
+      labels:
+        client.knative.dev/nonce: deadbeefcafe0001
+        run.googleapis.com/startupProbeType: Default
+      name: lifting-logbook-prod-api-00042-abc
+    spec:
+      containerConcurrency: 80
+      containers:
+      - name: lifting-logbook-prod-api-1
+        image: us-central1-docker.pkg.dev/example-project/lifting-logbook/api:oldsha0000000
+        ports:
+        - containerPort: 3000
+          name: http1
+        env:
+        - name: NODE_ENV
+          value: production
+        - name: PORT
+          value: '3000'
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://localhost:9999
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: lifting-logbook-prod-database-url
+        - name: SYSTEM_DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: lifting-logbook-prod-system-database-url
+        - name: CLERK_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: lifting-logbook-prod-clerk-secret-key
+        resources:
+          limits:
+            cpu: '1'
+            memory: 512Mi
+        startupProbe:
+          failureThreshold: 1
+          periodSeconds: 240
+          tcpSocket:
+            port: 3000
+          timeoutSeconds: 240
+      serviceAccountName: lifting-logbook-prod-api-wi@example-project.iam.gserviceaccount.com
+      timeoutSeconds: 300
+      volumes:
+      - name: existing-unrelated-volume
+        secret:
+          items:
+          - key: latest
+            path: other.txt
+          secretName: some-other-prod-secret
+  traffic:
+  - latestRevision: true
+    percent: 100
