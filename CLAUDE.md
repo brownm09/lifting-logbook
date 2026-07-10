@@ -467,6 +467,18 @@ node scripts/check-grafana-endpoint-sources.mjs
 
 This also runs as a CI step (`ci.yml` → `lint-and-test` → "Verify Grafana OTLP/Loki endpoints have a single source"), so a drifting PR fails either way — running it locally just catches a re-hardcoded endpoint before waiting on CI. See [#785](https://github.com/brownm09/lifting-logbook/issues/785).
 
+### otel-collector config sync (Cloud Run ↔ GKE)
+
+The Cloud Run collector sidecar and the GKE DaemonSet must run the **same** pipeline (the premise of [#782](https://github.com/brownm09/lifting-logbook/pull/782)). The Cloud Run config [`infra/cloud-run/otel-collector-config.yaml`](infra/cloud-run/otel-collector-config.yaml) is kept identical — below its comment header — to the `config.yaml` block scalar embedded in the GKE [`infra/kubernetes/charts/otel-collector/templates/configmap.yaml`](infra/kubernetes/charts/otel-collector/templates/configmap.yaml). A guard fails CI if the two diverge, instead of relying on a "keep in sync" comment.
+
+**Run before pushing whenever you edit either collector config (the Cloud Run file or the GKE configmap's `config.yaml` block):**
+
+```bash
+node scripts/check-otel-config-sync.mjs
+```
+
+This also runs as a CI step (`ci.yml` → `lint-and-test` → "Verify Cloud Run otel-collector config matches the GKE configmap"), so a drifting PR fails either way — running it locally just catches the divergence before waiting on CI. See [#788](https://github.com/brownm09/lifting-logbook/issues/788).
+
 ### Coverage Requirements
 
 <!-- When #259 ships: remove the "until then" clause from the frontend row below. Tracked as a checklist item on issue #259. -->

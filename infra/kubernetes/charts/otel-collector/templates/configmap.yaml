@@ -16,6 +16,9 @@ kind: ConfigMap
 metadata:
   name: {{ include "otel-collector.fullname" . }}-otelconfig
 data:
+  # This config.yaml is kept identical to the Cloud Run collector config
+  # (infra/cloud-run/otel-collector-config.yaml, below its header) — enforced in CI
+  # by scripts/check-otel-config-sync.mjs (#788). Edit both together.
   config.yaml: |
     extensions:
       health_check:
