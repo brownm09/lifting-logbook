@@ -145,6 +145,32 @@ class InjectSuccessTest(unittest.TestCase):
         self.assertIn("existing-unrelated-volume", vol_names)  # pre-existing volume preserved
         self.assertIn("otelconfig", [m["name"] for m in col["volumeMounts"]])
 
+    def test_collector_config_file_wiring(self):
+        # The collector's --config arg, its volume mountPath, and the mounted secret's file path
+        # form ONE contract: --config must resolve to the mounted file. If a future injector edit
+        # moved any one of the three independently, the sidecar would start but fail to load its
+        # config and crash-loop in production — no telemetry, and the env/volume-name checks above
+        # would still pass (the #768/#781 no-telemetry failure class this pipeline exists to catch).
+        col = self.containers["otel-collector"]
+        config_args = [a for a in col["args"] if a.startswith("--config=")]
+        self.assertEqual(len(config_args), 1, "collector needs exactly one --config arg")
+        config_path = config_args[0].split("=", 1)[1]
+        mount = next(m for m in col["volumeMounts"] if m["name"] == "otelconfig")
+        vol = next(v for v in self.doc["spec"]["template"]["spec"]["volumes"]
+                   if v["name"] == "otelconfig")
+        self.assertEqual(vol["secret"]["secretName"], REQUIRED_ENV["OTEL_CONFIG_SECRET"])
+        item_path = vol["secret"]["items"][0]["path"]
+        self.assertEqual(
+            config_path, f"{mount['mountPath']}/{item_path}",
+            "collector --config must resolve to the mounted secret file (mountPath/path)",
+        )
+
+    def test_collector_image_default_applied(self):
+        # COLLECTOR_IMAGE is unset in the test env, so the injector's default must apply — exercises
+        # the optional-env default path.
+        self.assertEqual(self.containers["otel-collector"]["image"],
+                         "otel/opentelemetry-collector-contrib:0.104.0")
+
     def test_server_assigned_fields_stripped(self):
         ann = self.doc["metadata"].get("annotations", {})
         self.assertNotIn("run.googleapis.com/urls", ann)
