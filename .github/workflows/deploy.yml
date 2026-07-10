@@ -554,7 +554,10 @@ jobs:
           # scripts/inject-otel-sidecar.py. The sidecar shares the api revision's CPU-throttling,
           # so its batch/export timers are best-effort between requests, not always-on like the
           # GKE DaemonSet (see ADR-018).
-          # Grafana endpoints mirror infra/kubernetes/values/staging-otel-collector.yaml.
+          # Grafana OTLP/Loki endpoints come from the single source of truth
+          # (infra/observability/grafana-endpoints.env, #785); sourcing it exports
+          # OTEL_OTLP_ENDPOINT / OTEL_LOKI_ENDPOINT for the injector below.
+          source infra/observability/grafana-endpoints.env
           PROJECT="${{ vars.GCP_STAGING_PROJECT_ID }}"
           CONFIG_SECRET="lifting-logbook-stg-otel-collector-config"
           gcloud secrets describe "$CONFIG_SECRET" --project="$PROJECT" >/dev/null 2>&1 \
@@ -573,8 +576,6 @@ jobs:
             --region="${{ env.REGION }}" --project="$PROJECT" --format=export > "$RUNNER_TEMP/stg-api.yaml"
           API_IMAGE="${{ needs.build-images.outputs.ar_repo }}/api:${{ github.sha }}" \
           OTEL_CONFIG_SECRET="$CONFIG_SECRET" \
-          OTEL_OTLP_ENDPOINT="https://otlp-gateway-prod-us-east-3.grafana.net/otlp" \
-          OTEL_LOKI_ENDPOINT="https://logs-prod-042.grafana.net/otlp" \
           OTEL_OTLP_SECRET="lifting-logbook-stg-otel-otlp-auth-header" \
           OTEL_LOKI_SECRET="lifting-logbook-stg-otel-loki-auth-header" \
             python3 scripts/inject-otel-sidecar.py "$RUNNER_TEMP/stg-api.yaml" > "$RUNNER_TEMP/stg-api-sidecar.yaml"
@@ -632,9 +633,12 @@ jobs:
         # Telemetry must never gate serving traffic (see the OTel section header above).
         continue-on-error: true
         run: |
+          source infra/observability/grafana-endpoints.env
           helm upgrade --install otel-collector ./infra/kubernetes/charts/otel-collector \
             --namespace=staging \
             --values=infra/kubernetes/values/staging-otel-collector.yaml \
+            --set-string env.OTEL_COLLECTOR_OTLP_ENDPOINT="$OTEL_OTLP_ENDPOINT" \
+            --set-string env.OTEL_COLLECTOR_LOKI_ENDPOINT="$OTEL_LOKI_ENDPOINT" \
             --wait --timeout=5m
 
   # ── 4. Smoke test staging ────────────────────────────────────────────────
@@ -1123,8 +1127,10 @@ jobs:
           # (google_cloud_run_v2_service_iam_member.api_public, #766/#770), not re-asserted here.
           # The unused SYSTEM_DATABASE_URL (#534) is dropped by the injector. The sidecar shares
           # the api revision's CPU-throttling (best-effort flush between requests, not always-on
-          # — see ADR-018). Grafana endpoints mirror
-          # infra/kubernetes/values/production-otel-collector.yaml.
+          # — see ADR-018). Grafana OTLP/Loki endpoints come from the single source
+          # of truth (infra/observability/grafana-endpoints.env, #785); sourcing it
+          # exports OTEL_OTLP_ENDPOINT / OTEL_LOKI_ENDPOINT for the injector below.
+          source infra/observability/grafana-endpoints.env
           PROJECT="${{ vars.GCP_PROD_PROJECT_ID }}"
           CONFIG_SECRET="lifting-logbook-prod-otel-collector-config"
           gcloud secrets describe "$CONFIG_SECRET" --project="$PROJECT" >/dev/null 2>&1 \
@@ -1143,8 +1149,6 @@ jobs:
             --region="${{ env.REGION }}" --project="$PROJECT" --format=export > "$RUNNER_TEMP/prod-api.yaml"
           API_IMAGE="${{ steps.tf-prod.outputs.ar_repo }}/api:${{ github.sha }}" \
           OTEL_CONFIG_SECRET="$CONFIG_SECRET" \
-          OTEL_OTLP_ENDPOINT="https://otlp-gateway-prod-us-east-3.grafana.net/otlp" \
-          OTEL_LOKI_ENDPOINT="https://logs-prod-042.grafana.net/otlp" \
           OTEL_OTLP_SECRET="lifting-logbook-prod-otel-otlp-auth-header" \
           OTEL_LOKI_SECRET="lifting-logbook-prod-otel-loki-auth-header" \
             python3 scripts/inject-otel-sidecar.py "$RUNNER_TEMP/prod-api.yaml" > "$RUNNER_TEMP/prod-api-sidecar.yaml"
@@ -1280,9 +1284,12 @@ jobs:
       - name: Helm deploy otel-collector (GKE production)
         if: steps.tf-prod.outputs.gke_enabled == 'true'
         run: |
+          source infra/observability/grafana-endpoints.env
           helm upgrade --install otel-collector ./infra/kubernetes/charts/otel-collector \
             --namespace=production \
             --values=infra/kubernetes/values/production-otel-collector.yaml \
+            --set-string env.OTEL_COLLECTOR_OTLP_ENDPOINT="$OTEL_OTLP_ENDPOINT" \
+            --set-string env.OTEL_COLLECTOR_LOKI_ENDPOINT="$OTEL_LOKI_ENDPOINT" \
             --wait --timeout=5m
 
       - name: Print deployment URLs and deployed version

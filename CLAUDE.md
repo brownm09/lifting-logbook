@@ -455,6 +455,18 @@ node scripts/check-turbo-version-sync.mjs
 
 This also runs as a CI step (`ci.yml` → `lint-and-test` → "Verify turbo version pin sync"), so a drifting PR fails either way — running it locally just catches the mismatch before waiting on CI.
 
+### Grafana OTLP/Loki endpoint single source
+
+The Grafana Cloud OTLP/Loki ingest endpoints live in exactly one file — [`infra/observability/grafana-endpoints.env`](infra/observability/grafana-endpoints.env) — and every consumer derives them from it: `deploy.yml` sources it for the Cloud Run sidecar inject and passes it to the GKE `otel-collector` Helm chart via `--set-string`. This is the fix for the endpoint-drift class behind the no-telemetry incident [#781](https://github.com/brownm09/lifting-logbook/issues/781): a region/gateway change is now a one-line edit there, and re-hardcoding a literal endpoint anywhere else is a CI failure.
+
+**Run before pushing whenever you change an OTLP/Loki endpoint or touch its wiring (`deploy.yml`, the `*-otel-collector.yaml` values files, or the Cloud Run collector config):**
+
+```bash
+node scripts/check-grafana-endpoint-sources.mjs
+```
+
+This also runs as a CI step (`ci.yml` → `lint-and-test` → "Verify Grafana OTLP/Loki endpoints have a single source"), so a drifting PR fails either way — running it locally just catches a re-hardcoded endpoint before waiting on CI. See [#785](https://github.com/brownm09/lifting-logbook/issues/785).
+
 ### Coverage Requirements
 
 <!-- When #259 ships: remove the "until then" clause from the frontend row below. Tracked as a checklist item on issue #259. -->

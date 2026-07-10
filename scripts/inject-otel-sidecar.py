@@ -36,6 +36,8 @@ Required env vars:
   OTEL_CONFIG_SECRET   Secret Manager secret holding config.yaml (mounted as a file)
   OTEL_OTLP_ENDPOINT   Grafana Cloud OTLP gateway base URL (traces + metrics)
   OTEL_LOKI_ENDPOINT   Grafana Cloud Loki OTLP base URL (logs)
+                       (both from the single source infra/observability/grafana-endpoints.env,
+                       #785 — the deploy step sources it; do not hardcode here)
   OTEL_OTLP_SECRET     Secret Manager secret for the OTLP auth header
   OTEL_LOKI_SECRET     Secret Manager secret for the Loki auth header
 Optional env vars:
