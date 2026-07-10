@@ -9,11 +9,12 @@ import {
   Param,
   Patch,
 } from '@nestjs/common';
+import { programLengthWeeks } from '@lifting-logbook/core';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthUser } from '../ports/auth';
 import { IRepositoryFactory } from '../ports/factory';
 import { REPOSITORY_FACTORY } from '../ports/tokens';
-import { isValidWorkoutNum } from './mappers';
+import { isValidWorkoutNum, workoutKeyForWorkoutNum } from './mappers';
 import { RescheduleDto } from './reschedule.dto';
 
 @Controller('programs/:program')
@@ -48,7 +49,29 @@ export class RescheduleController {
       throw new NotFoundException(`Program '${program}' not found`);
     }
 
-    await cycleDashboard.getCycleDashboard(program);
+    // Reject a workoutNum past the program's spec-derived canonical length, via the
+    // same workoutKeyForWorkoutNum helper the GET workout endpoint uses. (GET also
+    // honors a scheduled row's weekNum, so its effective bound is marginally looser;
+    // the two align because schedules are never generated beyond the canonical length.)
+    // Without this an override is upserted for a workoutNum that maps to no real workout
+    // day and is silently never surfaced (204 success, no visible effect).
+    if (workoutKeyForWorkoutNum(spec, workoutNum, program) === undefined) {
+      throw new BadRequestException(
+        `workoutNum ${workoutNum} exceeds the program's ${programLengthWeeks(program, spec)}-week schedule`,
+      );
+    }
+
+    // getCycleDashboard throws ProgramNotFoundError when the program has no cycle.
+    // Its cycleNum is the *active* cycle, and the entire read model (GET workout,
+    // cycle dashboard, getOverride) reads only that cycle — an override written for
+    // any other cycleNum is dead data the client can never see. Reject a non-active
+    // cycleNum rather than accept a 204-with-no-effect reschedule.
+    const dashboard = await cycleDashboard.getCycleDashboard(program);
+    if (cycleNum !== dashboard.cycleNum) {
+      throw new BadRequestException(
+        `cycleNum ${cycleNum} is not the active cycle (${dashboard.cycleNum})`,
+      );
+    }
 
     // Append explicit UTC midnight so the YYYY-MM-DD string is stored as the correct calendar day
     // regardless of the server's local timezone.

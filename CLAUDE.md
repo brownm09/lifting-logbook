@@ -202,10 +202,10 @@ If `--format json` is not supported by the installed `gh` version, fall back to 
 10. Pull main: `git checkout main && git pull`
 11. Close the issue if not auto-closed: `gh issue close <N>`
 12. Update journals and tracking:
-    - **Project journal** (`sessions/lifting-logbook/`): append to the day's draft (PR merged, decisions made)
+    - **Project journal** (`sessions/lifting-logbook/`): write or update this session's **stub** per the global journal workflow (see [Engineering Journal](#engineering-journal)) — PR merged, decisions made
     - **Meta journal** (`sessions/meta/`): update if `CLAUDE.md` was modified or a new platform constraint was discovered
     - **ROADMAP.md**: if this PR completes a work stream listed in a milestone's Active Work table, move that row to the milestone's Shipped table; if the Active Work table becomes empty, replace it with `| *(all shipped)* | | |`
-13. Write a `<!-- next-session-context -->` block to the draft and display it as the closing output of the session
+13. Write the stub's `<!-- next-session-context -->` block and display it as the closing output of the session
 
 ### REST-endpoint fallback when the shared GraphQL rate limit is exhausted
 
@@ -482,6 +482,23 @@ A label of "pre-existing" without an open-issue link is not acceptable. The moti
 
 When a PR adds or modifies a `.catch(() => default)`, `?? default`, or `try { … } catch { return neutral }` in a server component or API boundary, the test coverage for that code path must satisfy one of: (a) a data-level assertion the fallback would not produce, (b) a separate test that fails specifically when the upstream fails, or (c) an inline comment that names the swallowed-fallback source line and explains why structure-only is intentional. See [`docs/standards/error-fallback-test-coverage.md`](docs/standards/error-fallback-test-coverage.md) for the full rule and examples.
 
+### Typecheck TS7016 on `react-dom/server` — incomplete install, not a code defect
+
+**Pattern:** `npm run typecheck` fails on `apps/web` with:
+
+```
+error TS7016: Could not find a declaration file for module 'react-dom/server'.
+'.../apps/web/node_modules/react-dom/server.node.js' implicitly has an 'any' type.
+```
+
+on the five `page.test.tsx` files that `import { renderToStaticMarkup } from 'react-dom/server'`.
+
+**Root cause:** `react-dom@19`'s `package.json` `exports["./server"]` ships only runtime conditions (`node → server.node.js`, `browser`, `default`, …) and **no `types` condition**, so TypeScript cannot source the `react-dom/server` declaration from `react-dom` itself — it resolves the declaration solely from the **`@types/react-dom` devDependency** (whose `exports["./server"].types → server.d.ts`). `react-dom` is a runtime `dependency` while `@types/react-dom` is a `devDependency`, so any install that has deps but not devDeps — `npm install --omit=dev`, a partial/interrupted extract, or a worktree whose `npm install` never completed — leaves `react-dom` present but `@types/react-dom` absent → TS7016 on every `react-dom/server` import. It is **not** a version or `tsconfig` bug: a clean install (`npm ci` in CI, a fresh worktree `npm install`) always resolves it, and `@types/react-dom` resolves whether it sits in `apps/web/node_modules` or is hoisted to the repo-root `node_modules`.
+
+**Symptom that confirms it:** the error names a `server.node.js` runtime file (so `react-dom` IS installed) rather than "Cannot find module" (which would mean `react-dom` itself is missing); the same five files pass under `npm ci` or a completed `npm install`.
+
+**Fix:** run a full install in the worktree — `npm install`, or `rm -rf node_modules && npm ci` — then re-run `npm run typecheck`. (Root-hoisting `@types/react` + `@types/react-dom` into the **root** `package.json` so they always resolve from `apps/web` even when the workspace-local copy is missing would harden this further, but currently `ERESOLVE`s against `apps/mobile`'s Expo 54 / RN 0.81 `@types/react@19.1.x` pin vs. `@types/react-dom@19.2.3`'s `@types/react@^19.2.0` peer requirement — tracked in [#777](https://github.com/brownm09/lifting-logbook/issues/777).) Motivating incident: [#769](https://github.com/brownm09/lifting-logbook/issues/769).
+
 ### CI not firing — merge conflict silences GitHub Actions
 
 **Pattern:** A PR in `CONFLICTING` (merge conflict) state causes GitHub Actions `pull_request` events to never fire. GitHub cannot create the virtual merge commit at `refs/pull/N/merge`, so the event is silently dropped — no checks are queued, no runs appear.
@@ -580,111 +597,24 @@ When writing or updating any architectural documentation (ADRs, design docs, REA
 
 ## Engineering Journal
 
-After each session (or at natural breakpoints for long sessions), create or update a session
-transcript in `brownm09/engineering-journal`.
+The engineering-journal workflow — per-session **stub** files, the sharded per-session **manifest**
+and per-PR **open-PR** companion files, the project *and* meta journal update triggers, and the
+end-of-day `/journal-compose` step — is owned in full by the global
+[`CLAUDE.md`](https://github.com/brownm09/dev-env/blob/main/claude/CLAUDE.md) **→ Engineering
+Journal** section. File formats (the stub template, the manifest / open-PR shard schemas) and the
+canonical 11-section compose structure live in that repo's
+[`docs/REFERENCE.md` → Engineering Journal Internals](https://github.com/brownm09/dev-env/blob/main/docs/REFERENCE.md#engineering-journal-internals).
 
-**File location:** `sessions/lifting-logbook/YYYY-MM-DD-<slug>.md`
+**Follow the global workflow as written — do not duplicate or re-derive it here.** This repo's
+session hooks already emit the sharded stub / `open-prs/<N>.json` reminders directly after a PR is
+opened or merged.
 
-**Scratch directory:** `C:/Users/brown/.claude/scratch/` — all processing tmp files (`gh` output,
-JSON parsing intermediaries, etc.) go here regardless of which project is active. Never write
-tmp files into a project repo working directory.
+The only lifting-logbook-specific parameter is the **project journal path:**
+`sessions/lifting-logbook/` — substitute it wherever the global workflow says `sessions/<project>/`
+(the `YYYY-MM-DD_HHMMSS.stub.md` files, the `*.manifest.jsonl` shards, the `open-prs/<N>.json`
+shards, and `reports/`).
 
----
-
-### Draft file workflow
-
-One draft file per calendar day, living on a dedicated branch in the engineering-journal repo.
-Slug is determined at day end when the overall theme is clear.
-
-**Branch:** `draft/YYYY-MM-DD` — created at the first session of the day, merged to main at day end.
-
-**First session of the day:**
-1. `git -C <engineering-journal-path> checkout main && git pull`
-2. `git -C <engineering-journal-path> checkout -b draft/YYYY-MM-DD`
-3. Create `sessions/lifting-logbook/YYYY-MM-DD_draft.md` with the opening brief and first
-   `<!-- session: <slug> -->` block
-4. `git add`, `git commit -m "draft: YYYY-MM-DD session 1"`, `git push -u origin draft/YYYY-MM-DD`
-
-**Subsequent sessions:**
-1. `git -C <engineering-journal-path> checkout draft/YYYY-MM-DD && git -C <engineering-journal-path> pull`
-2. Get the file's line count (`wc -l`), then `Read` with offset to retrieve only the last
-   `<!-- next-session-context -->` block — do not read the full draft
-3. Append the new `<!-- session: <slug> -->` block and `<!-- next-session-context -->` paragraph
-   using `Edit`
-4. Add a `<!-- tokens: input=N output=N cost≈$N -->` comment at the end of the session block,
-   drawn from the Claude Code CLI session summary
-5. `git add`, `git commit -m "draft: YYYY-MM-DD session N"`, `git push`
-
-**End of day (last session):**
-1. Read the full draft once to compose the final 11-section document
-2. Write as `sessions/lifting-logbook/YYYY-MM-DD-<slug>.md`
-3. Delete the draft file
-4. `git add`, `git commit -m "[docs] Add YYYY-MM-DD journal: <slug>"`
-5. Open a PR from `draft/YYYY-MM-DD` into `main`, squash merge, delete branch
-
----
-
-### Draft structure during the day
-
-```
-<!-- draft: YYYY-MM-DD -->
-Opening brief: ...
-
-<!-- session: <first-slug> -->
-## <Topic>
-...
-<!-- tokens: input=12,450 output=3,200 cost≈$0.08 -->
-<!-- next-session-context -->
-<one paragraph — copy to open next session>
-
-<!-- session: <second-slug> -->
-## <Topic>
-...
-<!-- tokens: input=18,900 output=4,100 cost≈$0.12 -->
-<!-- next-session-context -->
-<one paragraph — copy to open next session>
-```
-
----
-
-### Canonical 11-section structure (composed once at day end)
-
-1. Header block (Topic, Repo/Branch, Issues closed, PRs merged)
-2. Table of Contents
-3. Opening Brief (paste the Next Session Context from the previous day verbatim)
-4. Key Decisions (bullet list with links to sections, issues, PRs, ADRs)
-5. Dialogue sections (one H2 per task or topic, drawn from draft)
-6. Open Items / Next Steps (checkbox list)
-7. Token Usage (per-session breakdown tables: model, est. input tokens, est. output tokens,
-   est. cost — drawn from `<!-- tokens: ... -->` comments in the draft; when comments are
-   absent use retroactive estimates based on session scope, labeled as "retroactive estimate";
-   close with a Combined totals table)
-8. Token Optimization Suggestions (2–4 per-session observations grouped under a `### Session N`
-   heading; close with a `### Cross-Session Patterns` subsection for generalizable findings
-   that apply across multiple sessions)
-9. Next Session Context (the final `<!-- next-session-context -->` block from the draft)
-10. Reflection (gaps, risks, strategic questions — written last)
-11. Further Reading (1–3 primary sources per session that explain the reasoning behind key
-    decisions; intended for deliberate study between sessions — link + one sentence on why
-    it matters)
-
----
-
-### Update triggers
-
-**Project journal** (`sessions/lifting-logbook/`):
-- Append to draft when a PR is merged or a strategic decision is made
-- Compose and publish the daily document at end of last session of the day
-
-**Meta journal** (`sessions/meta/`):
-- When `CLAUDE.md` is modified — record what changed, why, and which session prompted it
-- When a new platform constraint is discovered — record the symptom, root cause, and fix pattern
-- When a workflow failure mode is discovered and remediated — record the symptom, root cause,
-  and fix pattern
-- When a cross-project convention is established — record the convention and which projects it
-  affects
-- When the journal structure itself changes — record the new section, placement, and rationale
-- When a new canonical reference repo or external resource is identified — record the resource
-  and its role
-
-**Full journal conventions:** See [`brownm09/engineering-journal`](https://github.com/brownm09/engineering-journal) → `sessions/meta/2026-04-05-workflow-and-journal-setup.md`
+> Historical note: this section previously documented a single-draft-file-per-day workflow
+> (`YYYY-MM-DD_draft.md` hand-edited across sessions, composed at day end). That workflow was
+> retired when the global config moved to the sharded stub/manifest system; see
+> [#772](https://github.com/brownm09/lifting-logbook/issues/772).

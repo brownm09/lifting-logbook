@@ -184,6 +184,26 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
       expect(res.statusCode).toBe(400);
     });
 
+    it('PATCH reschedule with out-of-range workoutNum returns 400', async () => {
+      // 9999 is a positive integer (passes the old check) but far past the
+      // program's canonical length — an override there is dead data.
+      const res = await patchJson(
+        `/programs/${SEED_PROGRAM}/cycles/1/workouts/9999/reschedule`,
+        { newDate: '2026-06-01' },
+      );
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('PATCH reschedule with non-active cycleNum returns 400', async () => {
+      // Seed's active cycle is 1 (these tests run before any new-cycle writes).
+      // Cycle 2 is not the active cycle, so an override there could never be read.
+      const res = await patchJson(
+        `/programs/${SEED_PROGRAM}/cycles/2/workouts/1/reschedule`,
+        { newDate: '2026-06-01' },
+      );
+      expect(res.statusCode).toBe(400);
+    });
+
     it('PATCH reschedule requires auth', async () => {
       const injectRaw = app.getHttpAdapter().getInstance().inject.bind(
         app.getHttpAdapter().getInstance(),
@@ -1258,6 +1278,79 @@ describe('Programs HTTP (e2e, in-memory adapters)', () => {
         headers: { authorization: token },
       });
       expect(finalDash.json().weeks[0].completed).toBe(true);
+    });
+
+    // ---- Bounds / cycle / existence validation (#776; mirrors reschedule #775) ----
+    // Each uses a fresh setupSkipUser whose active cycle is deterministically 1
+    // (it initializes a single cycle), so cycle 2 is reliably non-active. Before
+    // #776 the skip controller never loaded the spec or dashboard, so all three
+    // of these silently wrote a 204 skip the current-cycle read model can't show.
+
+    it('POST skip with unknown program returns 404', async () => {
+      const token = await setupSkipUser('skip-e2e-404-post');
+      const res = await app.getHttpAdapter().getInstance().inject({
+        method: 'POST',
+        url: `/programs/no-such-program/cycles/1/workouts/1/skip`,
+        headers: { 'content-type': 'application/json', authorization: token },
+        payload: JSON.stringify({}),
+      });
+      expect(res.statusCode).toBe(404);
+    });
+
+    it('POST skip with out-of-range workoutNum returns 400', async () => {
+      const token = await setupSkipUser('skip-e2e-oob-post');
+      // 9999 is a positive integer (passes the old check) but far past the
+      // program's canonical length — a skip there is dead data.
+      const res = await app.getHttpAdapter().getInstance().inject({
+        method: 'POST',
+        url: `/programs/${SEED_PROGRAM}/cycles/1/workouts/9999/skip`,
+        headers: { 'content-type': 'application/json', authorization: token },
+        payload: JSON.stringify({}),
+      });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('POST skip with non-active cycleNum returns 400', async () => {
+      const token = await setupSkipUser('skip-e2e-nac-post');
+      // The fresh user's active cycle is 1; cycle 2 is not active, so a skip
+      // there could never be read.
+      const res = await app.getHttpAdapter().getInstance().inject({
+        method: 'POST',
+        url: `/programs/${SEED_PROGRAM}/cycles/2/workouts/1/skip`,
+        headers: { 'content-type': 'application/json', authorization: token },
+        payload: JSON.stringify({}),
+      });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('DELETE unskip with unknown program returns 404', async () => {
+      const token = await setupSkipUser('skip-e2e-404-delete');
+      const res = await app.getHttpAdapter().getInstance().inject({
+        method: 'DELETE',
+        url: `/programs/no-such-program/cycles/1/workouts/1/skip`,
+        headers: { authorization: token },
+      });
+      expect(res.statusCode).toBe(404);
+    });
+
+    it('DELETE unskip with out-of-range workoutNum returns 400', async () => {
+      const token = await setupSkipUser('skip-e2e-oob-delete');
+      const res = await app.getHttpAdapter().getInstance().inject({
+        method: 'DELETE',
+        url: `/programs/${SEED_PROGRAM}/cycles/1/workouts/9999/skip`,
+        headers: { authorization: token },
+      });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('DELETE unskip with non-active cycleNum returns 400', async () => {
+      const token = await setupSkipUser('skip-e2e-nac-delete');
+      const res = await app.getHttpAdapter().getInstance().inject({
+        method: 'DELETE',
+        url: `/programs/${SEED_PROGRAM}/cycles/2/workouts/1/skip`,
+        headers: { authorization: token },
+      });
+      expect(res.statusCode).toBe(400);
     });
   });
 

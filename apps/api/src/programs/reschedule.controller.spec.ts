@@ -11,7 +11,24 @@ import { RescheduleController } from './reschedule.controller';
 const MOCK_USER_A = { id: 'user-a', email: 'a@example.com', provider: 'dev' };
 const _MOCK_USER_B = { id: 'user-b', email: 'b@example.com', provider: 'dev' };
 
-const STUB_SPEC = [{ lift: 'Squat' }] as unknown as Awaited<ReturnType<ILiftingProgramSpecRepository['getProgramSpec']>>;
+// A realistic 2-offset week-1 block. `5-3-1` is a registered 12-week program, so
+// workoutKeyForWorkoutNum tiles this block across 12 weeks → 24 workout days;
+// workoutNum 1..24 resolve to a real day. The controller's new upper-bound check
+// needs a spec that actually resolves the tested workoutNum, not a bare stub.
+const baseSpecFields = {
+  increment: 5,
+  order: 1,
+  sets: 3,
+  reps: 5,
+  amrap: true,
+  warmUpPct: '0.4,0.5,0.6',
+  wtDecrementPct: 0.1,
+  activation: 'compound',
+};
+const STUB_SPEC = [
+  { ...baseSpecFields, offset: 0, lift: 'Squat', week: 1 },
+  { ...baseSpecFields, offset: 3, lift: 'Bench Press', week: 1 },
+] as unknown as Awaited<ReturnType<ILiftingProgramSpecRepository['getProgramSpec']>>;
 
 describe('RescheduleController', () => {
   let controller: RescheduleController;
@@ -34,8 +51,10 @@ describe('RescheduleController', () => {
     };
     specRepoA = { getProgramSpec: jest.fn().mockResolvedValue(STUB_SPEC), saveProgramSpec: jest.fn(), deleteSpecRows: jest.fn() } as jest.Mocked<ILiftingProgramSpecRepository>;
     specRepoB = { getProgramSpec: jest.fn().mockResolvedValue(STUB_SPEC), saveProgramSpec: jest.fn(), deleteSpecRows: jest.fn() } as jest.Mocked<ILiftingProgramSpecRepository>;
-    dashboardRepoA = { getCycleDashboard: jest.fn().mockResolvedValue({}), saveCycleDashboard: jest.fn() } as unknown as jest.Mocked<ICycleDashboardRepository>;
-    dashboardRepoB = { getCycleDashboard: jest.fn().mockResolvedValue({}), saveCycleDashboard: jest.fn() } as unknown as jest.Mocked<ICycleDashboardRepository>;
+    // Active cycle is 3 — the valid-input tests reschedule cycle 3; the controller's
+    // new cycle-match check compares the path cycleNum against this dashboard cycleNum.
+    dashboardRepoA = { getCycleDashboard: jest.fn().mockResolvedValue({ cycleNum: 3 }), saveCycleDashboard: jest.fn() } as unknown as jest.Mocked<ICycleDashboardRepository>;
+    dashboardRepoB = { getCycleDashboard: jest.fn().mockResolvedValue({ cycleNum: 3 }), saveCycleDashboard: jest.fn() } as unknown as jest.Mocked<ICycleDashboardRepository>;
     factory = {
       forUser: jest.fn().mockImplementation(async (user) =>
         user.id === MOCK_USER_A.id
@@ -117,6 +136,24 @@ describe('RescheduleController', () => {
     await expect(
       controller.reschedule('5-3-1', '3', '2', { newDate: '2026-05-15' }, MOCK_USER_A),
     ).rejects.toBeInstanceOf(ProgramNotFoundError);
+    expect(overrideRepoA.upsertOverride).not.toHaveBeenCalled();
+  });
+
+  it('rejects a workoutNum beyond the program length with 400', async () => {
+    // 5-3-1 is 12 weeks × 2 offsets = 24 workout days; 9999 maps to no real day, so
+    // the override would be dead data. Reject rather than 204-with-no-effect.
+    await expect(
+      controller.reschedule('5-3-1', '3', '9999', { newDate: '2026-05-15' }, MOCK_USER_A),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(overrideRepoA.upsertOverride).not.toHaveBeenCalled();
+  });
+
+  it('rejects a cycleNum that is not the active cycle with 400', async () => {
+    // Active cycle is 3 (dashboard mock); rescheduling cycle 7 would write an
+    // override the current-cycle read model can never surface — reject it.
+    await expect(
+      controller.reschedule('5-3-1', '7', '2', { newDate: '2026-05-15' }, MOCK_USER_A),
+    ).rejects.toBeInstanceOf(BadRequestException);
     expect(overrideRepoA.upsertOverride).not.toHaveBeenCalled();
   });
 });
