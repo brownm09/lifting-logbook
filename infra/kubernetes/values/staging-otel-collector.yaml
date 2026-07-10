@@ -16,12 +16,13 @@
 # to the generic otlphttp exporter's /otlp path (#662) — the collector's `loki`
 # exporter type is deprecated/removed upstream (opentelemetry-collector-contrib
 # issues/38374, pull/41413). Same host, per Loki's native OTLP ingestion docs
-# (https://grafana.com/docs/loki/latest/send-data/otel/) — confirm against the
-# Grafana Cloud portal before rollout, since this couldn't be verified against
-# the live stack from this change.
+# (https://grafana.com/docs/loki/latest/send-data/otel/). Verified against the
+# live Grafana Cloud stack on 2026-07-10 (#781): both endpoints return 2xx with
+# the committed auth-header secrets — the prior us-central1 / logs-prod-021 values
+# were the sole cause of the 530 (OTLP region) / 401 (Loki gateway); creds were fine.
 env:
-  OTEL_COLLECTOR_OTLP_ENDPOINT: https://otlp-gateway-prod-us-central1.grafana.net/otlp
-  OTEL_COLLECTOR_LOKI_ENDPOINT: https://logs-prod-021.grafana.net/otlp
+  OTEL_COLLECTOR_OTLP_ENDPOINT: https://otlp-gateway-prod-us-east-3.grafana.net/otlp
+  OTEL_COLLECTOR_LOKI_ENDPOINT: https://logs-prod-042.grafana.net/otlp
 
 # 20% probabilistic sampling of clean traces; errors and slow traces (>1 000 ms) are always kept.
 tailSampleRate: "20"

@@ -68,11 +68,12 @@ spec:
               memory: 128Mi
           env:
             - name: OTEL_COLLECTOR_OTLP_ENDPOINT
-              value: https://otlp-gateway-prod-us-central1.grafana.net/otlp
+              value: https://otlp-gateway-prod-us-east-3.grafana.net/otlp
             # Native Loki OTLP ingestion path — see infra/observability/otel-collector.yaml
             # for why this moved off the deprecated dedicated `loki` exporter (#662).
+            # Endpoints verified against the live Grafana stack 2026-07-10 (#781).
             - name: OTEL_COLLECTOR_LOKI_ENDPOINT
-              value: https://logs-prod-021.grafana.net/otlp
+              value: https://logs-prod-042.grafana.net/otlp
             - name: OTEL_COLLECTOR_OTLP_AUTH_HEADER
               valueFrom:
                 secretKeyRef:
