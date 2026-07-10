@@ -30,7 +30,9 @@ import { UserSettingsModule } from './user-settings/user-settings.module';
 export const LOGGABLE_REQUEST_HEADERS: readonly string[] = [
   'host',
   'user-agent',
-  'referer',
+  // NB: `referer` is deliberately NOT logged — unlike the other allowlisted
+  // headers it is a full URL and can carry secrets in its query string. `origin`
+  // is safe (scheme + host only, no path/query) and useful for CORS debugging.
   'origin',
   'accept',
   'accept-encoding',
