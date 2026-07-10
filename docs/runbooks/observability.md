@@ -280,6 +280,13 @@ caveat below (the Cloud Run sidecar is CPU-throttled between requests). This is 
 telemetry reach Grafana on the production project, which runs Cloud-Run-only (`enable_gke = false`)
 and so has no DaemonSet.
 
+The collector image is not pulled from Docker Hub on the request path: it is served from a
+per-environment Artifact Registry Docker Hub pull-through mirror and pinned by digest (#795), so a
+Docker Hub rate-limit/outage cannot fail a production cold-start. The image reference (repo path +
+digest) is single-sourced in `infra/observability/otel-collector-image.env`; to bump the collector
+version, update that file plus the GKE chart's `Chart.yaml` (`appVersion`) and `values.yaml`
+(`image.tag`).
+
 Cloud Run has no additive sidecar command, no ConfigMap volumes, and the api service is
 `lifecycle.ignore_changes = [template]` (Terraform never mutates the running revision), so the
 deploy pipeline owns the whole 2-container topology. On every push-to-main deploy,

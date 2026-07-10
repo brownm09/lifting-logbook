@@ -2,7 +2,12 @@
 
 image:
   repository: otel/opentelemetry-collector-contrib
+  # tag is the local/default fallback (helm run without --set). The deploy pipeline
+  # (deploy.yml) overrides repository + digest to the Artifact Registry Docker Hub
+  # pull-through mirror, pinned by digest — see infra/observability/otel-collector-image.env (#795).
   tag: "0.104.0"
+  # Empty by default (falls back to :tag). When set, the daemonset uses repository@digest.
+  digest: ""
   pullPolicy: IfNotPresent
 
 nameOverride: ""
