@@ -455,6 +455,30 @@ node scripts/check-turbo-version-sync.mjs
 
 This also runs as a CI step (`ci.yml` → `lint-and-test` → "Verify turbo version pin sync"), so a drifting PR fails either way — running it locally just catches the mismatch before waiting on CI.
 
+### Grafana OTLP/Loki endpoint single source
+
+The Grafana Cloud OTLP/Loki ingest endpoints live in exactly one file — [`infra/observability/grafana-endpoints.env`](infra/observability/grafana-endpoints.env) — and every consumer derives them from it: `deploy.yml` sources it for the Cloud Run sidecar inject and passes it to the GKE `otel-collector` Helm chart via `--set-string`. This is the fix for the endpoint-drift class behind the no-telemetry incident [#781](https://github.com/brownm09/lifting-logbook/issues/781): a region/gateway change is now a one-line edit there, and re-hardcoding a literal endpoint anywhere else is a CI failure.
+
+**Run before pushing whenever you change an OTLP/Loki endpoint or touch its wiring (`deploy.yml`, the `*-otel-collector.yaml` values files, or the Cloud Run collector config):**
+
+```bash
+node scripts/check-grafana-endpoint-sources.mjs
+```
+
+This also runs as a CI step (`ci.yml` → `lint-and-test` → "Verify Grafana OTLP/Loki endpoints have a single source"), so a drifting PR fails either way — running it locally just catches a re-hardcoded endpoint before waiting on CI. See [#785](https://github.com/brownm09/lifting-logbook/issues/785).
+
+### otel-collector config sync (Cloud Run ↔ GKE)
+
+The Cloud Run collector sidecar and the GKE DaemonSet must run the **same** pipeline (the premise of [#782](https://github.com/brownm09/lifting-logbook/pull/782)). The Cloud Run config [`infra/cloud-run/otel-collector-config.yaml`](infra/cloud-run/otel-collector-config.yaml) is kept identical — below its comment header — to the `config.yaml` block scalar embedded in the GKE [`infra/kubernetes/charts/otel-collector/templates/configmap.yaml`](infra/kubernetes/charts/otel-collector/templates/configmap.yaml). A guard fails CI if the two diverge, instead of relying on a "keep in sync" comment.
+
+**Run before pushing whenever you edit either collector config (the Cloud Run file or the GKE configmap's `config.yaml` block):**
+
+```bash
+node scripts/check-otel-config-sync.mjs
+```
+
+This also runs as a CI step (`ci.yml` → `lint-and-test` → "Verify Cloud Run otel-collector config matches the GKE configmap"), so a drifting PR fails either way — running it locally just catches the divergence before waiting on CI. See [#788](https://github.com/brownm09/lifting-logbook/issues/788).
+
 ### Coverage Requirements
 
 <!-- When #259 ships: remove the "until then" clause from the frontend row below. Tracked as a checklist item on issue #259. -->
@@ -562,7 +586,7 @@ This repo runs a full OpenTelemetry + Grafana Cloud stack. The Plan-then-optimiz
 
 ### Convention
 
-- **Logging** — `nestjs-pino` (Pino), **structured JSON**, standard Pino levels (runtime-configurable). Configured in [`apps/api/src/app.module.ts`](apps/api/src/app.module.ts). Auth-bearing headers are redacted with `remove: true` (`req.headers.authorization`, `req.headers.cookie`, `req/res set-cookie`); `/health` is excluded from auto-logging to control Grafana Cloud log spend.
+- **Logging** — `nestjs-pino` (Pino), **structured JSON**, standard Pino levels (runtime-configurable). Configured in [`apps/api/src/app.module.ts`](apps/api/src/app.module.ts). Request/response headers are logged **redact-by-default**: a `serializers` allowlist (`LOGGABLE_REQUEST_HEADERS`) keeps only known-safe headers and drops everything else, so a newly-introduced auth-bearing header cannot leak the way `x-clerk-authorization` did (#767). A `redact.paths` denylist (`remove: true`) remains as a defense-in-depth backstop for the highest-risk bearer headers and cookies ([ADR-033](docs/adr/ADR-033-log-header-allowlist.md)). `/health` is excluded from auto-logging to control Grafana Cloud log spend.
 - **Tracing & metrics** — OpenTelemetry NodeSDK in [`apps/api/src/otel.ts`](apps/api/src/otel.ts): `OTLPTraceExporter` + `OTLPMetricExporter` (OTLP/HTTP) with `getNodeAutoInstrumentations()` (HTTP/Fastify, `pg`, Node built-ins). Service name defaults to `lifting-logbook-api`. The web app instruments via `@vercel/otel` ([`apps/web/instrumentation.ts`](apps/web/instrumentation.ts)).
 - **Backends** — Grafana Cloud via the OTel Collector: traces → **Tempo**, logs → **Loki**, metrics → **Mimir** (see [ADR-018](docs/adr/ADR-018-observability-stack.md)).
 - **Log↔trace correlation** — a Pino `mixin()` injects `trace_id` / `span_id` from the active span into every log line, enabling bidirectional Loki↔Tempo navigation in Grafana.
@@ -573,12 +597,12 @@ This repo runs a full OpenTelemetry + Grafana Cloud stack. The Plan-then-optimiz
 
 1. **Raw SQL is NOT auto-traced.** `@prisma/instrumentation` is excluded from the OTel SDK due to an SDK v1/v2 incompatibility ([ADR-024](docs/adr/ADR-024-prisma-otel-sdk-override.md)). Prisma Client ORM calls and any `$queryRaw` / `$executeRaw` emit **no spans**. Any new raw-SQL call site must be wrapped in a **manual span** to remain observable. (There are currently zero raw-SQL usages — this is a forward-looking gate.)
 2. **LLM adapters apply NO PII scrubbing to prompts.** The cycle-planning adapters (`apps/api/src/adapters/llm/anthropic-cycle-planning.adapter.ts`, `openai-compatible-cycle-planning.adapter.ts`) send user context to the provider unscrubbed. New LLM call sites must consider prompt-content exposure before sending or logging.
-3. **Redaction covers headers, not arbitrary payloads.** The Pino `redact` config strips auth headers/cookies only. New API boundaries must log at appropriate levels and must never log secrets, tokens, or sensitive request/response bodies.
+3. **Header redaction is redact-by-default (allowlist), not a denylist.** Request/response headers are filtered to the `LOGGABLE_REQUEST_HEADERS` allowlist in `app.module.ts`; any header not explicitly marked safe is dropped, and `log-header-allowlist.spec.ts` fails CI if a credential-bearing name is added to the allowlist ([ADR-033](docs/adr/ADR-033-log-header-allowlist.md)). The allowlist covers **headers**, not payloads — new API boundaries must still log at appropriate levels and must never log secrets, tokens, or sensitive request/response **bodies**.
 4. **Client-side mutations must not swallow errors.** Every write invoked from a Client Component must route its caught error through [`apps/web/lib/log-client-error.ts`](apps/web/lib/log-client-error.ts) (`logClientError`) — never an empty `catch {}`, a bare `console.error`, or an uncaught rejection. Context passed to the helper carries ids/actions only, never secrets, tokens, or request bodies (the api-client throws only `Error(message)`/`ApiClientError`, so the caught error itself is safe to log). See [#783](https://github.com/brownm09/lifting-logbook/issues/783).
 
 ### References
 
-[ADR-018](docs/adr/ADR-018-observability-stack.md) (stack), [ADR-019](docs/adr/ADR-019-slo-methodology.md) (SLOs), [ADR-020](docs/adr/ADR-020-tail-based-sampling-policy.md) (tail sampling), [ADR-021](docs/adr/ADR-021-no-test-tracing.md) (no test tracing), [ADR-024](docs/adr/ADR-024-prisma-otel-sdk-override.md) (Prisma SDK override); operational runbook: [`docs/runbooks/observability.md`](docs/runbooks/observability.md).
+[ADR-018](docs/adr/ADR-018-observability-stack.md) (stack), [ADR-019](docs/adr/ADR-019-slo-methodology.md) (SLOs), [ADR-020](docs/adr/ADR-020-tail-based-sampling-policy.md) (tail sampling), [ADR-021](docs/adr/ADR-021-no-test-tracing.md) (no test tracing), [ADR-024](docs/adr/ADR-024-prisma-otel-sdk-override.md) (Prisma SDK override), [ADR-033](docs/adr/ADR-033-log-header-allowlist.md) (log header allowlist); operational runbook: [`docs/runbooks/observability.md`](docs/runbooks/observability.md).
 
 ---
 

@@ -82,6 +82,18 @@ jobs:
       - name: Unit test turbo version pin sync parsing
         run: node --test scripts/check-turbo-version-sync.test.mjs
 
+      - name: Verify Grafana OTLP/Loki endpoints have a single source
+        run: node scripts/check-grafana-endpoint-sources.mjs
+
+      - name: Unit test Grafana endpoint source check parsing
+        run: node --test scripts/check-grafana-endpoint-sources.test.mjs
+
+      - name: Verify Cloud Run otel-collector config matches the GKE configmap
+        run: node scripts/check-otel-config-sync.mjs
+
+      - name: Unit test otel-collector config sync parsing
+        run: node --test scripts/check-otel-config-sync.test.mjs
+
   db-integration:
     name: DB Integration Tests
     runs-on: ubuntu-latest

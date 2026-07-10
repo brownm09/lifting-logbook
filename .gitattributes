@@ -1,0 +1,22 @@
+# ── Line-ending policy ───────────────────────────────────────────────────────
+# Enforce line endings by construction, not by each contributor's core.autocrlf
+# (the Windows default — a clone with autocrlf=false, or input misconfigured,
+# could otherwise commit CRLF). All text files are normalized to LF in the git
+# blob; git auto-detects text vs binary and leaves binaries untouched.
+* text=auto
+
+# Files run or `source`d by bash on Linux — the CI runner and the prod containers —
+# must be LF in the working-tree checkout too, not just in the blob. A CRLF copy
+# breaks execution on Linux: `/bin/bash^M: bad interpreter`, or a trailing CR on a
+# sourced value (a CRLF grafana-endpoints.env would append "\r" to each Grafana
+# endpoint URL and silently break telemetry — the #781 no-telemetry failure class
+# that #785/#790 fixed for that one file; #792 generalizes it to every such file).
+*.sh   text eol=lf
+*.bash text eol=lf
+*.env  text eol=lf
+
+# Binaries: mark explicitly so `* text=auto` can never misdetect and line-ending-
+# mangle them. Git's content detection already handles these, but an explicit rule
+# is robust against detection edge cases and future files. (Only *.png is present
+# today — the apps/mobile assets.)
+*.png binary

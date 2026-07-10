@@ -11,13 +11,16 @@
 # (the GKE DaemonSet's `config.yaml`) byte-for-byte, so GKE and Cloud Run apply the same
 # receivers/processors/exporters. Delivery is not identical, though: the Cloud Run sidecar
 # shares the api revision's CPU-throttling, so its batch/export timers are best-effort between
-# requests rather than always-on like the DaemonSet (see ADR-018). Keep the two configs in
-# sync — if you change the pipeline here, mirror it there (and vice versa).
+# requests rather than always-on like the DaemonSet (see ADR-018). The two configs are kept
+# identical below this header — enforced in CI by scripts/check-otel-config-sync.mjs (#788):
+# a divergence fails the build. Edit both together.
 #
 # The ${env:...} placeholders are substituted by the collector at startup from env vars
 # set on the sidecar container by the deploy step (.github/workflows/deploy.yml):
-#   OTEL_COLLECTOR_OTLP_ENDPOINT / _LOKI_ENDPOINT   — plain values (same for stg + prod:
-#                                                     shared free-tier Grafana Cloud stack)
+#   OTEL_COLLECTOR_OTLP_ENDPOINT / _LOKI_ENDPOINT   — from the single source
+#                                                     infra/observability/grafana-endpoints.env
+#                                                     (#785; same for stg + prod: shared
+#                                                     free-tier Grafana Cloud stack)
 #   OTEL_COLLECTOR_OTLP_AUTH_HEADER / _LOKI_AUTH_HEADER — from Secret Manager (per-env names)
 #   OTEL_TAIL_SAMPLE_RATE / OTEL_DECISION_WAIT      — plain values (20 / 10s)
 
