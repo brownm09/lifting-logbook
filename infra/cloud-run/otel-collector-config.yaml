@@ -16,8 +16,10 @@
 #
 # The ${env:...} placeholders are substituted by the collector at startup from env vars
 # set on the sidecar container by the deploy step (.github/workflows/deploy.yml):
-#   OTEL_COLLECTOR_OTLP_ENDPOINT / _LOKI_ENDPOINT   — plain values (same for stg + prod:
-#                                                     shared free-tier Grafana Cloud stack)
+#   OTEL_COLLECTOR_OTLP_ENDPOINT / _LOKI_ENDPOINT   — from the single source
+#                                                     infra/observability/grafana-endpoints.env
+#                                                     (#785; same for stg + prod: shared
+#                                                     free-tier Grafana Cloud stack)
 #   OTEL_COLLECTOR_OTLP_AUTH_HEADER / _LOKI_AUTH_HEADER — from Secret Manager (per-env names)
 #   OTEL_TAIL_SAMPLE_RATE / OTEL_DECISION_WAIT      — plain values (20 / 10s)
 
