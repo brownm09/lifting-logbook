@@ -126,6 +126,28 @@ the existing pattern wins.
   to **both** ARs, and `deploy-production` pulls the prod AR with **no** cross-project access. This
   cannot be exercised from a feature branch (the deploy jobs gate on `main`).
 
+## Addendum — 2026-07-10 (#795): same-project pull-through mirror reader
+
+This ADR removed the module's one **cross-project** `artifactregistry.reader` grant (the prod SA
+reading the staging AR). [#795](https://github.com/brownm09/lifting-logbook/issues/795) then adds the
+module's first **same-project** AR reader grant, and the two do not conflict.
+
+A `REMOTE_REPOSITORY` Docker Hub pull-through repo `${var.app_name}-dockerhub`
+(`google_artifact_registry_repository.dockerhub_mirror`, `main.tf`) was added so the otel-collector
+image is served from Artifact Registry rather than Docker Hub on the request path — Docker Hub's
+mutable tag exposes new production instances to a rate-limit (100 pulls/6h per IP) or outage on every
+cold-start / node pull ([#788](https://github.com/brownm09/lifting-logbook/issues/788)). Pulling
+*through* a remote repo requires `artifactregistry.reader` **on that repo**, so
+`google_artifact_registry_repository_iam_member.dockerhub_mirror_readers` grants it — scoped to the
+mirror repo, inside each environment's **own** project — to the two image-pull identities: the Cloud
+Run **service agent** (`serverless-robot`) and the default **Compute SA** (GKE Autopilot node pulls).
+
+This is consistent with ADR-029's least-privilege stance: the grant is same-project (never
+cross-project), repo-scoped (not project-wide), and given only to identities that pull images. The
+standard `images` repo keeps relying on Google's implicit project-level reader; the grant is explicit
+here because a remote repo's first pull-through is exercised only on the production/staging
+`deploy.yml` run (`push: main`), which PR CI does not execute.
+
 ## References
 
 - [Google Cloud — Artifact Registry: push and pull images](https://cloud.google.com/artifact-registry/docs/docker/pushing-and-pulling) —
