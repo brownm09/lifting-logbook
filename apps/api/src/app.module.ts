@@ -16,10 +16,14 @@ import { UserSettingsModule } from './user-settings/user-settings.module';
 export const pinoHttpOptions: PinoHttpOptions = {
   // Strip auth-bearing headers before they reach Loki. pino-http's default
   // req serializer logs req.headers verbatim, which would otherwise leak
-  // JWTs and session cookies into long-retention log storage.
+  // JWTs and session cookies into long-retention log storage. Server-to-server
+  // calls (apps/web) carry the Clerk JWT in x-clerk-authorization rather than
+  // authorization (see auth.guard.ts) — both header names carry a bearer
+  // token and must be redacted (#767).
   redact: {
     paths: [
       'req.headers.authorization',
+      'req.headers["x-clerk-authorization"]',
       'req.headers.cookie',
       'req.headers["set-cookie"]',
       'res.headers["set-cookie"]',
