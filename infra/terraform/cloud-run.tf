@@ -137,9 +137,10 @@ resource "google_cloud_run_v2_service" "api" {
 # lives in the Secret Manager secret `<name_prefix>-otel-collector-config`.
 #
 # That secret is intentionally NOT Terraform-managed. It is created and versioned by
-# the deploy pipeline (.github/workflows/deploy.yml → "Sync otel-collector config
-# secret") straight from the repo file infra/cloud-run/otel-collector-config.yaml,
-# then mounted by the api Cloud Run deploy step. Three reasons, mirroring the OTel
+# the api Cloud Run deploy step (.github/workflows/deploy.yml → "Deploy API + OTel
+# Collector sidecar to Cloud Run") straight from the repo file
+# infra/cloud-run/otel-collector-config.yaml, then mounted onto the injected sidecar by
+# that same step. Three reasons, mirroring the OTel
 # auth-header secrets handled out-of-band above in main.tf:
 #   1. Declaring it here would 409 against the pipeline-created secret.
 #   2. This service is lifecycle.ignore_changes = [template], so Terraform cannot

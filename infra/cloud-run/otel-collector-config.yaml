@@ -2,7 +2,7 @@
 #
 # This is the SOURCE OF TRUTH for the collector's config.yaml on Cloud Run. It is
 # pushed verbatim into the Secret Manager secret `<name_prefix>-otel-collector-config`
-# by infra/terraform/cloud-run.tf (a non-secret file; stored as a secret only because
+# by the deploy pipeline (.github/workflows/deploy.yml). It is a non-secret file, stored as a secret only because
 # Cloud Run mounts config *files* from Secret Manager, not from ConfigMaps). The deploy
 # pipeline mounts it into the sidecar at /etc/otelcol/config.yaml as a secret volume in the
 # manifest built by scripts/inject-otel-sidecar.py (`gcloud run services replace`).
