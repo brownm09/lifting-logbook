@@ -3,8 +3,11 @@ kind: ConfigMap
 metadata:
   name: {{ include "otel-collector.fullname" . }}-config
 data:
-  OTEL_COLLECTOR_OTLP_ENDPOINT: {{ .Values.env.OTEL_COLLECTOR_OTLP_ENDPOINT | quote }}
-  OTEL_COLLECTOR_LOKI_ENDPOINT: {{ .Values.env.OTEL_COLLECTOR_LOKI_ENDPOINT | quote }}
+  # `required` fails `helm upgrade` loudly if the endpoint is empty. The pipeline
+  # injects it via --set-string from the single source infra/observability/grafana-endpoints.env
+  # (#785); a manual run that forgets --set-string must fail, not ship no telemetry (#781).
+  OTEL_COLLECTOR_OTLP_ENDPOINT: {{ required "env.OTEL_COLLECTOR_OTLP_ENDPOINT is required — source infra/observability/grafana-endpoints.env and pass it via helm --set-string (#785)" .Values.env.OTEL_COLLECTOR_OTLP_ENDPOINT | quote }}
+  OTEL_COLLECTOR_LOKI_ENDPOINT: {{ required "env.OTEL_COLLECTOR_LOKI_ENDPOINT is required — source infra/observability/grafana-endpoints.env and pass it via helm --set-string (#785)" .Values.env.OTEL_COLLECTOR_LOKI_ENDPOINT | quote }}
   OTEL_TAIL_SAMPLE_RATE: {{ .Values.tailSampleRate | quote }}
   OTEL_DECISION_WAIT: {{ .Values.decisionWait | quote }}
 ---

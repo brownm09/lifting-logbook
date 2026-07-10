@@ -1,0 +1,5 @@
+# Files that are `source`d by bash on the Linux CI runner must stay LF-only, so a
+# sourced value never carries a trailing CR. A CRLF grafana-endpoints.env would
+# append "\r" to each endpoint URL and silently break telemetry — the same
+# no-telemetry failure class as #781 that #785 exists to prevent.
+infra/observability/grafana-endpoints.env text eol=lf

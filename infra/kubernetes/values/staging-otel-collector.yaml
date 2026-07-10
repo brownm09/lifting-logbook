@@ -1,8 +1,18 @@
 # Staging overrides for charts/otel-collector — applied on top of charts/otel-collector/values.yaml
-# Used by: helm upgrade otel-collector ./infra/kubernetes/charts/otel-collector \
-#            --values infra/kubernetes/values/staging-otel-collector.yaml
+# Applied by the deploy pipeline (.github/workflows/deploy.yml), which sources the
+# endpoints from infra/observability/grafana-endpoints.env and passes them to helm
+# via --set-string (see below). For a manual run you MUST do the same:
+#   source infra/observability/grafana-endpoints.env
+#   helm upgrade --install otel-collector ./infra/kubernetes/charts/otel-collector \
+#     --namespace staging \
+#     --values infra/kubernetes/values/staging-otel-collector.yaml \
+#     --set-string env.OTEL_COLLECTOR_OTLP_ENDPOINT="$OTEL_OTLP_ENDPOINT" \
+#     --set-string env.OTEL_COLLECTOR_LOKI_ENDPOINT="$OTEL_LOKI_ENDPOINT"
 #
-# The OTLP/Loki endpoints are NON-secret and committed here. The auth headers are
+# The OTLP/Loki endpoints are NON-secret, but are NOT set in this file: they live in
+# the single source infra/observability/grafana-endpoints.env (#785) and the pipeline
+# injects them via --set-string (a region/gateway change is a one-line edit there).
+# The auth headers are
 # pulled from GCP Secret Manager and synced into the `otel-collector-secrets` k8s
 # Secret by the deploy pipeline (see .github/workflows/deploy.yml → "Sync otel-collector
 # secrets to Kubernetes"). The collector pod reads only that k8s Secret, so its
@@ -20,9 +30,13 @@
 # live Grafana Cloud stack on 2026-07-10 (#781): both endpoints return 2xx with
 # the committed auth-header secrets — the prior us-central1 / logs-prod-021 values
 # were the sole cause of the 530 (OTLP region) / 401 (Loki gateway); creds were fine.
+# Endpoints intentionally left empty here — injected by --set-string from
+# infra/observability/grafana-endpoints.env (#785). The chart's configmap template
+# `required`s a non-empty value, so a manual helm run that forgets --set-string
+# fails loudly rather than silently shipping no telemetry (the #781 failure mode).
 env:
-  OTEL_COLLECTOR_OTLP_ENDPOINT: https://otlp-gateway-prod-us-east-3.grafana.net/otlp
-  OTEL_COLLECTOR_LOKI_ENDPOINT: https://logs-prod-042.grafana.net/otlp
+  OTEL_COLLECTOR_OTLP_ENDPOINT: ""
+  OTEL_COLLECTOR_LOKI_ENDPOINT: ""
 
 # 20% probabilistic sampling of clean traces; errors and slow traces (>1 000 ms) are always kept.
 tailSampleRate: "20"
