@@ -573,8 +573,8 @@ jobs:
             --region="${{ env.REGION }}" --project="$PROJECT" --format=export > "$RUNNER_TEMP/stg-api.yaml"
           API_IMAGE="${{ needs.build-images.outputs.ar_repo }}/api:${{ github.sha }}" \
           OTEL_CONFIG_SECRET="$CONFIG_SECRET" \
-          OTEL_OTLP_ENDPOINT="https://otlp-gateway-prod-us-central1.grafana.net/otlp" \
-          OTEL_LOKI_ENDPOINT="https://logs-prod-021.grafana.net/otlp" \
+          OTEL_OTLP_ENDPOINT="https://otlp-gateway-prod-us-east-3.grafana.net/otlp" \
+          OTEL_LOKI_ENDPOINT="https://logs-prod-042.grafana.net/otlp" \
           OTEL_OTLP_SECRET="lifting-logbook-stg-otel-otlp-auth-header" \
           OTEL_LOKI_SECRET="lifting-logbook-stg-otel-loki-auth-header" \
             python3 scripts/inject-otel-sidecar.py "$RUNNER_TEMP/stg-api.yaml" > "$RUNNER_TEMP/stg-api-sidecar.yaml"
@@ -1143,8 +1143,8 @@ jobs:
             --region="${{ env.REGION }}" --project="$PROJECT" --format=export > "$RUNNER_TEMP/prod-api.yaml"
           API_IMAGE="${{ steps.tf-prod.outputs.ar_repo }}/api:${{ github.sha }}" \
           OTEL_CONFIG_SECRET="$CONFIG_SECRET" \
-          OTEL_OTLP_ENDPOINT="https://otlp-gateway-prod-us-central1.grafana.net/otlp" \
-          OTEL_LOKI_ENDPOINT="https://logs-prod-021.grafana.net/otlp" \
+          OTEL_OTLP_ENDPOINT="https://otlp-gateway-prod-us-east-3.grafana.net/otlp" \
+          OTEL_LOKI_ENDPOINT="https://logs-prod-042.grafana.net/otlp" \
           OTEL_OTLP_SECRET="lifting-logbook-prod-otel-otlp-auth-header" \
           OTEL_LOKI_SECRET="lifting-logbook-prod-otel-loki-auth-header" \
             python3 scripts/inject-otel-sidecar.py "$RUNNER_TEMP/prod-api.yaml" > "$RUNNER_TEMP/prod-api-sidecar.yaml"

@@ -311,8 +311,9 @@ non-secret endpoints are set in the Cloud Run deploy step and must match
 CPU allocation (`cpu_idle` — CPU only during request processing), so between requests the collector's
 `batch`, `tail_sampling` (`decision_wait`), and periodic OTLP export timers run best-effort rather
 than always-on like the GKE DaemonSet; buffered telemetry can be delayed or dropped when an idle
-instance is throttled or scaled in. Revisit collector CPU allocation once #781 unblocks telemetry and
-real delivery can be measured. (2) **Terraform recreate.** Terraform declares only the api container
+instance is throttled or scaled in. Revisit collector CPU allocation ([#787](https://github.com/brownm09/lifting-logbook/issues/787))
+now that #781's endpoint fix ([#784](https://github.com/brownm09/lifting-logbook/pull/784)) lets real
+delivery be measured. (2) **Terraform recreate.** Terraform declares only the api container
 (the sidecar lives solely in the injected manifest, and the service is
 `lifecycle.ignore_changes = [template]`). If the api service is ever recreated by Terraform (DR,
 teardown/reapply, first apply), it comes up **single-container** — the SDK exports to a
@@ -320,13 +321,13 @@ teardown/reapply, first apply), it comes up **single-container** — the SDK exp
 the next pipeline deploy re-injects the sidecar. **A pipeline deploy must follow any Terraform recreate
 of this service.**
 
-> **⚠ Telemetry is not landing yet — Grafana creds/endpoints are invalid ([#781](https://github.com/brownm09/lifting-logbook/issues/781)).**
-> The wiring above is verified end-to-end up to the Grafana boundary (the sidecar deploys, loads its
-> config, and receives app telemetry), but Grafana Cloud currently rejects every export — **Loki 401**,
-> **OTLP 530** — for **both** GKE and Cloud Run, because the shared endpoints/credentials are wrong
-> (confirmed by a direct `curl`, bypassing the collector). Fixing #781 (correct region/endpoints +
-> fresh token from the Grafana portal, then re-run the bootstrap script) unblocks telemetry actually
-> reaching Tempo/Loki/Mimir.
+> **Note — the Grafana endpoint blocker ([#781](https://github.com/brownm09/lifting-logbook/issues/781)) is now fixed ([#784](https://github.com/brownm09/lifting-logbook/pull/784)).**
+> During this change's staging validation, Grafana Cloud rejected every export — **Loki 401 / OTLP 530**,
+> for **both** GKE and Cloud Run — because the shared endpoints pointed at the wrong Grafana stack
+> (confirmed by a direct `curl`, bypassing the collector). #784 corrected them (OTLP →
+> `otlp-gateway-prod-us-east-3`, Loki → `logs-prod-042`, verified against the live stack) in the GKE
+> values files; the Cloud Run deploy step here uses the **same** corrected endpoints and auth-header
+> secrets, so the sidecar's exports now reach Tempo/Loki/Mimir.
 
 ---
 

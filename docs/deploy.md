@@ -654,8 +654,9 @@ step publishes `infra/cloud-run/otel-collector-config.yaml` to a
 `lifting-logbook-{stg,prod}-otel-collector-config` secret, then `describe → inject → services replace`
 (see [`scripts/inject-otel-sidecar.py`](../scripts/inject-otel-sidecar.py) and the observability
 runbook). It reuses the **same** auth-header secrets and endpoints as GKE, so the one-time token
-bootstrap below covers both. (Telemetry is not landing yet — the shared Grafana endpoints/creds are
-invalid, [#781](https://github.com/brownm09/lifting-logbook/issues/781).)
+bootstrap below covers both. (The shared Grafana endpoints initially pointed at the wrong stack
+([#781](https://github.com/brownm09/lifting-logbook/issues/781)); [#784](https://github.com/brownm09/lifting-logbook/pull/784)
+corrected them — OTLP → `us-east-3`, Loki → `logs-prod-042` — so telemetry now lands.)
 
 **One-time token bootstrap (do this once per environment, before the deploy that needs it).**
 The auth headers are never committed and are **not** Terraform-managed — the script below
