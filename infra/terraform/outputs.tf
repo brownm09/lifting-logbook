@@ -33,6 +33,11 @@ output "artifact_registry_repo" {
   value       = "${var.artifact_registry_region}-docker.pkg.dev/${var.project_id}/${var.app_name}"
 }
 
+output "otel_collector_mirror_repo" {
+  description = "Docker Hub pull-through mirror base path (#795); append /otel/opentelemetry-collector-contrib@<digest>"
+  value       = "${var.artifact_registry_region}-docker.pkg.dev/${var.project_id}/${var.app_name}-dockerhub"
+}
+
 output "cicd_service_account_email" {
   description = "CI/CD service account email (referenced in GitHub Actions secrets)"
   value       = google_service_account.cicd.email
