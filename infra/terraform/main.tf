@@ -374,6 +374,55 @@ resource "google_artifact_registry_repository" "images" {
 # `external_ar_reader_service_accounts` variable were removed; applying this
 # revokes the standing cross-project grant.
 
+# ─── Artifact Registry — Docker Hub pull-through mirror (#795) ────────────────
+
+# The otel-collector image (otel/opentelemetry-collector-contrib) is pulled from
+# Docker Hub by a mutable tag on every Cloud Run cold-start / GKE node pull, so a
+# Docker Hub rate-limit (100 pulls/6h per IP) or outage can fail new production
+# request-path instances, and a re-pushed tag breaks reproducibility (#788/#795).
+# This REMOTE repository proxies Docker Hub through Artifact Registry: the first
+# pull of a given digest fetches upstream and caches it in-project; every later
+# request-path pull is served from AR (in-GCP, no Docker Hub dependency).
+# Consumers reference it by digest — wired in the #795 follow-up PR.
+resource "google_artifact_registry_repository" "dockerhub_mirror" {
+  repository_id = "${var.app_name}-dockerhub"
+  location      = var.artifact_registry_region
+  format        = "DOCKER"
+  mode          = "REMOTE_REPOSITORY"
+  description   = "Docker Hub pull-through cache for ${var.app_name} (otel-collector, #795)"
+
+  remote_repository_config {
+    description = "Docker Hub"
+    docker_repository {
+      public_repository = "DOCKER_HUB"
+    }
+  }
+
+  depends_on = [google_project_service.required_apis]
+}
+
+# Project number for the image-pull identities' service-account emails.
+data "google_project" "current" {}
+
+# Explicit reader on the mirror for the two identities that pull container images.
+# Pulls from the STANDARD `images` repo above rely on Google's implicit project-
+# level grant, but the first-ever pull-through of this REMOTE repo happens on a
+# production/staging deploy that PR CI does not exercise (staging.yml deploys the
+# api without the sidecar; the collector ships only via deploy.yml on push:main),
+# so grant reader explicitly rather than depend on the implicit bind:
+#   * Cloud Run pulls the sidecar image via its service agent (serverless-robot).
+#   * GKE Autopilot nodes pull the DaemonSet image via the default Compute SA.
+resource "google_artifact_registry_repository_iam_member" "dockerhub_mirror_readers" {
+  for_each = toset([
+    "serviceAccount:service-${data.google_project.current.number}@serverless-robot-prod.iam.gserviceaccount.com",
+    "serviceAccount:${data.google_project.current.number}-compute@developer.gserviceaccount.com",
+  ])
+  location   = google_artifact_registry_repository.dockerhub_mirror.location
+  repository = google_artifact_registry_repository.dockerhub_mirror.name
+  role       = "roles/artifactregistry.reader"
+  member     = each.value
+}
+
 # ─── IAM — CI/CD service account ─────────────────────────────────────────────
 
 resource "google_service_account" "cicd" {
