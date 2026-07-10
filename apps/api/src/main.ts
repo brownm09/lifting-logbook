@@ -10,6 +10,7 @@ import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify
 import multipart from '@fastify/multipart';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
+import { resolveCorsOrigins } from './cors.config';
 import { DomainConflictFilter } from './programs/conflict.filter';
 import { DomainNotFoundFilter } from './programs/not-found.filter';
 import { PrismaTransactionTimeoutFilter } from './programs/transaction-timeout.filter';
@@ -32,6 +33,16 @@ async function bootstrap() {
     new PrismaTransactionTimeoutFilter(httpAdapter),
   );
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }));
+  // Browser → API calls are cross-origin (ADR-028/ADR-032): the web app calls the API's
+  // external URL directly from the browser, so without these CORS headers the browser blocks
+  // every client-side write. enableCors registers @fastify/cors, which also answers the
+  // preflight OPTIONS. See cors.config.ts for the allowlist and its rationale.
+  app.enableCors({
+    origin: resolveCorsOrigins(),
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'],
+    allowedHeaders: ['Authorization', 'Content-Type'],
+    maxAge: 3600,
+  });
   const port = parseInt(process.env.PORT ?? '3004', 10);
   await app.listen(port, '0.0.0.0');
 }

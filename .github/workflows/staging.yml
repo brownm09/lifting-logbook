@@ -541,12 +541,17 @@ jobs:
         # docs/runbooks/staging-ci-flakiness.md.
         continue-on-error: true
         run: |
+          # Cloud Run IAM is intentionally public here (ADR-032): the browser calls this API
+          # directly (ADR-028) and the Clerk JWT is the real auth gate. With --no-allow-
+          # unauthenticated, every PR-staging deploy would re-lock the API and 403 the
+          # browser's CORS preflight before it reaches the app — the ~month-long outage #766
+          # fixed. Kept in sync with the stg/prod API deploys in deploy.yml.
           gcloud run deploy lifting-logbook-stg-api \
             --image="${{ needs.build-images.outputs.ar_repo }}/api:${{ needs.build-images.outputs.image_tag }}" \
             --region="${{ env.REGION }}" \
             --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
             --platform=managed \
-            --no-allow-unauthenticated \
+            --allow-unauthenticated \
             --quiet
 
       - name: Fetch Cloud Run API logs on failure

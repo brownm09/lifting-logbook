@@ -10,7 +10,7 @@ This document maps every critical user flow to its test coverage across the API 
 | Onboarding — initialize first cycle | ❌ | ✅ | ✅ |
 | Advance a cycle | ✅ | ✅ | ❌ |
 | Recalculate training maxes | ✅ | ✅ | ❌ |
-| Reschedule a workout | ✅ | ✅ | ❌ |
+| Reschedule a workout | ✅ | ✅ | ✅ (staging only — see `apps/web/e2e/staging.spec.ts`) |
 | Manage lifts (overrides) | ✅ | ✅ | ❌ |
 | Training max history / mark PR | ✅ | ✅ | ✅ |
 | Strength goals | ✅ | ✅ | ✅ |
