@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { upsertLiftOverride } from '@/lib/client-api';
+import { logClientError } from '@/lib/log-client-error';
 import type { WorkoutLiftResponse } from '@lifting-logbook/types';
 import styles from './ManageLiftsActions.module.css';
 
@@ -26,8 +27,8 @@ export default function ManageLiftsActions({ program, cycleNum, workoutNum, lift
       await upsertLiftOverride(program, cycleNum, workoutNum, { action: 'remove', lift });
       router.refresh();
     } catch (err) {
+      logClientError('upsertLiftOverride', err, { action: 'remove', program, cycleNum, workoutNum, lift });
       setError(`Failed to remove ${lift}. Please try again.`);
-      console.error(err);
     } finally {
       setPending(null);
     }

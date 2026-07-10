@@ -15,6 +15,7 @@ import type {
 } from '@lifting-logbook/types';
 import { CANONICAL_LIFT_IDS, formatWeight } from '@lifting-logbook/core';
 import { commitImport, previewImport, undoImport } from '@/lib/client-api';
+import { logClientError } from '@/lib/log-client-error';
 import { Step, STEP_LABELS } from './steps';
 import styles from './import.module.css';
 
@@ -179,6 +180,7 @@ export function ImportWizard({
       setPreview(res);
       return res;
     } catch (e) {
+      logClientError('previewImport', e, { programId });
       setError(e instanceof Error ? e.message : 'Preview failed');
       return null;
     } finally {
@@ -286,6 +288,7 @@ export function ImportWizard({
         setCommitErrors(result.errors);
       }
     } catch (e) {
+      logClientError('commitImport', e, { programId, destination });
       setCommitErrors([
         { row: 0, message: e instanceof Error ? e.message : 'Import failed' },
       ]);
@@ -301,6 +304,7 @@ export function ImportWizard({
       const result = await undoImport(programId, batchId);
       setUndoResult(result);
     } catch (e) {
+      logClientError('undoImport', e, { programId, batchId });
       setError(e instanceof Error ? e.message : 'Undo failed');
     } finally {
       setBusy(false);
