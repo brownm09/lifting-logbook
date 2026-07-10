@@ -38,10 +38,10 @@ Required env vars:
   OTEL_LOKI_ENDPOINT   Grafana Cloud Loki OTLP base URL (logs)
   OTEL_OTLP_SECRET     Secret Manager secret for the OTLP auth header
   OTEL_LOKI_SECRET     Secret Manager secret for the Loki auth header
-Optional env vars (defaults mirror infra/kubernetes/values/*-otel-collector.yaml):
-  COLLECTOR_IMAGE (otel/opentelemetry-collector-contrib:0.104.0)
-  COLLECTOR_CPU ('1')   COLLECTOR_MEMORY ('256Mi')
-  OTEL_TAIL_SAMPLE_RATE ('20')   OTEL_DECISION_WAIT ('10s')
+Optional env vars:
+  COLLECTOR_IMAGE (otel/opentelemetry-collector-contrib:0.104.0)   # script default
+  COLLECTOR_CPU ('1')   COLLECTOR_MEMORY ('256Mi')                 # script defaults
+  OTEL_TAIL_SAMPLE_RATE ('20')   OTEL_DECISION_WAIT ('10s')        # mirror infra/kubernetes/values/*-otel-collector.yaml
 
 Reads the manifest from a path argument if given, else stdin. Writes YAML to stdout.
 """

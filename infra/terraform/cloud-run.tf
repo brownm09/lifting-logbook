@@ -95,12 +95,13 @@ resource "google_cloud_run_v2_service" "api" {
       }
 
       # Point the API's OTel SDK (apps/api/src/otel.ts) at the otel-collector
-      # sidecar co-located in the same Cloud Run instance (#768). The sidecar
-      # (added by the deploy pipeline's multi-container `gcloud run deploy`)
-      # listens on localhost:4318 and forwards to Grafana Cloud. Declared here
-      # for spec accuracy and first-apply/bootstrap; because this service is
-      # lifecycle.ignore_changes = [template], the live value is actually set by
-      # the deploy step's `--set-env-vars`, exactly like the sidecar itself.
+      # sidecar co-located in the same Cloud Run instance (#768). The sidecar is
+      # injected at deploy time by scripts/inject-otel-sidecar.py (describe →
+      # inject → `gcloud run services replace`) and listens on localhost:4318,
+      # forwarding to Grafana Cloud. Declared here for spec accuracy and
+      # first-apply/bootstrap; because this service is
+      # lifecycle.ignore_changes = [template], the live value is actually set in
+      # the injected manifest by that deploy step, exactly like the sidecar itself.
       env {
         name  = "OTEL_EXPORTER_OTLP_ENDPOINT"
         value = "http://localhost:4318"
@@ -108,7 +109,8 @@ resource "google_cloud_run_v2_service" "api" {
     }
   }
 
-  # Image and template updates are managed exclusively by gcloud run deploy in CI/CD.
+  # Image and template updates are managed exclusively by the CI/CD deploy jobs (gcloud run
+  # deploy for web; `gcloud run services replace` for the api since #768).
   # Terraform creates the service on first apply; subsequent image/env/scale changes
   # are applied by the deploy-staging / deploy-production jobs, not Terraform.
   #

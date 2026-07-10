@@ -4,13 +4,15 @@
 # pushed verbatim into the Secret Manager secret `<name_prefix>-otel-collector-config`
 # by infra/terraform/cloud-run.tf (a non-secret file; stored as a secret only because
 # Cloud Run mounts config *files* from Secret Manager, not from ConfigMaps). The deploy
-# pipeline then mounts it into the sidecar at /etc/otelcol/config.yaml via
-# `gcloud run deploy --set-secrets=/etc/otelcol/config.yaml=...`.
+# pipeline mounts it into the sidecar at /etc/otelcol/config.yaml as a secret volume in the
+# manifest built by scripts/inject-otel-sidecar.py (`gcloud run services replace`).
 #
 # It MIRRORS the pipeline in infra/kubernetes/charts/otel-collector/templates/configmap.yaml
-# (the GKE DaemonSet's `config.yaml`) byte-for-byte, so GKE and Cloud Run ship identical
-# telemetry. Keep the two in sync — if you change the receivers/processors/exporters/
-# service here, mirror it there (and vice versa).
+# (the GKE DaemonSet's `config.yaml`) byte-for-byte, so GKE and Cloud Run apply the same
+# receivers/processors/exporters. Delivery is not identical, though: the Cloud Run sidecar
+# shares the api revision's CPU-throttling, so its batch/export timers are best-effort between
+# requests rather than always-on like the DaemonSet (see ADR-018). Keep the two configs in
+# sync — if you change the pipeline here, mirror it there (and vice versa).
 #
 # The ${env:...} placeholders are substituted by the collector at startup from env vars
 # set on the sidecar container by the deploy step (.github/workflows/deploy.yml):

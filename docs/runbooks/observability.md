@@ -274,8 +274,9 @@ Prometheus container scrapes.)
 The Cloud Run api service now ships telemetry via an **otel-collector sidecar** — a second
 container co-located in the api instance. The API SDK exports OTLP to `localhost:4318`; the
 sidecar forwards to Grafana Cloud using the **same** pipeline config, endpoints, and auth-header
-secrets as the GKE DaemonSet, so both topologies emit identical telemetry (including the
-`deployment_environment_name` metric label the alert rules depend on). This is what makes
+secrets as the GKE DaemonSet, so both topologies emit the same telemetry — same pipeline and the
+`deployment_environment_name` metric label the alert rules depend on — subject to the delivery
+caveat below (the Cloud Run sidecar is CPU-throttled between requests). This is what makes
 telemetry reach Grafana on the production project, which runs Cloud-Run-only (`enable_gke = false`)
 and so has no DaemonSet.
 
@@ -305,6 +306,19 @@ the `lifting-logbook-{stg,prod}-otel-{otlp,loki}-auth-header` secrets, so
 [`scripts/bootstrap-otel-secrets.sh`](../../scripts/bootstrap-otel-secrets.sh) already covers it. The
 non-secret endpoints are set in the Cloud Run deploy step and must match
 `infra/kubernetes/values/{staging,production}-otel-collector.yaml`.
+
+**Two operational caveats.** (1) **CPU-throttling.** The sidecar shares the api revision's Cloud Run
+CPU allocation (`cpu_idle` — CPU only during request processing), so between requests the collector's
+`batch`, `tail_sampling` (`decision_wait`), and periodic OTLP export timers run best-effort rather
+than always-on like the GKE DaemonSet; buffered telemetry can be delayed or dropped when an idle
+instance is throttled or scaled in. Revisit collector CPU allocation once #781 unblocks telemetry and
+real delivery can be measured. (2) **Terraform recreate.** Terraform declares only the api container
+(the sidecar lives solely in the injected manifest, and the service is
+`lifecycle.ignore_changes = [template]`). If the api service is ever recreated by Terraform (DR,
+teardown/reapply, first apply), it comes up **single-container** — the SDK exports to a
+`localhost:4318` with nothing listening, silently dropping all telemetry (the exact #768 bug) — until
+the next pipeline deploy re-injects the sidecar. **A pipeline deploy must follow any Terraform recreate
+of this service.**
 
 > **⚠ Telemetry is not landing yet — Grafana creds/endpoints are invalid ([#781](https://github.com/brownm09/lifting-logbook/issues/781)).**
 > The wiring above is verified end-to-end up to the Grafana boundary (the sidecar deploys, loads its

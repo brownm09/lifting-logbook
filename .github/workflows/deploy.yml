@@ -545,9 +545,15 @@ jobs:
           #      OTEL_EXPORTER_OTLP_ENDPOINT; minus the unused SYSTEM_DATABASE_URL, #534), and
           #      `gcloud run services replace`.
           # Deriving the manifest from the live service preserves every Terraform-managed
-          # field (VPC connector, scaling, SA, startup probe) verbatim, and IAM is untouched
-          # (the api stays as-is: private until #766 opens it). `--container` was rejected
-          # (unresolvable sidecar port catch-22) — see scripts/inject-otel-sidecar.py.
+          # field (VPC connector, scaling, SA, startup probe) verbatim. `services replace`
+          # deliberately never touches the invoker IAM policy, so the api's public posture
+          # stays owned solely by Terraform's allUsers run.invoker binding
+          # (google_cloud_run_v2_service_iam_member.api_public, #766/#770) — unlike the prior
+          # `gcloud run deploy --allow-unauthenticated`, this neither re-asserts nor fights
+          # that grant. `--container` was rejected (unresolvable sidecar port catch-22) — see
+          # scripts/inject-otel-sidecar.py. The sidecar shares the api revision's CPU-throttling,
+          # so its batch/export timers are best-effort between requests, not always-on like the
+          # GKE DaemonSet (see ADR-018).
           # Grafana endpoints mirror infra/kubernetes/values/staging-otel-collector.yaml.
           PROJECT="${{ vars.GCP_STAGING_PROJECT_ID }}"
           CONFIG_SECRET="lifting-logbook-stg-otel-collector-config"
@@ -560,7 +566,9 @@ jobs:
           else
             echo "otel-collector config secret: unchanged."
           fi
-          python3 -c "import yaml" 2>/dev/null || python3 -m pip install --quiet pyyaml
+          # PyYAML ships pre-installed on GitHub-hosted ubuntu runners; --break-system-packages
+          # keeps the fallback working if it is ever absent on a PEP-668 (externally-managed) runner.
+          python3 -c "import yaml" 2>/dev/null || python3 -m pip install --quiet --break-system-packages pyyaml
           gcloud run services describe lifting-logbook-stg-api \
             --region="${{ env.REGION }}" --project="$PROJECT" --format=export > "$RUNNER_TEMP/stg-api.yaml"
           API_IMAGE="${{ needs.build-images.outputs.ar_repo }}/api:${{ github.sha }}" \
@@ -1110,8 +1118,12 @@ jobs:
           # API into Grafana Cloud via a co-located otel-collector sidecar (#768) by ensuring
           # the config.yaml secret, then describe → inject sidecar → `services replace`.
           # Deriving the manifest from the live service preserves every Terraform-managed
-          # field verbatim and leaves IAM untouched (production stays as-is). The unused
-          # SYSTEM_DATABASE_URL (#534) is dropped by the injector. Grafana endpoints mirror
+          # field verbatim. `services replace` never touches the invoker IAM policy, so the
+          # api's public posture stays owned by Terraform's allUsers binding
+          # (google_cloud_run_v2_service_iam_member.api_public, #766/#770), not re-asserted here.
+          # The unused SYSTEM_DATABASE_URL (#534) is dropped by the injector. The sidecar shares
+          # the api revision's CPU-throttling (best-effort flush between requests, not always-on
+          # — see ADR-018). Grafana endpoints mirror
           # infra/kubernetes/values/production-otel-collector.yaml.
           PROJECT="${{ vars.GCP_PROD_PROJECT_ID }}"
           CONFIG_SECRET="lifting-logbook-prod-otel-collector-config"
@@ -1124,7 +1136,9 @@ jobs:
           else
             echo "otel-collector config secret: unchanged."
           fi
-          python3 -c "import yaml" 2>/dev/null || python3 -m pip install --quiet pyyaml
+          # PyYAML ships pre-installed on GitHub-hosted ubuntu runners; --break-system-packages
+          # keeps the fallback working if it is ever absent on a PEP-668 (externally-managed) runner.
+          python3 -c "import yaml" 2>/dev/null || python3 -m pip install --quiet --break-system-packages pyyaml
           gcloud run services describe lifting-logbook-prod-api \
             --region="${{ env.REGION }}" --project="$PROJECT" --format=export > "$RUNNER_TEMP/prod-api.yaml"
           API_IMAGE="${{ steps.tf-prod.outputs.ar_repo }}/api:${{ github.sha }}" \
