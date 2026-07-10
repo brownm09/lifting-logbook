@@ -269,13 +269,65 @@ Prometheus container scrapes.)
 >    5xx never pages. `infra/observability/alerts/api.test.yaml` locks this with a
 >    staging-does-not-page scenario.
 
-### Cloud Run (deferred)
+### Cloud Run (wired — #768)
 
-The A/B Cloud Run replica does not yet ship telemetry. A sidecar template exists at
-[`infra/cloud-run/otel-collector-sidecar.yaml`](../../infra/cloud-run/otel-collector-sidecar.yaml),
-but wiring it safely against the Terraform-owned service is tracked as a follow-up to #474.
-GKE (the primary topology per [ADR-018](../adr/ADR-018-observability-stack.md)) carries the
-bulk of traffic and is fully wired.
+The Cloud Run api service now ships telemetry via an **otel-collector sidecar** — a second
+container co-located in the api instance. The API SDK exports OTLP to `localhost:4318`; the
+sidecar forwards to Grafana Cloud using the **same** pipeline config, endpoints, and auth-header
+secrets as the GKE DaemonSet, so both topologies emit the same telemetry — same pipeline and the
+`deployment_environment_name` metric label the alert rules depend on — subject to the delivery
+caveat below (the Cloud Run sidecar is CPU-throttled between requests). This is what makes
+telemetry reach Grafana on the production project, which runs Cloud-Run-only (`enable_gke = false`)
+and so has no DaemonSet.
+
+Cloud Run has no additive sidecar command, no ConfigMap volumes, and the api service is
+`lifecycle.ignore_changes = [template]` (Terraform never mutates the running revision), so the
+deploy pipeline owns the whole 2-container topology. On every push-to-main deploy,
+`.github/workflows/deploy.yml` (staging + production):
+
+1. **Ensures the config secret** — publishes
+   [`infra/cloud-run/otel-collector-config.yaml`](../../infra/cloud-run/otel-collector-config.yaml)
+   (the collector pipeline config, mirroring the GKE
+   [`configmap.yaml`](../../infra/kubernetes/charts/otel-collector/templates/configmap.yaml)) to the
+   Secret Manager secret `lifting-logbook-{stg,prod}-otel-collector-config`, adding a new version
+   only when the content changed. Cloud Run mounts config *files* from Secret Manager, not ConfigMaps.
+2. **Injects the sidecar** — `gcloud run services describe --format=export` →
+   [`scripts/inject-otel-sidecar.py`](../../scripts/inject-otel-sidecar.py) (adds the
+   `otel-collector` container + config volume, sets the api's `OTEL_EXPORTER_OTLP_ENDPOINT`) →
+   `gcloud run services replace`. Deriving the manifest from the live service preserves every
+   Terraform-managed field (VPC connector, scaling, service account, startup probe) verbatim.
+   `gcloud run deploy --container` was rejected — it hits an unresolvable sidecar-port catch-22 on
+   this gcloud version (see the script header).
+
+No new IAM: the sidecar runs as the api workload SA, which already holds a project-level
+`roles/secretmanager.secretAccessor` grant (`gke.tf` `api_workload_roles`), so it reads the config
+and auth-header secrets directly. The token bootstrap is the **same** as GKE — the sidecar reuses
+the `lifting-logbook-{stg,prod}-otel-{otlp,loki}-auth-header` secrets, so
+[`scripts/bootstrap-otel-secrets.sh`](../../scripts/bootstrap-otel-secrets.sh) already covers it. The
+non-secret endpoints are set in the Cloud Run deploy step and must match
+`infra/kubernetes/values/{staging,production}-otel-collector.yaml`.
+
+**Two operational caveats.** (1) **CPU-throttling.** The sidecar shares the api revision's Cloud Run
+CPU allocation (`cpu_idle` — CPU only during request processing), so between requests the collector's
+`batch`, `tail_sampling` (`decision_wait`), and periodic OTLP export timers run best-effort rather
+than always-on like the GKE DaemonSet; buffered telemetry can be delayed or dropped when an idle
+instance is throttled or scaled in. Revisit collector CPU allocation ([#787](https://github.com/brownm09/lifting-logbook/issues/787))
+now that #781's endpoint fix ([#784](https://github.com/brownm09/lifting-logbook/pull/784)) lets real
+delivery be measured. (2) **Terraform recreate.** Terraform declares only the api container
+(the sidecar lives solely in the injected manifest, and the service is
+`lifecycle.ignore_changes = [template]`). If the api service is ever recreated by Terraform (DR,
+teardown/reapply, first apply), it comes up **single-container** — the SDK exports to a
+`localhost:4318` with nothing listening, silently dropping all telemetry (the exact #768 bug) — until
+the next pipeline deploy re-injects the sidecar. **A pipeline deploy must follow any Terraform recreate
+of this service.**
+
+> **Note — the Grafana endpoint blocker ([#781](https://github.com/brownm09/lifting-logbook/issues/781)) is now fixed ([#784](https://github.com/brownm09/lifting-logbook/pull/784)).**
+> During this change's staging validation, Grafana Cloud rejected every export — **Loki 401 / OTLP 530**,
+> for **both** GKE and Cloud Run — because the shared endpoints pointed at the wrong Grafana stack
+> (confirmed by a direct `curl`, bypassing the collector). #784 corrected them (OTLP →
+> `otlp-gateway-prod-us-east-3`, Loki → `logs-prod-042`, verified against the live stack) in the GKE
+> values files; the Cloud Run deploy step here uses the **same** corrected endpoints and auth-header
+> secrets, so the sidecar's exports now reach Tempo/Loki/Mimir.
 
 ---
 

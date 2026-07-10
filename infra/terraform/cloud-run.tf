@@ -93,10 +93,24 @@ resource "google_cloud_run_v2_service" "api" {
         name  = "KMS_KEY_NAME"
         value = google_kms_crypto_key.user_data_source.id
       }
+
+      # Point the API's OTel SDK (apps/api/src/otel.ts) at the otel-collector
+      # sidecar co-located in the same Cloud Run instance (#768). The sidecar is
+      # injected at deploy time by scripts/inject-otel-sidecar.py (describe →
+      # inject → `gcloud run services replace`) and listens on localhost:4318,
+      # forwarding to Grafana Cloud. Declared here for spec accuracy and
+      # first-apply/bootstrap; because this service is
+      # lifecycle.ignore_changes = [template], the live value is actually set in
+      # the injected manifest by that deploy step, exactly like the sidecar itself.
+      env {
+        name  = "OTEL_EXPORTER_OTLP_ENDPOINT"
+        value = "http://localhost:4318"
+      }
     }
   }
 
-  # Image and template updates are managed exclusively by gcloud run deploy in CI/CD.
+  # Image and template updates are managed exclusively by the CI/CD deploy jobs (gcloud run
+  # deploy for web; `gcloud run services replace` for the api since #768).
   # Terraform creates the service on first apply; subsequent image/env/scale changes
   # are applied by the deploy-staging / deploy-production jobs, not Terraform.
   #
@@ -114,6 +128,31 @@ resource "google_cloud_run_v2_service" "api" {
 
   depends_on = [google_project_service.required_apis]
 }
+
+# ─── OTel Collector sidecar config (#768) ────────────────────────────────────
+#
+# The collector's config.yaml is mounted into the otel-collector sidecar on the
+# api service at /etc/otelcol/config.yaml. Cloud Run mounts config *files* from
+# Secret Manager (there is no ConfigMap volume on Cloud Run), so the pipeline config
+# lives in the Secret Manager secret `<name_prefix>-otel-collector-config`.
+#
+# That secret is intentionally NOT Terraform-managed. It is created and versioned by
+# the api Cloud Run deploy step (.github/workflows/deploy.yml → "Deploy API + OTel
+# Collector sidecar to Cloud Run") straight from the repo file
+# infra/cloud-run/otel-collector-config.yaml, then mounted onto the injected sidecar by
+# that same step. Three reasons, mirroring the OTel
+# auth-header secrets handled out-of-band above in main.tf:
+#   1. Declaring it here would 409 against the pipeline-created secret.
+#   2. This service is lifecycle.ignore_changes = [template], so Terraform cannot
+#      wire the sidecar onto the running revision anyway — the deploy step owns the
+#      whole sidecar (containers, env, mounts), so the secret belongs with it.
+#   3. The content is non-sensitive and fully derived from a repo file (no operator
+#      token, unlike the Grafana auth headers), so CI can create + version it with no
+#      human step; the pipeline adds a new version only when the file's content changes.
+#
+# No extra IAM: the sidecar runs as the api workload SA, which already holds a
+# project-level roles/secretmanager.secretAccessor grant (gke.tf api_workload_roles),
+# so it can read this secret and the two auth-header secrets with no per-secret binding.
 
 # ─── Web ──────────────────────────────────────────────────────────────────────
 

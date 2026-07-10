@@ -1,0 +1,111 @@
+# OTel Collector pipeline config for the Cloud Run sidecar (#768).
+#
+# This is the SOURCE OF TRUTH for the collector's config.yaml on Cloud Run. It is
+# pushed verbatim into the Secret Manager secret `<name_prefix>-otel-collector-config`
+# by the deploy pipeline (.github/workflows/deploy.yml). It is a non-secret file, stored as a secret only because
+# Cloud Run mounts config *files* from Secret Manager, not from ConfigMaps). The deploy
+# pipeline mounts it into the sidecar at /etc/otelcol/config.yaml as a secret volume in the
+# manifest built by scripts/inject-otel-sidecar.py (`gcloud run services replace`).
+#
+# It MIRRORS the pipeline in infra/kubernetes/charts/otel-collector/templates/configmap.yaml
+# (the GKE DaemonSet's `config.yaml`) byte-for-byte, so GKE and Cloud Run apply the same
+# receivers/processors/exporters. Delivery is not identical, though: the Cloud Run sidecar
+# shares the api revision's CPU-throttling, so its batch/export timers are best-effort between
+# requests rather than always-on like the DaemonSet (see ADR-018). Keep the two configs in
+# sync — if you change the pipeline here, mirror it there (and vice versa).
+#
+# The ${env:...} placeholders are substituted by the collector at startup from env vars
+# set on the sidecar container by the deploy step (.github/workflows/deploy.yml):
+#   OTEL_COLLECTOR_OTLP_ENDPOINT / _LOKI_ENDPOINT   — plain values (same for stg + prod:
+#                                                     shared free-tier Grafana Cloud stack)
+#   OTEL_COLLECTOR_OTLP_AUTH_HEADER / _LOKI_AUTH_HEADER — from Secret Manager (per-env names)
+#   OTEL_TAIL_SAMPLE_RATE / OTEL_DECISION_WAIT      — plain values (20 / 10s)
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # Promote the `deployment.environment.name` resource attribute (set by the
+  # API/web SDKs, #487) to a metric datapoint attribute. OTLP→Prometheus puts
+  # resource attributes on `target_info`, NOT on each series, so without this
+  # the production alert rules in infra/observability/alerts/api.yaml — which
+  # match `deployment_environment_name="production"` — would match nothing and
+  # a staging 5xx could still page. Traces/logs keep resource attributes
+  # natively in Tempo/Loki, so only the metrics pipeline needs this.
+  transform/env_label:
+    metric_statements:
+      - context: datapoint
+        statements:
+          - set(attributes["deployment_environment_name"], resource.attributes["deployment.environment.name"])
+  tail_sampling:
+    # Required: OTEL_DECISION_WAIT — set by docker-compose (2s) or Helm decisionWait value (default: 10s)
+    decision_wait: ${env:OTEL_DECISION_WAIT}
+    policies:
+      - name: errors
+        type: status_code
+        status_code:
+          status_codes: [ERROR]
+      - name: slow_traces
+        type: latency
+        latency:
+          threshold_ms: 1000
+      - name: probabilistic
+        type: probabilistic
+        probabilistic:
+          # Required: OTEL_TAIL_SAMPLE_RATE — set by docker-compose (100) or Helm tailSampleRate value (default: 20)
+          sampling_percentage: ${env:OTEL_TAIL_SAMPLE_RATE}
+  batch:
+    timeout: 5s
+    send_batch_size: 1000
+
+exporters:
+  otlphttp/traces:
+    endpoint: ${env:OTEL_COLLECTOR_OTLP_ENDPOINT}
+    headers:
+      authorization: ${env:OTEL_COLLECTOR_OTLP_AUTH_HEADER}
+  # Metrics ship to Grafana Cloud over the same OTLP gateway as traces (the
+  # gateway fans metrics out to Mimir), reusing the OTLP auth header. This
+  # replaces the local-dev `prometheus` exporter on :8889 — in GKE nothing
+  # scrapes :8889, so that path was a dead end and APIRouteHighErrorRate's
+  # metrics never reached Mimir (#474). The local docker-compose collector
+  # (infra/observability/otel-collector.yaml) keeps the prometheus exporter,
+  # which the local Prometheus container scrapes.
+  otlphttp/metrics:
+    endpoint: ${env:OTEL_COLLECTOR_OTLP_ENDPOINT}
+    headers:
+      authorization: ${env:OTEL_COLLECTOR_OTLP_AUTH_HEADER}
+  # The dedicated `loki` exporter is deprecated and removed from
+  # opentelemetry-collector-contrib (github.com/open-telemetry/
+  # opentelemetry-collector-contrib issues/38374, pull/41413) — the generic
+  # otlphttp exporter pointed at Loki's native /otlp endpoint is the
+  # supported path (https://grafana.com/docs/loki/latest/send-data/otel/).
+  # See #662.
+  otlphttp/logs:
+    endpoint: ${env:OTEL_COLLECTOR_LOKI_ENDPOINT}
+    headers:
+      authorization: ${env:OTEL_COLLECTOR_LOKI_AUTH_HEADER}
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [tail_sampling, batch]
+      exporters: [otlphttp/traces]
+    metrics:
+      receivers: [otlp]
+      processors: [transform/env_label, batch]
+      exporters: [otlphttp/metrics]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp/logs]

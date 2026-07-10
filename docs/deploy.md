@@ -648,8 +648,15 @@ GKE deploy, `deploy.yml` (staging + production) syncs the Grafana Cloud auth hea
 Secret Manager into the `otel-collector-secrets` Kubernetes Secret and runs
 `helm upgrade --install otel-collector` with the per-env values file. Traces flow to Tempo,
 logs to Loki, and **metrics to Mimir over the OTLP gateway** (`otlphttp/metrics` exporter —
-the path `APIRouteHighErrorRate` depends on; `:8889` is not scraped in GKE). The Cloud Run
-A/B replica does not yet ship telemetry — see the deferred follow-up to #474.
+the path `APIRouteHighErrorRate` depends on; `:8889` is not scraped in GKE). **The Cloud Run api
+service also ships telemetry now (#768)** via a co-located otel-collector **sidecar** — the deploy
+step publishes `infra/cloud-run/otel-collector-config.yaml` to a
+`lifting-logbook-{stg,prod}-otel-collector-config` secret, then `describe → inject → services replace`
+(see [`scripts/inject-otel-sidecar.py`](../scripts/inject-otel-sidecar.py) and the observability
+runbook). It reuses the **same** auth-header secrets and endpoints as GKE, so the one-time token
+bootstrap below covers both. (The shared Grafana endpoints initially pointed at the wrong stack
+([#781](https://github.com/brownm09/lifting-logbook/issues/781)); [#784](https://github.com/brownm09/lifting-logbook/pull/784)
+corrected them — OTLP → `us-east-3`, Loki → `logs-prod-042` — so telemetry now lands.)
 
 **One-time token bootstrap (do this once per environment, before the deploy that needs it).**
 The auth headers are never committed and are **not** Terraform-managed — the script below
