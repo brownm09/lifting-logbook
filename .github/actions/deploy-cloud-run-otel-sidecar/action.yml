@@ -1,0 +1,164 @@
+name: Deploy Cloud Run service with OTel Collector sidecar
+description: >-
+  Inject the co-located otel-collector sidecar into a Cloud Run service and
+  `gcloud run services replace` it, deriving the manifest from the LIVE service
+  (`describe --format=export`) so every Terraform-managed field (VPC connector,
+  scaling, service account, startup probe, env/secrets) is preserved verbatim.
+  Factored out of .github/workflows/deploy.yml (#817) so the api + web × staging +
+  production deploy steps share ONE implementation instead of four near-identical
+  inline blocks (#768 / #804) that had to stay byte-identical or drift silently.
+  See scripts/inject-otel-sidecar.py for why `services replace` (not `--container`)
+  and why the manifest is derived from the live service rather than a static template.
+
+inputs:
+  service:
+    description: Cloud Run service name, e.g. lifting-logbook-prod-api.
+    required: true
+  image:
+    description: >-
+      Full ingress-app image ref (registry/<api|web>:<sha>) — passed to the
+      injector as INGRESS_IMAGE and set on the ingress container.
+    required: true
+  ingress_container_name:
+    description: >-
+      Name for the ingress container in the rendered manifest — 'api' or 'web'.
+      Cosmetic in Cloud Run, but keeps per-container logs and metrics labelled.
+    required: false
+    default: api
+  project:
+    description: GCP project ID that owns the service and its secrets.
+    required: true
+  region:
+    description: Cloud Run region — pass the workflow's ${{ env.REGION }}.
+    required: true
+  config_secret:
+    description: Secret Manager secret holding the collector config.yaml (mounted as a file).
+    required: true
+  otlp_secret:
+    description: Secret Manager secret name for the Grafana Cloud OTLP auth header.
+    required: true
+  loki_secret:
+    description: Secret Manager secret name for the Grafana Cloud Loki auth header.
+    required: true
+  otel_mirror_repo:
+    description: >-
+      Per-environment Artifact Registry Docker Hub pull-through mirror repo for the
+      collector image (terraform output `otel_collector_mirror_repo`, #795). Composed
+      with the repo path + digest from infra/observability/otel-collector-image.env.
+    required: true
+  web_sa:
+    description: >-
+      When set, grant this service account roles/secretmanager.secretAccessor on
+      exactly the three otel secrets (config + the two Grafana auth headers) —
+      least-privilege for the web workload SA, which (unlike the api SA's
+      project-level accessor) has only per-secret Clerk grants. Leave empty for the
+      api service, whose SA already holds project-level access.
+    required: false
+    default: ""
+  ensure_config:
+    description: >-
+      When 'true' (default) ensure config_secret exists and publish a new version
+      only when the repo's otel-collector-config.yaml content changed. Idempotent +
+      content-diff-guarded, so every invocation is self-contained rather than relying
+      on an earlier step in the same job having created the secret (#817 item 2).
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    # Ensure the collector config.yaml secret (non-sensitive; from the repo file; a
+    # new version only when the content changed, to avoid per-deploy churn). Because
+    # this is idempotent + content-diff-guarded, running it for both the api and web
+    # services in the same job is a no-op the second time — which is exactly what makes
+    # the web step self-contained instead of relying on the api step having created it
+    # (#817 item 2). Runs BEFORE the web-SA grant below so the config secret is
+    # guaranteed to exist when that grant references it, even if the api step is
+    # skipped, reordered, or run in parallel.
+    - name: Ensure otel-collector config secret
+      if: ${{ inputs.ensure_config == 'true' }}
+      shell: bash
+      run: |
+        PROJECT="${{ inputs.project }}"
+        CONFIG_SECRET="${{ inputs.config_secret }}"
+        # Concurrency-safe create: two invocations racing on a not-yet-existent secret would
+        # both pass `describe` (not-found) and both `create`; the race loser gets ALREADY_EXISTS
+        # (exit 1), which `bash -eo pipefail` would otherwise fail the job on. Re-`describe` after
+        # a failed create so the race loser still succeeds once the winner has created it, while a
+        # genuine create failure (e.g. IAM) still surfaces (the re-describe also fails). This
+        # matters as soon as parallel jobs share this action — e.g. staging's separate
+        # deploy-api / deploy-web jobs — not for deploy.yml's single sequential job.
+        gcloud secrets describe "$CONFIG_SECRET" --project="$PROJECT" >/dev/null 2>&1 \
+          || gcloud secrets create "$CONFIG_SECRET" --replication-policy=automatic --project="$PROJECT" --quiet 2>/dev/null \
+          || gcloud secrets describe "$CONFIG_SECRET" --project="$PROJECT" >/dev/null 2>&1
+        CURRENT_CFG=$(gcloud secrets versions access latest --secret="$CONFIG_SECRET" --project="$PROJECT" 2>/dev/null || true)
+        if [ "$CURRENT_CFG" != "$(cat infra/cloud-run/otel-collector-config.yaml)" ]; then
+          gcloud secrets versions add "$CONFIG_SECRET" --data-file=infra/cloud-run/otel-collector-config.yaml --project="$PROJECT" --quiet
+          echo "otel-collector config secret: new version published."
+        else
+          echo "otel-collector config secret: unchanged."
+        fi
+
+    # IAM (#804): the web sidecar runs as the WEB workload SA, which — unlike the api
+    # SA's project-level secretmanager.secretAccessor — has only per-secret grants for
+    # the two Clerk secrets. Grant it read on exactly the three otel secrets the
+    # sidecar needs (config + the two Grafana auth headers): least-privilege, so the
+    # internet-facing web SA never gains the api SA's broad access to DATABASE_URL /
+    # migrator creds. Idempotent; runs as the cicd SA (roles/owner). Kept in the
+    # pipeline, not Terraform, because all three secrets are pipeline/operator-managed
+    # out-of-band and the config secret does not exist at `terraform apply` time (the
+    # ensure step above creates it first, so this grant never races its creation). Only
+    # the config secret is pipeline-created; the two auth-header secrets are seeded
+    # out-of-band by scripts/bootstrap-otel-secrets.sh (docs/deploy.md) and pre-exist.
+    # (First-ever deploy only: a few seconds of IAM propagation may be needed before
+    # the sidecar can read them; a failed replace leaves the prior revision serving
+    # and self-heals on re-run.)
+    - name: Grant web SA read on the otel secrets
+      if: ${{ inputs.web_sa != '' }}
+      shell: bash
+      run: |
+        for SECRET in "${{ inputs.config_secret }}" \
+                      "${{ inputs.otlp_secret }}" \
+                      "${{ inputs.loki_secret }}"; do
+          gcloud secrets add-iam-policy-binding "$SECRET" \
+            --member="serviceAccount:${{ inputs.web_sa }}" \
+            --role="roles/secretmanager.secretAccessor" \
+            --project="${{ inputs.project }}" --quiet >/dev/null
+        done
+
+    # Describe the live service, inject the sidecar (the injector also adds the ingress
+    # container's OTEL_EXPORTER_OTLP_ENDPOINT and drops the unused SYSTEM_DATABASE_URL
+    # on api, #534), and `gcloud run services replace`. Deriving the manifest from the
+    # live service preserves every Terraform-managed field verbatim. `services replace`
+    # deliberately never touches the invoker IAM policy, so the service's public posture
+    # stays owned solely by Terraform's allUsers run.invoker binding (#766/#770) — it
+    # neither re-asserts nor fights that grant. The sidecar shares the revision's
+    # CPU-throttling, so its batch/export timers are best-effort between requests, not
+    # always-on like the GKE DaemonSet (see ADR-018).
+    #
+    # Grafana OTLP/Loki endpoints and the collector image come from their single sources
+    # of truth (infra/observability/grafana-endpoints.env #785, otel-collector-image.env
+    # #795); sourcing them exports OTEL_OTLP_ENDPOINT / OTEL_LOKI_ENDPOINT and the
+    # OTEL_COLLECTOR_IMAGE_* parts for the injector below.
+    - name: Inject OTel sidecar and replace service
+      shell: bash
+      run: |
+        source infra/observability/grafana-endpoints.env
+        source infra/observability/otel-collector-image.env
+        PROJECT="${{ inputs.project }}"
+        SRC="$RUNNER_TEMP/${{ inputs.service }}.yaml"
+        RENDERED="$RUNNER_TEMP/${{ inputs.service }}-sidecar.yaml"
+        # PyYAML ships pre-installed on GitHub-hosted ubuntu runners; --break-system-packages
+        # keeps the fallback working if it is ever absent on a PEP-668 (externally-managed) runner.
+        python3 -c "import yaml" 2>/dev/null || python3 -m pip install --quiet --break-system-packages pyyaml
+        gcloud run services describe "${{ inputs.service }}" \
+          --region="${{ inputs.region }}" --project="$PROJECT" --format=export > "$SRC"
+        INGRESS_CONTAINER_NAME="${{ inputs.ingress_container_name }}" \
+        INGRESS_IMAGE="${{ inputs.image }}" \
+        OTEL_CONFIG_SECRET="${{ inputs.config_secret }}" \
+        COLLECTOR_IMAGE="${{ inputs.otel_mirror_repo }}/${OTEL_COLLECTOR_IMAGE_REPO_PATH}@${OTEL_COLLECTOR_IMAGE_DIGEST}" \
+        OTEL_OTLP_SECRET="${{ inputs.otlp_secret }}" \
+        OTEL_LOKI_SECRET="${{ inputs.loki_secret }}" \
+          python3 scripts/inject-otel-sidecar.py "$SRC" > "$RENDERED"
+        gcloud run services replace "$RENDERED" \
+          --region="${{ inputs.region }}" --project="$PROJECT" --quiet
