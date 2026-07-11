@@ -437,9 +437,13 @@ The `apps/web` image is built **once per commit** (`web:<sha>`, also `:latest`) 
 artifact is deployed to staging and production — restoring build-once / promote-everywhere.
 Public config is injected at **runtime**, not baked into the bundle at build time:
 
-- **Cloud Run:** the deploy step sets `--set-env-vars="API_URL=...,PUBLIC_API_URL=..."` and
-  `--update-secrets="CLERK_SECRET_KEY=...,CLERK_PUBLISHABLE_KEY=..."`. On Cloud Run the browser
-  reaches the same external API URL as the server, so `PUBLIC_API_URL == API_URL`.
+- **Cloud Run:** `API_URL`, `PUBLIC_API_URL`, and the `CLERK_*` secret envs are declared on the
+  Terraform web service (`infra/terraform/cloud-run.tf`) and preserved across deploys by the
+  otel-collector sidecar wiring's `describe → inject → gcloud run services replace` (#804) — the
+  `deploy.yml` web step no longer passes `--set-env-vars` / `--update-secrets` (that changed when the
+  web service gained the sidecar; the api service works the same way since #768). The per-PR
+  `staging.yml` still deploys web single-container via `gcloud run deploy --set-env-vars`. On Cloud
+  Run the browser reaches the same external API URL as the server, so `PUBLIC_API_URL == API_URL`.
 - **GKE:** `API_URL` (cluster-internal, SSR) and `PUBLIC_API_URL` (external, browser) come from
   the web ConfigMap; `CLERK_PUBLISHABLE_KEY` from the web Secret.
 
@@ -456,8 +460,14 @@ build-time secret resolution. Checklist:
    `apps/web/lib/public-config.ts` (browser values), or read it directly in the server module
    that needs it (server-only values). **Do not** use a `NEXT_PUBLIC_` prefix — that re-inlines
    it at build time.
-2. Add the env var to the Cloud Run deploy steps (`--set-env-vars` for plain values,
-   `--update-secrets` for Secret Manager values) in both `deploy.yml` and `staging.yml`.
+2. For Cloud Run: add the env to the Terraform web service container in
+   `infra/terraform/cloud-run.tf` (plain `env {}` or a `value_source.secret_key_ref`) — the
+   `deploy.yml` web deploy derives its manifest from the live service via `services replace` (#804),
+   so Cloud Run public config is Terraform-managed there, not `--set-env-vars`. Because the service
+   is `lifecycle.ignore_changes = [template]`, a new value reaches an already-running `deploy.yml`
+   service only on a recreate or a one-time manual `gcloud run services update` (same as the api
+   post-#768). The per-PR `staging.yml` web deploy still uses `--set-env-vars` / `--update-secrets`,
+   so add it there too.
 3. For GKE, add it to the web chart (`configmap.yaml` + `values/*.yaml` for plain values, or the
    `-secrets` Secret + `deployment.yaml` env for secret values) and the Helm `--set` flags.
 4. Update the declarative reference (`infra/cloud-run/web-service.yaml`,
@@ -649,12 +659,12 @@ Secret Manager into the `otel-collector-secrets` Kubernetes Secret and runs
 `helm upgrade --install otel-collector` with the per-env values file. Traces flow to Tempo,
 logs to Loki, and **metrics to Mimir over the OTLP gateway** (`otlphttp/metrics` exporter —
 the path `APIRouteHighErrorRate` depends on; `:8889` is not scraped in GKE). **The Cloud Run api
-service also ships telemetry now (#768)** via a co-located otel-collector **sidecar** — the deploy
-step publishes `infra/cloud-run/otel-collector-config.yaml` to a
+and web services also ship telemetry now (#768 api, #804 web)** via a co-located otel-collector
+**sidecar** — the deploy steps publish `infra/cloud-run/otel-collector-config.yaml` to a
 `lifting-logbook-{stg,prod}-otel-collector-config` secret, then `describe → inject → services replace`
 (see [`scripts/inject-otel-sidecar.py`](../scripts/inject-otel-sidecar.py) and the observability
-runbook). It reuses the **same** auth-header secrets and endpoints as GKE, so the one-time token
-bootstrap below covers both. (The shared Grafana endpoints initially pointed at the wrong stack
+runbook). Both reuse the **same** auth-header secrets and endpoints as GKE, so the one-time token
+bootstrap below covers all of them. (The shared Grafana endpoints initially pointed at the wrong stack
 ([#781](https://github.com/brownm09/lifting-logbook/issues/781)); [#784](https://github.com/brownm09/lifting-logbook/pull/784)
 corrected them — OTLP → `us-east-3`, Loki → `logs-prod-042` — so telemetry now lands.)
 
