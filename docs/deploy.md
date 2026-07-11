@@ -748,6 +748,30 @@ SSL provisioning status — see [`deploy-single-user.md` Step 6](deploy-single-u
 which documents the same verification gotcha and carries the rest of the procedure this summary
 omits.
 
+### Edge rate limit (Cloud Armor) — `/api/client-errors`
+
+The unauthenticated `POST /api/client-errors` beacon sink records one retained ERROR span per
+accepted request, so it needs an infra-level rate limit against scripted abuse (#808 / ADR-034). The
+Terraform — an external HTTPS load balancer with a serverless NEG in front of the web Cloud Run
+service, plus a Cloud Armor per-IP throttle scoped to the `/api/client-errors` path — is committed in
+[`infra/terraform/edge-load-balancer.tf`](../infra/terraform/edge-load-balancer.tf) but **off by
+default** (`enable_edge_load_balancer = false`), so it is a no-op plan and the app keeps serving
+directly off `*.run.app`. Enable it **before / with [#804](https://github.com/brownm09/lifting-logbook/issues/804)**
+(which wires web spans to the prod collector and makes the abuse surface live):
+
+1. Set `web_domain` (a managed cert cannot cover `*.run.app`) and `enable_edge_load_balancer = true`
+   for the environment, then `terraform apply`.
+2. `terraform output edge_lb_ip` → add the DNS **A** record `web_domain` → that IP.
+3. Wait for the managed certificate to reach `ACTIVE` (up to ~60 min after DNS resolves).
+4. Verify legitimate traffic serves via `https://<web_domain>`, and a burst above the threshold from
+   one IP returns `429` on `/api/client-errors` (Cloud Armor request logs are in Cloud Logging).
+
+Enabling also flips the web service ingress to `INTERNAL_AND_CLOUD_LOAD_BALANCING` so the `run.app`
+URL cannot bypass the limit — **point DNS at the load balancer first**, or the public site goes dark.
+Roll back by unsetting the flag and re-applying. Rationale, threshold tuning
+(`client_error_rate_limit_count`), and alternatives:
+[ADR-034](adr/ADR-034-edge-rate-limiting-client-errors.md).
+
 ### Accessing logs
 
 ```bash

@@ -26,3 +26,12 @@ cloud_run_min_instances = 0
 # each image directly to the prod AR with prod credentials instead of copying
 # staging-AR → prod-AR via `docker buildx imagetools create`, so the prod CI/CD
 # SA no longer needs reader access on the staging AR.
+
+# ── Edge rate limit (#808 / ADR-034) ──────────────────────────────────────────
+# External HTTPS load balancer + Cloud Armor in front of the web service, with a
+# per-IP throttle scoped to /api/client-errors. OFF by default — the app serves
+# directly off *.run.app and the whole stack is a no-op plan. Enabling REQUIRES
+# web_domain and a DNS cutover to the LB IP (terraform output edge_lb_ip); sequence
+# it before/with #804. Full enable procedure: ADR-034 / docs/deploy.md.
+# enable_edge_load_balancer = true
+# web_domain                = "app.example.com"

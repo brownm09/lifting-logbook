@@ -68,6 +68,11 @@ output "kms_key_name" {
   value       = google_kms_crypto_key.user_data_source.id
 }
 
+output "edge_lb_ip" {
+  description = "External IP of the web load balancer (#808 / ADR-034). Empty unless enable_edge_load_balancer = true; when set, create the DNS A record for web_domain pointing at this IP as part of the enable procedure."
+  value       = try(google_compute_global_address.web_lb[0].address, "")
+}
+
 output "web_workload_sa" {
   description = "Web Cloud Run workload identity service account email"
   value       = google_service_account.web_workload.email

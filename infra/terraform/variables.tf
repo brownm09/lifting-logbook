@@ -80,3 +80,43 @@ variable "cloud_run_min_instances" {
   type        = number
   default     = null
 }
+
+# ─── Edge rate limiting (#808 / ADR-034) ─────────────────────────────────────
+
+variable "enable_edge_load_balancer" {
+  description = <<-EOT
+    Provision the external HTTPS Application Load Balancer + Cloud Armor rate limit
+    in front of the web Cloud Run service (#808 / ADR-034). Default false: the app
+    serves directly off *.run.app and the entire stack (edge-load-balancer.tf) is
+    count=0, so `terraform plan` is a no-op on the committed tfvars.
+
+    Enabling also flips the web service ingress to INTERNAL_AND_CLOUD_LOAD_BALANCING
+    so the run.app URL cannot bypass the rate limit — so it REQUIRES var.web_domain
+    and a DNS cutover to the load balancer IP (output edge_lb_ip). See ADR-034 and
+    docs/deploy.md for the enable procedure; sequence it before/with #804.
+  EOT
+  type        = bool
+  default     = false
+}
+
+variable "web_domain" {
+  description = <<-EOT
+    Public domain served by the web load balancer (e.g. "app.liftinglogbook.com").
+    Required only when enable_edge_load_balancer = true — a Google-managed SSL
+    certificate cannot be issued for a *.run.app URL. Empty otherwise.
+  EOT
+  type        = string
+  default     = ""
+}
+
+variable "client_error_rate_limit_count" {
+  description = <<-EOT
+    Cloud Armor per-IP throttle threshold for POST /api/client-errors: requests
+    allowed per 60s per source IP before excess is dropped with 429 (#808). Kept
+    generous — a single failing page emits several best-effort beacons — while still
+    hard-bounding a scripted single-IP flood's retained-ERROR-span volume. Only used
+    when enable_edge_load_balancer = true.
+  EOT
+  type        = number
+  default     = 120
+}

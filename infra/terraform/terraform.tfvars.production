@@ -12,3 +12,12 @@ db_tier         = "db-g1-small"
 db_name         = "lifting_logbook"
 enable_gke      = false
 image_tag       = "bootstrap"
+
+# ── Edge rate limit (#808 / ADR-034) ──────────────────────────────────────────
+# External HTTPS load balancer + Cloud Armor in front of the web service, with a
+# per-IP throttle scoped to /api/client-errors. OFF by default — the app serves
+# directly off *.run.app and the whole stack is a no-op plan. Enabling REQUIRES
+# web_domain and a DNS cutover to the LB IP (terraform output edge_lb_ip); sequence
+# it before/with #804. Full enable procedure: ADR-034 / docs/deploy.md.
+# enable_edge_load_balancer = true
+# web_domain                = "app.example.com"
