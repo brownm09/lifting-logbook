@@ -33,6 +33,12 @@ env:
   # #396/ADR-028) are set per-environment in values/{staging,production}.yaml.
   API_URL: ""
   PUBLIC_API_URL: ""
+  # In-cluster OTLP endpoint for the web OTel SDK — the otel-collector DaemonSet's
+  # ClusterIP Service, resolved in whatever namespace this chart is deployed to.
+  # Namespace-agnostic, so it lives here (the chart default) rather than the
+  # per-env values/ overlays. The GKE-staging Helm deploy steps also pass it via
+  # --set (#812).
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
 
 gcp:
   projectId: ""
