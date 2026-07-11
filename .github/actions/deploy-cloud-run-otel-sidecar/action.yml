@@ -81,8 +81,16 @@ runs:
       run: |
         PROJECT="${{ inputs.project }}"
         CONFIG_SECRET="${{ inputs.config_secret }}"
+        # Concurrency-safe create: two invocations racing on a not-yet-existent secret would
+        # both pass `describe` (not-found) and both `create`; the race loser gets ALREADY_EXISTS
+        # (exit 1), which `bash -eo pipefail` would otherwise fail the job on. Re-`describe` after
+        # a failed create so the race loser still succeeds once the winner has created it, while a
+        # genuine create failure (e.g. IAM) still surfaces (the re-describe also fails). This
+        # matters as soon as parallel jobs share this action — e.g. staging's separate
+        # deploy-api / deploy-web jobs — not for deploy.yml's single sequential job.
         gcloud secrets describe "$CONFIG_SECRET" --project="$PROJECT" >/dev/null 2>&1 \
-          || gcloud secrets create "$CONFIG_SECRET" --replication-policy=automatic --project="$PROJECT" --quiet
+          || gcloud secrets create "$CONFIG_SECRET" --replication-policy=automatic --project="$PROJECT" --quiet 2>/dev/null \
+          || gcloud secrets describe "$CONFIG_SECRET" --project="$PROJECT" >/dev/null 2>&1
         CURRENT_CFG=$(gcloud secrets versions access latest --secret="$CONFIG_SECRET" --project="$PROJECT" 2>/dev/null || true)
         if [ "$CURRENT_CFG" != "$(cat infra/cloud-run/otel-collector-config.yaml)" ]; then
           gcloud secrets versions add "$CONFIG_SECRET" --data-file=infra/cloud-run/otel-collector-config.yaml --project="$PROJECT" --quiet
