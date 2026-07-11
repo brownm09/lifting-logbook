@@ -94,12 +94,16 @@ interface OriginDecision {
 }
 
 // Exact, case-insensitive origin allowlist from the env (comma-separated origins,
-// e.g. "https://app.example.com,https://www.example.com"). Empty when unset.
+// e.g. "https://app.example.com,https://www.example.com"). Empty when unset. A
+// trailing slash is stripped: a serialized `Origin` header never carries one, so
+// an operator who copies "https://app.example.com/" from a browser must not thereby
+// have every legit same-origin beacon classified cross-origin (and, under
+// enforcement, silently dropped).
 function parseAllowedOrigins(raw: string | undefined): string[] {
   if (!raw) return [];
   return raw
     .split(',')
-    .map((o) => o.trim().toLowerCase())
+    .map((o) => o.trim().toLowerCase().replace(/\/+$/, ''))
     .filter(Boolean);
 }
 

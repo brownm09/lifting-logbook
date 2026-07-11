@@ -223,6 +223,23 @@ describe('POST /api/client-errors', () => {
       expect(attributes()['client.origin.check']).toBe('same-origin');
     });
 
+    it('normalizes a trailing slash in an allowlist entry so a copied "https://host/" still matches', async () => {
+      process.env.CLIENT_ERROR_ALLOWED_ORIGINS = 'https://app.example.com/';
+      process.env.CLIENT_ERROR_DROP_CROSS_ORIGIN = 'true';
+
+      const res = await POST(
+        post(
+          { operation: 'skipWorkout', message: 'boom' },
+          { origin: 'https://app.example.com', host: 'app.example.com' },
+        ),
+      );
+
+      // Would be a false-drop if the trailing slash weren't normalized.
+      expect(res.status).toBe(204);
+      expect(startSpan).toHaveBeenCalledTimes(1);
+      expect(attributes()['client.origin.check']).toBe('same-origin');
+    });
+
     it('drops a cross-origin browser beacon without a span when enforcement is on with an allowlist', async () => {
       process.env.CLIENT_ERROR_ALLOWED_ORIGINS = 'https://app.example.com';
       process.env.CLIENT_ERROR_DROP_CROSS_ORIGIN = 'true';
