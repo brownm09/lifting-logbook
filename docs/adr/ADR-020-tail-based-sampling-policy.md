@@ -120,6 +120,62 @@ traffic levels; the three-policy OR arrangement is sufficient and easier to reas
 
 ---
 
+## Addendum — 2026-07-10 (#806): the unauthenticated `/api/client-errors` sink is a retained-ERROR-span source
+
+The `errors` policy above keeps **every** trace containing an `ERROR`-status span. That was
+safe while error spans were emitted only by the authenticated `apps/api` request path, whose rate
+is bounded by real user traffic. [#798](https://github.com/brownm09/lifting-logbook/issues/798)
+introduced a shape this ADR did not anticipate:
+[`apps/web`'s `POST /api/client-errors`](../../apps/web/app/api/client-errors/route.ts) is
+**public and unauthenticated by necessity** (the failure it reports may itself be an auth expiry, so
+Clerk must not gate it) and records **one retained ERROR span per accepted request**. Two abuse
+vectors can inject always-retained spans into the shared free-tier stack:
+
+- **Cross-origin browser spam** — `navigator.sendBeacon` is a CORS-"simple" request, so a page on
+  any origin can beacon this endpoint from a victim's browser; the handler otherwise ignores `Origin`.
+- **Scripted spam** — trivial `curl` volume (no `Origin` header at all).
+
+This is precisely the flood the **rejected** "Always_sample with Grafana Cloud ingest limits"
+alternative fails on — the ingest cap silently drops the *newest* spans, which are
+disproportionately real production spans — and which the **rejected** "composite policy with a rate
+limiter" would have bounded. The core decision (errors-always, 20% clean) is unchanged, and both
+rejections stand for *legitimate* traffic; this addendum records the accepted interim risk for the
+*unauthenticated* sink and the layered mitigations.
+
+**Latency of the risk.** The surface is **latent** until
+[#804](https://github.com/brownm09/lifting-logbook/issues/804) wires `apps/web`'s server runtime to
+the prod collector — until then these spans reach no prod backend. The mitigations below should be
+validated and enforcement enabled **before / with #804**.
+
+**Mitigations (defence in depth):**
+
+1. **Span *size* — shipped in [#805](https://github.com/brownm09/lifting-logbook/pull/805).**
+   `content-length` precheck before buffering, byte-accurate 4 KB body cap, 512-char clamp on every
+   attribute value and key, 24-key context cap, scalar-only context values. Bounds the cost of each
+   accepted span.
+2. **Span *rate* (cross-origin browser beacons) — shipped in this change (#806).** A same-origin
+   guard in the handler drops cross-origin browser beacons. It is **observe-only by default**: the
+   verdict is always recorded as the `client.origin.check` span attribute (`same-origin` |
+   `cross-origin` | `no-origin`), and a request is dropped only when classified `cross-origin`
+   against the explicit `CLIENT_ERROR_ALLOWED_ORIGINS` allowlist **and**
+   `CLIENT_ERROR_DROP_CROSS_ORIGIN=true`. A false drop would *silently* kill this best-effort
+   telemetry, so the zero-config `Origin`-host-vs-`Host` heuristic is used only to produce the
+   staging verdict — **never** to drop. **Enablement:** set `CLIENT_ERROR_ALLOWED_ORIGINS` to the
+   app's public origin(s), confirm in staging Tempo that legitimate beacons tag
+   `client.origin.check=same-origin`, then set `CLIENT_ERROR_DROP_CROSS_ORIGIN=true`. Rollback is
+   instant — unset the flag (no code deploy).
+3. **Span *rate* (scripted / no-`Origin` abuse) — deferred to infra.** The `Origin` guard cannot
+   stop a `curl` loop (no browser, no truthful `Origin`). The robust fix is an infra-level rate limit
+   on the unauthenticated endpoint (Cloud Armor / ingress / edge), tracked as a follow-up. Until it
+   lands, scripted abuse of this endpoint is bounded only by span *size* (mitigation 1) and the
+   collector's own memory limits.
+
+**Not done here:** a per-policy rate limiter at the collector (the `tail_sampling` `composite`
+type). It remains rejected for *legitimate* traffic; if the infra rate limit (mitigation 3) proves
+insufficient it should be reconsidered specifically for the client-error span source.
+
+---
+
 ## References
 
 | Source | Relevance |
@@ -128,3 +184,5 @@ traffic levels; the three-policy OR arrangement is sufficient and easier to reas
 | [OpenTelemetry — Sampling](https://opentelemetry.io/docs/concepts/sampling/) | Conceptual overview of head-based vs. tail-based sampling; the basis for the Rationale section's framing. |
 | [ADR-018 — Observability Stack](ADR-018-observability-stack.md) | The prior ADR this decision supersedes in part; documents the original 100% head-based sampling stance and the trigger conditions for revisiting it. |
 | [ADR-019 — SLO Methodology](ADR-019-slo-methodology.md) | The burn-rate alerting framework built on top of the metrics pipeline; notes the interaction between sampling and metric accuracy referenced in the Consequences section. |
+| [WHATWG Fetch Standard — CORS protocol & the `Origin` header](https://fetch.spec.whatwg.org/#origin-header) | Primary spec for the #806 addendum: defines when browsers attach `Origin` and which requests are CORS-"simple" (no preflight) — the basis for why `sendBeacon` reaches this endpoint cross-origin and why the same-origin guard keys on `Origin`. |
+| [MDN — `Navigator.sendBeacon()`](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/sendBeacon) | The browser API `apps/web` uses to post client errors; documents its fire-and-forget, unload-surviving, CORS-simple semantics referenced by the #806 addendum. |

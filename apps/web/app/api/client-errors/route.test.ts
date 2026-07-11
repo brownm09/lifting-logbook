@@ -20,11 +20,14 @@ jest.mock('@opentelemetry/api', () => ({
 
 import { POST } from './route';
 
-function post(body: string | Record<string, unknown>): Request {
+function post(
+  body: string | Record<string, unknown>,
+  headers: Record<string, string> = {},
+): Request {
   const payload = typeof body === 'string' ? body : JSON.stringify(body);
   return new Request('http://localhost/api/client-errors', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...headers },
     body: payload,
   });
 }
@@ -39,6 +42,13 @@ function attributes(): Record<string, unknown> {
 describe('POST /api/client-errors', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    // The same-origin guard reads these at request time; reset so each test starts
+    // from the default (observe-only, no allowlist) state.
+    delete process.env.CLIENT_ERROR_ALLOWED_ORIGINS;
+    delete process.env.CLIENT_ERROR_DROP_CROSS_ORIGIN;
   });
 
   it('records an ERROR span named client.mutation.error with operation, name, and message', async () => {
@@ -147,5 +157,148 @@ describe('POST /api/client-errors', () => {
 
     expect(res.status).toBe(204);
     expect(span.end).toHaveBeenCalledTimes(1);
+  });
+
+  describe('same-origin guard (#806)', () => {
+    it('tags no-origin and records the span when the request carries no Origin header', async () => {
+      const res = await POST(post({ operation: 'skipWorkout', message: 'boom' }));
+
+      expect(res.status).toBe(204);
+      expect(startSpan).toHaveBeenCalledTimes(1);
+      expect(attributes()['client.origin.check']).toBe('no-origin');
+    });
+
+    it('tags same-origin (Host heuristic) when the Origin host matches the Host header', async () => {
+      await POST(
+        post(
+          { operation: 'skipWorkout', message: 'boom' },
+          { origin: 'https://app.example.com', host: 'app.example.com' },
+        ),
+      );
+
+      const attrs = attributes();
+      expect(attrs['client.origin.check']).toBe('same-origin');
+      expect(attrs).not.toHaveProperty('client.origin.value');
+    });
+
+    it('tags cross-origin but STILL records the span in observe mode (no drop configured)', async () => {
+      const res = await POST(
+        post(
+          { operation: 'skipWorkout', message: 'boom' },
+          { origin: 'https://evil.example', host: 'app.example.com' },
+        ),
+      );
+
+      expect(res.status).toBe(204);
+      // Observe, not enforce: the span is still recorded — this is the signal used
+      // to validate the guard in staging before enforcement is enabled.
+      expect(startSpan).toHaveBeenCalledTimes(1);
+      const attrs = attributes();
+      expect(attrs['client.origin.check']).toBe('cross-origin');
+      expect(attrs['client.origin.value']).toBe('https://evil.example');
+    });
+
+    it('treats an opaque Origin ("null") as cross-origin under the Host heuristic', async () => {
+      await POST(
+        post(
+          { operation: 'skipWorkout', message: 'boom' },
+          { origin: 'null', host: 'app.example.com' },
+        ),
+      );
+
+      expect(attributes()['client.origin.check']).toBe('cross-origin');
+    });
+
+    it('uses the allowlist over the Host header: an allowed Origin is same-origin even when Host differs', async () => {
+      // The LB-Host-rewrite false-drop the issue flags: allowlist verdicts ignore Host.
+      process.env.CLIENT_ERROR_ALLOWED_ORIGINS = 'https://app.example.com, https://www.example.com';
+
+      await POST(
+        post(
+          { operation: 'skipWorkout', message: 'boom' },
+          { origin: 'https://app.example.com', host: 'internal-lb.local' },
+        ),
+      );
+
+      expect(attributes()['client.origin.check']).toBe('same-origin');
+    });
+
+    it('normalizes a trailing slash in an allowlist entry so a copied "https://host/" still matches', async () => {
+      process.env.CLIENT_ERROR_ALLOWED_ORIGINS = 'https://app.example.com/';
+      process.env.CLIENT_ERROR_DROP_CROSS_ORIGIN = 'true';
+
+      const res = await POST(
+        post(
+          { operation: 'skipWorkout', message: 'boom' },
+          { origin: 'https://app.example.com', host: 'app.example.com' },
+        ),
+      );
+
+      // Would be a false-drop if the trailing slash weren't normalized.
+      expect(res.status).toBe(204);
+      expect(startSpan).toHaveBeenCalledTimes(1);
+      expect(attributes()['client.origin.check']).toBe('same-origin');
+    });
+
+    it('drops a cross-origin browser beacon without a span when enforcement is on with an allowlist', async () => {
+      process.env.CLIENT_ERROR_ALLOWED_ORIGINS = 'https://app.example.com';
+      process.env.CLIENT_ERROR_DROP_CROSS_ORIGIN = 'true';
+
+      const res = await POST(
+        post(
+          { operation: 'skipWorkout', message: 'boom' },
+          { origin: 'https://evil.example', host: 'app.example.com' },
+        ),
+      );
+
+      expect(res.status).toBe(204);
+      // Rejected before any span is started — the whole point of the guard.
+      expect(startSpan).not.toHaveBeenCalled();
+    });
+
+    it('records an allowlisted same-origin beacon under enforcement', async () => {
+      process.env.CLIENT_ERROR_ALLOWED_ORIGINS = 'https://app.example.com';
+      process.env.CLIENT_ERROR_DROP_CROSS_ORIGIN = 'true';
+
+      await POST(
+        post(
+          { operation: 'skipWorkout', message: 'boom' },
+          { origin: 'https://app.example.com', host: 'app.example.com' },
+        ),
+      );
+
+      expect(startSpan).toHaveBeenCalledTimes(1);
+      expect(attributes()['client.origin.check']).toBe('same-origin');
+    });
+
+    it('never drops a no-Origin request even under enforcement (scripted abuse belongs to the infra rate-limit)', async () => {
+      process.env.CLIENT_ERROR_ALLOWED_ORIGINS = 'https://app.example.com';
+      process.env.CLIENT_ERROR_DROP_CROSS_ORIGIN = 'true';
+
+      const res = await POST(post({ operation: 'skipWorkout', message: 'boom' }));
+
+      expect(res.status).toBe(204);
+      expect(startSpan).toHaveBeenCalledTimes(1);
+      expect(attributes()['client.origin.check']).toBe('no-origin');
+    });
+
+    it('refuses to enforce via the Host heuristic: drop enabled but no allowlist records the span with enforce_skipped', async () => {
+      // Safety interlock: without an allowlist the only verdict source is the risky
+      // Host heuristic, which must NEVER drop — so the span is recorded, flagged.
+      process.env.CLIENT_ERROR_DROP_CROSS_ORIGIN = 'true';
+
+      const res = await POST(
+        post(
+          { operation: 'skipWorkout', message: 'boom' },
+          { origin: 'https://evil.example', host: 'app.example.com' },
+        ),
+      );
+
+      expect(res.status).toBe(204);
+      expect(startSpan).toHaveBeenCalledTimes(1);
+      const attrs = attributes();
+      expect(attrs['client.origin.check']).toBe('cross-origin');
+      expect(attrs['client.origin.enforce_skipped']).toBe(true);
+    });
   });
 });
