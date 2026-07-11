@@ -490,6 +490,7 @@ jobs:
             --set gcp.kmsKeyName="${{ needs.terraform-staging.outputs.kms_key_name }}" \
             --set gcp.serviceAccountEmail="${{ needs.terraform-staging.outputs.api_wi_sa }}" \
             --set env.NODE_ENV=staging \
+            --set env.OTEL_EXPORTER_OTLP_ENDPOINT="http://otel-collector:4318" \
             --wait --timeout=10m --force
 
       - name: Fetch GKE API pod logs on failure
@@ -656,6 +657,7 @@ jobs:
             --set env.NODE_ENV=staging \
             --set env.API_URL="$API_CLUSTER_URL" \
             --set env.PUBLIC_API_URL="${{ needs.terraform-staging.outputs.cloud_run_api_url }}" \
+            --set env.OTEL_EXPORTER_OTLP_ENDPOINT="http://otel-collector:4318" \
             --wait --timeout=10m
 
       # NOTE: this step is duplicated verbatim from `deploy-api` above. See the

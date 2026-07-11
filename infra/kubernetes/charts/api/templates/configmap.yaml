@@ -6,3 +6,8 @@ data:
   NODE_ENV: {{ .Values.env.NODE_ENV | quote }}
   PORT: {{ .Values.env.PORT | quote }}
   KMS_KEY_NAME: {{ .Values.gcp.kmsKeyName | quote }}
+  # OTLP exporter target for the OTel SDK (apps/api/src/otel.ts). On GKE the
+  # collector is a DaemonSet behind the `otel-collector` ClusterIP Service
+  # (charts/otel-collector), reached in-namespace at http://otel-collector:4318.
+  # Without this the SDK falls back to localhost:4318 and nothing is exported (#812).
+  OTEL_EXPORTER_OTLP_ENDPOINT: {{ .Values.env.OTEL_EXPORTER_OTLP_ENDPOINT | quote }}

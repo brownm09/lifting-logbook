@@ -33,6 +33,12 @@ autoscaling:
 env:
   NODE_ENV: production
   PORT: "3000"
+  # In-cluster OTLP endpoint for the OTel SDK — the otel-collector DaemonSet's
+  # ClusterIP Service (charts/otel-collector, fullnameOverride "otel-collector"),
+  # resolved in whatever namespace this chart is deployed to. Namespace-agnostic,
+  # so it lives here (the chart default) rather than the per-env values/ overlays.
+  # The GKE-staging Helm deploy steps also pass it via --set (#812).
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
 
 # GCP-specific config
 gcp:

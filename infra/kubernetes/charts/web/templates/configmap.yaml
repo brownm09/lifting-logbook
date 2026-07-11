@@ -11,3 +11,8 @@ data:
   # window.__PUBLIC_CONFIG__ (#396 / ADR-028). Distinct from API_URL because the
   # browser cannot reach the in-cluster service.
   PUBLIC_API_URL: {{ .Values.env.PUBLIC_API_URL | quote }}
+  # OTLP exporter target for the web OTel SDK (apps/web/instrumentation.ts,
+  # @vercel/otel). On GKE the collector is a DaemonSet behind the `otel-collector`
+  # ClusterIP Service, reached in-namespace at http://otel-collector:4318. Without
+  # this the SDK falls back to localhost:4318 and nothing is exported (#812).
+  OTEL_EXPORTER_OTLP_ENDPOINT: {{ .Values.env.OTEL_EXPORTER_OTLP_ENDPOINT | quote }}
