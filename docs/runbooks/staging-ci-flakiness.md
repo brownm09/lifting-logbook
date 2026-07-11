@@ -108,6 +108,41 @@ it (or someone force-cancels it manually).
 job (then with no `timeout-minutes`) wedged on the Playwright `--with-deps` install and ran 3+
 hours before being force-cancelled.
 
+## Hollow green — deploy-api reports success but nothing deployed
+
+A failure class specific to the `deploy-api` Cloud Run sidecar deploy. That step carries
+`continue-on-error: true` on purpose ([#498](https://github.com/brownm09/lifting-logbook/issues/498)):
+a *revision* that fails to start must still let the `Fetch Cloud Run API logs on failure` step run,
+and the integration-test gate — not the deploy step — fails the run. Since
+[#822](https://github.com/brownm09/lifting-logbook/pull/822) moved the deploy to
+`uses: ./.github/actions/deploy-cloud-run-otel-sidecar`, a new outcome became maskable: the
+composite action can fail to **load** (a manifest/template-validation error), which
+`continue-on-error` also swallows — so `deploy-api` shows a green ✓ while **no revision was
+submitted** and the stale revision keeps serving. Integration tests then run against old code and
+the green propagates undetected ([#823](https://github.com/brownm09/lifting-logbook/issues/823); it
+happened on #822's first CI run, an `env.REGION`-in-an-input-description bug in `action.yml`).
+
+- **Symptom:** the `Verify API revision actually deployed (staging)` step in `Deploy API (staging)`
+  errors with `::error title=Staging API deploy is a hollow green::…` (or `…unverifiable…`). That
+  step is the mitigation: it runs only when the deploy claimed success (`outcome == 'success'`),
+  re-derives the live service's image from Cloud Run, and hard-fails when it is **not** the
+  just-built `…/api:<image_tag>`. So a hollow green now reds `deploy-api` directly instead of
+  slipping through to a stale-image test pass.
+- **Cause:** a structural error in `.github/actions/deploy-cloud-run-otel-sidecar/action.yml` (the
+  manifest fails template validation, so none of the action's steps run) — **not** GCP flakiness.
+  The classic trigger is a `${{ … }}` expression in an input *description* (GitHub evaluates those
+  at action-load time, where `env`/`secrets`/`needs` are not available named-values).
+- **Diagnosis:** open the failing step's log — it prints the expected vs. the live image. Then
+  validate the action manifest locally:
+  ```bash
+  python3 -c "import yaml,sys; yaml.safe_load(open('.github/actions/deploy-cloud-run-otel-sidecar/action.yml')); print('action.yml parses')"
+  # and confirm no ${{ }} appears inside any input description:
+  grep -nE '^\s+description:.*\$\{\{' .github/actions/deploy-cloud-run-otel-sidecar/action.yml
+  ```
+- **Fix:** correct the `action.yml` manifest (remove the offending expression / structural error),
+  push, and re-run. This is a **genuine failure** — do not blindly re-run without fixing the
+  manifest; the same load error recurs every run until the file is fixed.
+
 ## Escalation
 
 - Sustained (non-transient) Artifact Registry failures → GCP support / status page; this is

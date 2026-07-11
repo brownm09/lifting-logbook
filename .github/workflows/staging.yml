@@ -567,6 +567,57 @@ jobs:
           loki_secret: lifting-logbook-stg-otel-loki-auth-header
           otel_mirror_repo: ${{ needs.terraform-staging.outputs.otel_mirror_repo }}
 
+      # Guard against a HOLLOW GREEN (#823). The deploy step above intentionally
+      # carries continue-on-error: true (#498 — a failed *revision* must still let
+      # the log-fetch step below run and let the integration-test gate, not the
+      # deploy step, fail the run). But since #822 moved that step to
+      # `uses: ./.github/actions/deploy-cloud-run-otel-sidecar`, a composite-action
+      # *load* failure (a manifest/template-validation error — e.g. the
+      # `env.REGION`-in-an-input-description bug on #822's first CI run) is ALSO
+      # swallowed: deploy-api reports outcome=success while NO revision was submitted
+      # and the stale one keeps serving, so the integration tests can pass against
+      # old code and the hollow green propagates undetected.
+      #
+      # This step re-derives ground truth from Cloud Run and hard-fails (no
+      # continue-on-error) when the live service is NOT running the just-built image.
+      # It runs ONLY on the claimed-success path (outcome == 'success') — exactly
+      # where the mask hides — so the outcome == 'failure' runtime-revision case stays
+      # owned, unchanged, by the existing cloud_run_api_deployed gate + the log-fetch
+      # step below. On the non-image-affecting skip-build path the built tag already
+      # equals what serves, so this is a correct no-op, never a false failure. See #823.
+      - name: Verify API revision actually deployed (staging)
+        if: steps.deploy-api.outcome == 'success'
+        run: |
+          SERVICE="lifting-logbook-stg-api"
+          EXPECTED="${{ needs.build-images.outputs.ar_repo }}/api:${{ needs.build-images.outputs.image_tag }}"
+          # The image(s) the latest-applied service spec runs (ingress `api` + the otel
+          # sidecar). On a hollow green nothing was applied, so this is still the PRIOR
+          # revision's image and won't contain the just-built tag.
+          if ! LIVE_IMAGES=$(gcloud run services describe "$SERVICE" \
+                --region="${{ env.REGION }}" \
+                --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
+                --format='value(spec.template.spec.containers[].image)'); then
+            echo "::error title=Staging API deploy unverifiable::deploy-api reported success but '$SERVICE' could not be described to confirm the deployed image — not trusting this green. See #823 and docs/runbooks/staging-ci-flakiness.md."
+            exit 1
+          fi
+          echo "Expected just-built image: $EXPECTED"
+          echo "Latest-applied image(s):   $LIVE_IMAGES"
+          if printf '%s\n' "$LIVE_IMAGES" | grep -qF "$EXPECTED"; then
+            echo "✓ Live service runs the just-built image — real deploy, not a hollow green."
+            exit 0
+          fi
+          # Tag didn't match — fall back to a digest comparison, in case Cloud Run stored
+          # the image by digest rather than the tag we passed to `services replace`.
+          EXPECTED_DIGEST=$(gcloud artifacts docker images describe "$EXPECTED" \
+            --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
+            --format='value(image_summary.digest)' 2>/dev/null || true)
+          if [[ -n "$EXPECTED_DIGEST" ]] && printf '%s\n' "$LIVE_IMAGES" | grep -qF "$EXPECTED_DIGEST"; then
+            echo "✓ Live service runs the just-built image by digest ($EXPECTED_DIGEST)."
+            exit 0
+          fi
+          echo "::error title=Staging API deploy is a hollow green::deploy-api reported success but '$SERVICE' is NOT running the just-built image ($EXPECTED${EXPECTED_DIGEST:+ / $EXPECTED_DIGEST}). The OTel-sidecar composite action most likely failed to LOAD (a manifest/template-validation error) and submitted no revision, leaving the stale revision serving. Fix the action manifest — do not trust this green. See #823 and docs/runbooks/staging-ci-flakiness.md."
+          exit 1
+
       - name: Fetch Cloud Run API logs on failure
         if: steps.deploy-api.outcome == 'failure'
         run: |
