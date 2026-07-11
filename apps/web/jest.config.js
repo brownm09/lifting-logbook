@@ -1,5 +1,20 @@
 const base = require('../../jest.config.base.js');
 
+// #807: apps/web suites load jsdom + React + the full @lifting-logbook/core barrel,
+// so each Jest worker's footprint is much larger than packages/core's. Under a full
+// `npm test -w @lifting-logbook/web` parallel run on Windows, several such workers
+// accumulate heap and one can OOM at load — most visibly the CSV-heavy onboarding
+// suites (StepImport/StepLifts). jest.config.base.js gates its worker-memory
+// mitigation to Node >= 24 (transpile-only ts-jest, #651, stopped packages/core from
+// OOMing on Node 20/22), but web is heavy enough to OOM on Node 20 too. Re-apply the
+// same #419 pair here for EVERY win32 Node: cap parallelism at 50% of CPUs and recycle
+// any worker whose RSS passes 512 MB before it picks up the next file. Base's win32
+// `testTimeout` is preserved (spread first); Linux CI is unaffected (not win32).
+const webWin32Memory =
+  process.platform === 'win32'
+    ? { workerIdleMemoryLimit: '512MB', maxWorkers: '50%' }
+    : {};
+
 /** @type {import('ts-jest').JestConfigWithTsJest} */
 module.exports = {
   ...base,
@@ -24,4 +39,7 @@ module.exports = {
     '^@lifting-logbook/types$': '<rootDir>/../../packages/types/src/index.ts',
     '^@/(.*)$': '<rootDir>/$1',
   },
+  // win32-only worker-memory mitigation (#807); spread last so it applies on every
+  // win32 Node without disturbing base's win32 testTimeout. No-op off win32.
+  ...webWin32Memory,
 };
