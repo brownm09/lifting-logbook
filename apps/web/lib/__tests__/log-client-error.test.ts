@@ -105,4 +105,14 @@ describe('logClientError', () => {
     expect(() => logClientError('patchLiftMetadata', new Error('x'))).not.toThrow();
     expect(errorSpy).toHaveBeenCalledTimes(1);
   });
+
+  it('never throws when the thrown value is stringify-hostile, and still logs', () => {
+    // String(Object.create(null)) throws "Cannot convert object to primitive value".
+    // buildReport (which calls String(error)) runs inside the dispatch try/catch,
+    // so that throw must not escape logClientError into the caller's catch block.
+    const hostile = Object.create(null) as unknown;
+
+    expect(() => logClientError('patchLiftMetadata', hostile)).not.toThrow();
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+  });
 });

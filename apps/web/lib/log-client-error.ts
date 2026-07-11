@@ -59,17 +59,26 @@ function buildReport(
 // typed api-client for auth headers), and sendBeacon is universally supported in
 // the app's target browsers. If sendBeacon is unavailable or its queue is full,
 // this one report is dropped — the console.error above still records the failure.
-function dispatchClientErrorBeacon(report: ClientErrorReport): void {
+function dispatchClientErrorBeacon(
+  operation: string,
+  error: unknown,
+  context?: Record<string, unknown>,
+): void {
   try {
     if (typeof navigator === 'undefined' || typeof navigator.sendBeacon !== 'function') {
       return;
     }
+    // buildReport runs String(error) on non-Error values, which can itself throw
+    // (e.g. a null-prototype object or a throwing toString) — so it must live
+    // inside this try, or that throw would leak into the caller's catch block and
+    // break the "never throws" contract below.
+    const report = buildReport(operation, error, context);
     // Send the JSON as a string body (Content-Type: text/plain). The route handler
     // reads the raw text and JSON.parses it, so the content-type is immaterial — a
     // string is the conventional sendBeacon payload and avoids a Blob dependency.
     navigator.sendBeacon(CLIENT_ERROR_ENDPOINT, JSON.stringify(report));
   } catch {
-    // Never let beacon dispatch throw into the caller.
+    // Never let beacon dispatch (including report construction) throw into the caller.
   }
 }
 
@@ -93,5 +102,5 @@ export function logClientError(
   } else {
     console.error(`[client-mutation] ${operation} failed`, error);
   }
-  dispatchClientErrorBeacon(buildReport(operation, error, context));
+  dispatchClientErrorBeacon(operation, error, context);
 }

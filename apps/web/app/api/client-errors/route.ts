@@ -39,12 +39,17 @@ export const dynamic = 'force-dynamic';
 const MAX_BODY_BYTES = 4 * 1024;
 // Cap any single string so a hostile/oversized field can't bloat a span attribute.
 const MAX_STRING_LENGTH = 512;
-// Bound the number of context keys promoted to attributes.
+// Bound the number of context entries examined (counted per iteration, before the
+// scalar-type filter) so a hostile payload can't force unbounded attribute work.
 const MAX_CONTEXT_KEYS = 24;
 
-function clampString(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined;
+// Truncate a known string to the per-attribute cap.
+function clamp(value: string): string {
   return value.length > MAX_STRING_LENGTH ? value.slice(0, MAX_STRING_LENGTH) : value;
+}
+
+function clampString(value: unknown): string | undefined {
+  return typeof value === 'string' ? clamp(value) : undefined;
 }
 
 function noContent(): NextResponse {
@@ -74,13 +79,14 @@ function recordClientErrorSpan(payload: Record<string, unknown>): void {
       for (const [key, value] of Object.entries(context as Record<string, unknown>)) {
         if (keys >= MAX_CONTEXT_KEYS) break;
         keys += 1;
-        // Only scalar domain ids — never serialize arbitrary nested objects/arrays.
+        // Clamp the key too — a hostile payload could carry a multi-KB key within
+        // the body cap. Only scalar domain ids become attributes; never serialize
+        // arbitrary nested objects/arrays.
+        const attrKey = `client.context.${clamp(key)}`;
         if (typeof value === 'string') {
-          const clamped =
-            value.length > MAX_STRING_LENGTH ? value.slice(0, MAX_STRING_LENGTH) : value;
-          span.setAttribute(`client.context.${key}`, clamped);
+          span.setAttribute(attrKey, clamp(value));
         } else if (typeof value === 'number' || typeof value === 'boolean') {
-          span.setAttribute(`client.context.${key}`, value);
+          span.setAttribute(attrKey, value);
         }
       }
     }
@@ -94,8 +100,17 @@ function recordClientErrorSpan(payload: Record<string, unknown>): void {
 
 export async function POST(request: Request): Promise<Response> {
   try {
+    // Reject oversized bodies by their declared length *before* buffering. This
+    // endpoint is public/unauthenticated, so the size cap must be load-bearing
+    // rather than applied only after the whole body is already in memory.
+    const declaredLength = Number(request.headers.get('content-length'));
+    if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
+      return noContent();
+    }
+
     const raw = await request.text();
-    if (raw.length === 0 || raw.length > MAX_BODY_BYTES) {
+    // Byte length, not string .length (UTF-16 code units), so the cap is exact.
+    if (raw.length === 0 || new TextEncoder().encode(raw).length > MAX_BODY_BYTES) {
       return noContent();
     }
 

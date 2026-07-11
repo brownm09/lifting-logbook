@@ -135,4 +135,17 @@ describe('POST /api/client-errors', () => {
     const message = attributes()['client.error.message'] as string;
     expect(message).toHaveLength(512);
   });
+
+  it('never 500s when a span operation throws — the outer catch holds and span.end still runs', async () => {
+    // The headline guarantee: a telemetry sink must never surface a 500. Force a
+    // span op to throw and assert the response is still 204 and end() ran (finally).
+    span.setAttribute.mockImplementationOnce(() => {
+      throw new Error('otel exploded');
+    });
+
+    const res = await POST(post({ operation: 'skipWorkout', message: 'boom' }));
+
+    expect(res.status).toBe(204);
+    expect(span.end).toHaveBeenCalledTimes(1);
+  });
 });
