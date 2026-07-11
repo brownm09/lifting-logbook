@@ -10,6 +10,10 @@ const isPublicRoute = createRouteMatcher([
   // suffix matches the sibling sign-in/sign-up patterns and tolerates trailing
   // slashes or future sub-paths without re-opening the original issue.
   '/api/healthz(.*)',
+  // Beacon sink for browser-side client mutation failures (#798). Must accept
+  // unauthenticated POSTs: the failure being reported may itself be an auth
+  // expiry, so Clerk must not redirect/gate it.
+  '/api/client-errors(.*)',
 ]);
 
 const clerkHandler = clerkMiddleware(async (auth, request) => {
