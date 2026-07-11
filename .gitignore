@@ -32,3 +32,7 @@ apps/web/playwright/.auth/
 # Playwright run artifacts
 apps/web/test-results/
 apps/web/playwright-report/
+
+# Python bytecode — the scripts/ test harness generates these (#786)
+__pycache__/
+*.pyc
