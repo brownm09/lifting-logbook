@@ -10,6 +10,7 @@ import {
   rescheduleWorkout,
   updateLiftRecord,
 } from '@/lib/client-api';
+import { logClientError } from '@/lib/log-client-error';
 import styles from './WorkoutLogger.module.css';
 import type { LiftData, WorkingSetData, WorkoutLoggerProps } from './types';
 
@@ -86,7 +87,8 @@ function BodyWeightGate({
     setSubmitting(true);
     try {
       await onSubmit(weight);
-    } catch {
+    } catch (err) {
+      logClientError('recordBodyWeight', err);
       setError('Failed to save body weight. Try again.');
       setSubmitting(false);
     }
@@ -230,7 +232,14 @@ function WorkingSetRow({
         notes: notesInput || undefined,
       });
       onLogged(record);
-    } catch {
+    } catch (err) {
+      logClientError('createLiftRecord', err, {
+        program,
+        cycleNum,
+        workoutNum,
+        lift,
+        setNum: set.setNum,
+      });
       setError('Failed to log set. Try again.');
       setSubmitting(false);
     }
@@ -254,7 +263,8 @@ function WorkingSetRow({
         notes: notesInput || undefined,
       });
       onEditSave(record);
-    } catch {
+    } catch (err) {
+      logClientError('updateLiftRecord', err, { program, id: loggedRecord.id });
       setError('Failed to save changes. Try again.');
       setSubmitting(false);
     }
@@ -659,7 +669,7 @@ export default function WorkoutLogger({
             setEffectiveDate(newDate);
             if (isReadOnly) {
               rescheduleWorkout(program, cycleNum, workoutNum, newDate).catch((err) => {
-                console.error(err);
+                logClientError('rescheduleWorkout', err, { program, cycleNum, workoutNum });
                 setEffectiveDate(prevDate);
               });
             }

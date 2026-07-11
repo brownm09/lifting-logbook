@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { skipWorkout, unskipWorkout } from '@/lib/client-api';
+import { logClientError } from '@/lib/log-client-error';
 import styles from './SkipForm.module.css';
 
 interface Props {
@@ -27,7 +28,7 @@ export default function SkipForm({ program, cycleNum, workoutNum, skipped }: Pro
       setOpen(false);
       router.refresh();
     } catch (e) {
-      console.error('[SkipForm] skip failed', e);
+      logClientError('skipWorkout', e, { program, cycleNum, workoutNum });
       setError('Failed to skip workout. Please try again.');
     } finally {
       setLoading(false);
@@ -42,7 +43,7 @@ export default function SkipForm({ program, cycleNum, workoutNum, skipped }: Pro
       setOpen(false);
       router.refresh();
     } catch (e) {
-      console.error('[SkipForm] unskip failed', e);
+      logClientError('unskipWorkout', e, { program, cycleNum, workoutNum });
       setError('Failed to undo skip. Please try again.');
     } finally {
       setLoading(false);
