@@ -94,6 +94,20 @@ jobs:
       - name: Unit test otel-collector config sync parsing
         run: node --test scripts/check-otel-config-sync.test.mjs
 
+      # The OTel sidecar injector is Python (it rewrites the live Cloud Run api manifest at
+      # deploy time — a path that cannot be dry-run tested), so its test runs under Python
+      # rather than turbo/jest. PyYAML is the injector's own only dependency. See #786.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install PyYAML for the OTel sidecar injector test
+        run: python -m pip install --quiet pyyaml
+
+      - name: Unit test the OTel sidecar injector (scripts/inject-otel-sidecar.py)
+        run: python scripts/test_inject_otel_sidecar.py -v
+
   db-integration:
     name: DB Integration Tests
     runs-on: ubuntu-latest
