@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { upsertLiftOverride } from '@/lib/client-api';
+import { logClientError } from '@/lib/log-client-error';
 import styles from './LiftPicker.module.css';
 
 interface Props {
@@ -46,6 +47,17 @@ export default function LiftPicker({
       }
       router.push(backHref);
       router.refresh();
+    } catch (err) {
+      // This picker has no inline error slot, but the failure must not vanish: log it so a
+      // production write failure (CORS, 5xx, auth expiry) is diagnosable rather than a silently
+      // swallowed unhandled rejection (#783). The user stays on the picker to retry.
+      logClientError('upsertLiftOverride', err, {
+        action: action === 'replace' && replacing ? 'replace' : 'add',
+        program,
+        cycleNum,
+        workoutNum,
+        lift,
+      });
     } finally {
       setPending(null);
     }
