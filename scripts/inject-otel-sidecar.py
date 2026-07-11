@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
-"""Inject the OTel Collector sidecar into an exported Cloud Run service manifest (#768).
+"""Inject the OTel Collector sidecar into an exported Cloud Run service manifest (#768, #804).
 
 Reads a `gcloud run services describe --format=export` manifest and rewrites it into a
-two-container manifest (`api` + `otel-collector`) for `gcloud run services replace`.
+two-container manifest (the ingress app container + `otel-collector`) for
+`gcloud run services replace`. Serves both the api service (#768) and the web service
+(#804); the ingress container name is parameterized (INGRESS_CONTAINER_NAME, default "api").
 
-Why derive from the live service instead of a static template: the api Cloud Run service's
+Why derive from the live service instead of a static template: the Cloud Run service's
 base spec (VPC connector, scaling, service account, concurrency, startup probe, existing
 env/secrets) is created by Terraform, but the running revision is
 `lifecycle.ignore_changes = [template]` and is mutated only by the deploy pipeline. Deriving
 the manifest from `describe --format=export` preserves every one of those managed fields
 verbatim, so the ONLY changes this makes are:
-  * name the ingress container `api` and set its image to the freshly-built one,
-  * add `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318` to the api container,
-  * drop the unused owner-cred `SYSTEM_DATABASE_URL` secret env (#534),
+  * name the ingress container (INGRESS_CONTAINER_NAME, default `api`) and set its image,
+  * add `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318` to the ingress container,
+  * drop the unused owner-cred `SYSTEM_DATABASE_URL` secret env if present (#534; api only),
   * add (or rebuild) the `otel-collector` sidecar and its config-file volume.
 That makes it safe for the production service, which cannot be dry-run tested, and idempotent:
 re-running on an already-two-container manifest rebuilds the sidecar cleanly rather than
@@ -22,17 +24,19 @@ The `--container` form of `gcloud run deploy` was rejected: on this gcloud versi
 unresolvable port catch-22 for a single→multi container transition (omit `--port` on the
 sidecar and the collector image's EXPOSE infers one → "exactly one container with an exposed
 port"; add `--port=default` and it counts as specifying a port → "exactly one must specify
---port"). `services replace` gives explicit, unambiguous control: only the api container
+--port"). `services replace` gives explicit, unambiguous control: only the ingress container
 carries a `ports:` block. See #768.
 
 Usage:
   gcloud run services describe <svc> --region <r> --project <p> --format=export \\
-    | API_IMAGE=... OTEL_CONFIG_SECRET=... OTEL_OTLP_ENDPOINT=... OTEL_LOKI_ENDPOINT=... \\
+    | INGRESS_IMAGE=... OTEL_CONFIG_SECRET=... OTEL_OTLP_ENDPOINT=... OTEL_LOKI_ENDPOINT=... \\
       OTEL_OTLP_SECRET=... OTEL_LOKI_SECRET=... python3 scripts/inject-otel-sidecar.py \\
     > rendered.yaml
 
 Required env vars:
-  API_IMAGE            full api image ref (registry/api:<sha>)
+  INGRESS_IMAGE        full ingress-app image ref (registry/<api|web>:<sha>). API_IMAGE is
+                       accepted as a back-compat fallback (the api deploy steps still pass it);
+                       INGRESS_IMAGE wins when both are set.
   OTEL_CONFIG_SECRET   Secret Manager secret holding config.yaml (mounted as a file)
   OTEL_OTLP_ENDPOINT   Grafana Cloud OTLP gateway base URL (traces + metrics)
   OTEL_LOKI_ENDPOINT   Grafana Cloud Loki OTLP base URL (logs)
@@ -41,6 +45,9 @@ Required env vars:
   OTEL_OTLP_SECRET     Secret Manager secret for the OTLP auth header
   OTEL_LOKI_SECRET     Secret Manager secret for the Loki auth header
 Optional env vars:
+  INGRESS_CONTAINER_NAME ('api')   name for the ingress container — set to 'web' for the web
+                       service (#804). Cosmetic in Cloud Run, but keeps per-container logs and
+                       metrics correctly labelled.
   COLLECTOR_IMAGE (otel/opentelemetry-collector-contrib:0.104.0)   # script default (local/manual);
                        # the deploy step (deploy.yml) sets it to the Artifact Registry Docker Hub
                        # pull-through mirror pinned by digest — infra/observability/otel-collector-image.env (#795)
@@ -66,7 +73,14 @@ def req(name):
 
 
 def main():
-    api_image = req("API_IMAGE")
+    # INGRESS_IMAGE is the general name (api or web); API_IMAGE stays accepted as a fallback so
+    # the unchanged api deploy steps keep working. INGRESS_IMAGE wins when both are set.
+    ingress_image = os.environ.get("INGRESS_IMAGE") or os.environ.get("API_IMAGE")
+    if not ingress_image:
+        sys.exit("inject-otel-sidecar: missing required env var INGRESS_IMAGE (or API_IMAGE)")
+    # `or "api"` (not a plain default) so an explicitly-empty INGRESS_CONTAINER_NAME still
+    # resolves to "api" rather than producing an invalid empty container name in the manifest.
+    ingress_name = os.environ.get("INGRESS_CONTAINER_NAME") or "api"
     config_secret = req("OTEL_CONFIG_SECRET")
     otlp_endpoint = req("OTEL_OTLP_ENDPOINT")
     loki_endpoint = req("OTEL_LOKI_ENDPOINT")
@@ -88,20 +102,22 @@ def main():
         sys.exit("inject-otel-sidecar: manifest has no spec.template.spec (not a Cloud Run service export?)")
     containers = spec.get("containers") or []
 
-    # The ingress (api) container is the one carrying a `ports:` block — exactly one in a
-    # valid Cloud Run service. Identifying it by ports (not by index/name) survives both the
-    # first single-container run and idempotent re-runs on a 2-container manifest.
-    api = next((c for c in containers if c.get("ports")), None)
-    if api is None:
-        sys.exit("inject-otel-sidecar: no container with a `ports` section found (cannot identify the ingress/api container)")
-    api["name"] = "api"
-    api["image"] = api_image
+    # The ingress container is the one carrying a `ports:` block — exactly one in a valid
+    # Cloud Run service. Identifying it by ports (not by index/name) survives both the first
+    # single-container run and idempotent re-runs on a 2-container manifest, for either the api
+    # or the web service.
+    ingress = next((c for c in containers if c.get("ports")), None)
+    if ingress is None:
+        sys.exit("inject-otel-sidecar: no container with a `ports` section found (cannot identify the ingress container)")
+    ingress["name"] = ingress_name
+    ingress["image"] = ingress_image
 
-    # api env: ensure OTEL_EXPORTER_OTLP_ENDPOINT points at the sidecar; drop the unused
-    # owner-cred SYSTEM_DATABASE_URL (#534). Preserve every other env/secret verbatim.
-    api_env = [e for e in (api.get("env") or []) if e.get("name") not in ("SYSTEM_DATABASE_URL", "OTEL_EXPORTER_OTLP_ENDPOINT")]
-    api_env.append({"name": "OTEL_EXPORTER_OTLP_ENDPOINT", "value": "http://localhost:4318"})
-    api["env"] = api_env
+    # ingress env: ensure OTEL_EXPORTER_OTLP_ENDPOINT points at the sidecar; drop the unused
+    # owner-cred SYSTEM_DATABASE_URL (#534; present on api, absent on web — a no-op there).
+    # Preserve every other env/secret verbatim.
+    ingress_env = [e for e in (ingress.get("env") or []) if e.get("name") not in ("SYSTEM_DATABASE_URL", "OTEL_EXPORTER_OTLP_ENDPOINT")]
+    ingress_env.append({"name": "OTEL_EXPORTER_OTLP_ENDPOINT", "value": "http://localhost:4318"})
+    ingress["env"] = ingress_env
 
     collector = {
         "name": "otel-collector",
@@ -120,8 +136,8 @@ def main():
         "resources": {"limits": {"cpu": collector_cpu, "memory": collector_memory}},
         "volumeMounts": [{"name": "otelconfig", "mountPath": "/etc/otelcol"}],
     }
-    # api first (ingress), then a fresh collector — dropping any prior collector makes re-runs idempotent.
-    spec["containers"] = [api, collector]
+    # ingress first, then a fresh collector — dropping any prior collector makes re-runs idempotent.
+    spec["containers"] = [ingress, collector]
 
     # Cloud Run mounts config *files* from Secret Manager (no ConfigMap volume type). Mount the
     # config secret's :latest version as the file config.yaml under /etc/otelcol.

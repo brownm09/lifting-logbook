@@ -223,6 +223,23 @@ resource "google_cloud_run_v2_service" "web" {
           }
         }
       }
+
+      # Point the web server runtime's OTel SDK (@vercel/otel, apps/web/instrumentation.ts)
+      # at the otel-collector sidecar co-located in the same Cloud Run instance (#804),
+      # mirroring the api service. The sidecar is injected at deploy time by
+      # scripts/inject-otel-sidecar.py (describe → inject → `gcloud run services replace`)
+      # and listens on localhost:4318, forwarding to Grafana Cloud. Declared here for spec
+      # accuracy and first-apply/bootstrap; because this service is
+      # lifecycle.ignore_changes = [template], the live value is set by that deploy step in
+      # the injected manifest, exactly like the sidecar itself. Unlike the api sidecar (which
+      # runs as the api workload SA's project-level secretmanager.secretAccessor), the web
+      # sidecar runs as the web workload SA and is granted read on only the three otel secrets
+      # it needs — that least-privilege grant is applied by the web deploy step, not here
+      # (all three secrets are pipeline/operator-managed out-of-band; see deploy.yml).
+      env {
+        name  = "OTEL_EXPORTER_OTLP_ENDPOINT"
+        value = "http://localhost:4318"
+      }
     }
   }
 

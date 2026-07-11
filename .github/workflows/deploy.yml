@@ -588,23 +588,63 @@ jobs:
           gcloud run services replace "$RUNNER_TEMP/stg-api-sidecar.yaml" \
             --region="${{ env.REGION }}" --project="$PROJECT" --quiet
 
-      - name: Deploy web to Cloud Run (staging)
+      - name: Deploy web + OTel Collector sidecar to Cloud Run (staging)
         run: |
-          # Runtime public-config injection (#396 / ADR-028): the env-agnostic web:<sha>
-          # image is configured here, not at build. On Cloud Run the browser reaches the
-          # same external API URL as the server, so PUBLIC_API_URL == API_URL. The Clerk
-          # publishable key is now a runtime secret env (read by the root layout and passed
-          # to <ClerkProvider> as a prop), alongside the existing CLERK_SECRET_KEY.
-          gcloud run deploy lifting-logbook-stg-web \
-            --image="${{ needs.build-images.outputs.ar_repo }}/web:${{ github.sha }}" \
-            --region="${{ env.REGION }}" \
-            --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
-            --platform=managed \
-            --allow-unauthenticated \
-            --service-account="${{ needs.terraform-staging.outputs.web_workload_sa }}" \
-            --set-env-vars="API_URL=${{ needs.terraform-staging.outputs.cloud_run_api_url }},PUBLIC_API_URL=${{ needs.terraform-staging.outputs.cloud_run_api_url }}" \
-            --update-secrets="CLERK_SECRET_KEY=lifting-logbook-stg-clerk-secret-key:latest,CLERK_PUBLISHABLE_KEY=lifting-logbook-stg-clerk-publishable-key:latest" \
-            --quiet
+          # Wire the web SERVER runtime into Grafana Cloud via a co-located otel-collector
+          # sidecar (#804), mirroring the api step above. @vercel/otel
+          # (apps/web/instrumentation.ts) exports OTLP to localhost:4318, so without a sidecar in
+          # the web instance every web-server span is dropped in prod — the #206 request traces
+          # AND the #798 client.mutation.error spans. Same describe → inject → `services replace`
+          # mechanism and the SAME collector config + Grafana endpoints/auth-header secrets as the
+          # api sidecar; only the ingress container name (web) and image differ.
+          #
+          # Dropping the old --set-env-vars / --update-secrets / --service-account /
+          # --allow-unauthenticated flags is deliberate and matches the api step: the web
+          # service's env/secrets (NODE_ENV, API_URL, PUBLIC_API_URL, CLERK_*) and its service
+          # account are Terraform-managed (lifecycle.ignore_changes = [template]) and preserved
+          # verbatim by describe, and its public posture is owned by Terraform's allUsers
+          # run.invoker binding (google_cloud_run_v2_service_iam_member.web_public) — `services
+          # replace` never touches invoker IAM. The collector config.yaml secret is the one the
+          # api step (which always runs first in this job) already ensured/versioned; we reference
+          # the same secret here.
+          #
+          # IAM (#804): the web sidecar runs as the WEB workload SA, which — unlike the api SA's
+          # project-level secretmanager.secretAccessor — only has per-secret grants for the two
+          # Clerk secrets. Grant it read on exactly the three otel secrets it needs (config + the
+          # two Grafana auth headers): least-privilege, so the internet-facing web SA never gains
+          # the api SA's broad access to DATABASE_URL / migrator creds. Idempotent, and runs as
+          # the cicd SA (roles/owner). Kept in the pipeline, not Terraform, because all three
+          # secrets are pipeline/operator-managed out-of-band and the config secret does not exist
+          # at `terraform apply` time. (First-ever deploy only: a few seconds of IAM propagation
+          # may be needed before the sidecar can read them; a failed replace leaves the prior web
+          # revision serving and self-heals on re-run.)
+          source infra/observability/grafana-endpoints.env
+          source infra/observability/otel-collector-image.env
+          PROJECT="${{ vars.GCP_STAGING_PROJECT_ID }}"
+          CONFIG_SECRET="lifting-logbook-stg-otel-collector-config"
+          WEB_SA="${{ needs.terraform-staging.outputs.web_workload_sa }}"
+          for SECRET in "$CONFIG_SECRET" \
+                        "lifting-logbook-stg-otel-otlp-auth-header" \
+                        "lifting-logbook-stg-otel-loki-auth-header"; do
+            gcloud secrets add-iam-policy-binding "$SECRET" \
+              --member="serviceAccount:${WEB_SA}" \
+              --role="roles/secretmanager.secretAccessor" \
+              --project="$PROJECT" --quiet >/dev/null
+          done
+          # PyYAML ships pre-installed on GitHub-hosted ubuntu runners; --break-system-packages
+          # keeps the fallback working if it is ever absent on a PEP-668 (externally-managed) runner.
+          python3 -c "import yaml" 2>/dev/null || python3 -m pip install --quiet --break-system-packages pyyaml
+          gcloud run services describe lifting-logbook-stg-web \
+            --region="${{ env.REGION }}" --project="$PROJECT" --format=export > "$RUNNER_TEMP/stg-web.yaml"
+          INGRESS_CONTAINER_NAME=web \
+          INGRESS_IMAGE="${{ needs.build-images.outputs.ar_repo }}/web:${{ github.sha }}" \
+          OTEL_CONFIG_SECRET="$CONFIG_SECRET" \
+          COLLECTOR_IMAGE="${{ needs.terraform-staging.outputs.otel_mirror_repo }}/${OTEL_COLLECTOR_IMAGE_REPO_PATH}@${OTEL_COLLECTOR_IMAGE_DIGEST}" \
+          OTEL_OTLP_SECRET="lifting-logbook-stg-otel-otlp-auth-header" \
+          OTEL_LOKI_SECRET="lifting-logbook-stg-otel-loki-auth-header" \
+            python3 scripts/inject-otel-sidecar.py "$RUNNER_TEMP/stg-web.yaml" > "$RUNNER_TEMP/stg-web-sidecar.yaml"
+          gcloud run services replace "$RUNNER_TEMP/stg-web-sidecar.yaml" \
+            --region="${{ env.REGION }}" --project="$PROJECT" --quiet
 
       # ── OTel Collector (observability — #474) ──────────────────────────────
       # Deployed LAST in the job, after the Cloud Run app deploys above, so an
@@ -1201,21 +1241,51 @@ jobs:
           done
           echo "Production /readyz smoke FAILED — API is up but cannot serve DB-backed requests (check migrations, Cloud SQL connectivity, DATABASE_URL). Roll back the API revision per docs/deploy.md." && exit 1
 
-      - name: Deploy web to Cloud Run (production)
+      - name: Deploy web + OTel Collector sidecar to Cloud Run (production)
         run: |
-          # Runtime public-config injection (#396 / ADR-028): same env-agnostic web:<sha>
-          # image as staging, configured per-env here. PUBLIC_API_URL == API_URL on Cloud
-          # Run; CLERK_PUBLISHABLE_KEY is a runtime secret env consumed by the root layout.
-          gcloud run deploy lifting-logbook-prod-web \
-            --image="${{ steps.tf-prod.outputs.ar_repo }}/web:${{ github.sha }}" \
-            --region="${{ env.REGION }}" \
-            --project="${{ vars.GCP_PROD_PROJECT_ID }}" \
-            --platform=managed \
-            --allow-unauthenticated \
-            --service-account="${{ steps.tf-prod.outputs.web_workload_sa }}" \
-            --set-env-vars="API_URL=${{ steps.tf-prod.outputs.cloud_run_api_url }},PUBLIC_API_URL=${{ steps.tf-prod.outputs.cloud_run_api_url }}" \
-            --update-secrets="CLERK_SECRET_KEY=lifting-logbook-prod-clerk-secret-key:latest,CLERK_PUBLISHABLE_KEY=lifting-logbook-prod-clerk-publishable-key:latest" \
-            --quiet
+          # Mirror of the staging web step (see deploy-staging for the full rationale) and of the
+          # production api sidecar step above: wire the web SERVER runtime into Grafana Cloud via a
+          # co-located otel-collector sidecar (#804) by describe → inject sidecar → `services
+          # replace`. Deriving from the live service preserves every Terraform-managed field
+          # (NODE_ENV, API_URL, PUBLIC_API_URL, CLERK_*, service account) verbatim, and `services
+          # replace` never touches the invoker IAM policy, so the web service's public posture
+          # stays owned by Terraform's allUsers binding
+          # (google_cloud_run_v2_service_iam_member.web_public), not re-asserted here — which is
+          # why the old --set-env-vars / --update-secrets / --allow-unauthenticated flags are gone.
+          # The collector config.yaml secret was already ensured/versioned by the api step above.
+          #
+          # IAM (#804): grant the WEB workload SA read on exactly the three otel secrets the
+          # sidecar needs (config + the two Grafana auth headers) — least-privilege, so the
+          # internet-facing web SA never gains the api SA's broad DATABASE_URL / migrator access.
+          # Idempotent; runs as the cicd SA (roles/owner); kept in the pipeline because all three
+          # secrets are pipeline/operator-managed out-of-band.
+          source infra/observability/grafana-endpoints.env
+          source infra/observability/otel-collector-image.env
+          PROJECT="${{ vars.GCP_PROD_PROJECT_ID }}"
+          CONFIG_SECRET="lifting-logbook-prod-otel-collector-config"
+          WEB_SA="${{ steps.tf-prod.outputs.web_workload_sa }}"
+          for SECRET in "$CONFIG_SECRET" \
+                        "lifting-logbook-prod-otel-otlp-auth-header" \
+                        "lifting-logbook-prod-otel-loki-auth-header"; do
+            gcloud secrets add-iam-policy-binding "$SECRET" \
+              --member="serviceAccount:${WEB_SA}" \
+              --role="roles/secretmanager.secretAccessor" \
+              --project="$PROJECT" --quiet >/dev/null
+          done
+          # PyYAML ships pre-installed on GitHub-hosted ubuntu runners; --break-system-packages
+          # keeps the fallback working if it is ever absent on a PEP-668 (externally-managed) runner.
+          python3 -c "import yaml" 2>/dev/null || python3 -m pip install --quiet --break-system-packages pyyaml
+          gcloud run services describe lifting-logbook-prod-web \
+            --region="${{ env.REGION }}" --project="$PROJECT" --format=export > "$RUNNER_TEMP/prod-web.yaml"
+          INGRESS_CONTAINER_NAME=web \
+          INGRESS_IMAGE="${{ steps.tf-prod.outputs.ar_repo }}/web:${{ github.sha }}" \
+          OTEL_CONFIG_SECRET="$CONFIG_SECRET" \
+          COLLECTOR_IMAGE="${{ steps.tf-prod.outputs.otel_mirror_repo }}/${OTEL_COLLECTOR_IMAGE_REPO_PATH}@${OTEL_COLLECTOR_IMAGE_DIGEST}" \
+          OTEL_OTLP_SECRET="lifting-logbook-prod-otel-otlp-auth-header" \
+          OTEL_LOKI_SECRET="lifting-logbook-prod-otel-loki-auth-header" \
+            python3 scripts/inject-otel-sidecar.py "$RUNNER_TEMP/prod-web.yaml" > "$RUNNER_TEMP/prod-web-sidecar.yaml"
+          gcloud run services replace "$RUNNER_TEMP/prod-web-sidecar.yaml" \
+            --region="${{ env.REGION }}" --project="$PROJECT" --quiet
 
       # ── Production web served-surface smoke (#490 item 3 / #382 / #407) ────
       # Verify the *live* prod web surface through the real Cloud Run ingress

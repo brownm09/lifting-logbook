@@ -34,6 +34,7 @@ INJECTOR_VARS = (
     "API_IMAGE", "OTEL_CONFIG_SECRET", "OTEL_OTLP_ENDPOINT", "OTEL_LOKI_ENDPOINT",
     "OTEL_OTLP_SECRET", "OTEL_LOKI_SECRET", "COLLECTOR_IMAGE", "COLLECTOR_CPU",
     "COLLECTOR_MEMORY", "OTEL_TAIL_SAMPLE_RATE", "OTEL_DECISION_WAIT",
+    "INGRESS_IMAGE", "INGRESS_CONTAINER_NAME",
 )
 
 API_IMAGE = "us-central1-docker.pkg.dev/example-project/lifting-logbook/api:newsha1234567"
@@ -47,6 +48,16 @@ REQUIRED_ENV = {
     "OTEL_OTLP_SECRET": "lifting-logbook-prod-otel-otlp-auth-header",
     "OTEL_LOKI_SECRET": "lifting-logbook-prod-otel-loki-auth-header",
 }
+
+# ── Web service (#804) ──────────────────────────────────────────────────────────────────────
+# The web Cloud Run service reuses this same injector via INGRESS_CONTAINER_NAME=web +
+# INGRESS_IMAGE (the web deploy step passes no API_IMAGE). WEB_ENV drops API_IMAGE so these
+# tests prove INGRESS_IMAGE works as the sole image var.
+WEB_FIXTURE = os.path.join(HERE, "testdata", "cloud-run-web-export.yaml")
+WEB_IMAGE = "us-central1-docker.pkg.dev/example-project/lifting-logbook/web:newsha7654321"
+WEB_ENV = {k: v for k, v in REQUIRED_ENV.items() if k != "API_IMAGE"}
+WEB_ENV["INGRESS_IMAGE"] = WEB_IMAGE
+WEB_ENV["INGRESS_CONTAINER_NAME"] = "web"
 
 
 def clean_env(**overrides):
@@ -220,11 +231,112 @@ class GuardTest(unittest.TestCase):
         self.assertNotEqual(proc.returncode, 0)
         self.assertIn("ports", proc.stderr)
 
-    def test_missing_required_env_var_exits_nonzero(self):
+    def test_missing_ingress_image_exits_nonzero(self):
+        # Neither INGRESS_IMAGE nor its API_IMAGE fallback set → hard fail naming both, no manifest.
         env = clean_env(**{k: v for k, v in REQUIRED_ENV.items() if k != "API_IMAGE"})
         proc = run_injector(FIXTURE, env=env)
         self.assertNotEqual(proc.returncode, 0)
+        self.assertEqual(proc.stdout, "", "no manifest should be emitted on the error path")
+        self.assertIn("INGRESS_IMAGE", proc.stderr)
         self.assertIn("API_IMAGE", proc.stderr)
+
+
+class InjectWebServiceTest(unittest.TestCase):
+    """The web export becomes a valid two-container manifest under INGRESS_CONTAINER_NAME=web.
+
+    Mirrors InjectSuccessTest for the #804 web path: the ingress container is named ``web`` (not
+    ``api``), the web image is applied, the OTEL endpoint is *added* (the web container has none
+    to replace), and the Terraform-managed web env/secrets + serviceAccountName pass through.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        proc = run_injector(WEB_FIXTURE, env=clean_env(**WEB_ENV))
+        if proc.returncode != 0:
+            raise AssertionError(f"injector exited {proc.returncode}: {proc.stderr}")
+        cls.proc = proc
+        cls.doc = yaml.safe_load(proc.stdout)
+        cls.containers = containers_by_name(cls.doc)
+
+    def test_exit_zero(self):
+        self.assertEqual(self.proc.returncode, 0, self.proc.stderr)
+
+    def test_two_containers_web_then_collector(self):
+        names = [c["name"] for c in self.doc["spec"]["template"]["spec"]["containers"]]
+        self.assertEqual(names, ["web", "otel-collector"])
+
+    def test_web_image_replaced(self):
+        self.assertEqual(self.containers["web"]["image"], WEB_IMAGE)
+
+    def test_otel_endpoint_added_once_on_web(self):
+        # The web container has no pre-existing OTEL_EXPORTER_OTLP_ENDPOINT, so this proves it is
+        # *added* exactly once — the sidecar wiring the #804 fix relies on.
+        otel = [e for e in self.containers["web"]["env"]
+                if e["name"] == "OTEL_EXPORTER_OTLP_ENDPOINT"]
+        self.assertEqual(len(otel), 1)
+        self.assertEqual(otel[0]["value"], "http://localhost:4318")
+
+    def test_ports_only_on_web_container(self):
+        self.assertIn("ports", self.containers["web"])
+        self.assertNotIn("ports", self.containers["otel-collector"])
+
+    def test_terraform_managed_web_config_preserved(self):
+        spec = self.doc["spec"]["template"]["spec"]
+        self.assertEqual(spec["containerConcurrency"], 80)
+        self.assertTrue(spec["serviceAccountName"].startswith("lifting-logbook-prod-web-wi@"))
+        web_env = {e["name"] for e in self.containers["web"]["env"]}
+        # Runtime public-config (#396/ADR-028) + Clerk secret envs must survive the rewrite.
+        self.assertIn("API_URL", web_env)
+        self.assertIn("PUBLIC_API_URL", web_env)
+        self.assertIn("CLERK_PUBLISHABLE_KEY", web_env)
+        self.assertIn("CLERK_SECRET_KEY", web_env)
+        self.assertIn("NODE_ENV", web_env)
+        # The web container never carries SYSTEM_DATABASE_URL — the drop is a harmless no-op.
+        self.assertNotIn("SYSTEM_DATABASE_URL", web_env)
+
+    def test_collector_and_config_volume_added_from_scratch(self):
+        # The web fixture has no pre-existing volumes, so the otelconfig volume is added fresh.
+        col = self.containers["otel-collector"]
+        vol_names = [v["name"] for v in self.doc["spec"]["template"]["spec"]["volumes"]]
+        self.assertEqual(vol_names, ["otelconfig"])
+        self.assertIn("otelconfig", [m["name"] for m in col["volumeMounts"]])
+        col_env = {e["name"]: e for e in col["env"]}
+        self.assertEqual(col_env["OTEL_COLLECTOR_OTLP_ENDPOINT"]["value"],
+                         REQUIRED_ENV["OTEL_OTLP_ENDPOINT"])
+
+    def test_server_assigned_fields_stripped(self):
+        tmpl_meta = self.doc["spec"]["template"]["metadata"]
+        self.assertNotIn("name", tmpl_meta)
+        self.assertNotIn("client.knative.dev/nonce", tmpl_meta.get("labels", {}))
+
+
+class IngressImageResolutionTest(unittest.TestCase):
+    """INGRESS_IMAGE is the canonical image var; API_IMAGE stays a back-compat fallback."""
+
+    def test_ingress_image_wins_over_api_image(self):
+        # Both set → INGRESS_IMAGE takes precedence over the API_IMAGE fallback.
+        env = clean_env(**{**WEB_ENV, "API_IMAGE": API_IMAGE})
+        proc = run_injector(WEB_FIXTURE, env=env)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        doc = yaml.safe_load(proc.stdout)
+        self.assertEqual(containers_by_name(doc)["web"]["image"], WEB_IMAGE)
+
+    def test_api_image_fallback_still_works(self):
+        # The unchanged api deploy steps pass only API_IMAGE (no INGRESS_IMAGE) — must still work.
+        env = clean_env(**REQUIRED_ENV)  # API_IMAGE only, no INGRESS_IMAGE
+        proc = run_injector(FIXTURE, env=env)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        doc = yaml.safe_load(proc.stdout)
+        self.assertEqual(containers_by_name(doc)["api"]["image"], API_IMAGE)
+
+    def test_empty_ingress_container_name_defaults_to_api(self):
+        # An explicitly-empty INGRESS_CONTAINER_NAME must resolve to "api", not an empty
+        # (invalid) container name — this locks the `or "api"` hardening, not a plain dict default.
+        env = clean_env(**{**REQUIRED_ENV, "INGRESS_CONTAINER_NAME": ""})
+        proc = run_injector(FIXTURE, env=env)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        names = [c["name"] for c in yaml.safe_load(proc.stdout)["spec"]["template"]["spec"]["containers"]]
+        self.assertEqual(names, ["api", "otel-collector"])
 
 
 if __name__ == "__main__":
