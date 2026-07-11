@@ -52,6 +52,103 @@ function clampString(value: unknown): string | undefined {
   return typeof value === 'string' ? clamp(value) : undefined;
 }
 
+// --- Same-origin guard (#806) -------------------------------------------------
+//
+// This endpoint is public and unauthenticated, and every accepted request records
+// a *retained* ERROR span (the ADR-020 `errors` tail-sampling policy always keeps
+// it). A page on any origin can therefore `navigator.sendBeacon('<app-origin>/api/
+// client-errors', …)` from a victim's browser — sendBeacon is a CORS-"simple"
+// request, so the browser sends it cross-origin with no preflight — and inject
+// always-retained spans into the shared free-tier Grafana Cloud / Tempo stack.
+// This guard drops such cross-origin browser beacons. Scripted / no-Origin abuse
+// (curl) is out of scope here: it is the job of an infra-level rate limit
+// (Cloud Armor / edge), tracked separately — see the ADR-020 #806 addendum.
+//
+// SAFETY — why this is observe-only until deliberately enabled. A false drop
+// (classifying legit same-origin traffic as cross-origin) would *silently* kill
+// this best-effort telemetry, with no error surfaced. So:
+//   * The verdict is ALWAYS recorded as the `client.origin.check` span attribute,
+//     even when nothing is dropped — the signal used to validate this guard in
+//     staging (against the real LB/proxy chain) before enforcement is turned on.
+//   * A request is only ever DROPPED when classified cross-origin via the robust
+//     CLIENT_ERROR_ALLOWED_ORIGINS allowlist — never via the zero-config
+//     Origin-host-vs-Host heuristic, whose entire risk is that an LB rewriting the
+//     Host header could make legit same-origin traffic look cross-origin.
+//
+// Enablement (ADR-020 #806 addendum): set CLIENT_ERROR_ALLOWED_ORIGINS to the
+// app's public origin(s); confirm in staging Tempo that legit beacons tag
+// `client.origin.check=same-origin`; then set CLIENT_ERROR_DROP_CROSS_ORIGIN=true.
+type OriginVerdict = 'same-origin' | 'cross-origin' | 'no-origin';
+
+interface OriginDecision {
+  verdict: OriginVerdict;
+  // The raw Origin header, retained only to tag the offending value on a
+  // cross-origin verdict for triage. Null when the request carried no Origin.
+  origin: string | null;
+  // Reject before buffering the body / starting a span.
+  drop: boolean;
+  // Drop was requested (CLIENT_ERROR_DROP_CROSS_ORIGIN=true) but no allowlist is
+  // configured, so we deliberately did NOT drop — the Host heuristic must never
+  // enforce. Tagged on the recorded span so the misconfiguration is visible.
+  enforceSkipped: boolean;
+}
+
+// Exact, case-insensitive origin allowlist from the env (comma-separated origins,
+// e.g. "https://app.example.com,https://www.example.com"). Empty when unset. A
+// trailing slash is stripped: a serialized `Origin` header never carries one, so
+// an operator who copies "https://app.example.com/" from a browser must not thereby
+// have every legit same-origin beacon classified cross-origin (and, under
+// enforcement, silently dropped).
+function parseAllowedOrigins(raw: string | undefined): string[] {
+  if (!raw) return [];
+  return raw
+    .split(',')
+    .map((o) => o.trim().toLowerCase().replace(/\/+$/, ''))
+    .filter(Boolean);
+}
+
+// Zero-config, OBSERVE-ONLY heuristic: does the Origin's host match the request's
+// Host header? Never used to drop (see the safety note above) — only to produce a
+// staging verdict when no allowlist is configured. A missing Host or a malformed
+// Origin (e.g. the literal "null" browsers send for opaque origins) is treated as
+// cross-origin.
+function originHostMatchesHost(origin: string, host: string | null): boolean {
+  if (!host) return false;
+  try {
+    return new URL(origin).host.toLowerCase() === host.toLowerCase();
+  } catch {
+    return false;
+  }
+}
+
+function decideOrigin(request: Request): OriginDecision {
+  const origin = request.headers.get('origin');
+  const allowlist = parseAllowedOrigins(process.env.CLIENT_ERROR_ALLOWED_ORIGINS);
+  const dropEnabled = process.env.CLIENT_ERROR_DROP_CROSS_ORIGIN === 'true';
+
+  let verdict: OriginVerdict;
+  if (!origin) {
+    // Non-browser clients (curl/scripts) omit Origin, as does a same-origin
+    // navigation — not the cross-origin-browser vector this guard targets. Allow.
+    verdict = 'no-origin';
+  } else if (allowlist.length > 0) {
+    verdict = allowlist.includes(origin.toLowerCase()) ? 'same-origin' : 'cross-origin';
+  } else {
+    verdict = originHostMatchesHost(origin, request.headers.get('host'))
+      ? 'same-origin'
+      : 'cross-origin';
+  }
+
+  const wantDrop = dropEnabled && verdict === 'cross-origin';
+  return {
+    verdict,
+    origin,
+    // Only the allowlist path may enforce; the Host heuristic never drops.
+    drop: wantDrop && allowlist.length > 0,
+    enforceSkipped: wantDrop && allowlist.length === 0,
+  };
+}
+
 function noContent(): NextResponse {
   // Beacons are fire-and-forget — the client ignores the response. A 204 (rather
   // than a 4xx on bad input) keeps garbage-in from polluting web-server error-rate
@@ -59,7 +156,7 @@ function noContent(): NextResponse {
   return new NextResponse(null, { status: 204 });
 }
 
-function recordClientErrorSpan(payload: Record<string, unknown>): void {
+function recordClientErrorSpan(payload: Record<string, unknown>, origin: OriginDecision): void {
   const operation = clampString(payload.operation) ?? 'unknown';
   const errorName = clampString(payload.name);
   const errorMessage = clampString(payload.message) ?? '';
@@ -72,6 +169,18 @@ function recordClientErrorSpan(payload: Record<string, unknown>): void {
     span.setAttribute('client.operation', operation);
     if (errorName) span.setAttribute('client.error.name', errorName);
     span.setAttribute('client.error.message', errorMessage);
+
+    // Origin provenance (#806) — always tagged, even when nothing is dropped, so
+    // staging can validate the same-origin verdict against known-legit traffic
+    // before CLIENT_ERROR_DROP_CROSS_ORIGIN is enabled. On a cross-origin verdict
+    // the offending origin is recorded (clamped) for triage.
+    span.setAttribute('client.origin.check', origin.verdict);
+    if (origin.verdict === 'cross-origin' && origin.origin) {
+      span.setAttribute('client.origin.value', clamp(origin.origin));
+    }
+    if (origin.enforceSkipped) {
+      span.setAttribute('client.origin.enforce_skipped', true);
+    }
 
     const { context } = payload;
     if (context && typeof context === 'object' && !Array.isArray(context)) {
@@ -100,6 +209,15 @@ function recordClientErrorSpan(payload: Record<string, unknown>): void {
 
 export async function POST(request: Request): Promise<Response> {
   try {
+    // Same-origin guard (#806). Evaluate the Origin first: when enforcement is on
+    // and the request is a cross-origin browser beacon (per the allowlist), reject
+    // it before buffering the body or starting a span — the cheapest path, and the
+    // point of the guard: no retained ERROR span for cross-origin spam.
+    const origin = decideOrigin(request);
+    if (origin.drop) {
+      return noContent();
+    }
+
     // Reject oversized bodies by their declared length *before* buffering. This
     // endpoint is public/unauthenticated, so the size cap must be load-bearing
     // rather than applied only after the whole body is already in memory.
@@ -124,7 +242,7 @@ export async function POST(request: Request): Promise<Response> {
       return noContent();
     }
 
-    recordClientErrorSpan(payload as Record<string, unknown>);
+    recordClientErrorSpan(payload as Record<string, unknown>, origin);
     return noContent();
   } catch {
     // A telemetry sink must never 500 — swallow and acknowledge.
