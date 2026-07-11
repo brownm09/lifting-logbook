@@ -593,13 +593,28 @@ jobs:
           # The image(s) the latest-applied service spec runs (ingress `api` + the otel
           # sidecar). On a hollow green nothing was applied, so this is still the PRIOR
           # revision's image and won't contain the just-built tag.
-          if ! LIVE_IMAGES=$(gcloud run services describe "$SERVICE" \
-                --region="${{ env.REGION }}" \
-                --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
-                --format='value(spec.template.spec.containers[].image)'); then
-            echo "::error title=Staging API deploy unverifiable::deploy-api reported success but '$SERVICE' could not be described to confirm the deployed image — not trusting this green. See #823 and docs/runbooks/staging-ci-flakiness.md."
+          # Bounded retry so a transient Cloud Run API blip on this READ doesn't red an
+          # otherwise-successful deploy — mirrors the migrate (3-attempt) / terraform apply
+          # (2-attempt) / build-push (wretry) pattern this workflow already uses, and the
+          # reason its companion runbook (staging-ci-flakiness.md) exists: transients must
+          # not produce "re-run goes green" false reds. Only the read is retried; a genuine
+          # hollow green (image mismatch) still hard-fails below with no retry.
+          LIVE_IMAGES=""
+          for attempt in 1 2 3; do
+            if LIVE_IMAGES=$(gcloud run services describe "$SERVICE" \
+                  --region="${{ env.REGION }}" \
+                  --project="${{ vars.GCP_STAGING_PROJECT_ID }}" \
+                  --format='value(spec.template.spec.containers[].image)'); then
+              break
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "describe attempt $attempt failed; retrying in $((attempt * 5))s..."
+              sleep $((attempt * 5))
+              continue
+            fi
+            echo "::error title=Staging API deploy unverifiable::deploy-api reported success but '$SERVICE' could not be described after 3 attempts to confirm the deployed image — not trusting this green. See #823 and docs/runbooks/staging-ci-flakiness.md."
             exit 1
-          fi
+          done
           echo "Expected just-built image: $EXPECTED"
           echo "Latest-applied image(s):   $LIVE_IMAGES"
           if printf '%s\n' "$LIVE_IMAGES" | grep -qF "$EXPECTED"; then
