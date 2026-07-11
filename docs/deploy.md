@@ -756,8 +756,10 @@ Terraform — an external HTTPS load balancer with a serverless NEG in front of 
 service, plus a Cloud Armor per-IP throttle scoped to the `/api/client-errors` path — is committed in
 [`infra/terraform/edge-load-balancer.tf`](../infra/terraform/edge-load-balancer.tf) but **off by
 default** (`enable_edge_load_balancer = false`), so it is a no-op plan and the app keeps serving
-directly off `*.run.app`. Enable it **before / with [#804](https://github.com/brownm09/lifting-logbook/issues/804)**
-(which wires web spans to the prod collector and makes the abuse surface live):
+directly off `*.run.app`. **[#804](https://github.com/brownm09/lifting-logbook/issues/804) has since
+landed** ([PR #814](https://github.com/brownm09/lifting-logbook/pull/814)), so the web runtime already
+exports to the prod collector and the surface is live — enablement (tracked in
+[#826](https://github.com/brownm09/lifting-logbook/issues/826)) now waits only on a domain / DNS cutover:
 
 1. Set `web_domain` (a managed cert cannot cover `*.run.app`) and `enable_edge_load_balancer = true`
    for the environment, then `terraform apply`.

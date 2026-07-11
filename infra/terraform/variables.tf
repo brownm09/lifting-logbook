@@ -93,7 +93,8 @@ variable "enable_edge_load_balancer" {
     Enabling also flips the web service ingress to INTERNAL_AND_CLOUD_LOAD_BALANCING
     so the run.app URL cannot bypass the rate limit — so it REQUIRES var.web_domain
     and a DNS cutover to the load balancer IP (output edge_lb_ip). See ADR-034 and
-    docs/deploy.md for the enable procedure; sequence it before/with #804.
+    docs/deploy.md for the enable procedure, tracked in #826 (the #804 collector wiring
+    has landed, so the surface is live).
   EOT
   type        = bool
   default     = false

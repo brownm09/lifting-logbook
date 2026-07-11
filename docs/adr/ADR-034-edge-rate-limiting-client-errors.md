@@ -21,9 +21,14 @@ Grafana Cloud / Tempo stack.
 stop **scripted** abuse: a `curl` loop sends no truthful `Origin`, so the guard classifies it
 `no-origin` and allows it (dropping all no-`Origin` requests would also drop legitimate non-browser
 reports). The ADR-020 **#806 addendum** recorded an infra-level rate limit as **mitigation (3)** —
-the deferred layer this ADR delivers. The abuse surface is **latent** until
-[#804](https://github.com/brownm09/lifting-logbook/issues/804) wires `apps/web`'s server runtime to
-the prod collector; the rate limit should be enabled **before / with #804**.
+the deferred layer this ADR delivers. At the time #808 was filed the abuse surface was **latent** —
+[#804](https://github.com/brownm09/lifting-logbook/issues/804) had not yet wired `apps/web`'s server
+runtime to the prod collector. **#804 has since landed**
+([PR #814](https://github.com/brownm09/lifting-logbook/pull/814), merged 2026-07-11), so that coupling
+is satisfied and the surface is now effectively live in prod. Enabling this rate limit is therefore the
+immediate operational follow-up — tracked in
+[#826](https://github.com/brownm09/lifting-logbook/issues/826), gated only on a domain / DNS cutover
+(see Consequences).
 
 **The infra reality that shapes the whole design:** there is no external load balancer in front of
 the web app today. The web Cloud Run service is served directly off its `*.run.app` URL (`allUsers`
@@ -56,8 +61,10 @@ sink path:
 
 **The entire stack is gated behind a new `enable_edge_load_balancer` variable (default `false`).**
 With the committed tfvars every resource in `edge-load-balancer.tf` is `count = 0`, so
-`terraform plan` is a **no-op** and today's `run.app` topology is unchanged. The stack is therefore
-**latent by construction**, matching the "latent until #804" framing.
+`terraform plan` is a **no-op** and today's `run.app` topology is unchanged. The *stack* is therefore
+inert by construction (flag off ⇒ `count = 0`), independent of the *surface* — which #804 has since made
+live (see Context). Shipping default-off keeps enablement a deliberate operational step (it needs a
+domain + DNS cutover, below) rather than coupling a public-URL change to this PR.
 
 When the flag is enabled, the web Cloud Run service's `ingress` is also flipped to
 `INTERNAL_AND_CLOUD_LOAD_BALANCING` (`cloud-run.tf`) so the public `run.app` URL cannot **bypass**
@@ -102,7 +109,7 @@ work.
   unless they are repointed at the LB. Production is Cloud-Run-only (`enable_gke = false`) — enable
   there first.
 
-### Enable procedure (sequence before / with #804)
+### Enable procedure (#804 has landed — now actionable; tracked in #826)
 
 1. Choose the public domain. Set `web_domain` and `enable_edge_load_balancer = true` for the target
    environment (tfvars or `-var`).
@@ -150,7 +157,7 @@ the ban fields) if a hard ban is later wanted.
   `terraform plan` shows no changes for it. A full local `plan` is not runnable without GCP
   credentials + the GCS backend (as for all of this module), so `validate` + the `count`-gating are
   the local checks; the CI prod plan is the backstop.
-- When enabled (future, with #804): the enable-procedure verification steps above.
+- When enabled (tracked in #826): the enable-procedure verification steps above.
 
 ## References
 
