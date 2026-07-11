@@ -78,7 +78,9 @@ def main():
     ingress_image = os.environ.get("INGRESS_IMAGE") or os.environ.get("API_IMAGE")
     if not ingress_image:
         sys.exit("inject-otel-sidecar: missing required env var INGRESS_IMAGE (or API_IMAGE)")
-    ingress_name = os.environ.get("INGRESS_CONTAINER_NAME", "api")
+    # `or "api"` (not a plain default) so an explicitly-empty INGRESS_CONTAINER_NAME still
+    # resolves to "api" rather than producing an invalid empty container name in the manifest.
+    ingress_name = os.environ.get("INGRESS_CONTAINER_NAME") or "api"
     config_secret = req("OTEL_CONFIG_SECRET")
     otlp_endpoint = req("OTEL_OTLP_ENDPOINT")
     loki_endpoint = req("OTEL_LOKI_ENDPOINT")

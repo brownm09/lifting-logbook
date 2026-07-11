@@ -329,6 +329,15 @@ class IngressImageResolutionTest(unittest.TestCase):
         doc = yaml.safe_load(proc.stdout)
         self.assertEqual(containers_by_name(doc)["api"]["image"], API_IMAGE)
 
+    def test_empty_ingress_container_name_defaults_to_api(self):
+        # An explicitly-empty INGRESS_CONTAINER_NAME must resolve to "api", not an empty
+        # (invalid) container name — this locks the `or "api"` hardening, not a plain dict default.
+        env = clean_env(**{**REQUIRED_ENV, "INGRESS_CONTAINER_NAME": ""})
+        proc = run_injector(FIXTURE, env=env)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        names = [c["name"] for c in yaml.safe_load(proc.stdout)["spec"]["template"]["spec"]["containers"]]
+        self.assertEqual(names, ["api", "otel-collector"])
+
 
 if __name__ == "__main__":
     unittest.main()
