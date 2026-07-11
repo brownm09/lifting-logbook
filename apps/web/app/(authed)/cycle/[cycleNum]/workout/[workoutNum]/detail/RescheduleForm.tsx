@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { rescheduleWorkout } from '@/lib/client-api';
+import { logClientError } from '@/lib/log-client-error';
 import styles from './RescheduleForm.module.css';
 
 interface Props {
@@ -27,7 +28,8 @@ export default function RescheduleForm({ program, cycleNum, workoutNum, currentD
       await rescheduleWorkout(program, cycleNum, workoutNum, newDate);
       setOpen(false);
       router.refresh();
-    } catch {
+    } catch (err) {
+      logClientError('rescheduleWorkout', err, { program, cycleNum, workoutNum });
       setError('Failed to reschedule. Please try again.');
     } finally {
       setLoading(false);

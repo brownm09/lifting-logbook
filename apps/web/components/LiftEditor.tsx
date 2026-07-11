@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { patchLiftMetadata } from '@/lib/client-api';
+import { logClientError } from '@/lib/log-client-error';
 import type { LiftMetadataResponse } from '@lifting-logbook/types';
 import CatalogTagPicker from './CatalogTagPicker';
 import FreeTagPicker from './FreeTagPicker';
@@ -36,8 +37,8 @@ export default function LiftEditor({ cycleNum, workoutNum, initialMetadata }: Pr
         `/cycle/${cycleNum}/workout/${workoutNum}/detail/manage-lifts`,
       );
     } catch (err) {
+      logClientError('patchLiftMetadata', err, { lift: initialMetadata.lift });
       setError('Failed to save. Please try again.');
-      console.error(err);
     } finally {
       setSaving(false);
     }

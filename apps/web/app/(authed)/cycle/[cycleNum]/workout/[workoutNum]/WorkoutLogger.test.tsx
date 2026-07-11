@@ -197,3 +197,29 @@ describe('WorkoutLogger — weight-unit display preference', () => {
     expect(screen.getByLabelText('Weight in lbs')).toHaveValue(23.63);
   });
 });
+
+describe('WorkoutLogger — mutation failure logging (#783)', () => {
+  it('captures the underlying error and still shows the message when logging a set fails', async () => {
+    const user = userEvent.setup();
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const failure = new Error('API 500 Internal Server Error for /lift-records');
+    mockCreateLiftRecord.mockRejectedValue(failure);
+
+    render(<WorkoutLogger {...makeProps()} />);
+
+    // Default weight (100) and reps (5) are valid, so the click reaches createLiftRecord.
+    await user.click(screen.getByRole('button', { name: 'Log' }));
+
+    // Generic user-facing message is preserved — no UX regression.
+    await waitFor(() =>
+      expect(screen.getByText('Failed to log set. Try again.')).toBeInTheDocument(),
+    );
+    // ...and the real error is captured rather than swallowed by the old `catch {}`.
+    expect(errorSpy).toHaveBeenCalledWith(
+      '[client-mutation] createLiftRecord failed',
+      failure,
+      expect.objectContaining({ program: '5-3-1', lift: 'Back Squat', setNum: 1 }),
+    );
+    errorSpy.mockRestore();
+  });
+});

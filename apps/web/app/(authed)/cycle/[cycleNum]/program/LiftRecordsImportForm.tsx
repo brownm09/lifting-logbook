@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import type { ImportError, SkippedRecord } from '@lifting-logbook/types';
 import { importLiftRecords } from '@/lib/client-api';
+import { logClientError } from '@/lib/log-client-error';
 
 interface Props {
   program: string;
@@ -30,13 +31,22 @@ export default function LiftRecordsImportForm({ program }: Props) {
     setErrors([]);
     setSuccessData(null);
 
-    const result = await importLiftRecords(program, file);
-    if (result.ok) {
-      setStatus('success');
-      setSuccessData({ written: result.data.written, skipped: result.data.skipped });
-    } else {
+    try {
+      const result = await importLiftRecords(program, file);
+      if (result.ok) {
+        setStatus('success');
+        setSuccessData({ written: result.data.written, skipped: result.data.skipped });
+      } else {
+        setStatus('error');
+        setErrors(result.errors);
+      }
+    } catch (err) {
+      // importLiftRecords resolves to { ok: false } for row-validation failures, but a
+      // network/CORS/5xx error still throws — previously that left the form stuck on
+      // "Uploading…" with nothing logged. Surface a generic error and record the cause (#783).
+      logClientError('importLiftRecords', err, { program });
       setStatus('error');
-      setErrors(result.errors);
+      setErrors([{ row: 0, message: 'Upload failed. Please try again.' }]);
     }
   }
 
