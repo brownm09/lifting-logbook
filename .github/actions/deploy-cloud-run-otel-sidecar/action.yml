@@ -29,7 +29,12 @@ inputs:
     description: GCP project ID that owns the service and its secrets.
     required: true
   region:
-    description: Cloud Run region — pass the workflow's ${{ env.REGION }}.
+    # NOTE: no ${{ }} here — GitHub template-validates a composite action's manifest at
+    # load time and evaluates any ${{ }} in an input description as an expression; `env` is
+    # not an available named-value in that context, so ${{ env.REGION }} threw
+    # "Unrecognized named-value: 'env'" and failed the whole action to load (#820, first CI
+    # invocation of this action — deploy.yml runs post-merge, never on a PR). Plain prose only.
+    description: "Cloud Run region — pass the workflow's env.REGION value (e.g. us-central1)."
     required: true
   config_secret:
     description: Secret Manager secret holding the collector config.yaml (mounted as a file).
