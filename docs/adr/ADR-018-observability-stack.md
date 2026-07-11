@@ -98,6 +98,24 @@ The five child PRs of [#199](https://github.com/brownm09/lifting-logbook/issues/
 
 ---
 
+## Addendum — 2026-07-10 (#795): collector image mirrored + digest-pinned
+
+Production runs Cloud-Run-only (`enable_gke=false`), where the collector is the co-located
+**sidecar** (#768) rather than the GKE DaemonSet — so a Docker Hub outage or rate-limit
+(100 pulls/6h per IP) on a cold-start / scale-up would fail new request-path instances, and a
+re-pushed mutable tag breaks reproducibility. The collector image is therefore now served from a
+per-environment Artifact Registry [**Docker Hub pull-through mirror**](https://cloud.google.com/artifact-registry/docs/repositories/remote-repo)
+(`google_artifact_registry_repository.dockerhub_mirror`, #795 — see the ADR-029 addendum for the
+repo + reader IAM) and pinned by **immutable digest**.
+
+The repository path and digest are single-sourced in `infra/observability/otel-collector-image.env`
+(sibling of the endpoints single-source `grafana-endpoints.env`, #785); `deploy.yml` sources it and
+composes it with the per-env terraform output `otel_collector_mirror_repo` into the full reference
+for both the Cloud Run sidecar (`COLLECTOR_IMAGE`, via `scripts/inject-otel-sidecar.py`) and the GKE
+chart (`helm --set-string image.repository/digest`; the daemonset renders `repo@digest` when a digest
+is set, else `repo:tag`). To bump the collector version, update that file's digest plus the chart
+`Chart.yaml appVersion` / `values.yaml image.tag`.
+
 ## References
 
 | Source | Relevance |

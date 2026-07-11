@@ -94,6 +94,7 @@ jobs:
       cloud_run_api_url: ${{ steps.tf-outputs.outputs.cloud_run_api_url }}
       cloud_run_web_url: ${{ steps.tf-outputs.outputs.cloud_run_web_url }}
       ar_repo: ${{ steps.tf-outputs.outputs.ar_repo }}
+      otel_mirror_repo: ${{ steps.tf-outputs.outputs.otel_mirror_repo }}
       kms_key_name: ${{ steps.tf-outputs.outputs.kms_key_name }}
       api_wi_sa: ${{ steps.tf-outputs.outputs.api_wi_sa }}
       web_workload_sa: ${{ steps.tf-outputs.outputs.web_workload_sa }}
@@ -144,6 +145,7 @@ jobs:
           echo "cloud_run_api_url=$(terraform output -raw cloud_run_api_url)" >> "$GITHUB_OUTPUT"
           echo "cloud_run_web_url=$(terraform output -raw cloud_run_web_url)" >> "$GITHUB_OUTPUT"
           echo "ar_repo=$(terraform output -raw artifact_registry_repo)" >> "$GITHUB_OUTPUT"
+          echo "otel_mirror_repo=$(terraform output -raw otel_collector_mirror_repo)" >> "$GITHUB_OUTPUT"
           echo "kms_key_name=$(terraform output -raw kms_key_name)" >> "$GITHUB_OUTPUT"
           echo "api_wi_sa=$(terraform output -raw cicd_service_account_email)" >> "$GITHUB_OUTPUT"
           echo "web_workload_sa=$(terraform output -raw web_workload_sa)" >> "$GITHUB_OUTPUT"
@@ -558,6 +560,7 @@ jobs:
           # (infra/observability/grafana-endpoints.env, #785); sourcing it exports
           # OTEL_OTLP_ENDPOINT / OTEL_LOKI_ENDPOINT for the injector below.
           source infra/observability/grafana-endpoints.env
+          source infra/observability/otel-collector-image.env
           PROJECT="${{ vars.GCP_STAGING_PROJECT_ID }}"
           CONFIG_SECRET="lifting-logbook-stg-otel-collector-config"
           gcloud secrets describe "$CONFIG_SECRET" --project="$PROJECT" >/dev/null 2>&1 \
@@ -576,6 +579,7 @@ jobs:
             --region="${{ env.REGION }}" --project="$PROJECT" --format=export > "$RUNNER_TEMP/stg-api.yaml"
           API_IMAGE="${{ needs.build-images.outputs.ar_repo }}/api:${{ github.sha }}" \
           OTEL_CONFIG_SECRET="$CONFIG_SECRET" \
+          COLLECTOR_IMAGE="${{ needs.terraform-staging.outputs.otel_mirror_repo }}/${OTEL_COLLECTOR_IMAGE_REPO_PATH}@${OTEL_COLLECTOR_IMAGE_DIGEST}" \
           OTEL_OTLP_SECRET="lifting-logbook-stg-otel-otlp-auth-header" \
           OTEL_LOKI_SECRET="lifting-logbook-stg-otel-loki-auth-header" \
             python3 scripts/inject-otel-sidecar.py "$RUNNER_TEMP/stg-api.yaml" > "$RUNNER_TEMP/stg-api-sidecar.yaml"
@@ -634,11 +638,14 @@ jobs:
         continue-on-error: true
         run: |
           source infra/observability/grafana-endpoints.env
+          source infra/observability/otel-collector-image.env
           helm upgrade --install otel-collector ./infra/kubernetes/charts/otel-collector \
             --namespace=staging \
             --values=infra/kubernetes/values/staging-otel-collector.yaml \
             --set-string env.OTEL_COLLECTOR_OTLP_ENDPOINT="$OTEL_OTLP_ENDPOINT" \
             --set-string env.OTEL_COLLECTOR_LOKI_ENDPOINT="$OTEL_LOKI_ENDPOINT" \
+            --set-string image.repository="${{ needs.terraform-staging.outputs.otel_mirror_repo }}/${OTEL_COLLECTOR_IMAGE_REPO_PATH}" \
+            --set-string image.digest="${OTEL_COLLECTOR_IMAGE_DIGEST}" \
             --wait --timeout=5m
 
   # ── 4. Smoke test staging ────────────────────────────────────────────────
@@ -1003,6 +1010,7 @@ jobs:
           echo "cloud_run_api_url=$(terraform output -raw cloud_run_api_url)" >> "$GITHUB_OUTPUT"
           echo "cloud_run_web_url=$(terraform output -raw cloud_run_web_url)" >> "$GITHUB_OUTPUT"
           echo "ar_repo=$(terraform output -raw artifact_registry_repo)" >> "$GITHUB_OUTPUT"
+          echo "otel_mirror_repo=$(terraform output -raw otel_collector_mirror_repo)" >> "$GITHUB_OUTPUT"
           echo "kms_key_name=$(terraform output -raw kms_key_name)" >> "$GITHUB_OUTPUT"
           echo "api_wi_sa=$(terraform output -raw cicd_service_account_email)" >> "$GITHUB_OUTPUT"
           echo "web_workload_sa=$(terraform output -raw web_workload_sa)" >> "$GITHUB_OUTPUT"
@@ -1131,6 +1139,7 @@ jobs:
           # of truth (infra/observability/grafana-endpoints.env, #785); sourcing it
           # exports OTEL_OTLP_ENDPOINT / OTEL_LOKI_ENDPOINT for the injector below.
           source infra/observability/grafana-endpoints.env
+          source infra/observability/otel-collector-image.env
           PROJECT="${{ vars.GCP_PROD_PROJECT_ID }}"
           CONFIG_SECRET="lifting-logbook-prod-otel-collector-config"
           gcloud secrets describe "$CONFIG_SECRET" --project="$PROJECT" >/dev/null 2>&1 \
@@ -1149,6 +1158,7 @@ jobs:
             --region="${{ env.REGION }}" --project="$PROJECT" --format=export > "$RUNNER_TEMP/prod-api.yaml"
           API_IMAGE="${{ steps.tf-prod.outputs.ar_repo }}/api:${{ github.sha }}" \
           OTEL_CONFIG_SECRET="$CONFIG_SECRET" \
+          COLLECTOR_IMAGE="${{ steps.tf-prod.outputs.otel_mirror_repo }}/${OTEL_COLLECTOR_IMAGE_REPO_PATH}@${OTEL_COLLECTOR_IMAGE_DIGEST}" \
           OTEL_OTLP_SECRET="lifting-logbook-prod-otel-otlp-auth-header" \
           OTEL_LOKI_SECRET="lifting-logbook-prod-otel-loki-auth-header" \
             python3 scripts/inject-otel-sidecar.py "$RUNNER_TEMP/prod-api.yaml" > "$RUNNER_TEMP/prod-api-sidecar.yaml"
@@ -1285,11 +1295,14 @@ jobs:
         if: steps.tf-prod.outputs.gke_enabled == 'true'
         run: |
           source infra/observability/grafana-endpoints.env
+          source infra/observability/otel-collector-image.env
           helm upgrade --install otel-collector ./infra/kubernetes/charts/otel-collector \
             --namespace=production \
             --values=infra/kubernetes/values/production-otel-collector.yaml \
             --set-string env.OTEL_COLLECTOR_OTLP_ENDPOINT="$OTEL_OTLP_ENDPOINT" \
             --set-string env.OTEL_COLLECTOR_LOKI_ENDPOINT="$OTEL_LOKI_ENDPOINT" \
+            --set-string image.repository="${{ steps.tf-prod.outputs.otel_mirror_repo }}/${OTEL_COLLECTOR_IMAGE_REPO_PATH}" \
+            --set-string image.digest="${OTEL_COLLECTOR_IMAGE_DIGEST}" \
             --wait --timeout=5m
 
       - name: Print deployment URLs and deployed version
