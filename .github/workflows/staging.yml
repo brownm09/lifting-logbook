@@ -543,60 +543,29 @@ jobs:
         # image/startup or Artifact Registry issue, not connectivity. See
         # docs/runbooks/staging-ci-flakiness.md.
         continue-on-error: true
-        run: |
-          # Wire the API into Grafana Cloud via a co-located otel-collector sidecar (#768/#813),
-          # matching the post-merge staging + prod deploys in deploy.yml so per-PR staging runs the
-          # SAME 2-container topology it will run once merged — instead of stripping the sidecar back
-          # to a single container on every PR push. Cloud Run has no additive sidecar command and no
-          # ConfigMap volumes, and the api service is lifecycle.ignore_changes = [template]
-          # (Terraform never mutates the running revision), so the whole 2-container topology is
-          # owned here:
-          #   1. Ensure the collector config.yaml secret (non-sensitive; from the repo file; a new
-          #      version only when the content changed, to avoid per-deploy churn). deploy-api and
-          #      deploy-web are SEPARATE PARALLEL jobs in this workflow (unlike deploy.yml's single
-          #      sequential job), so each ensures the secret independently — the block is idempotent
-          #      and the secret already exists from prior post-merge deploys, so describe-or-create
-          #      is a cold-start-only path.
-          #   2. Describe the live service, inject the sidecar (+ the api's OTEL_EXPORTER_OTLP_ENDPOINT;
-          #      minus the unused SYSTEM_DATABASE_URL, #534), and `gcloud run services replace`.
-          # Deriving the manifest from the live service preserves every Terraform-managed field (VPC
-          # connector, scaling, SA, startup probe) verbatim. Crucially `services replace` never touches
-          # the invoker IAM policy, so the api's public posture stays owned solely by Terraform's
-          # allUsers run.invoker binding (google_cloud_run_v2_service_iam_member.api_public, #766/#770)
-          # — this replaces the prior `gcloud run deploy --allow-unauthenticated` (ADR-032) without
-          # re-asserting or fighting that grant, so the browser CORS preflight the #766 outage broke is
-          # unaffected. `--container` was rejected (unresolvable sidecar port catch-22) — see
-          # scripts/inject-otel-sidecar.py. The sidecar shares the api revision's CPU-throttling, so
-          # its batch/export timers are best-effort between requests, not always-on like the GKE
-          # DaemonSet (ADR-018). Grafana OTLP/Loki endpoints come from the single source of truth
-          # (infra/observability/grafana-endpoints.env, #785); sourcing it exports OTEL_OTLP_ENDPOINT /
-          # OTEL_LOKI_ENDPOINT for the injector below.
-          source infra/observability/grafana-endpoints.env
-          source infra/observability/otel-collector-image.env
-          PROJECT="${{ vars.GCP_STAGING_PROJECT_ID }}"
-          CONFIG_SECRET="lifting-logbook-stg-otel-collector-config"
-          gcloud secrets describe "$CONFIG_SECRET" --project="$PROJECT" >/dev/null 2>&1 \
-            || gcloud secrets create "$CONFIG_SECRET" --replication-policy=automatic --project="$PROJECT" --quiet 2>/dev/null || true
-          CURRENT_CFG=$(gcloud secrets versions access latest --secret="$CONFIG_SECRET" --project="$PROJECT" 2>/dev/null || true)
-          if [ "$CURRENT_CFG" != "$(cat infra/cloud-run/otel-collector-config.yaml)" ]; then
-            gcloud secrets versions add "$CONFIG_SECRET" --data-file=infra/cloud-run/otel-collector-config.yaml --project="$PROJECT" --quiet
-            echo "otel-collector config secret: new version published."
-          else
-            echo "otel-collector config secret: unchanged."
-          fi
-          # PyYAML ships pre-installed on GitHub-hosted ubuntu runners; --break-system-packages
-          # keeps the fallback working if it is ever absent on a PEP-668 (externally-managed) runner.
-          python3 -c "import yaml" 2>/dev/null || python3 -m pip install --quiet --break-system-packages pyyaml
-          gcloud run services describe lifting-logbook-stg-api \
-            --region="${{ env.REGION }}" --project="$PROJECT" --format=export > "$RUNNER_TEMP/stg-api.yaml"
-          API_IMAGE="${{ needs.build-images.outputs.ar_repo }}/api:${{ needs.build-images.outputs.image_tag }}" \
-          OTEL_CONFIG_SECRET="$CONFIG_SECRET" \
-          COLLECTOR_IMAGE="${{ needs.terraform-staging.outputs.otel_mirror_repo }}/${OTEL_COLLECTOR_IMAGE_REPO_PATH}@${OTEL_COLLECTOR_IMAGE_DIGEST}" \
-          OTEL_OTLP_SECRET="lifting-logbook-stg-otel-otlp-auth-header" \
-          OTEL_LOKI_SECRET="lifting-logbook-stg-otel-loki-auth-header" \
-            python3 scripts/inject-otel-sidecar.py "$RUNNER_TEMP/stg-api.yaml" > "$RUNNER_TEMP/stg-api-sidecar.yaml"
-          gcloud run services replace "$RUNNER_TEMP/stg-api-sidecar.yaml" \
-            --region="${{ env.REGION }}" --project="$PROJECT" --quiet
+        # Sidecar deploy via the shared composite action
+        # (.github/actions/deploy-cloud-run-otel-sidecar, #817/#820): describe the live
+        # service, ensure the collector config secret, inject the otel-collector sidecar,
+        # `gcloud run services replace`. Mirrors the four deploy.yml call sites so per-PR
+        # staging runs the SAME 2-container topology it will run once merged (#768/#813),
+        # instead of stripping the sidecar back to one container on every PR push. Full
+        # rationale — live-manifest derivation (preserving every Terraform-managed field),
+        # why `services replace` not `--container`, and the CPU-throttling + invoker-IAM
+        # invariants — lives in that action. deploy-api and deploy-web are SEPARATE PARALLEL
+        # jobs here; the action's ensure-config `create` is concurrency-safe (#818) so both
+        # can ensure the secret without racing. No web_sa input: the api SA already holds
+        # project-level secretAccessor (only the web SA needs the per-secret grant).
+        uses: ./.github/actions/deploy-cloud-run-otel-sidecar
+        with:
+          service: lifting-logbook-stg-api
+          ingress_container_name: api
+          image: ${{ needs.build-images.outputs.ar_repo }}/api:${{ needs.build-images.outputs.image_tag }}
+          project: ${{ vars.GCP_STAGING_PROJECT_ID }}
+          region: ${{ env.REGION }}
+          config_secret: lifting-logbook-stg-otel-collector-config
+          otlp_secret: lifting-logbook-stg-otel-otlp-auth-header
+          loki_secret: lifting-logbook-stg-otel-loki-auth-header
+          otel_mirror_repo: ${{ needs.terraform-staging.outputs.otel_mirror_repo }}
 
       - name: Fetch Cloud Run API logs on failure
         if: steps.deploy-api.outcome == 'failure'
@@ -718,76 +687,50 @@ jobs:
           fi
 
       - name: Deploy web + OTel Collector sidecar to Cloud Run (staging)
+        id: deploy-web-sidecar
+        if: steps.clerk-check.outputs.configured == 'true'
+        # Sidecar deploy via the shared composite action
+        # (.github/actions/deploy-cloud-run-otel-sidecar, #817/#820), mirroring the api step
+        # above and deploy.yml's web call sites: describe → ensure config secret → inject the
+        # otel-collector sidecar → `gcloud run services replace`. Same 2-container topology,
+        # collector config, and Grafana endpoint/auth-header secrets as the api step; only the
+        # ingress container name (web) and image differ. @vercel/otel (apps/web/instrumentation.ts)
+        # exports OTLP to localhost:4318, so without the co-located collector every web-server
+        # span is dropped — the #206 request traces AND the #798 client.mutation.error spans.
+        # The web service's env/secrets and SA are Terraform-managed (ignore_changes = [template])
+        # and preserved verbatim by describe; its public posture stays owned by Terraform's allUsers
+        # run.invoker binding (services replace never touches invoker IAM). web_sa drives the
+        # action's least-privilege grant of exactly the three otel secrets to the WEB workload SA —
+        # which, unlike the api SA's project-level accessor, holds only per-secret Clerk grants
+        # (#804), so the internet-facing web SA never gains the api SA's broad access to
+        # DATABASE_URL / migrator creds. deploy-api and deploy-web run as SEPARATE PARALLEL jobs;
+        # the action's ensure-config `create` is concurrency-safe (#818). Full rationale
+        # (live-manifest derivation, CPU-throttling + invoker-IAM invariants) lives in that action.
+        uses: ./.github/actions/deploy-cloud-run-otel-sidecar
+        with:
+          service: lifting-logbook-stg-web
+          ingress_container_name: web
+          image: ${{ needs.build-images.outputs.ar_repo }}/web:${{ needs.build-images.outputs.image_tag }}
+          project: ${{ vars.GCP_STAGING_PROJECT_ID }}
+          region: ${{ env.REGION }}
+          config_secret: lifting-logbook-stg-otel-collector-config
+          otlp_secret: lifting-logbook-stg-otel-otlp-auth-header
+          loki_secret: lifting-logbook-stg-otel-loki-auth-header
+          otel_mirror_repo: ${{ needs.terraform-staging.outputs.otel_mirror_repo }}
+          web_sa: ${{ needs.terraform-staging.outputs.web_workload_sa }}
+
+      # web_url for the integration-test + report-status jobs. `gcloud run services replace`
+      # (unlike `gcloud run deploy`) emits no "Service URL:" line, so source the canonical service
+      # URL from the Terraform output (the same value deploy.yml's smoke test probes). This is a
+      # separate step because the composite action above `uses:` an action and so cannot also `run:`
+      # a script to set the output. The `if:` carries no status-check function, so GitHub prepends
+      # an implicit success() — this step runs only when the clerk gate passed AND the sidecar
+      # replace above succeeded, preserving the prior "url set ⇒ deploy succeeded" semantics. id
+      # stays `deploy-web` so the job output `web_url: steps.deploy-web.outputs.url` is unchanged.
+      - name: Publish staging web URL
         id: deploy-web
         if: steps.clerk-check.outputs.configured == 'true'
-        run: |
-          # Wire the web SERVER runtime into Grafana Cloud via a co-located otel-collector sidecar
-          # (#804/#813), mirroring the api step above and the post-merge web deploy in deploy.yml so
-          # per-PR staging runs the SAME 2-container topology it will run once merged. @vercel/otel
-          # (apps/web/instrumentation.ts) exports OTLP to localhost:4318, so without a sidecar in the
-          # web instance every web-server span is dropped — the #206 request traces AND the #798
-          # client.mutation.error spans. Same describe → inject → `services replace` mechanism and the
-          # SAME collector config + Grafana endpoints/auth-header secrets as the api step; only the
-          # ingress container name (web) and image differ.
-          #
-          # Dropping the old --set-env-vars / --update-secrets / --service-account /
-          # --allow-unauthenticated flags is deliberate and matches deploy.yml: the web service's
-          # env/secrets (NODE_ENV, API_URL, PUBLIC_API_URL, CLERK_*) and its service account are
-          # Terraform-managed (lifecycle.ignore_changes = [template]) and preserved verbatim by
-          # describe, and its public posture is owned by Terraform's allUsers run.invoker binding
-          # (google_cloud_run_v2_service_iam_member.web_public) — `services replace` never touches
-          # invoker IAM. deploy-api and deploy-web run as SEPARATE PARALLEL jobs here, so this job
-          # ensures the collector config secret independently (idempotent; already exists from prior
-          # post-merge deploys).
-          #
-          # IAM (#804): the web sidecar runs as the WEB workload SA, which — unlike the api SA's
-          # project-level secretmanager.secretAccessor — only has per-secret grants for the two Clerk
-          # secrets. Grant it read on exactly the three otel secrets it needs (config + the two Grafana
-          # auth headers): least-privilege, so the internet-facing web SA never gains the api SA's broad
-          # access to DATABASE_URL / migrator creds. Idempotent, runs as the staging CI/CD SA. (First-
-          # ever deploy only: a few seconds of IAM propagation may be needed before the sidecar can read
-          # them; a failed replace leaves the prior web revision serving and self-heals on re-run.)
-          source infra/observability/grafana-endpoints.env
-          source infra/observability/otel-collector-image.env
-          PROJECT="${{ vars.GCP_STAGING_PROJECT_ID }}"
-          CONFIG_SECRET="lifting-logbook-stg-otel-collector-config"
-          WEB_SA="${{ needs.terraform-staging.outputs.web_workload_sa }}"
-          gcloud secrets describe "$CONFIG_SECRET" --project="$PROJECT" >/dev/null 2>&1 \
-            || gcloud secrets create "$CONFIG_SECRET" --replication-policy=automatic --project="$PROJECT" --quiet 2>/dev/null || true
-          CURRENT_CFG=$(gcloud secrets versions access latest --secret="$CONFIG_SECRET" --project="$PROJECT" 2>/dev/null || true)
-          if [ "$CURRENT_CFG" != "$(cat infra/cloud-run/otel-collector-config.yaml)" ]; then
-            gcloud secrets versions add "$CONFIG_SECRET" --data-file=infra/cloud-run/otel-collector-config.yaml --project="$PROJECT" --quiet
-            echo "otel-collector config secret: new version published."
-          else
-            echo "otel-collector config secret: unchanged."
-          fi
-          for SECRET in "$CONFIG_SECRET" \
-                        "lifting-logbook-stg-otel-otlp-auth-header" \
-                        "lifting-logbook-stg-otel-loki-auth-header"; do
-            gcloud secrets add-iam-policy-binding "$SECRET" \
-              --member="serviceAccount:${WEB_SA}" \
-              --role="roles/secretmanager.secretAccessor" \
-              --project="$PROJECT" --quiet >/dev/null
-          done
-          # PyYAML ships pre-installed on GitHub-hosted ubuntu runners; --break-system-packages
-          # keeps the fallback working if it is ever absent on a PEP-668 (externally-managed) runner.
-          python3 -c "import yaml" 2>/dev/null || python3 -m pip install --quiet --break-system-packages pyyaml
-          gcloud run services describe lifting-logbook-stg-web \
-            --region="${{ env.REGION }}" --project="$PROJECT" --format=export > "$RUNNER_TEMP/stg-web.yaml"
-          INGRESS_CONTAINER_NAME=web \
-          INGRESS_IMAGE="${{ needs.build-images.outputs.ar_repo }}/web:${{ needs.build-images.outputs.image_tag }}" \
-          OTEL_CONFIG_SECRET="$CONFIG_SECRET" \
-          COLLECTOR_IMAGE="${{ needs.terraform-staging.outputs.otel_mirror_repo }}/${OTEL_COLLECTOR_IMAGE_REPO_PATH}@${OTEL_COLLECTOR_IMAGE_DIGEST}" \
-          OTEL_OTLP_SECRET="lifting-logbook-stg-otel-otlp-auth-header" \
-          OTEL_LOKI_SECRET="lifting-logbook-stg-otel-loki-auth-header" \
-            python3 scripts/inject-otel-sidecar.py "$RUNNER_TEMP/stg-web.yaml" > "$RUNNER_TEMP/stg-web-sidecar.yaml"
-          gcloud run services replace "$RUNNER_TEMP/stg-web-sidecar.yaml" \
-            --region="${{ env.REGION }}" --project="$PROJECT" --quiet
-          # web_url for the integration-test + report-status jobs. `services replace` (unlike
-          # `gcloud run deploy`) emits no "Service URL:" line, so source the canonical service URL from
-          # the Terraform output (the same value deploy.yml's smoke test probes). Emitted only after a
-          # successful replace, preserving the prior "url set ⇒ deploy succeeded" semantics.
-          echo "url=${{ needs.terraform-staging.outputs.cloud_run_web_url }}" >> "$GITHUB_OUTPUT"
+        run: echo "url=${{ needs.terraform-staging.outputs.cloud_run_web_url }}" >> "$GITHUB_OUTPUT"
 
   # ── 4. Staging integration tests ─────────────────────────────────────────
   staging-integration-tests:
