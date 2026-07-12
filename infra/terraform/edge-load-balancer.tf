@@ -36,8 +36,10 @@ locals {
 
   # Every domain the LB serves and the managed cert covers: the apex (var.web_domain)
   # plus any aliases (var.web_domain_aliases, e.g. www). Empty when the LB is disabled,
-  # so the per-domain DNS-authorization resources below create nothing.
-  web_lb_domains = var.enable_edge_load_balancer ? concat([var.web_domain], var.web_domain_aliases) : []
+  # so the per-domain DNS-authorization resources below create nothing. compact() drops
+  # any empty string (the cert precondition only guards var.web_domain, not an empty entry
+  # slipping into var.web_domain_aliases) so no invalid empty-domain auth/SAN is attempted.
+  web_lb_domains = var.enable_edge_load_balancer ? compact(concat([var.web_domain], var.web_domain_aliases)) : []
 }
 
 # Serverless NEG → the web Cloud Run service. A regional resource, attached to the
