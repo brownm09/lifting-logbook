@@ -36,9 +36,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   // When DEV_AUTH_TOKEN is set (Playwright CI, local dev-auth mode), the
-  // middleware bypasses clerkMiddleware() entirely. Rendering <SignedIn> in
-  // that mode would call auth() server-side without middleware having run,
-  // which throws and crashes the page tree. Skip the Clerk UI in that mode.
+  // middleware bypasses clerkMiddleware() entirely and the browser authenticates
+  // with the dev bearer token (window.__PUBLIC_CONFIG__.devAuthToken) rather than a
+  // Clerk session — so Clerk is inert for auth. The whole Clerk *client* tree is
+  // therefore skipped in this mode:
+  //   • <ClerkProvider> — mounting it would still initialize ClerkJS in the browser
+  //     against the non-real example publishable key and log a benign but noisy
+  //     "unable to attribute this request to an instance" console error (#834).
+  //   • <ClerkApiInitializer> — calls useAuth(), which requires a <ClerkProvider>
+  //     ancestor; it is unused here anyway (getClientAuthHeaders in lib/client-api.ts
+  //     uses the dev token first and never calls Clerk's getToken).
+  //   • <SignedIn>/<UserButton> — <SignedIn> would call auth() server-side without
+  //     middleware having run, which throws and crashes the page tree.
+  // The sign-in page carries the same DEV_AUTH_TOKEN guard so /sign-in does not render
+  // a <ClerkProvider>-less <SignIn/> in this mode (#834). Real-Clerk mode is unchanged.
   const devAuthMode = Boolean(process.env.DEV_AUTH_TOKEN);
 
   // Public config is read here at request time (this is a Server Component) and
@@ -51,38 +62,51 @@ export default function RootLayout({
   // Fail loud in a deployed runtime if the Clerk publishable key is missing, rather than
   // rendering <ClerkProvider> with an undefined key (auth would break silently in the
   // browser). Matches the API-side guard in apps/api/src/auth/auth.module.ts. See #687.
+  // Consumed only in the real-Clerk branch below; in dev-auth mode <ClerkProvider> is
+  // not rendered, so the key is legitimately absent and unused.
   const clerkPublishableKey = readServerClerkPublishableKey();
 
+  // The HTML shell is identical in both modes; only the <ClerkProvider> wrapper and the
+  // Clerk client children differ (both gated on devAuthMode).
+  const shell = (
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{ __html: publicConfigScript(publicConfig) }}
+        />
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
+      <body>
+        <PublicConfigProvider config={publicConfig}>
+          {!devAuthMode && <ClerkApiInitializer />}
+          {!devAuthMode && (
+            <SignedIn>
+              <div
+                style={{
+                  position: 'fixed',
+                  top: '1rem',
+                  right: '1rem',
+                  zIndex: 50,
+                }}
+              >
+                <UserButton afterSignOutUrl="/sign-in" />
+              </div>
+            </SignedIn>
+          )}
+          {children}
+        </PublicConfigProvider>
+      </body>
+    </html>
+  );
+
+  // Dev-auth mode: return the shell WITHOUT <ClerkProvider> so ClerkJS never initializes
+  // in the browser (silences the #834 console error). Real-Clerk mode (staging/production
+  // or a real local pk_ key): wrap in <ClerkProvider> exactly as before.
+  if (devAuthMode) {
+    return shell;
+  }
+
   return (
-    <ClerkProvider publishableKey={clerkPublishableKey}>
-      <html lang="en" suppressHydrationWarning>
-        <head>
-          <script
-            dangerouslySetInnerHTML={{ __html: publicConfigScript(publicConfig) }}
-          />
-          <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
-        </head>
-        <body>
-          <PublicConfigProvider config={publicConfig}>
-            <ClerkApiInitializer />
-            {!devAuthMode && (
-              <SignedIn>
-                <div
-                  style={{
-                    position: 'fixed',
-                    top: '1rem',
-                    right: '1rem',
-                    zIndex: 50,
-                  }}
-                >
-                  <UserButton afterSignOutUrl="/sign-in" />
-                </div>
-              </SignedIn>
-            )}
-            {children}
-          </PublicConfigProvider>
-        </body>
-      </html>
-    </ClerkProvider>
+    <ClerkProvider publishableKey={clerkPublishableKey}>{shell}</ClerkProvider>
   );
 }
