@@ -97,6 +97,10 @@ API_URL=http://localhost:3004
 PUBLIC_API_URL=http://localhost:3004
 DEFAULT_PROGRAM=5-3-1
 DEV_AUTH_TOKEN=dev-user
+# Required even in dev-auth mode — <ClerkProvider> throws "Missing publishableKey"
+# at startup without it. Clerk's public example key (not a secret); see
+# apps/web/.env.example and apps/web/README.md for details.
+CLERK_PUBLISHABLE_KEY=pk_test_ZXhhbXBsZS5jbGVyay5hY2NvdW50cy5kZXYk
 ```
 
 ```sh
