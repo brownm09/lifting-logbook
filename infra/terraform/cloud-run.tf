@@ -240,6 +240,24 @@ resource "google_cloud_run_v2_service" "web" {
         name  = "OTEL_EXPORTER_OTLP_ENDPOINT"
         value = "http://localhost:4318"
       }
+
+      # Same-origin guard for POST /api/client-errors (#806/#809). Declared here for spec
+      # accuracy + first-apply/bootstrap only; exactly like OTEL_EXPORTER_OTLP_ENDPOINT above,
+      # the LIVE values are set by the web deploy step
+      # (.github/actions/deploy-cloud-run-otel-sidecar with client_error_guard=true), which
+      # derives CLIENT_ERROR_ALLOWED_ORIGINS from this service's own status.url and sets the
+      # drop flag. Because this service is lifecycle.ignore_changes = [template], Terraform never
+      # overwrites them. The empty allowlist + drop=false here is the safe observe-only default a
+      # bare `terraform apply` would bootstrap — the guard never drops without an allowlist. See
+      # the ADR-020 #806 addendum.
+      env {
+        name  = "CLIENT_ERROR_ALLOWED_ORIGINS"
+        value = ""
+      }
+      env {
+        name  = "CLIENT_ERROR_DROP_CROSS_ORIGIN"
+        value = "false"
+      }
     }
   }
 
