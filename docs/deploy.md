@@ -748,6 +748,43 @@ SSL provisioning status — see [`deploy-single-user.md` Step 6](deploy-single-u
 which documents the same verification gotcha and carries the rest of the procedure this summary
 omits.
 
+### Edge rate limit (Cloud Armor) — `/api/client-errors`
+
+The unauthenticated `POST /api/client-errors` beacon sink records one retained ERROR span per
+accepted request, so it needs an infra-level rate limit against scripted abuse (#808 / ADR-034). The
+Terraform — an external HTTPS load balancer with a serverless NEG in front of the web Cloud Run
+service, plus a Cloud Armor per-IP throttle scoped to the `/api/client-errors` path — is committed in
+[`infra/terraform/edge-load-balancer.tf`](../infra/terraform/edge-load-balancer.tf) but **off by
+default** (`enable_edge_load_balancer = false`), so it is a no-op plan and the app keeps serving
+directly off `*.run.app`. **[#804](https://github.com/brownm09/lifting-logbook/issues/804) has since
+landed** ([PR #814](https://github.com/brownm09/lifting-logbook/pull/814)), so the web runtime already
+exports to the prod collector and the surface is live — enablement (tracked in
+[#826](https://github.com/brownm09/lifting-logbook/issues/826)) now waits only on a domain / DNS cutover:
+
+Enabling is **two phases** (decoupled so it never causes downtime):
+
+**Phase 1 — stand up the LB (`run.app` keeps serving):**
+
+1. Set `web_domain` (a managed cert cannot cover `*.run.app`) and `enable_edge_load_balancer = true`
+   for the environment (leave `lock_web_ingress_to_lb = false`), then `terraform apply`.
+2. `terraform output edge_lb_ip` → add the DNS **A** record `web_domain` → that IP.
+3. Wait for the managed certificate to reach `ACTIVE` (up to ~60 min after DNS resolves).
+4. Verify legitimate traffic serves via `https://<web_domain>`, and a burst above the threshold from
+   one IP returns `429` on `/api/client-errors` (the backend service has request logging on, so the
+   Cloud Armor throttle verdict is in Cloud Logging).
+
+**Phase 2 — close the `run.app` bypass (only after phase 1 is verified):**
+
+5. Set `lock_web_ingress_to_lb = true` and `terraform apply` — flips the web service ingress to
+   `INTERNAL_AND_CLOUD_LOAD_BALANCING`. Confirm `run.app` now rejects direct public traffic while
+   `https://<web_domain>` still serves.
+
+Do **not** flip `lock_web_ingress_to_lb` before the cert is `ACTIVE` — that would lock `run.app` while
+the LB can't serve HTTPS and the site goes dark (a precondition also rejects it unless the LB is
+enabled). Roll back in reverse: unset `lock_web_ingress_to_lb` and apply, then unset
+`enable_edge_load_balancer`. Rationale, threshold tuning (`client_error_rate_limit_count`), and
+alternatives: [ADR-034](adr/ADR-034-edge-rate-limiting-client-errors.md).
+
 ### Accessing logs
 
 ```bash

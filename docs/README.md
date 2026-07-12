@@ -165,6 +165,7 @@ monorepo/
 | [ADR-031](adr/ADR-031-mandatory-review-gate.md)             | Mandatory Review Gate via GitHub Required Status Check              | Accepted |
 | [ADR-032](adr/ADR-032-cloud-run-api-public-invoker.md)      | API Cloud Run Service Is Publicly Invokable; Clerk Auth Is the Real Boundary | Accepted |
 | [ADR-033](adr/ADR-033-log-header-allowlist.md)             | Log Header Redaction Is an Allowlist (Redact-by-Default)            | Accepted |
+| [ADR-034](adr/ADR-034-edge-rate-limiting-client-errors.md)  | Edge Rate Limiting for the Unauthenticated `/api/client-errors` Endpoint (Cloud Armor) | Accepted |
 
 ---
 
