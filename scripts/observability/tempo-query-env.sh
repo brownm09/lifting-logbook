@@ -52,24 +52,34 @@ if [ -f "$_tqe_creds" ]; then
   . "$_tqe_creds"
 fi
 
-# Escape hatch: if the canonical trio is already fully set (e.g. exported by hand),
-# use it verbatim and skip the target mapping. Otherwise map TEMPO_<TARGET>_* onto it.
-if [ -z "${TEMPO_ADDRESS:-}" ] || [ -z "${TEMPO_API_USER:-}" ] || [ -z "${TEMPO_API_KEY:-}" ]; then
-  case "$_tqe_target" in
-    staging)
-      TEMPO_ADDRESS="${TEMPO_STAGING_ADDRESS:-}"
-      TEMPO_API_USER="${TEMPO_STAGING_API_USER:-}"
-      TEMPO_API_KEY="${TEMPO_STAGING_API_KEY:-}"
-      TEMPO_TENANT_ID="${TEMPO_TENANT_ID:-${TEMPO_STAGING_TENANT_ID:-}}"
-      ;;
-    prod)
-      TEMPO_ADDRESS="${TEMPO_PROD_ADDRESS:-}"
-      TEMPO_API_USER="${TEMPO_PROD_API_USER:-}"
-      TEMPO_API_KEY="${TEMPO_PROD_API_KEY:-}"
-      TEMPO_TENANT_ID="${TEMPO_TENANT_ID:-${TEMPO_PROD_TENANT_ID:-}}"
-      ;;
-  esac
+# Resolve the selected target's credential set. The tenant is resolved here (not only
+# inside the escape-hatch gate below) so a hand-exported canonical trio can still pick up
+# a self-hosted X-Scope-OrgID from the credentials file.
+case "$_tqe_target" in
+  staging)
+    _tqe_addr="${TEMPO_STAGING_ADDRESS:-}"; _tqe_user="${TEMPO_STAGING_API_USER:-}"
+    _tqe_key="${TEMPO_STAGING_API_KEY:-}";  _tqe_tenant="${TEMPO_STAGING_TENANT_ID:-}"
+    ;;
+  prod)
+    _tqe_addr="${TEMPO_PROD_ADDRESS:-}"; _tqe_user="${TEMPO_PROD_API_USER:-}"
+    _tqe_key="${TEMPO_PROD_API_KEY:-}";  _tqe_tenant="${TEMPO_PROD_TENANT_ID:-}"
+    ;;
+esac
+
+# An explicitly-requested TEMPO_TARGET always wins: derive the canonical vars from the
+# target set even when canonical TEMPO_* are already exported (e.g. left over from a prior
+# `source` for a different target — otherwise the readiness echo would say [prod] while the
+# vars still point at staging). The hand-export escape hatch (keep a fully pre-set canonical
+# trio) applies only when the caller did NOT request a target explicitly.
+if [ -n "${TEMPO_TARGET:-}" ] || [ -z "${TEMPO_ADDRESS:-}" ] || [ -z "${TEMPO_API_USER:-}" ] || [ -z "${TEMPO_API_KEY:-}" ]; then
+  TEMPO_ADDRESS="$_tqe_addr"; TEMPO_API_USER="$_tqe_user"; TEMPO_API_KEY="$_tqe_key"
+  TEMPO_TENANT_ID="$_tqe_tenant"
+else
+  # No explicit target + a full canonical trio already exported by hand: keep it, but
+  # still honor a file-provided tenant when the caller didn't set one.
+  TEMPO_TENANT_ID="${TEMPO_TENANT_ID:-$_tqe_tenant}"
 fi
+unset _tqe_addr _tqe_user _tqe_key _tqe_tenant
 
 _tqe_missing=()
 [ -n "${TEMPO_ADDRESS:-}" ]  || _tqe_missing+=("TEMPO_ADDRESS")

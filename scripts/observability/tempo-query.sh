@@ -63,9 +63,14 @@ BASE="${TEMPO_ADDRESS%/}"
 # curl wrapper — GET only, basic auth, optional self-hosted tenant header.
 tempo_get() {
   local path="$1"; shift
-  local curl_args=(-sS -G -u "$TEMPO_API_USER:$TEMPO_API_KEY")
+  # Bounded timeouts so a hung / black-holed Tempo host can't block an autonomous caller
+  # forever. TEMPO_MAX_TIME overrides the total cap for a genuinely slow search.
+  local curl_args=(-sS -G --connect-timeout 10 --max-time "${TEMPO_MAX_TIME:-60}")
   [ -n "${TEMPO_TENANT_ID:-}" ] && curl_args+=(-H "X-Scope-OrgID: $TEMPO_TENANT_ID")
-  curl "${curl_args[@]}" "$BASE$path" "$@"
+  # Pass the traces:read token out-of-band via a --config read from stdin, so the
+  # credential never lands in the process argument list (ps / /proc/<pid>/cmdline).
+  printf 'user = "%s:%s"\n' "$TEMPO_API_USER" "$TEMPO_API_KEY" \
+    | curl "${curl_args[@]}" -K - "$BASE$path" "$@"
 }
 
 format() { node "$SCRIPT_DIR/format-tempo-result.js" "$1"; }
@@ -78,6 +83,16 @@ case "$SUBCMD" in
       echo "  $0 search '{ span.client.origin.check = \"same-origin\" }'" >&2
       exit 1
     fi
+    # Validate the numeric overrides up front — an unquoted non-integer (e.g.
+    # TEMPO_LOOKBACK=1h) would otherwise abort the arithmetic below with a cryptic
+    # `set -u` "unbound variable" error instead of a clear message.
+    for _v in TEMPO_START TEMPO_END TEMPO_LOOKBACK TEMPO_LIMIT; do
+      _val="${!_v:-}"
+      if [ -n "$_val" ] && ! [[ "$_val" =~ ^[0-9]+$ ]]; then
+        echo "ERROR: $_v must be a non-negative integer (got '$_val')." >&2
+        exit 1
+      fi
+    done
     END="${TEMPO_END:-$(date +%s)}"
     START="${TEMPO_START:-$(( END - ${TEMPO_LOOKBACK:-3600} ))}"
     LIMIT="${TEMPO_LIMIT:-20}"

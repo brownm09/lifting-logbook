@@ -12,7 +12,14 @@ process.stdin.setEncoding('utf8');
 process.stdin.on('data', (c) => { raw += c; });
 process.stdin.on('end', () => {
   raw = raw.trim();
-  if (!raw) { console.log('  (empty response)'); return; }
+  if (!raw) {
+    // An empty body is a failure for headless/autonomous callers keyed off the exit
+    // code — a non-2xx gateway response (502/503) or a 204 can arrive with no body.
+    // Match format-promql-result.js, which exits 1 on an empty body.
+    console.error('  ERROR: empty response body (no JSON returned — check the endpoint,');
+    console.error('  credentials, and that the query time range actually contains data).');
+    process.exit(1);
+  }
 
   let doc;
   try {
