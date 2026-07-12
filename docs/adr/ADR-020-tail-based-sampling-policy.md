@@ -164,6 +164,17 @@ validated and enforcement enabled **before / with #804**.
    app's public origin(s), confirm in staging Tempo that legitimate beacons tag
    `client.origin.check=same-origin`, then set `CLIENT_ERROR_DROP_CROSS_ORIGIN=true`. Rollback is
    instant — unset the flag (no code deploy).
+
+   **Enforcement enabled — 2026-07-12 ([#809](https://github.com/brownm09/lifting-logbook/issues/809)).**
+   [PR #827](https://github.com/brownm09/lifting-logbook/pull/827) wired `CLIENT_ERROR_ALLOWED_ORIGINS`
+   (derived at deploy from each web service's own Cloud Run URL) into the staging + production web
+   callers of [`deploy-cloud-run-otel-sidecar`](../../.github/actions/deploy-cloud-run-otel-sidecar/action.yml)
+   in **observe mode** (`drop=false`). Staging Tempo validation then confirmed legitimate beacons tag
+   `client.origin.check=same-origin` (no false `cross-origin`, no `client.origin.enforce_skipped`), so
+   PR 2 set `client_error_drop_cross_origin: "true"` on both callers in
+   [`deploy.yml`](../../.github/workflows/deploy.yml): **staging enforces on merge**; the **production**
+   rollout is human-gated at the `environment: production` approval gate. Rollback remains instant and
+   code-free — flip the input back to `"false"` (or unset `CLIENT_ERROR_ALLOWED_ORIGINS`).
 3. **Span *rate* (scripted / no-`Origin` abuse) — deferred to infra.** The `Origin` guard cannot
    stop a `curl` loop (no browser, no truthful `Origin`). The robust fix is an infra-level rate limit
    on the unauthenticated endpoint (Cloud Armor / ingress / edge), tracked as a follow-up. Until it
