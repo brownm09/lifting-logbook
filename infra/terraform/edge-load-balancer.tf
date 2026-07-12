@@ -18,9 +18,13 @@
 #
 # LATENT BY DEFAULT. Every resource here is gated on var.enable_edge_load_balancer
 # (default false), so `terraform plan` is a no-op on the committed tfvars and the
-# current run.app topology is unchanged. The abuse surface stays latent until #804
-# wires apps/web server spans to the prod collector — enable this stack before/with
-# #804. Enable procedure: ADR-034 and docs/deploy.md ("Edge rate limit").
+# current run.app topology is unchanged. NOTE: #804 (PR #814, merged 2026-07-11) has
+# landed, so apps/web already exports to the prod collector and the abuse surface is
+# LIVE — the stack ships inert only because enabling needs a domain + DNS cutover.
+# Enablement is tracked in #826. Enabling is TWO phases (create the LB with
+# var.enable_edge_load_balancer, then lock web ingress with var.lock_web_ingress_to_lb
+# once the cert is ACTIVE) so it never causes downtime — see the ADR-034 / docs/deploy.md
+# ("Edge rate limit") enable procedure.
 
 locals {
   edge_lb_enabled = var.enable_edge_load_balancer ? 1 : 0
@@ -54,6 +58,12 @@ resource "google_compute_security_policy" "web" {
   # the instant it drops back under the threshold rather than serving a ban penalty.
   # Excess requests get 429 at the edge, BEFORE Cloud Run, so they never create a
   # retained ERROR span — which is the whole point of the rule.
+  #
+  # Cloud Armor matches request.path as received (no canonicalization), so this scope
+  # relies on the origin (Next.js) serving the client-errors handler ONLY at the
+  # canonical path: a non-canonical variant Cloud Armor wouldn't match (e.g.
+  # //api/client-errors) also wouldn't reach the handler to create a span. Query
+  # strings are excluded from request.path, so `?x=1` still matches the `==` arm.
   rule {
     priority    = 1000
     action      = "throttle"
@@ -102,6 +112,16 @@ resource "google_compute_backend_service" "web" {
   load_balancing_scheme = "EXTERNAL_MANAGED"
   protocol              = "HTTPS"
   security_policy       = google_compute_security_policy.web[0].id
+
+  # External ALB request logging is OFF by default; enable it so the Cloud Armor
+  # throttle verdict on /api/client-errors is actually visible in Cloud Logging —
+  # the signal the ADR-034 / docs/deploy.md verification steps rely on. sample_rate=1.0
+  # logs every request (a low-QPS telemetry endpoint, so the volume is negligible;
+  # tune down if this LB ever fronts high-traffic paths).
+  log_config {
+    enable      = true
+    sample_rate = 1.0
+  }
 
   backend {
     group = google_compute_region_network_endpoint_group.web_serverless_neg[0].id

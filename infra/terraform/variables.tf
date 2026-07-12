@@ -85,16 +85,31 @@ variable "cloud_run_min_instances" {
 
 variable "enable_edge_load_balancer" {
   description = <<-EOT
-    Provision the external HTTPS Application Load Balancer + Cloud Armor rate limit
-    in front of the web Cloud Run service (#808 / ADR-034). Default false: the app
-    serves directly off *.run.app and the entire stack (edge-load-balancer.tf) is
-    count=0, so `terraform plan` is a no-op on the committed tfvars.
+    Phase 1 of enabling the edge rate limit (#808 / ADR-034): provision the external
+    HTTPS Application Load Balancer + Cloud Armor policy in front of the web Cloud Run
+    service. Default false: the app serves directly off *.run.app and the entire stack
+    (edge-load-balancer.tf) is count=0, so `terraform plan` is a no-op on the committed
+    tfvars.
 
-    Enabling also flips the web service ingress to INTERNAL_AND_CLOUD_LOAD_BALANCING
-    so the run.app URL cannot bypass the rate limit — so it REQUIRES var.web_domain
-    and a DNS cutover to the load balancer IP (output edge_lb_ip). See ADR-034 and
-    docs/deploy.md for the enable procedure, tracked in #826 (the #804 collector wiring
-    has landed, so the surface is live).
+    Creating the LB REQUIRES var.web_domain (a managed cert cannot cover *.run.app) and
+    a DNS cutover to the load balancer IP (output edge_lb_ip). It does NOT by itself lock
+    down run.app — that is phase 2 (var.lock_web_ingress_to_lb), flipped only after the
+    cert is ACTIVE, so enabling never causes downtime. See ADR-034 and docs/deploy.md for
+    the two-phase enable procedure; tracked in #826 (the #804 collector wiring has landed,
+    so the surface is live).
+  EOT
+  type        = bool
+  default     = false
+}
+
+variable "lock_web_ingress_to_lb" {
+  description = <<-EOT
+    Phase 2 of enabling the edge rate limit (#808 / ADR-034): set the web Cloud Run
+    service ingress to INTERNAL_AND_CLOUD_LOAD_BALANCING so the public *.run.app URL
+    cannot bypass the load balancer's rate limit. Requires enable_edge_load_balancer =
+    true (enforced by a precondition on the web service). Flip this ONLY after the LB is
+    serving and its managed cert is ACTIVE — otherwise run.app is locked while the LB
+    cannot yet serve HTTPS and the site goes dark. Default false = no ingress change.
   EOT
   type        = bool
   default     = false

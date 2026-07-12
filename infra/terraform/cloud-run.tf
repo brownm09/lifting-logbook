@@ -160,14 +160,16 @@ resource "google_cloud_run_v2_service" "web" {
   name     = "${local.name_prefix}-web"
   location = var.region
 
-  # When the edge ALB + Cloud Armor stack is enabled (#808 / ADR-034), restrict
-  # ingress to the load balancer + internal traffic so the public *.run.app URL
-  # cannot bypass the rate limit. null (the default) leaves Cloud Run's
-  # INGRESS_TRAFFIC_ALL untouched, so this is a no-op until the flag is flipped —
-  # see the ADR-034 enable procedure (DNS must point at the LB IP first, or the
-  # public site goes dark). `ingress` is a top-level field, outside the template
-  # that lifecycle.ignore_changes covers, so Terraform manages it normally.
-  ingress = var.enable_edge_load_balancer ? "INTERNAL_AND_CLOUD_LOAD_BALANCING" : null
+  # Phase 2 of enabling the edge rate limit (#808 / ADR-034): lock ingress to the
+  # load balancer + internal traffic so the public *.run.app URL cannot bypass the
+  # rate limit. This is a SEPARATE flag from enable_edge_load_balancer (which creates
+  # the LB) and must be flipped only AFTER the LB is serving and its managed cert is
+  # ACTIVE — otherwise run.app is locked while the LB can't yet serve HTTPS and the
+  # site goes dark. null (the default) leaves Cloud Run's INGRESS_TRAFFIC_ALL
+  # untouched, so this is a no-op until the flag is flipped. `ingress` is a top-level
+  # field, outside the template that lifecycle.ignore_changes covers, so Terraform
+  # manages it normally. See the ADR-034 two-phase enable procedure.
+  ingress = var.lock_web_ingress_to_lb ? "INTERNAL_AND_CLOUD_LOAD_BALANCING" : null
 
   template {
     service_account = google_service_account.web_workload.email
@@ -258,6 +260,14 @@ resource "google_cloud_run_v2_service" "web" {
   # an in-place modification (creating a new revision) on every subsequent apply.
   lifecycle {
     ignore_changes = [template, client, client_version]
+
+    # Phase-2 guard (#808 / ADR-034): locking web ingress to the LB before the LB
+    # exists would take the public site down, so lock_web_ingress_to_lb requires
+    # enable_edge_load_balancer. Holds on the committed tfvars (both default false).
+    precondition {
+      condition     = !var.lock_web_ingress_to_lb || var.enable_edge_load_balancer
+      error_message = "lock_web_ingress_to_lb = true requires enable_edge_load_balancer = true — locking web ingress to the load balancer before the LB exists would take the site down (see the ADR-034 two-phase enable procedure)."
+    }
   }
 
   depends_on = [

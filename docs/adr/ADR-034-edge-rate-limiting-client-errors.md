@@ -66,11 +66,16 @@ inert by construction (flag off ⇒ `count = 0`), independent of the *surface* �
 live (see Context). Shipping default-off keeps enablement a deliberate operational step (it needs a
 domain + DNS cutover, below) rather than coupling a public-URL change to this PR.
 
-When the flag is enabled, the web Cloud Run service's `ingress` is also flipped to
-`INTERNAL_AND_CLOUD_LOAD_BALANCING` (`cloud-run.tf`) so the public `run.app` URL cannot **bypass**
-the rate limit — all public traffic must arrive through the load balancer. That is why enabling
-requires `var.web_domain` (a Google-managed cert cannot be issued for `*.run.app`) and a DNS cutover
-to the load-balancer IP.
+Enabling is **two phases**, deliberately decoupled so it never causes downtime. `enable_edge_load_balancer`
+(phase 1) creates the LB, static IP, Cloud Armor policy, and managed cert while `run.app` keeps
+serving; a *separate* `lock_web_ingress_to_lb` (phase 2) then flips the web Cloud Run service's
+`ingress` to `INTERNAL_AND_CLOUD_LOAD_BALANCING` (`cloud-run.tf`) so the public `run.app` URL can no
+longer **bypass** the rate limit. A single flag doing both would lock `run.app` in the same apply
+that first creates the LB — while its managed cert is still `PROVISIONING` — guaranteeing a dark
+window; splitting the phases lets DNS be cut and the cert reach `ACTIVE` *before* ingress is locked.
+Phase 1 requires `var.web_domain` (a Google-managed cert cannot be issued for `*.run.app`) and a DNS
+cutover to the load-balancer IP; a precondition on the web service rejects `lock_web_ingress_to_lb = true`
+unless `enable_edge_load_balancer = true`.
 
 ### Why the whole load balancer, not just a policy
 
@@ -89,15 +94,17 @@ work.
   it creates no retained span.
 - **Zero risk to merge and zero change today.** Flag-off ⇒ `count = 0` ⇒ no-op plan; nothing about
   the `run.app` serving path changes until an operator deliberately enables it.
-- **Reversible.** Disable by unsetting the flag and re-applying (restores `run.app` ingress). The
-  threshold is a variable, so tightening/loosening the limit needs no code change.
+- **Reversible.** Roll back in reverse order — unset `lock_web_ingress_to_lb` and apply first (this
+  restores `run.app` public ingress), then unset `enable_edge_load_balancer`. The threshold is a
+  variable, so tightening/loosening the limit needs no code change.
 
 **Negative / accepted:**
 
 - Enabling is a genuine topology change, not a flag flip in isolation: it needs a domain + managed
-  cert + a DNS cutover to the LB IP, and it locks `run.app` to LB-only. **Ordering matters** — DNS
-  must point at the LB before (or with) the ingress flip, or the public site goes dark. Captured in
-  the enable procedure below.
+  cert + a DNS cutover to the LB IP, and phase 2 locks `run.app` to LB-only. The two-phase split
+  (above) is what keeps this downtime-free — the operator must still complete phase 1 + DNS + cert
+  before flipping phase 2, but the code no longer forces both into one apply. Captured in the enable
+  procedure below.
 - A standing monthly LB cost when enabled — two global forwarding rules + a reserved static IP +
   per-GB processing (order-of-magnitude ~$20+/mo; estimate, not a quote). `$0` while off by default.
 - A **per-IP** throttle does not bound a **distributed** (many-IP) flood; that is inherent to per-IP
@@ -111,17 +118,27 @@ work.
 
 ### Enable procedure (#804 has landed — now actionable; tracked in #826)
 
+**Phase 1 — stand up the LB (`run.app` keeps serving; no downtime):**
+
 1. Choose the public domain. Set `web_domain` and `enable_edge_load_balancer = true` for the target
-   environment (tfvars or `-var`).
+   environment (tfvars or `-var`). Leave `lock_web_ingress_to_lb` at its default `false`.
 2. `terraform apply` — creates the LB, static IP, Cloud Armor policy, and the managed cert (which
-   starts in `PROVISIONING`).
+   starts in `PROVISIONING`). `run.app` is untouched and still serving.
 3. `terraform output edge_lb_ip` → create the DNS **A** record `web_domain` → that IP.
 4. Wait for the managed certificate to reach `ACTIVE` (can take up to ~60 min after DNS resolves).
-5. Verify: legitimate traffic serves through `https://<web_domain>`, and a burst above the threshold
-   from one IP receives `429` on `/api/client-errors` (Cloud Armor request logs in Cloud Logging show
-   the throttle verdict).
-6. Confirm the `run.app` URL now rejects direct public traffic (ingress lockdown effective).
-7. To roll back: unset the flag and re-apply (restores `run.app` ingress), then remove the DNS record.
+5. Verify the LB serves: `https://<web_domain>` returns the app, and a burst above the threshold from
+   one IP receives `429` on `/api/client-errors` (the backend service has request logging on, so the
+   Cloud Armor throttle verdict appears in Cloud Logging).
+
+**Phase 2 — close the `run.app` bypass (only after phase 1 is verified):**
+
+6. Set `lock_web_ingress_to_lb = true` and `terraform apply` — flips the web service ingress to
+   `INTERNAL_AND_CLOUD_LOAD_BALANCING`.
+7. Confirm the `run.app` URL now rejects direct public traffic (ingress lockdown effective) while
+   `https://<web_domain>` still serves.
+
+**Roll back** in reverse: unset `lock_web_ingress_to_lb` and apply (restores `run.app` public
+ingress), then unset `enable_edge_load_balancer` and apply, then remove the DNS record.
 
 ## Alternatives Considered
 

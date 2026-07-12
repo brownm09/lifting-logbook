@@ -761,18 +761,29 @@ landed** ([PR #814](https://github.com/brownm09/lifting-logbook/pull/814)), so t
 exports to the prod collector and the surface is live — enablement (tracked in
 [#826](https://github.com/brownm09/lifting-logbook/issues/826)) now waits only on a domain / DNS cutover:
 
+Enabling is **two phases** (decoupled so it never causes downtime):
+
+**Phase 1 — stand up the LB (`run.app` keeps serving):**
+
 1. Set `web_domain` (a managed cert cannot cover `*.run.app`) and `enable_edge_load_balancer = true`
-   for the environment, then `terraform apply`.
+   for the environment (leave `lock_web_ingress_to_lb = false`), then `terraform apply`.
 2. `terraform output edge_lb_ip` → add the DNS **A** record `web_domain` → that IP.
 3. Wait for the managed certificate to reach `ACTIVE` (up to ~60 min after DNS resolves).
 4. Verify legitimate traffic serves via `https://<web_domain>`, and a burst above the threshold from
-   one IP returns `429` on `/api/client-errors` (Cloud Armor request logs are in Cloud Logging).
+   one IP returns `429` on `/api/client-errors` (the backend service has request logging on, so the
+   Cloud Armor throttle verdict is in Cloud Logging).
 
-Enabling also flips the web service ingress to `INTERNAL_AND_CLOUD_LOAD_BALANCING` so the `run.app`
-URL cannot bypass the limit — **point DNS at the load balancer first**, or the public site goes dark.
-Roll back by unsetting the flag and re-applying. Rationale, threshold tuning
-(`client_error_rate_limit_count`), and alternatives:
-[ADR-034](adr/ADR-034-edge-rate-limiting-client-errors.md).
+**Phase 2 — close the `run.app` bypass (only after phase 1 is verified):**
+
+5. Set `lock_web_ingress_to_lb = true` and `terraform apply` — flips the web service ingress to
+   `INTERNAL_AND_CLOUD_LOAD_BALANCING`. Confirm `run.app` now rejects direct public traffic while
+   `https://<web_domain>` still serves.
+
+Do **not** flip `lock_web_ingress_to_lb` before the cert is `ACTIVE` — that would lock `run.app` while
+the LB can't serve HTTPS and the site goes dark (a precondition also rejects it unless the LB is
+enabled). Roll back in reverse: unset `lock_web_ingress_to_lb` and apply, then unset
+`enable_edge_load_balancer`. Rationale, threshold tuning (`client_error_rate_limit_count`), and
+alternatives: [ADR-034](adr/ADR-034-edge-rate-limiting-client-errors.md).
 
 ### Accessing logs
 
