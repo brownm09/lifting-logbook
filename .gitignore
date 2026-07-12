@@ -9,6 +9,9 @@ dist/
 # Grafana Cloud Mimir query credentials (see scripts/observability/.mimir-credentials.example)
 scripts/observability/.mimir-credentials
 
+# Grafana Cloud Tempo query credentials (see scripts/observability/.tempo-credentials.example)
+scripts/observability/.tempo-credentials
+
 # Turborepo
 .turbo/
 
