@@ -21,13 +21,25 @@
 # current run.app topology is unchanged. NOTE: #804 (PR #814, merged 2026-07-11) has
 # landed, so apps/web already exports to the prod collector and the abuse surface is
 # LIVE — the stack ships inert only because enabling needs a domain + DNS cutover.
-# Enablement is tracked in #826. Enabling is TWO phases (create the LB with
-# var.enable_edge_load_balancer, then lock web ingress with var.lock_web_ingress_to_lb
-# once the cert is ACTIVE) so it never causes downtime — see the ADR-034 / docs/deploy.md
-# ("Edge rate limit") enable procedure.
+# Enablement is tracked in #826 (prerequisite code: #830). The LB fronts the apex
+# (var.web_domain) plus any aliases (var.web_domain_aliases, e.g. www) on ONE managed
+# cert, provisioned via Certificate Manager DNS AUTHORIZATION so it reaches ACTIVE while
+# the apex/www still serve via their existing Cloud Run domain mappings — enabling a
+# zero-downtime DNS cutover of the already-live domain. Enabling is TWO phases: (1)
+# var.enable_edge_load_balancer creates the LB + cert (run.app + the domain mappings keep
+# serving); then, after the cert is ACTIVE, DNS is cut over to the LB IP, and the domain
+# mappings are DELETED, (2) var.lock_web_ingress_to_lb locks web ingress to the LB. See the
+# ADR-034 (amendment) / docs/deploy.md ("Edge rate limit") enable procedure.
 
 locals {
   edge_lb_enabled = var.enable_edge_load_balancer ? 1 : 0
+
+  # Every domain the LB serves and the managed cert covers: the apex (var.web_domain)
+  # plus any aliases (var.web_domain_aliases, e.g. www). Empty when the LB is disabled,
+  # so the per-domain DNS-authorization resources below create nothing. compact() drops
+  # any empty string (the cert precondition only guards var.web_domain, not an empty entry
+  # slipping into var.web_domain_aliases) so no invalid empty-domain auth/SAN is attempted.
+  web_lb_domains = var.enable_edge_load_balancer ? compact(concat([var.web_domain], var.web_domain_aliases)) : []
 }
 
 # Serverless NEG → the web Cloud Run service. A regional resource, attached to the
@@ -135,32 +147,72 @@ resource "google_compute_url_map" "web" {
   default_service = google_compute_backend_service.web[0].id
 }
 
-# Google-managed SSL certificate. A managed cert cannot be issued for a *.run.app
-# URL, so var.web_domain is required whenever the LB is enabled (enforced by the
-# precondition — checked only when this resource is actually created).
-resource "google_compute_managed_ssl_certificate" "web" {
+# Managed SSL certificate via Certificate Manager with DNS AUTHORIZATION (not a classic
+# google_compute_managed_ssl_certificate). DNS authorization validates each domain with a
+# per-domain _acme-challenge CNAME that is independent of the domain's serving A record, so
+# the cert reaches ACTIVE while the apex/www still serve via their existing Cloud Run domain
+# mappings. That lets the operator flip DNS to the LB IP with a valid cert already in place —
+# a zero-downtime cutover of the already-live domain (a classic managed cert would dark-window
+# HTTPS between the DNS flip and provisioning). One cert covers the apex (var.web_domain) plus
+# any aliases (var.web_domain_aliases, e.g. www). See ADR-034 (amendment) / docs/deploy.md.
+#
+# One DNS authorization per domain. for_each over the (possibly empty) domain set gates these
+# on enablement without a count/for_each mismatch: disabled ⇒ empty set ⇒ nothing created.
+resource "google_certificate_manager_dns_authorization" "web" {
+  for_each = toset(local.web_lb_domains)
+
+  name        = "${local.name_prefix}-web-dnsauth-${replace(each.value, ".", "-")}"
+  domain      = each.value
+  description = "DNS authorization for ${each.value} (edge LB zero-downtime managed cert; #808 / ADR-034)."
+}
+
+resource "google_certificate_manager_certificate" "web" {
   count = local.edge_lb_enabled
 
-  name = "${local.name_prefix}-web-cert"
+  name        = "${local.name_prefix}-web-cert"
+  description = "Edge LB managed cert covering the apex + aliases via DNS authorization (#808 / ADR-034)."
 
   managed {
-    domains = [var.web_domain]
+    domains            = local.web_lb_domains
+    dns_authorizations = [for d in local.web_lb_domains : google_certificate_manager_dns_authorization.web[d].id]
   }
 
   lifecycle {
     precondition {
       condition     = var.web_domain != ""
-      error_message = "web_domain must be set (the app's public domain) when enable_edge_load_balancer = true — a Google-managed certificate cannot be issued for a *.run.app URL."
+      error_message = "web_domain must be set (the app's public apex domain) when enable_edge_load_balancer = true — a Google-managed certificate cannot be issued for a *.run.app URL."
     }
   }
+}
+
+# Certificate map + a single PRIMARY entry so the target HTTPS proxy can serve the cert above
+# (a Certificate Manager cert is attached to a proxy through a map, not directly). The cert
+# carries the apex and every alias as SANs, so one PRIMARY (default-SNI) entry serves them all;
+# no per-hostname entries are needed.
+resource "google_certificate_manager_certificate_map" "web" {
+  count = local.edge_lb_enabled
+
+  name = "${local.name_prefix}-web-certmap"
+}
+
+resource "google_certificate_manager_certificate_map_entry" "web" {
+  count = local.edge_lb_enabled
+
+  name         = "${local.name_prefix}-web-certmap-primary"
+  map          = google_certificate_manager_certificate_map.web[0].name
+  certificates = [google_certificate_manager_certificate.web[0].id]
+  matcher      = "PRIMARY"
 }
 
 resource "google_compute_target_https_proxy" "web" {
   count = local.edge_lb_enabled
 
-  name             = "${local.name_prefix}-web-https-proxy"
-  url_map          = google_compute_url_map.web[0].id
-  ssl_certificates = [google_compute_managed_ssl_certificate.web[0].id]
+  name    = "${local.name_prefix}-web-https-proxy"
+  url_map = google_compute_url_map.web[0].id
+
+  # Certificate Manager cert map (not classic ssl_certificates) — required to serve a
+  # DNS-authorization-provisioned cert. Format: //certificatemanager.googleapis.com/<map id>.
+  certificate_map = "//certificatemanager.googleapis.com/${google_certificate_manager_certificate_map.web[0].id}"
 }
 
 resource "google_compute_global_address" "web_lb" {
