@@ -53,6 +53,10 @@ Optional env vars:
                        # pull-through mirror pinned by digest — infra/observability/otel-collector-image.env (#795)
   COLLECTOR_CPU ('1')   COLLECTOR_MEMORY ('256Mi')                 # script defaults
   OTEL_TAIL_SAMPLE_RATE ('20')   OTEL_DECISION_WAIT ('10s')        # mirror infra/kubernetes/values/*-otel-collector.yaml
+  INGRESS_EXTRA_ENV (unset)   newline-separated KEY=VALUE pairs merged into (overriding) the
+                       ingress container's env. Used by the web deploy for the #806/#809
+                       same-origin guard: CLIENT_ERROR_ALLOWED_ORIGINS (the web service's own
+                       public URL) + CLIENT_ERROR_DROP_CROSS_ORIGIN. Unset for the api service.
 
 Reads the manifest from a path argument if given, else stdin. Writes YAML to stdout.
 """
@@ -70,6 +74,27 @@ def req(name):
     if not value:
         sys.exit(f"inject-otel-sidecar: missing required env var {name}")
     return value
+
+
+def parse_extra_env(raw):
+    """Parse newline-separated ``KEY=VALUE`` pairs into an ordered ``[{name, value}]`` list.
+
+    Blank lines are skipped; only the first ``=`` splits (so a value may itself contain ``=``).
+    A non-blank line with no ``=`` or an empty key is a hard error — a malformed INGRESS_EXTRA_ENV
+    must fail the deploy loudly rather than silently drop guard config onto the live service.
+    """
+    pairs = []
+    for line in (raw or "").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if "=" not in line:
+            sys.exit(f"inject-otel-sidecar: INGRESS_EXTRA_ENV entry missing '=': {line!r}")
+        name, value = line.split("=", 1)
+        if not name.strip():
+            sys.exit(f"inject-otel-sidecar: INGRESS_EXTRA_ENV entry has empty key: {line!r}")
+        pairs.append({"name": name.strip(), "value": value})
+    return pairs
 
 
 def main():
@@ -91,6 +116,9 @@ def main():
     collector_memory = os.environ.get("COLLECTOR_MEMORY", "256Mi")
     sample_rate = os.environ.get("OTEL_TAIL_SAMPLE_RATE", "20")
     decision_wait = os.environ.get("OTEL_DECISION_WAIT", "10s")
+    # Optional extra ingress env (KEY=VALUE per line), merged into — and overriding — the live
+    # ingress env below. The web deploy uses it for the #806/#809 same-origin guard; unset for api.
+    extra_ingress_env = parse_extra_env(os.environ.get("INGRESS_EXTRA_ENV"))
 
     src = sys.argv[1] if len(sys.argv) > 1 else "-"
     text = sys.stdin.read() if src == "-" else open(src, encoding="utf-8").read()
@@ -113,10 +141,14 @@ def main():
     ingress["image"] = ingress_image
 
     # ingress env: ensure OTEL_EXPORTER_OTLP_ENDPOINT points at the sidecar; drop the unused
-    # owner-cred SYSTEM_DATABASE_URL (#534; present on api, absent on web — a no-op there).
+    # owner-cred SYSTEM_DATABASE_URL (#534; present on api, absent on web — a no-op there); apply
+    # any INGRESS_EXTRA_ENV overrides (the #806/#809 same-origin guard on web). Strip each managed
+    # or overridden name first, then re-append, so re-runs are idempotent and a changed value wins.
     # Preserve every other env/secret verbatim.
-    ingress_env = [e for e in (ingress.get("env") or []) if e.get("name") not in ("SYSTEM_DATABASE_URL", "OTEL_EXPORTER_OTLP_ENDPOINT")]
+    managed_names = {"SYSTEM_DATABASE_URL", "OTEL_EXPORTER_OTLP_ENDPOINT"} | {e["name"] for e in extra_ingress_env}
+    ingress_env = [e for e in (ingress.get("env") or []) if e.get("name") not in managed_names]
     ingress_env.append({"name": "OTEL_EXPORTER_OTLP_ENDPOINT", "value": "http://localhost:4318"})
+    ingress_env.extend(extra_ingress_env)
     ingress["env"] = ingress_env
 
     collector = {

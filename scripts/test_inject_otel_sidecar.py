@@ -34,7 +34,7 @@ INJECTOR_VARS = (
     "API_IMAGE", "OTEL_CONFIG_SECRET", "OTEL_OTLP_ENDPOINT", "OTEL_LOKI_ENDPOINT",
     "OTEL_OTLP_SECRET", "OTEL_LOKI_SECRET", "COLLECTOR_IMAGE", "COLLECTOR_CPU",
     "COLLECTOR_MEMORY", "OTEL_TAIL_SAMPLE_RATE", "OTEL_DECISION_WAIT",
-    "INGRESS_IMAGE", "INGRESS_CONTAINER_NAME",
+    "INGRESS_IMAGE", "INGRESS_CONTAINER_NAME", "INGRESS_EXTRA_ENV",
 )
 
 API_IMAGE = "us-central1-docker.pkg.dev/example-project/lifting-logbook/api:newsha1234567"
@@ -337,6 +337,85 @@ class IngressImageResolutionTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         names = [c["name"] for c in yaml.safe_load(proc.stdout)["spec"]["template"]["spec"]["containers"]]
         self.assertEqual(names, ["api", "otel-collector"])
+
+
+class IngressExtraEnvTest(unittest.TestCase):
+    """INGRESS_EXTRA_ENV merges KEY=VALUE pairs into the ingress env (#809 same-origin guard).
+
+    The web deploy action derives the service's own public Cloud Run URL and passes
+    CLIENT_ERROR_ALLOWED_ORIGINS + CLIENT_ERROR_DROP_CROSS_ORIGIN here, so the #806 guard
+    classifies its own same-origin beacons correctly. These lock the merge/override/idempotency
+    contract the deploy relies on.
+    """
+
+    # A representative pair: a synthetic Cloud Run URL allowlist + the observe-mode drop flag.
+    GUARD_EXTRA_ENV = (
+        "CLIENT_ERROR_ALLOWED_ORIGINS=https://lifting-logbook-stg-web-abc123.a.run.app\n"
+        "CLIENT_ERROR_DROP_CROSS_ORIGIN=false"
+    )
+
+    def _run_web_with_extra(self, extra):
+        env = clean_env(**{**WEB_ENV, "INGRESS_EXTRA_ENV": extra})
+        proc = run_injector(WEB_FIXTURE, env=env)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        return yaml.safe_load(proc.stdout)
+
+    def test_guard_env_added_once_with_values(self):
+        web_env = containers_by_name(self._run_web_with_extra(self.GUARD_EXTRA_ENV))["web"]["env"]
+        allow = [e for e in web_env if e["name"] == "CLIENT_ERROR_ALLOWED_ORIGINS"]
+        drop = [e for e in web_env if e["name"] == "CLIENT_ERROR_DROP_CROSS_ORIGIN"]
+        self.assertEqual(len(allow), 1, "allowlist var must appear exactly once")
+        self.assertEqual(allow[0]["value"], "https://lifting-logbook-stg-web-abc123.a.run.app")
+        self.assertEqual(len(drop), 1, "drop flag must appear exactly once")
+        self.assertEqual(drop[0]["value"], "false")
+
+    def test_otel_and_terraform_env_untouched(self):
+        web = containers_by_name(self._run_web_with_extra(self.GUARD_EXTRA_ENV))["web"]
+        otel = [e for e in web["env"] if e["name"] == "OTEL_EXPORTER_OTLP_ENDPOINT"]
+        self.assertEqual(len(otel), 1)
+        self.assertEqual(otel[0]["value"], "http://localhost:4318")
+        names = {e["name"] for e in web["env"]}
+        self.assertIn("CLERK_SECRET_KEY", names)   # unrelated secret env preserved
+        self.assertIn("PUBLIC_API_URL", names)
+
+    def test_extra_env_overrides_existing_key(self):
+        # An INGRESS_EXTRA_ENV key already present on the live service is replaced, not
+        # duplicated — the strip-then-append contract that keeps a value change effective.
+        web_env = containers_by_name(
+            self._run_web_with_extra("PUBLIC_API_URL=https://override.example")
+        )["web"]["env"]
+        api = [e for e in web_env if e["name"] == "PUBLIC_API_URL"]
+        self.assertEqual(len(api), 1)
+        self.assertEqual(api[0]["value"], "https://override.example")
+
+    def test_blank_lines_ignored(self):
+        web_env = containers_by_name(
+            self._run_web_with_extra("\n  \nCLIENT_ERROR_DROP_CROSS_ORIGIN=true\n\n")
+        )["web"]["env"]
+        drop = [e for e in web_env if e["name"] == "CLIENT_ERROR_DROP_CROSS_ORIGIN"]
+        self.assertEqual(len(drop), 1)
+        self.assertEqual(drop[0]["value"], "true")
+
+    def test_malformed_extra_env_exits_nonzero(self):
+        # A line with no '=' must fail the deploy loudly — no manifest emitted.
+        env = clean_env(**{**WEB_ENV, "INGRESS_EXTRA_ENV": "NOEQUALS_HERE"})
+        proc = run_injector(WEB_FIXTURE, env=env)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertEqual(proc.stdout, "", "no manifest should be emitted on the error path")
+        self.assertIn("INGRESS_EXTRA_ENV", proc.stderr)
+
+    def test_idempotent_with_extra_env(self):
+        # Re-running with the SAME extra env reproduces the manifest exactly (guard vars stripped
+        # then re-appended, not stacked) — the property the re-run-safe deploy relies on.
+        first = self._run_web_with_extra(self.GUARD_EXTRA_ENV)
+        with tempfile.TemporaryDirectory() as d:
+            once_path = os.path.join(d, "once.yaml")
+            with open(once_path, "w", encoding="utf-8") as f:
+                yaml.safe_dump(first, f)
+            env = clean_env(**{**WEB_ENV, "INGRESS_EXTRA_ENV": self.GUARD_EXTRA_ENV})
+            second = run_injector(once_path, env=env)
+        self.assertEqual(second.returncode, 0, second.stderr)
+        self.assertEqual(first, yaml.safe_load(second.stdout))
 
 
 if __name__ == "__main__":
