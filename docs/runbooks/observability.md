@@ -97,6 +97,25 @@ In the same Explore view, switch to the **TraceQL** tab for structured queries:
 { .http.status_code = 500 }         # spans with a 500 status attribute
 ```
 
+### From the CLI (autonomous / headless)
+
+For validation that must run without the Grafana UI — e.g. an agent confirming a span
+tag's values in staging — use the read-only helper
+[`scripts/observability/tempo-query.sh`](../../scripts/observability/tempo-query.sh). It
+mirrors the Mimir `mimir-query-env.sh` pattern: credentials load from a gitignored
+`scripts/observability/.tempo-credentials` (copy `.tempo-credentials.example`; the token
+must be scoped `traces:read`), and every subcommand issues only HTTP GET.
+
+```bash
+# staging by default; TEMPO_TARGET=prod selects prod
+scripts/observability/tempo-query.sh tags                         # smoke-test creds
+scripts/observability/tempo-query.sh search '{ span.client.origin.check = "same-origin" }'
+scripts/observability/tempo-query.sh tag-values client.origin.check
+```
+
+This is the path added for #829, so span-tag checks like #809's `client.origin.check`
+guard can be validated autonomously instead of by hand.
+
 ### From a log line
 
 If you already have a log line in Loki with a `trace_id` field, click the `trace_id`
