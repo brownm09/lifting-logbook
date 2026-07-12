@@ -573,9 +573,10 @@ jobs:
           otel_mirror_repo: ${{ needs.terraform-staging.outputs.otel_mirror_repo }}
           web_sa: ${{ needs.terraform-staging.outputs.web_workload_sa }}
           # Same-origin guard (#809): allowlist = this web service's own Cloud Run URL, derived at
-          # deploy. drop=false = observe-only until staging Tempo validation (PR2 flips to true).
+          # deploy. drop=true = ENFORCING — cross-origin client-error beacons are dropped. Enabled
+          # after staging Tempo validation confirmed legit beacons tag same-origin (#809 PR2).
           client_error_guard: "true"
-          client_error_drop_cross_origin: "false"
+          client_error_drop_cross_origin: "true"
 
       # ── OTel Collector (observability — #474) ──────────────────────────────
       # Deployed LAST in the job, after the Cloud Run app deploys above, so an
@@ -1165,9 +1166,10 @@ jobs:
           otel_mirror_repo: ${{ steps.tf-prod.outputs.otel_mirror_repo }}
           web_sa: ${{ steps.tf-prod.outputs.web_workload_sa }}
           # Same-origin guard (#809): allowlist = this web service's own Cloud Run URL, derived at
-          # deploy. drop=false = observe-only until validated; PR2 flips to true (staging→prod).
+          # deploy. drop=true = ENFORCING — cross-origin beacons dropped. Enabled after staging
+          # validation (#809 PR2); this prod rollout is human-gated at environment: production.
           client_error_guard: "true"
-          client_error_drop_cross_origin: "false"
+          client_error_drop_cross_origin: "true"
 
       # ── Production web served-surface smoke (#490 item 3 / #382 / #407) ────
       # Verify the *live* prod web surface through the real Cloud Run ingress
