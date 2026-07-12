@@ -29,18 +29,16 @@ The template ([`.env.example`](.env.example)) already points the web app at the 
 API (`API_URL` / `PUBLIC_API_URL = http://localhost:3004`) and sets `DEV_AUTH_TOKEN`,
 which enables **dev-auth mode** (see [Authentication](#authentication) below).
 
-> **Why a Clerk key is in the template:** the root layout renders `<ClerkProvider>`
-> unconditionally, and `@clerk/nextjs` throws `Missing publishableKey` at startup when the
-> key is empty — so `next dev` will not boot without one, even in dev-auth mode. The
-> template ships Clerk's public example key (`pk_test_…`) to satisfy that check; it is not a
-> secret and performs no real sign-in. This is the error tracked in
-> [#828](https://github.com/brownm09/lifting-logbook/issues/828).
->
-> **Expected benign console message:** because the example key points at a non-real Clerk
-> instance, ClerkJS logs a harmless browser-console error in dev-auth mode — *"Something
-> went wrong initializing Clerk … unable to attribute this request to an instance."* The
-> page renders and dev-auth works regardless; supply your own Clerk dev key (below) to
-> silence it.
+> **No Clerk key is needed for dev-auth mode.** When `DEV_AUTH_TOKEN` is set, the root
+> layout ([`app/layout.tsx`](app/layout.tsx)) skips `<ClerkProvider>` entirely and
+> [`middleware.ts`](middleware.ts) bypasses `clerkMiddleware()`, so Clerk is fully inert —
+> `next dev` boots with no Clerk key and ClerkJS never initializes in the browser, so the
+> console stays clean. (The template used to ship Clerk's public example key to satisfy a
+> `<ClerkProvider>` startup check, which logged a benign *"unable to attribute this request
+> to an instance"* console error; skipping the provider resolved both —
+> [#828](https://github.com/brownm09/lifting-logbook/issues/828) /
+> [#834](https://github.com/brownm09/lifting-logbook/issues/834).) Supply your own Clerk
+> keys (below) only for a real sign-in flow.
 
 ### 3. Run the dev servers
 
@@ -73,11 +71,12 @@ Two modes, selected by whether `DEV_AUTH_TOKEN` is set:
 | Trigger | `DEV_AUTH_TOKEN` set | `DEV_AUTH_TOKEN` unset |
 | Middleware | `clerkMiddleware()` bypassed in [`middleware.ts`](middleware.ts) | Clerk protects all non-public routes |
 | API auth | any `Bearer <token>` accepted as the user id (`DevAuthProvider`) | real Clerk session token |
-| `CLERK_PUBLISHABLE_KEY` | **required** (ClerkProvider startup) — dummy key is fine | **required** — real `pk_` key |
+| `<ClerkProvider>` | not rendered (root layout skips it) | wraps the app |
+| `CLERK_PUBLISHABLE_KEY` | not needed (`<ClerkProvider>` skipped) | **required** — real `pk_` key |
 | `CLERK_SECRET_KEY` | not needed (middleware bypassed) | **required** — real `sk_` secret |
 
-For a real Clerk sign-in flow locally, replace the dummy publishable key in `.env.local`
-with your instance's real `pk_` key and set `CLERK_SECRET_KEY`, both from your
+For a real Clerk sign-in flow locally, unset `DEV_AUTH_TOKEN` and set your instance's real
+`pk_` publishable key and `CLERK_SECRET_KEY` in `.env.local`, both from your
 [Clerk dashboard](https://dashboard.clerk.com) → API Keys. Never commit real keys —
 `.env` and `.env*.local` are gitignored.
 
@@ -95,7 +94,7 @@ and [#396](https://github.com/brownm09/lifting-logbook/issues/396).
 | `PUBLIC_API_URL` | yes (has fallback) | `http://localhost:3004` | Browser-facing API base URL (injected at runtime) |
 | `DEFAULT_PROGRAM` | no | `5-3-1` | Program slug used as the `:program` path param |
 | `DEV_AUTH_TOKEN` | local only | `dev-user` | Enables dev-auth mode; sent as the bearer token |
-| `CLERK_PUBLISHABLE_KEY` | **yes** | *(dummy in template)* | Passed to `<ClerkProvider>`; required for startup |
+| `CLERK_PUBLISHABLE_KEY` | no (dev-auth) | *(unset)* | Passed to `<ClerkProvider>`; required only for real-Clerk mode |
 | `CLERK_SECRET_KEY` | no (dev-auth) | *(unset)* | Server-side Clerk SDK; only for real Clerk auth |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | no | *(unset)* | OTLP trace export endpoint |
 
