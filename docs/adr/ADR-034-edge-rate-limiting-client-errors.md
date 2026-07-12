@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-07-11
+**Amended:** 2026-07-12 — the apex + `www` are already live Cloud Run domain mappings, not a greenfield domain; the LB now covers both on one cert, provisioned via Certificate Manager DNS authorization for a zero-downtime cutover (see [Amendment (2026-07-12)](#amendment-2026-07-12-apex-and-www-already-live-zero-downtime-cert-manager-cutover)). Prerequisite code: [#830](https://github.com/brownm09/lifting-logbook/issues/830).
 **Closes:** [#808](https://github.com/brownm09/lifting-logbook/issues/808)
 **Related:** [ADR-020](ADR-020-tail-based-sampling-policy.md) (tail-based sampling — the #806 addendum this implements mitigation 3 of), [ADR-032](ADR-032-cloud-run-api-public-invoker.md) (which flagged a Cloud Armor / rate-limit gate as a reasonable follow-up), [ADR-009](ADR-009-infrastructure-kubernetes-cloud-run.md) (Cloud Run / GKE topology)
 
@@ -118,6 +119,8 @@ work.
 
 ### Enable procedure (#804 has landed — now actionable; tracked in #826)
 
+> **Superseded by the [2026-07-12 Amendment](#amendment-2026-07-12-apex-and-www-already-live-zero-downtime-cert-manager-cutover).** The steps below assume a *greenfield* `web_domain`. Production is already served at the `liftinglogbook.com` apex + `www` via Cloud Run domain mappings, so the real cutover covers both domains, uses a Certificate Manager DNS-authorization cert for zero downtime, and must **delete** the domain mappings before phase 2. Follow the amendment's procedure, not this one.
+
 **Phase 1 — stand up the LB (`run.app` keeps serving; no downtime):**
 
 1. Choose the public domain. Set `web_domain` and `enable_edge_load_balancer = true` for the target
@@ -139,6 +142,81 @@ work.
 
 **Roll back** in reverse: unset `lock_web_ingress_to_lb` and apply (restores `run.app` public
 ingress), then unset `enable_edge_load_balancer` and apply, then remove the DNS record.
+
+## Amendment (2026-07-12): apex and www already live; zero-downtime Cert Manager cutover
+
+**What prompted it.** Enabling in production ([#826](https://github.com/brownm09/lifting-logbook/issues/826))
+surfaced that the original enable procedure above assumed a *greenfield* public domain. Live production
+state (verified via `gcloud`) is different: the web Cloud Run service is **already served at
+`liftinglogbook.com` (apex) and `www.liftinglogbook.com` via Cloud Run domain mappings** (`Ready=True`),
+in addition to `*.run.app`; web ingress is `all`. Three facts follow that the original design did not
+handle, corrected by the prerequisite code change
+([#830](https://github.com/brownm09/lifting-logbook/issues/830)) while keeping the stack default-off
+(still a no-op plan):
+
+1. **The cert must cover the apex *and* `www`.** The shipped design issued a single-domain
+   compute-managed cert (`domains = [var.web_domain]`). A new `var.web_domain_aliases` (list, default
+   `[]`) is folded into the cert's domain set, so one cert carries the apex plus every alias (e.g.
+   `www`), served by a single `PRIMARY` certificate-map entry (they are SANs on one cert).
+
+2. **Cutting an *already-live* domain over needs zero downtime — Certificate Manager DNS
+   authorization.** The original `google_compute_managed_ssl_certificate` can only validate once the
+   domain's *serving* DNS points at the LB IP, so cutting the live apex over would dark-window HTTPS for
+   the ~minutes-to-hour the cert takes to provision. #830 replaces it with **Certificate Manager + DNS
+   authorization**: each domain is validated by an independent `_acme-challenge` CNAME
+   (`terraform output edge_lb_dns_authorizations`), so the cert reaches `ACTIVE` **while the apex/www
+   still serve via their existing domain mappings**. The operator then flips DNS to the LB IP with a
+   valid cert already in place — a near-zero-downtime cutover. The ADR's original "enabling never causes
+   downtime" claim held only for a greenfield domain; DNS authorization restores it for the live-domain
+   case.
+
+3. **Phase 2 requires deleting the domain mappings.** `INTERNAL_AND_CLOUD_LOAD_BALANCING` ingress admits
+   only internal + Cloud-Load-Balancer traffic. A Cloud Run **domain mapping** serves through the Google
+   frontend directly to the service — *not* through the Cloud LB — so it is incompatible with that
+   ingress mode. The `liftinglogbook.com` and `www` domain mappings must therefore be **deleted** as part
+   of the phase-1 cutover (once DNS points at the LB), before phase 2 locks ingress. The original
+   Consequences did not call this out.
+
+**IPv6 (accepted).** The apex currently has `AAAA` records (the domain mapping is dual-stack); the LB
+reserves an IPv4 `google_compute_global_address` only, so the cutover drops IPv6 for the site. Accepted
+for now to keep the change minimal; IPv6 parity is a small follow-up (an IPv6 global address + its own
+`:80`/`:443` forwarding rules).
+
+### Corrected enable procedure (supersedes the greenfield one above)
+
+**Phase 1 — stand up the LB; apex/www keep serving throughout:**
+
+1. Set, for production: `enable_edge_load_balancer = true`, `web_domain = "liftinglogbook.com"`,
+   `web_domain_aliases = ["www.liftinglogbook.com"]`. Leave `lock_web_ingress_to_lb = false`.
+2. `terraform apply` — creates the LB, static IP, Cloud Armor policy, the per-domain DNS authorizations,
+   and the managed cert (`PROVISIONING`). `run.app` **and** the apex/www domain mappings are untouched
+   and still serving.
+3. `terraform output edge_lb_dns_authorizations` → at the registrar, add each domain's `_acme-challenge`
+   **CNAME** (`record_name` → `record_data`). These do **not** affect serving.
+4. Wait for the Certificate Manager cert to reach `ACTIVE` (validates via the CNAMEs; the apex/www keep
+   serving via their domain mappings the entire time — **zero impact**).
+5. `terraform output edge_lb_ip` → flip the apex + `www` **A** records to that IP (and remove their
+   `AAAA` records — the LB is IPv4-only). The cert is already `ACTIVE`, so the LB serves valid HTTPS
+   immediately → **near-zero window**.
+6. Verify `https://liftinglogbook.com` and `https://www.liftinglogbook.com` serve via the LB, and a
+   per-IP burst above the threshold returns `429` on `/api/client-errors` (backend request logging is on,
+   so the Cloud Armor verdict appears in Cloud Logging).
+7. **Delete** the two Cloud Run domain mappings — now bypassed by DNS and incompatible with phase 2's
+   ingress lock:
+   `gcloud beta run domain-mappings delete --domain liftinglogbook.com --region us-central1 --project lifting-logbook-prod`
+   (repeat for `www.liftinglogbook.com`).
+
+**Phase 2 — close the `run.app` bypass (only after phase 1 is verified):**
+
+8. Set `lock_web_ingress_to_lb = true` and `terraform apply` — flips web ingress to
+   `INTERNAL_AND_CLOUD_LOAD_BALANCING`. Confirm `run.app` now rejects direct public traffic while the
+   apex/www still serve via the LB.
+
+**Roll back** in reverse: unset `lock_web_ingress_to_lb` and apply (restores `run.app` public ingress);
+recreate the apex/www Cloud Run domain mappings and repoint their DNS
+(`gcloud beta run domain-mappings create …`, then restore the `A`/`AAAA`/CNAME records per
+[`docs/deploy-single-user.md` Step 6](deploy-single-user.md#step-6--map-a-custom-domain-optional)); then
+unset `enable_edge_load_balancer` (and `web_domain*`) and apply; finally remove the DNS-auth CNAMEs.
 
 ## Alternatives Considered
 
@@ -181,5 +259,7 @@ the ban fields) if a hard ban is later wanted.
 - [Google Cloud Armor — Rate limiting overview](https://cloud.google.com/armor/docs/rate-limiting-overview) — `throttle` vs. `rate_based_ban`, `enforce_on_key`, and threshold/interval semantics; the mechanism this ADR's rule uses.
 - [Google Cloud — Set up an external Application Load Balancer with Cloud Run (serverless NEG)](https://cloud.google.com/load-balancing/docs/https/setting-up-https-serverless) — the exact LB topology (serverless NEG → backend service → URL map → HTTPS proxy → forwarding rule) provisioned here, and where a Cloud Armor policy attaches.
 - [Google Cloud — Serverless network endpoint groups (NEGs) overview](https://cloud.google.com/load-balancing/docs/negs/serverless-neg-concepts) — how a Cloud Run service is placed behind an external ALB backend service, the substrate Cloud Armor requires.
-- [Google Cloud Run — Restricting network ingress](https://cloud.google.com/run/docs/securing/ingress) — the `INTERNAL_AND_CLOUD_LOAD_BALANCING` setting used to stop the `run.app` URL bypassing the load balancer and its rate limit.
+- [Google Cloud Run — Restricting network ingress](https://cloud.google.com/run/docs/securing/ingress) — the `INTERNAL_AND_CLOUD_LOAD_BALANCING` setting used to stop the `run.app` URL bypassing the load balancer and its rate limit; also why a Cloud Run **domain mapping** (which serves via the Google frontend, not the LB) is incompatible with that ingress mode and must be deleted before phase 2 (amendment §3).
+- [Google Cloud Certificate Manager — DNS authorizations](https://cloud.google.com/certificate-manager/docs/dns-authorizations) — the per-domain `_acme-challenge` CNAME validation that lets a managed cert reach `ACTIVE` **before** the domain's serving DNS is cut to the LB; the mechanism the amendment relies on for a zero-downtime cutover of the already-live apex/www.
+- [Google Cloud Certificate Manager — Deploy a Google-managed certificate with DNS authorization](https://cloud.google.com/certificate-manager/docs/deploy-google-managed-dns-auth) — the certificate → certificate map → target HTTPS proxy attachment path this file provisions (replacing the classic `ssl_certificates` list).
 - [ADR-020 — Tail-Based Sampling Policy](ADR-020-tail-based-sampling-policy.md) — the `errors`-always policy and the #806 addendum that records this rate limit as mitigation (3), plus the retained-ERROR-span cost model motivating it.

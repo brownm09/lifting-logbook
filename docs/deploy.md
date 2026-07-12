@@ -761,28 +761,51 @@ landed** ([PR #814](https://github.com/brownm09/lifting-logbook/pull/814)), so t
 exports to the prod collector and the surface is live — enablement (tracked in
 [#826](https://github.com/brownm09/lifting-logbook/issues/826)) now waits only on a domain / DNS cutover:
 
-Enabling is **two phases** (decoupled so it never causes downtime):
+> **Prod is already served at the `liftinglogbook.com` apex + `www` via Cloud Run domain mappings**,
+> not a greenfield domain — so the cutover covers **both** domains, uses a **Certificate Manager
+> DNS-authorization** cert (the cert reaches `ACTIVE` while the apex/www keep serving, for a
+> zero-downtime flip), and must **delete** the domain mappings before phase 2 (they are incompatible
+> with the phase-2 ingress lock). This procedure is the [ADR-034 2026-07-12 amendment](adr/ADR-034-edge-rate-limiting-client-errors.md#amendment-2026-07-12-apex-and-www-already-live-zero-downtime-cert-manager-cutover);
+> the code prerequisite is [#830](https://github.com/brownm09/lifting-logbook/issues/830).
 
-**Phase 1 — stand up the LB (`run.app` keeps serving):**
+Enabling is **two phases** (decoupled so the live domain never goes dark):
 
-1. Set `web_domain` (a managed cert cannot cover `*.run.app`) and `enable_edge_load_balancer = true`
-   for the environment (leave `lock_web_ingress_to_lb = false`), then `terraform apply`.
-2. `terraform output edge_lb_ip` → add the DNS **A** record `web_domain` → that IP.
-3. Wait for the managed certificate to reach `ACTIVE` (up to ~60 min after DNS resolves).
-4. Verify legitimate traffic serves via `https://<web_domain>`, and a burst above the threshold from
-   one IP returns `429` on `/api/client-errors` (the backend service has request logging on, so the
-   Cloud Armor throttle verdict is in Cloud Logging).
+**Phase 1 — stand up the LB; the apex/www keep serving via their domain mappings throughout:**
+
+1. Set `enable_edge_load_balancer = true`, `web_domain = "liftinglogbook.com"`,
+   `web_domain_aliases = ["www.liftinglogbook.com"]` (leave `lock_web_ingress_to_lb = false`), then
+   `terraform apply`. Creates the LB, Cloud Armor policy, the per-domain DNS authorizations, and the
+   managed cert (`PROVISIONING`). `run.app` **and** the domain mappings are untouched.
+2. `terraform output edge_lb_dns_authorizations` → at the registrar, add each domain's
+   `_acme-challenge` **CNAME** (`record_name` → `record_data`). Serving is unaffected.
+3. Wait for the Certificate Manager cert to reach `ACTIVE` (validates via the CNAMEs; the apex/www keep
+   serving via their domain mappings — **zero impact**).
+4. `terraform output edge_lb_ip` → flip the apex + `www` **A** records to that IP and remove their
+   `AAAA` records (the LB is IPv4-only). Cert is already `ACTIVE` ⇒ near-zero window.
+5. Verify `https://liftinglogbook.com` + `https://www.liftinglogbook.com` serve via the LB, and a burst
+   above the threshold from one IP returns `429` on `/api/client-errors` (the backend service has
+   request logging on, so the Cloud Armor throttle verdict is in Cloud Logging).
+6. **Delete** the two Cloud Run domain mappings (now bypassed by DNS; incompatible with phase 2):
+   ```bash
+   gcloud beta run domain-mappings delete --domain liftinglogbook.com \
+     --region us-central1 --project lifting-logbook-prod
+   gcloud beta run domain-mappings delete --domain www.liftinglogbook.com \
+     --region us-central1 --project lifting-logbook-prod
+   ```
 
 **Phase 2 — close the `run.app` bypass (only after phase 1 is verified):**
 
-5. Set `lock_web_ingress_to_lb = true` and `terraform apply` — flips the web service ingress to
+7. Set `lock_web_ingress_to_lb = true` and `terraform apply` — flips the web service ingress to
    `INTERNAL_AND_CLOUD_LOAD_BALANCING`. Confirm `run.app` now rejects direct public traffic while
-   `https://<web_domain>` still serves.
+   `https://liftinglogbook.com` still serves.
 
-Do **not** flip `lock_web_ingress_to_lb` before the cert is `ACTIVE` — that would lock `run.app` while
-the LB can't serve HTTPS and the site goes dark (a precondition also rejects it unless the LB is
-enabled). Roll back in reverse: unset `lock_web_ingress_to_lb` and apply, then unset
-`enable_edge_load_balancer`. Rationale, threshold tuning (`client_error_rate_limit_count`), and
+Do **not** flip `lock_web_ingress_to_lb` before the cert is `ACTIVE` and DNS is cut over — that would
+lock `run.app` while the LB can't yet serve the domain and the site goes dark (a precondition also
+rejects it unless the LB is enabled). Roll back in reverse: unset `lock_web_ingress_to_lb` and apply;
+recreate the apex/www domain mappings and repoint their DNS
+([`deploy-single-user.md` Step 6](deploy-single-user.md#step-6--map-a-custom-domain-optional) covers the
+records); then unset `enable_edge_load_balancer` and apply; finally
+remove the DNS-auth CNAMEs. Rationale, threshold tuning (`client_error_rate_limit_count`), and
 alternatives: [ADR-034](adr/ADR-034-edge-rate-limiting-client-errors.md).
 
 ### Accessing logs
