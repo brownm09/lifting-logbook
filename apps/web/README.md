@@ -15,8 +15,10 @@ npm install
 
 ### 2. Create your local env file
 
-The dev server reads local configuration from `apps/web/.env.local` (gitignored).
-Copy the checked-in template — its defaults work out of the box for local dev-auth mode:
+The dev server reads local configuration from `apps/web/.env.local` (gitignored; Next.js
+also loads `apps/web/.env`, which is what the repo's `scripts/dev-setup.sh` and the root
+[`README.md`](../../README.md) use — either filename works). Copy the checked-in template —
+its defaults work out of the box for local dev-auth mode:
 
 ```bash
 # from the repo root
