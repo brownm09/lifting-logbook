@@ -69,8 +69,20 @@ output "kms_key_name" {
 }
 
 output "edge_lb_ip" {
-  description = "External IP of the web load balancer (#808 / ADR-034). Empty unless enable_edge_load_balancer = true; when set, create the DNS A record for web_domain pointing at this IP as part of the enable procedure."
+  description = "External IP of the web load balancer (#808 / ADR-034). Empty unless enable_edge_load_balancer = true; when set, create the DNS A record for web_domain (and each web_domain_aliases entry) pointing at this IP as part of the enable procedure."
   value       = try(google_compute_global_address.web_lb[0].address, "")
+}
+
+output "edge_lb_dns_authorizations" {
+  description = "Certificate Manager DNS-authorization CNAME records (#808 / ADR-034), keyed by domain. Empty unless enable_edge_load_balancer = true. During the enable cutover, create each CNAME (record_name -> record_data) at the registrar so the managed cert validates while the apex/www still serve via their existing Cloud Run domain mappings (zero-downtime)."
+  value = {
+    for d, auth in google_certificate_manager_dns_authorization.web :
+    d => {
+      record_name = auth.dns_resource_record[0].name
+      record_type = auth.dns_resource_record[0].type
+      record_data = auth.dns_resource_record[0].data
+    }
+  }
 }
 
 output "web_workload_sa" {

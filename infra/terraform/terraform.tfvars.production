@@ -16,11 +16,16 @@ image_tag       = "bootstrap"
 # ── Edge rate limit (#808 / ADR-034) ──────────────────────────────────────────
 # External HTTPS load balancer + Cloud Armor in front of the web service, with a
 # per-IP throttle scoped to /api/client-errors. OFF by default — the app serves
-# directly off *.run.app and the whole stack is a no-op plan. Two-phase enable
-# (ADR-034 / docs/deploy.md): (1) set enable_edge_load_balancer + web_domain, apply,
-# point DNS at `terraform output edge_lb_ip`, wait for the managed cert ACTIVE; then
-# (2) set lock_web_ingress_to_lb to close the run.app bypass. #804's collector wiring
-# has landed (surface is live); enablement tracked in #826.
+# directly off *.run.app + the liftinglogbook.com / www domain mappings, and the whole
+# stack is a no-op plan. Two-phase enable (ADR-034 amendment / docs/deploy.md):
+#   (1) set enable_edge_load_balancer + web_domain (+ web_domain_aliases), apply; add the
+#       Certificate Manager DNS-auth CNAMEs from `terraform output edge_lb_dns_authorizations`;
+#       wait for the cert ACTIVE (apex/www still served by their domain mappings); flip the
+#       apex + www A records to `terraform output edge_lb_ip`; DELETE the two Cloud Run domain
+#       mappings; verify a per-IP burst on /api/client-errors returns 429.
+#   (2) set lock_web_ingress_to_lb to close the run.app bypass (only after the above).
+# #804's collector wiring has landed (surface is live); enablement tracked in #826.
 # enable_edge_load_balancer = true
-# web_domain                = "app.example.com"
-# lock_web_ingress_to_lb    = true   # phase 2 — only after the cert is ACTIVE
+# web_domain                = "liftinglogbook.com"
+# web_domain_aliases        = ["www.liftinglogbook.com"]
+# lock_web_ingress_to_lb    = true   # phase 2 — only after the cert is ACTIVE + DNS cut over

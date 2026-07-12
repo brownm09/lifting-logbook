@@ -117,12 +117,28 @@ variable "lock_web_ingress_to_lb" {
 
 variable "web_domain" {
   description = <<-EOT
-    Public domain served by the web load balancer (e.g. "app.liftinglogbook.com").
-    Required only when enable_edge_load_balancer = true — a Google-managed SSL
-    certificate cannot be issued for a *.run.app URL. Empty otherwise.
+    Public APEX domain served by the web load balancer (e.g. "liftinglogbook.com").
+    Required when enable_edge_load_balancer = true — a Google-managed SSL certificate
+    cannot be issued for a *.run.app URL. Additional hostnames (e.g. www) go in
+    var.web_domain_aliases; the LB's managed cert covers the apex plus every alias.
+    Empty otherwise.
   EOT
   type        = string
   default     = ""
+}
+
+variable "web_domain_aliases" {
+  description = <<-EOT
+    Additional hostnames beyond var.web_domain to include on the web load balancer's
+    managed SSL certificate (e.g. ["www.liftinglogbook.com"]). Each alias is validated by
+    its own Certificate Manager DNS authorization and must have its serving DNS record
+    pointed at the LB IP during the cutover; like the apex, any pre-existing Cloud Run
+    domain mapping for an alias must be deleted before phase 2 locks web ingress to the LB
+    (an ingress-locked service cannot serve a domain mapping). Empty by default; only used
+    when enable_edge_load_balancer = true.
+  EOT
+  type        = list(string)
+  default     = []
 }
 
 variable "client_error_rate_limit_count" {
