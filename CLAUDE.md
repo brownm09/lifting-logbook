@@ -177,15 +177,18 @@ If `--format json` is not supported by the installed `gh` version, fall back to 
 5. Commit with `Closes #<N>` in the message (see Commit Format)
 6. Push: `git push -u origin <branch>`
 7. Open a PR: `gh pr create --title "<prefix> <title>" --body "..."`
-8. After PR approval: squash merge using the two-step pattern documented in the global
-   [`CLAUDE.md`](https://github.com/brownm09/dev-env/blob/main/claude/CLAUDE.md) under
-   "Worktree holding the base branch blocks `gh pr merge --delete-branch`'s local step" —
-   rather than a single `gh pr merge <N> --squash --delete-branch`. This repo hits the squat
-   variant of that failure often: 60+ concurrent worktrees under `.claude/worktrees/` make it
-   common for some worktree to be holding `main` at merge time (confirmed on
-   [PR #664](https://github.com/brownm09/lifting-logbook/pull/664), 2026-07-03). If a squat is
-   actively blocking a merge right now, the on-demand clear procedure is in the
-   [dev-env runbook](https://github.com/brownm09/dev-env/blob/main/docs/REFERENCE.md#git-workflow-runbooks).
+8. After PR approval, squash merge with a single server-side call — the repo has
+   `delete_branch_on_merge` enabled ([#841](https://github.com/brownm09/lifting-logbook/issues/841);
+   verify live with `gh api repos/brownm09/lifting-logbook --jq .delete_branch_on_merge` → `true`),
+   so GitHub deletes the remote branch server-side the instant the PR merges:
+   ```bash
+   gh pr merge <N> --squash
+   ```
+   Do **not** add `--delete-branch` or a manual `gh api -X DELETE .../git/refs/heads/<branch>` — the
+   ref is already gone, so an explicit delete now 422s. Omitting `--delete-branch` also retires the
+   worktree-squatting-`main` failure class: without it, the merge does no local checkout, so a
+   worktree holding `main` can no longer abort it. Any open PRs stacked on (based on) the merged
+   branch are auto-retargeted to `main` by GitHub when the branch is deleted.
 9. Move the issue to **Done** on the project board:
    ```bash
    TMPFILE="C:/Users/brown/.claude/scratch/tmp_item_<N>.json"
@@ -236,11 +239,10 @@ back to the REST equivalents. (The global
   ```
 - **Merge.** `gh pr merge <N> --auto --squash` is a single lightweight GraphQL call that arms GitHub
   to squash-merge once checks pass — prefer it while GraphQL has *any* budget. If GraphQL is fully
-  exhausted, merge and delete the branch entirely over REST (the same server-side merge + ref-delete
-  as step 8, reached without GraphQL):
+  exhausted, merge over REST — GitHub still deletes the branch server-side, since
+  `delete_branch_on_merge` is enabled, so there is no explicit ref-delete (it would 422):
   ```bash
   gh api -X PUT repos/brownm09/lifting-logbook/pulls/<N>/merge -f merge_method=squash
-  gh api -X DELETE "repos/brownm09/lifting-logbook/git/refs/heads/<branch>"
   ```
 - **Inspect PR state** instead of `gh pr view --json`:
   ```bash
@@ -290,7 +292,7 @@ Closes #1
 - **Title format:** `[<type>] <description>` (matching the commit type prefix)
 - **Body:** Summary paragraph + Acceptance Criteria checklist (copy from issue) + test instructions
 - **Merge strategy:** Squash merge only — keeps `main` history linear
-- **Branch cleanup:** Delete the branch after merge — use the two-step pattern in Standard Issue Workflow step 8, not a bare `--delete-branch`, since that flag's local step can fail when a worktree is squatting `main`
+- **Branch cleanup:** Automatic — `delete_branch_on_merge` is enabled ([#841](https://github.com/brownm09/lifting-logbook/issues/841)), so GitHub deletes the remote branch server-side on merge. Don't pass `--delete-branch` or run a manual `gh api -X DELETE .../git/refs/heads/<branch>` (it would 422); just `gh pr merge <N> --squash` per Standard Issue Workflow step 8. Any PRs stacked on the merged branch are auto-retargeted to `main`.
 
 ---
 
