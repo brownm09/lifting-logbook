@@ -1,6 +1,6 @@
 # Proposal: Initial Training Max Discovery
 
-**Status:** `draft`
+**Status:** `shipped`
 **Date:** 2026-04-30
 **Issue:** [#129](https://github.com/brownm09/lifting-logbook/issues/129)
 

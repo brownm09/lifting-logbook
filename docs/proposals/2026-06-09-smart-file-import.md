@@ -1,6 +1,6 @@
 # Proposal: Smart File Import Wizard
 
-**Status:** `accepted`
+**Status:** `shipped`
 **Date:** 2026-06-09
 **Issue:** [#477](https://github.com/brownm09/lifting-logbook/issues/477)
 

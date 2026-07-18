@@ -1,6 +1,6 @@
 # Proposal: Workout Logging Screen
 
-**Status:** `draft`
+**Status:** `shipped`
 **Date:** 2026-04-29
 **Issue:** [#106](https://github.com/brownm09/lifting-logbook/issues/106)
 

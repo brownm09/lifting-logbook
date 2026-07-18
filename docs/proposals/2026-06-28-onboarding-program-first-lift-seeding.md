@@ -1,6 +1,6 @@
 # Proposal: Program-First Onboarding with Auto-Seeded Lifts
 
-**Status:** `draft`
+**Status:** `shipped`
 **Date:** 2026-06-28
 **Issue:** [#599](https://github.com/brownm09/lifting-logbook/issues/599)
 

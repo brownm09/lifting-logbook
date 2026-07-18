@@ -64,7 +64,7 @@ Architecture decisions for data access and security documented.
 
 ---
 
-## v0.3 — Client Applications `[Current]`
+## v0.3 — Client Applications `[Shipped]`
 
 Web and mobile clients functional end-to-end. Key user-facing features implemented.
 
@@ -110,7 +110,7 @@ Web and mobile clients functional end-to-end. Key user-facing features implement
 | [Strength Goal Tracking](docs/proposals/2026-04-29-strength-goal-tracking.md) | Per-lift, per-tier strength standards (intermediate/advanced/elite) with target and observed dates | [#111](https://github.com/brownm09/lifting-logbook/issues/111) | shipped |
 | [Initial Training Max Discovery](docs/proposals/2026-04-30-initial-training-max-discovery.md) | Estimation utility (Brzycki) and test-week cycle phase for users with no existing training maxes | [#129](https://github.com/brownm09/lifting-logbook/issues/129) | shipped |
 | [On-Call Readiness](docs/proposals/2026-05-08-on-call-readiness.md) | Runbooks, SLOs, incident response guide, and severity/escalation framework; sequences after #199 | [#201](https://github.com/brownm09/lifting-logbook/issues/201) | shipped |
-| [Historical Lift Data Backfill](docs/proposals/2026-05-11-historical-lift-data-backfill.md) | CSV upload endpoint and web UI to ingest historical `LiftRecord` rows with all-or-nothing validation | [#225](https://github.com/brownm09/lifting-logbook/issues/225) | draft |
+| [Historical Lift Data Backfill](docs/proposals/2026-05-11-historical-lift-data-backfill.md) | CSV upload endpoint and web UI to ingest historical `LiftRecord` rows with all-or-nothing validation | [#225](https://github.com/brownm09/lifting-logbook/issues/225) | declined |
 | [Workout Scheduling Override](docs/proposals/2026-05-17-workout-scheduling-override.md) | User-defined preferred workout days (fixed or rotating A/B) + per-program `workoutsPerWeek` override with automatic cycle date distribution | [#267](https://github.com/brownm09/lifting-logbook/issues/267) | shipped |
 | [Custom User-Created Lifts](docs/proposals/2026-06-03-custom-lifts.md) | Per-user persisted `CustomLift` entity (Prisma model + `ICustomLiftRepository` port + ownership isolation); `resolveLift` prefers custom over catalog; `GET/POST/PATCH/DELETE /lifts/custom`. Foundational for #426 and #427 | [#425](https://github.com/brownm09/lifting-logbook/issues/425) | shipped |
 | [Onboarding — Any-Lift Max Estimation](docs/proposals/2026-06-03-onboarding-any-lift-max-estimation.md) | Dynamic add/remove lift list in onboarding for any catalog or custom lift; persists confirmed maxes (closes the discard gap in `createFirstCycle`) | [#426](https://github.com/brownm09/lifting-logbook/issues/426) | shipped |
@@ -121,7 +121,7 @@ Web and mobile clients functional end-to-end. Key user-facing features implement
 
 ---
 
-## v0.4 — Alpha Release `[Shipped]`
+## v0.4 — Alpha Release `[Current]`
 
 First deployable version. Styled web app running against a real database, deployed and accessible to known users. Mobile deferred to v1.0.
 
