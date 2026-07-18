@@ -94,18 +94,41 @@ All new issues must be added to the **Lifting Logbook** project and assigned an 
 
 **Backup-and-restore procedure (mandatory before adding/removing/renaming any single-select option):**
 
-1. Snapshot current Epic assignments to a git-tracked file:
+1. Snapshot current single-select assignments (Epic, Status, Priority) to a git-tracked file. The
+   query **paginates through every item** — `items(first: 100)` alone caps the snapshot at 100 items
+   and silently drops the rest ([#857](https://github.com/brownm09/lifting-logbook/issues/857): the
+   board passed 500 items on 2026-07-17), so a restore would lose the un-captured items' assignments.
+   `gh api graphql --paginate` loops on `pageInfo`/`endCursor` automatically (no fixed `--limit` to
+   keep bumping — the treadmill [#852](https://github.com/brownm09/lifting-logbook/issues/852) warns
+   against), and the completeness guard refuses to commit an incomplete snapshot:
    ```bash
    mkdir -p .claude/backups
    STAMP=$(date +%Y-%m-%d-%H%M%S)
-   gh api graphql -f query='
-     query { node(id: "PVT_kwHOAjEKvM4BTuEF") { ... on ProjectV2 {
-       items(first: 100) { nodes { id content { ... on Issue { number title } }
-         fieldValues(first: 20) { nodes { ... on ProjectV2ItemFieldSingleSelectValue {
-           name field { ... on ProjectV2SingleSelectField { name } } } } } } } } } }' \
-     > .claude/backups/project-epic-snapshot-$STAMP.json
-   git add .claude/backups/project-epic-snapshot-$STAMP.json
-   git commit -m "[chore] Snapshot project Epic assignments before option mutation"
+   SNAP=".claude/backups/project-epic-snapshot-$STAMP.json"
+   # One line-delimited JSON object per item: id, issue number/title, and every single-select
+   # field value (Epic, Status, Priority, …) so restore works whichever field is later mutated.
+   gh api graphql --paginate -f query='
+     query($endCursor: String) {
+       node(id: "PVT_kwHOAjEKvM4BTuEF") { ... on ProjectV2 {
+         items(first: 100, after: $endCursor) {
+           pageInfo { hasNextPage endCursor }
+           nodes { id content { ... on Issue { number title } }
+             fieldValues(first: 20) { nodes { ... on ProjectV2ItemFieldSingleSelectValue {
+               name field { ... on ProjectV2SingleSelectField { name } } } } } } } } } }' \
+     --jq '.data.node.items.nodes[] | {id, number: .content.number, title: .content.title,
+       fields: [.fieldValues.nodes[] | select(.name) | {field: .field.name, value: .name}]}' \
+     > "$SNAP"
+   # Completeness check (#857): snapshot line count must equal the live project item count, or the
+   # snapshot truncated — do NOT run the mutation until the mismatch is understood.
+   SNAP_ITEMS=$(wc -l < "$SNAP")
+   LIVE_ITEMS=$(gh api graphql -f query='query { node(id: "PVT_kwHOAjEKvM4BTuEF") { ... on ProjectV2 { items { totalCount } } } }' --jq '.data.node.items.totalCount')
+   echo "snapshot: $SNAP_ITEMS items   live: $LIVE_ITEMS items"
+   if [ "$SNAP_ITEMS" -eq "$LIVE_ITEMS" ]; then
+     git add "$SNAP"
+     git commit -m "[chore] Snapshot project Epic assignments before option mutation"
+   else
+     echo "ERROR: snapshot incomplete ($SNAP_ITEMS of $LIVE_ITEMS captured) — do NOT proceed; investigate."
+   fi
    ```
 2. Run the `updateProjectV2Field` mutation with the full desired option list (existing names + new/changed).
 3. Capture the new option IDs from the mutation response and update **all three places these IDs are cached**, in the same PR as the snapshot — all must match the live API:
@@ -114,7 +137,7 @@ All new issues must be added to the **Lifting Logbook** project and assigned an 
    - [`.claude/hook-config.json`](.claude/hook-config.json) — the `epic_options` map (consumed by the `post-tool-use.py` project-board hook, which prints them verbatim with no live fetch).
 
    > `hook-config.json` was the cache omitted in the 2026-05-10 mutation, which left the issue/PR hook suggesting dead Epic option IDs until [#627](https://github.com/brownm09/lifting-logbook/issues/627). Do not skip it.
-4. Restore assignments by reading the snapshot and re-issuing `gh project item-edit` for each item, mapping the snapshot's epic name → new option ID.
+4. Restore assignments by reading the snapshot (one JSON object per line) and re-issuing `gh project item-edit` for each item: for each line, take the `fields[]` entry whose `field` is the mutated field (e.g. `Epic`), map its `value` (the option name) → the new option ID, and edit the item by its `id`.
 
 If a mutation runs without a prior snapshot commit, stop and recover from the latest snapshot in `.claude/backups/` before continuing any other work.
 
