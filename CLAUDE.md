@@ -68,7 +68,7 @@ Architecture follows hexagonal / Ports & Adapters. `packages/core` has zero infr
 
 All new issues must be added to the **Lifting Logbook** project and assigned an epic before work begins.
 
-**Important:** All `gh project item-list` queries in this file use `--limit 500` to avoid truncation. The project has 327+ items (default limit is 30). If the project grows beyond 500 items, increase this limit accordingly.
+**Board-item lookups use a direct per-issue GraphQL query — no board enumeration, no `--limit` to maintain.** The two board-move steps (Standard Issue Workflow steps 3 & 9) resolve an issue's project-item ID via a `gh api graphql` query keyed on the issue number, so board growth can never truncate them. This replaces the old `gh project item-list --limit N` + client-side `node -e` find, which silently returned "not found" for recent issues once the board outgrew the hardcoded limit (it passed 500 items in July 2026; issues ≥ #837 broke — see [#852](https://github.com/brownm09/lifting-logbook/issues/852), prior art [#632](https://github.com/brownm09/lifting-logbook/issues/632)/[#601](https://github.com/brownm09/lifting-logbook/issues/601)). Note: `gh`'s `--jq` flag is its own built-in filter (gojq) and does **not** require the standalone `jq` binary this repo otherwise lacks.
 
 **Project IDs (needed for CLI commands):**
 - Project number: `2`, owner: `brownm09`
@@ -161,17 +161,19 @@ If `--format json` is not supported by the installed `gh` version, fall back to 
 2. Create a branch: `git checkout -b <type>/issue-<N>-<slug>` (see Branch Naming)
 3. Move the issue to **In Progress** on the project board:
    ```bash
-   TMPFILE="C:/Users/brown/.claude/scratch/tmp_item_<N>.json"
-   gh project item-list 2 --owner brownm09 --limit 500 --format json > "$TMPFILE"
-   ITEM_ID=$(node -e "
-     const d=JSON.parse(require('fs').readFileSync('$TMPFILE','utf8'));
-     const item=d.items.find(i=>i.content&&i.content.number===<N>);
-     console.log(item.id);
-   ")
-   rm -f "$TMPFILE"
+   # Resolve the project-item ID for issue <N> directly — no board enumeration, no --limit.
+   ITEM_ID=$(gh api graphql -f query='
+     query($number: Int!) {
+       repository(owner: "brownm09", name: "lifting-logbook") {
+         issue(number: $number) {
+           projectItems(first: 10) { nodes { id project { number } } }
+         }
+       }
+     }' -F number=<N> \
+     --jq '.data.repository.issue.projectItems.nodes[] | select(.project.number==2) | .id')
    gh project item-edit --project-id PVT_kwHOAjEKvM4BTuEF --id "$ITEM_ID" \
      --field-id PVTSSF_lAHOAjEKvM4BTuEFzhA7F7E \
-     --single-select-option-id 47fc9ee4
+     --single-select-option-id 47fc9ee4   # In Progress
    ```
 4. Implement the changes
 5. Commit with `Closes #<N>` in the message (see Commit Format)
@@ -191,17 +193,19 @@ If `--format json` is not supported by the installed `gh` version, fall back to 
    branch are auto-retargeted to `main` by GitHub when the branch is deleted.
 9. Move the issue to **Done** on the project board:
    ```bash
-   TMPFILE="C:/Users/brown/.claude/scratch/tmp_item_<N>.json"
-   gh project item-list 2 --owner brownm09 --limit 500 --format json > "$TMPFILE"
-   ITEM_ID=$(node -e "
-     const d=JSON.parse(require('fs').readFileSync('$TMPFILE','utf8'));
-     const item=d.items.find(i=>i.content&&i.content.number===<N>);
-     console.log(item.id);
-   ")
-   rm -f "$TMPFILE"
+   # Resolve the project-item ID for issue <N> directly — no board enumeration, no --limit.
+   ITEM_ID=$(gh api graphql -f query='
+     query($number: Int!) {
+       repository(owner: "brownm09", name: "lifting-logbook") {
+         issue(number: $number) {
+           projectItems(first: 10) { nodes { id project { number } } }
+         }
+       }
+     }' -F number=<N> \
+     --jq '.data.repository.issue.projectItems.nodes[] | select(.project.number==2) | .id')
    gh project item-edit --project-id PVT_kwHOAjEKvM4BTuEF --id "$ITEM_ID" \
      --field-id PVTSSF_lAHOAjEKvM4BTuEFzhA7F7E \
-     --single-select-option-id 98236657
+     --single-select-option-id 98236657   # Done
    ```
 10. Pull main: `git checkout main && git pull`
 11. Close the issue if not auto-closed: `gh issue close <N>`
