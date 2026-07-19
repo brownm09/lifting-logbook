@@ -41,6 +41,22 @@ variable "db_name" {
   default     = "lifting_logbook"
 }
 
+variable "db_availability_type" {
+  description = <<-EOT
+    Cloud SQL availability type: "ZONAL" (single zone) or "REGIONAL" (high-availability
+    cross-zone standby, ~2x instance cost). Defaults to ZONAL for single-user cost
+    savings (#860) — a single-user portfolio app does not need cross-zone failover, and
+    point-in-time recovery + daily backups (retained per-environment) still protect the
+    data. Set "REGIONAL" per-environment in tfvars to restore HA.
+  EOT
+  type        = string
+  default     = "ZONAL"
+  validation {
+    condition     = contains(["ZONAL", "REGIONAL"], var.db_availability_type)
+    error_message = "db_availability_type must be 'ZONAL' or 'REGIONAL'."
+  }
+}
+
 variable "artifact_registry_region" {
   description = "Region for the Artifact Registry repository (shared across environments)"
   type        = string
