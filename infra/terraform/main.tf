@@ -119,16 +119,21 @@ resource "google_compute_subnetwork" "main" {
   private_ip_google_access = true
 }
 
-# Allow GKE nodes egress (required for Autopilot)
+# Cloud NAT for GKE node egress (required for Autopilot private nodes). Gated on
+# enable_gke (#860): Cloud Run reaches Cloud SQL over private VPC peering and sends
+# public traffic via its own managed egress (vpc_access egress = PRIVATE_RANGES_ONLY),
+# so with GKE disabled nothing traverses the NAT and it is pure idle cost (~$32/mo/env).
 resource "google_compute_router" "main" {
+  count   = var.enable_gke ? 1 : 0
   name    = "${local.name_prefix}-router"
   region  = var.region
   network = google_compute_network.main.id
 }
 
 resource "google_compute_router_nat" "main" {
+  count                              = var.enable_gke ? 1 : 0
   name                               = "${local.name_prefix}-nat"
-  router                             = google_compute_router.main.name
+  router                             = google_compute_router.main[0].name
   region                             = var.region
   nat_ip_allocate_option             = "AUTO_ONLY"
   source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
@@ -164,7 +169,7 @@ resource "google_sql_database_instance" "main" {
 
   settings {
     tier              = var.db_tier
-    availability_type = var.environment == "production" ? "REGIONAL" : "ZONAL"
+    availability_type = var.db_availability_type # default ZONAL; set REGIONAL in tfvars for HA (#860)
     disk_autoresize   = true
     disk_size         = 10
 
@@ -362,7 +367,32 @@ resource "google_artifact_registry_repository" "images" {
   location      = var.artifact_registry_region
   format        = "DOCKER"
   description   = "Container images for ${var.app_name}"
-  depends_on    = [google_project_service.required_apis]
+
+  # Bound image-storage growth (#860). CI pushes new api + web tags (:<sha>, :latest,
+  # :pr-N) on every PR/merge with no prior retention, so blobs accumulated unbounded
+  # (hundreds of MB per image). Keep the 10 most-recent versions per package as rollback
+  # targets; delete anything older than 30 days that the KEEP policy does not protect.
+  # KEEP always takes precedence over DELETE, so the current/recent images are never
+  # pruned regardless of age.
+  cleanup_policy_dry_run = false
+
+  cleanup_policies {
+    id     = "keep-recent-versions"
+    action = "KEEP"
+    most_recent_versions {
+      keep_count = 10
+    }
+  }
+
+  cleanup_policies {
+    id     = "delete-stale"
+    action = "DELETE"
+    condition {
+      older_than = "2592000s" # 30 days
+    }
+  }
+
+  depends_on = [google_project_service.required_apis]
 }
 
 # No cross-project Artifact Registry reader grants (#397 / ADR-029). Each
