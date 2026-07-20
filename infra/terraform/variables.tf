@@ -91,6 +91,22 @@ variable "enable_gke" {
   default     = true
 }
 
+variable "gke_deletion_protection" {
+  description = <<-EOT
+    Terraform-side guard on the GKE Autopilot cluster (google_container_cluster.main).
+    When true, `terraform apply` refuses to destroy the cluster — including the implicit
+    destroy when `enable_gke` flips true → false (count → 0), which then hard-fails with
+    "Cannot destroy cluster because deletion_protection is set to true."
+
+    Defaults to false for this single-user / portfolio context so the ADR-009
+    GKE-vs-Cloud-Run A/B can be torn down cleanly. Set true (e.g. in
+    terraform.tfvars.production) if a future long-lived prod cluster should be protected
+    from an accidental terraform destroy. See issue #862.
+  EOT
+  type        = bool
+  default     = false
+}
+
 variable "cloud_run_min_instances" {
   description = "Minimum Cloud Run instances per service. null = use environment default (1 in production, 0 in staging). Set 0 in production for scale-to-zero (adds ~2s cold start to first request, near-zero idle cost)."
   type        = number
