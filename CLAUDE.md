@@ -55,7 +55,7 @@ apps/mobile          — React Native (Expo) mobile client
 infra/kubernetes/    — GKE Autopilot manifests and Helm charts
 infra/cloud-run/     — Cloud Run service YAML
 infra/terraform/     — Shared infrastructure: VPC, load balancer, DNS, IAM
-docs/adr/            — Architecture Decision Records (ADR-001 through ADR-012)
+docs/adr/            — Architecture Decision Records (see docs/README.md for the full ADR index)
 docs/README.md       — Full architecture narrative and ADR index
 scripts/             — Repository automation scripts
 ```
@@ -220,6 +220,7 @@ If `--format json` is not supported by the installed `gh` version, fall back to 
     - **Project journal** (`sessions/lifting-logbook/`): write or update this session's **stub** per the global journal workflow (see [Engineering Journal](#engineering-journal)) — PR merged, decisions made
     - **Meta journal** (`sessions/meta/`): update if `CLAUDE.md` was modified or a new platform constraint was discovered
     - **ROADMAP.md**: if this PR completes a work stream listed in a milestone's Active Work table, move that row to the milestone's Shipped table; if the Active Work table becomes empty, replace it with `| *(all shipped)* | | |`
+    - **Proposal Status**: if this PR ships, accepts, or declines a proposal, update the `**Status:**` field in the matching `docs/proposals/*.md` file **and** its ROADMAP.md Proposals-table row in the same PR, so the proposal file and the roadmap never diverge
 13. Write the stub's `<!-- next-session-context -->` block and display it as the closing output of the session
 
 ### REST-endpoint fallback when the shared GraphQL rate limit is exhausted

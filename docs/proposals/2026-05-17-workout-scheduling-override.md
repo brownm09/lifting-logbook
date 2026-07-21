@@ -1,6 +1,6 @@
 # Workout Scheduling Override — Implementation Roadmap
 
-**Status:** Proposal  
+**Status:** `shipped`
 **Linked Design:** [`docs/design/workout-scheduling-integration.md`](../design/workout-scheduling-integration.md)  
 **Linked Prototype:** [`docs/mockups/workout-scheduling.html`](../mockups/workout-scheduling.html)  
 **Epic:** Client Applications  

@@ -1,6 +1,6 @@
 # Proposal: Lift Library and Exercise Tagging
 
-**Status:** `draft`
+**Status:** `shipped`
 **Date:** 2026-04-13
 **Issue:** [#64](https://github.com/brownm09/lifting-logbook/issues/64)
 

@@ -1,6 +1,6 @@
 # Proposal: Historical Lift Data Backfill via CSV Upload
 
-**Status:** `draft`
+**Status:** `declined`
 **Date:** 2026-05-11
 **Issue:** [#225](https://github.com/brownm09/lifting-logbook/issues/225)
 
