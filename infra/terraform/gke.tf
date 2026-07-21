@@ -13,6 +13,8 @@ resource "google_container_cluster" "main" {
 
   enable_autopilot = true
 
+  deletion_protection = var.gke_deletion_protection
+
   network    = google_compute_network.main.id
   subnetwork = google_compute_subnetwork.main.id
 
