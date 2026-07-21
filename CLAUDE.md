@@ -68,7 +68,7 @@ Architecture follows hexagonal / Ports & Adapters. `packages/core` has zero infr
 
 All new issues must be added to the **Lifting Logbook** project and assigned an epic before work begins.
 
-**Important:** All `gh project item-list` queries in this file use `--limit 500` to avoid truncation. The project has 327+ items (default limit is 30). If the project grows beyond 500 items, increase this limit accordingly.
+**Board-item lookups resolve the issue's project-item ID directly via GraphQL — they never enumerate the board, so they never truncate.** See the `gh api graphql … issue(number:$number){projectItems…}` calls in Standard Issue Workflow steps 3 and 9. Do **not** replace them with `gh project item-list --limit N` + a client-side `.find()`: that pages the entire board and silently returns `undefined` for any issue past the page limit (the project passed 500 items on 2026-07-17, so `--limit 500` could not see issue #837+). Prior `--limit` bumps (300→500→1000; [#601](https://github.com/brownm09/lifting-logbook/issues/601), [#632](https://github.com/brownm09/lifting-logbook/issues/632)) were a treadmill this approach ends ([#852](https://github.com/brownm09/lifting-logbook/issues/852)).
 
 **Project IDs (needed for CLI commands):**
 - Project number: `2`, owner: `brownm09`
@@ -184,14 +184,8 @@ If `--format json` is not supported by the installed `gh` version, fall back to 
 2. Create a branch: `git checkout -b <type>/issue-<N>-<slug>` (see Branch Naming)
 3. Move the issue to **In Progress** on the project board:
    ```bash
-   TMPFILE="C:/Users/brown/.claude/scratch/tmp_item_<N>.json"
-   gh project item-list 2 --owner brownm09 --limit 500 --format json > "$TMPFILE"
-   ITEM_ID=$(node -e "
-     const d=JSON.parse(require('fs').readFileSync('$TMPFILE','utf8'));
-     const item=d.items.find(i=>i.content&&i.content.number===<N>);
-     console.log(item.id);
-   ")
-   rm -f "$TMPFILE"
+   # Resolve this issue's project-item ID directly — no board enumeration, so it never truncates (#852)
+   ITEM_ID=$(gh api graphql -f query='query($number:Int!){repository(owner:"brownm09",name:"lifting-logbook"){issue(number:$number){projectItems(first:10){nodes{id project{number}}}}}}' -F number=<N> --jq '.data.repository.issue.projectItems.nodes[]|select(.project.number==2)|.id')
    gh project item-edit --project-id PVT_kwHOAjEKvM4BTuEF --id "$ITEM_ID" \
      --field-id PVTSSF_lAHOAjEKvM4BTuEFzhA7F7E \
      --single-select-option-id 47fc9ee4
@@ -214,14 +208,8 @@ If `--format json` is not supported by the installed `gh` version, fall back to 
    branch are auto-retargeted to `main` by GitHub when the branch is deleted.
 9. Move the issue to **Done** on the project board:
    ```bash
-   TMPFILE="C:/Users/brown/.claude/scratch/tmp_item_<N>.json"
-   gh project item-list 2 --owner brownm09 --limit 500 --format json > "$TMPFILE"
-   ITEM_ID=$(node -e "
-     const d=JSON.parse(require('fs').readFileSync('$TMPFILE','utf8'));
-     const item=d.items.find(i=>i.content&&i.content.number===<N>);
-     console.log(item.id);
-   ")
-   rm -f "$TMPFILE"
+   # Resolve this issue's project-item ID directly — no board enumeration, so it never truncates (#852)
+   ITEM_ID=$(gh api graphql -f query='query($number:Int!){repository(owner:"brownm09",name:"lifting-logbook"){issue(number:$number){projectItems(first:10){nodes{id project{number}}}}}}' -F number=<N> --jq '.data.repository.issue.projectItems.nodes[]|select(.project.number==2)|.id')
    gh project item-edit --project-id PVT_kwHOAjEKvM4BTuEF --id "$ITEM_ID" \
      --field-id PVTSSF_lAHOAjEKvM4BTuEFzhA7F7E \
      --single-select-option-id 98236657
