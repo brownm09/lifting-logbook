@@ -41,6 +41,22 @@ variable "db_name" {
   default     = "lifting_logbook"
 }
 
+variable "db_availability_type" {
+  description = <<-EOT
+    Cloud SQL availability type: "ZONAL" (single zone) or "REGIONAL" (high-availability
+    cross-zone standby, ~2x instance cost). Defaults to ZONAL for single-user cost
+    savings (#860) — a single-user portfolio app does not need cross-zone failover, and
+    point-in-time recovery + daily backups (retained per-environment) still protect the
+    data. Set "REGIONAL" per-environment in tfvars to restore HA.
+  EOT
+  type        = string
+  default     = "ZONAL"
+  validation {
+    condition     = contains(["ZONAL", "REGIONAL"], var.db_availability_type)
+    error_message = "db_availability_type must be 'ZONAL' or 'REGIONAL'."
+  }
+}
+
 variable "artifact_registry_region" {
   description = "Region for the Artifact Registry repository (shared across environments)"
   type        = string
@@ -73,6 +89,22 @@ variable "enable_gke" {
   EOT
   type        = bool
   default     = true
+}
+
+variable "gke_deletion_protection" {
+  description = <<-EOT
+    Terraform-side guard on the GKE Autopilot cluster (google_container_cluster.main).
+    When true, `terraform apply` refuses to destroy the cluster — including the implicit
+    destroy when `enable_gke` flips true → false (count → 0), which then hard-fails with
+    "Cannot destroy cluster because deletion_protection is set to true."
+
+    Defaults to false for this single-user / portfolio context so the ADR-009
+    GKE-vs-Cloud-Run A/B can be torn down cleanly. Set true (e.g. in
+    terraform.tfvars.production) if a future long-lived prod cluster should be protected
+    from an accidental terraform destroy. See issue #862.
+  EOT
+  type        = bool
+  default     = false
 }
 
 variable "cloud_run_min_instances" {

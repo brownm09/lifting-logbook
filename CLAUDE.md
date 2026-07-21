@@ -68,7 +68,7 @@ Architecture follows hexagonal / Ports & Adapters. `packages/core` has zero infr
 
 All new issues must be added to the **Lifting Logbook** project and assigned an epic before work begins.
 
-**Important:** All `gh project item-list` queries in this file use `--limit 500` to avoid truncation. The project has 327+ items (default limit is 30). If the project grows beyond 500 items, increase this limit accordingly.
+**Board-item lookups resolve the issue's project-item ID directly via GraphQL — they never enumerate the board, so they never truncate.** See the `gh api graphql … issue(number:$number){projectItems…}` calls in Standard Issue Workflow steps 3 and 9. Do **not** replace them with `gh project item-list --limit N` + a client-side `.find()`: that pages the entire board and silently returns `undefined` for any issue past the page limit (the project passed 500 items on 2026-07-17, so `--limit 500` could not see issue #837+). Prior `--limit` bumps (300→500→1000; [#601](https://github.com/brownm09/lifting-logbook/issues/601), [#632](https://github.com/brownm09/lifting-logbook/issues/632)) were a treadmill this approach ends ([#852](https://github.com/brownm09/lifting-logbook/issues/852)).
 
 **Project IDs (needed for CLI commands):**
 - Project number: `2`, owner: `brownm09`
@@ -94,18 +94,41 @@ All new issues must be added to the **Lifting Logbook** project and assigned an 
 
 **Backup-and-restore procedure (mandatory before adding/removing/renaming any single-select option):**
 
-1. Snapshot current Epic assignments to a git-tracked file:
+1. Snapshot current single-select assignments (Epic, Status, Priority) to a git-tracked file. The
+   query **paginates through every item** — `items(first: 100)` alone caps the snapshot at 100 items
+   and silently drops the rest ([#857](https://github.com/brownm09/lifting-logbook/issues/857): the
+   board passed 500 items on 2026-07-17), so a restore would lose the un-captured items' assignments.
+   `gh api graphql --paginate` loops on `pageInfo`/`endCursor` automatically (no fixed `--limit` to
+   keep bumping — the treadmill [#852](https://github.com/brownm09/lifting-logbook/issues/852) warns
+   against), and the completeness guard refuses to commit an incomplete snapshot:
    ```bash
    mkdir -p .claude/backups
    STAMP=$(date +%Y-%m-%d-%H%M%S)
-   gh api graphql -f query='
-     query { node(id: "PVT_kwHOAjEKvM4BTuEF") { ... on ProjectV2 {
-       items(first: 100) { nodes { id content { ... on Issue { number title } }
-         fieldValues(first: 20) { nodes { ... on ProjectV2ItemFieldSingleSelectValue {
-           name field { ... on ProjectV2SingleSelectField { name } } } } } } } } } }' \
-     > .claude/backups/project-epic-snapshot-$STAMP.json
-   git add .claude/backups/project-epic-snapshot-$STAMP.json
-   git commit -m "[chore] Snapshot project Epic assignments before option mutation"
+   SNAP=".claude/backups/project-epic-snapshot-$STAMP.json"
+   # One line-delimited JSON object per item: id, issue number/title, and every single-select
+   # field value (Epic, Status, Priority, …) so restore works whichever field is later mutated.
+   gh api graphql --paginate -f query='
+     query($endCursor: String) {
+       node(id: "PVT_kwHOAjEKvM4BTuEF") { ... on ProjectV2 {
+         items(first: 100, after: $endCursor) {
+           pageInfo { hasNextPage endCursor }
+           nodes { id content { ... on Issue { number title } }
+             fieldValues(first: 20) { nodes { ... on ProjectV2ItemFieldSingleSelectValue {
+               name field { ... on ProjectV2SingleSelectField { name } } } } } } } } } }' \
+     --jq '.data.node.items.nodes[] | {id, number: .content.number, title: .content.title,
+       fields: [.fieldValues.nodes[] | select(.name) | {field: .field.name, value: .name}]}' \
+     > "$SNAP"
+   # Completeness check (#857): snapshot line count must equal the live project item count, or the
+   # snapshot truncated — do NOT run the mutation until the mismatch is understood.
+   SNAP_ITEMS=$(wc -l < "$SNAP")
+   LIVE_ITEMS=$(gh api graphql -f query='query { node(id: "PVT_kwHOAjEKvM4BTuEF") { ... on ProjectV2 { items { totalCount } } } }' --jq '.data.node.items.totalCount')
+   echo "snapshot: $SNAP_ITEMS items   live: $LIVE_ITEMS items"
+   if [ "$SNAP_ITEMS" -eq "$LIVE_ITEMS" ]; then
+     git add "$SNAP"
+     git commit -m "[chore] Snapshot project Epic assignments before option mutation"
+   else
+     echo "ERROR: snapshot incomplete ($SNAP_ITEMS of $LIVE_ITEMS captured) — do NOT proceed; investigate."
+   fi
    ```
 2. Run the `updateProjectV2Field` mutation with the full desired option list (existing names + new/changed).
 3. Capture the new option IDs from the mutation response and update **all three places these IDs are cached**, in the same PR as the snapshot — all must match the live API:
@@ -114,7 +137,7 @@ All new issues must be added to the **Lifting Logbook** project and assigned an 
    - [`.claude/hook-config.json`](.claude/hook-config.json) — the `epic_options` map (consumed by the `post-tool-use.py` project-board hook, which prints them verbatim with no live fetch).
 
    > `hook-config.json` was the cache omitted in the 2026-05-10 mutation, which left the issue/PR hook suggesting dead Epic option IDs until [#627](https://github.com/brownm09/lifting-logbook/issues/627). Do not skip it.
-4. Restore assignments by reading the snapshot and re-issuing `gh project item-edit` for each item, mapping the snapshot's epic name → new option ID.
+4. Restore assignments by reading the snapshot (one JSON object per line) and re-issuing `gh project item-edit` for each item: for each line, take the `fields[]` entry whose `field` is the mutated field (e.g. `Epic`), map its `value` (the option name) → the new option ID, and edit the item by its `id`.
 
 If a mutation runs without a prior snapshot commit, stop and recover from the latest snapshot in `.claude/backups/` before continuing any other work.
 
@@ -161,14 +184,8 @@ If `--format json` is not supported by the installed `gh` version, fall back to 
 2. Create a branch: `git checkout -b <type>/issue-<N>-<slug>` (see Branch Naming)
 3. Move the issue to **In Progress** on the project board:
    ```bash
-   TMPFILE="C:/Users/brown/.claude/scratch/tmp_item_<N>.json"
-   gh project item-list 2 --owner brownm09 --limit 500 --format json > "$TMPFILE"
-   ITEM_ID=$(node -e "
-     const d=JSON.parse(require('fs').readFileSync('$TMPFILE','utf8'));
-     const item=d.items.find(i=>i.content&&i.content.number===<N>);
-     console.log(item.id);
-   ")
-   rm -f "$TMPFILE"
+   # Resolve this issue's project-item ID directly — no board enumeration, so it never truncates (#852)
+   ITEM_ID=$(gh api graphql -f query='query($number:Int!){repository(owner:"brownm09",name:"lifting-logbook"){issue(number:$number){projectItems(first:10){nodes{id project{number}}}}}}' -F number=<N> --jq '.data.repository.issue.projectItems.nodes[]|select(.project.number==2)|.id')
    gh project item-edit --project-id PVT_kwHOAjEKvM4BTuEF --id "$ITEM_ID" \
      --field-id PVTSSF_lAHOAjEKvM4BTuEFzhA7F7E \
      --single-select-option-id 47fc9ee4
@@ -191,14 +208,8 @@ If `--format json` is not supported by the installed `gh` version, fall back to 
    branch are auto-retargeted to `main` by GitHub when the branch is deleted.
 9. Move the issue to **Done** on the project board:
    ```bash
-   TMPFILE="C:/Users/brown/.claude/scratch/tmp_item_<N>.json"
-   gh project item-list 2 --owner brownm09 --limit 500 --format json > "$TMPFILE"
-   ITEM_ID=$(node -e "
-     const d=JSON.parse(require('fs').readFileSync('$TMPFILE','utf8'));
-     const item=d.items.find(i=>i.content&&i.content.number===<N>);
-     console.log(item.id);
-   ")
-   rm -f "$TMPFILE"
+   # Resolve this issue's project-item ID directly — no board enumeration, so it never truncates (#852)
+   ITEM_ID=$(gh api graphql -f query='query($number:Int!){repository(owner:"brownm09",name:"lifting-logbook"){issue(number:$number){projectItems(first:10){nodes{id project{number}}}}}}' -F number=<N> --jq '.data.repository.issue.projectItems.nodes[]|select(.project.number==2)|.id')
    gh project item-edit --project-id PVT_kwHOAjEKvM4BTuEF --id "$ITEM_ID" \
      --field-id PVTSSF_lAHOAjEKvM4BTuEFzhA7F7E \
      --single-select-option-id 98236657
