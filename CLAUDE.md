@@ -137,11 +137,22 @@ All new issues must be added to the **Lifting Logbook** project and assigned an 
    - [`.claude/hook-config.json`](.claude/hook-config.json) — the `epic_options` map (consumed by the `post-tool-use.py` project-board hook, which prints them verbatim with no live fetch).
 
    > `hook-config.json` was the cache omitted in the 2026-05-10 mutation, which left the issue/PR hook suggesting dead Epic option IDs until [#627](https://github.com/merickvaughn/lifting-logbook/issues/627). Do not skip it.
+
+   Then confirm the three caches actually agree, before committing:
+   ```bash
+   node scripts/check-board-id-sync.mjs
+   ```
+   It cross-checks the project node ID, the Epic/Status field IDs, all 10 Epic option IDs, the owner,
+   the project number, the Done option ID and the milestone titles across the three files — and catches a partial hand-edit
+   *within* CLAUDE.md, where the node ID alone appears six times. Note it is a **drift** check, not a
+   **liveness** check: it proves the three caches agree with each other, not that they match the live
+   API — that part is still on you, per this step's opening line. It also runs in CI, so a partial
+   refresh fails the PR ([#865](https://github.com/merickvaughn/lifting-logbook/issues/865)).
 4. Restore assignments by reading the snapshot (one JSON object per line) and re-issuing `gh project item-edit` for each item: for each line, take the `fields[]` entry whose `field` is the mutated field (e.g. `Epic`), map its `value` (the option name) → the new option ID, and edit the item by its `id`.
 
 If a mutation runs without a prior snapshot commit, stop and recover from the latest snapshot in `.claude/backups/` before continuing any other work.
 
-> **Milestones drift the same way, via a different trigger.** Milestones aren't a ProjectV2 single-select field, so a new milestone isn't created by the `updateProjectV2Field` mutation above — but the table below and the `milestones` arrays in `.claude/hook-config.json` and `.claude/propose.json` are just as easy to leave stale when a new milestone is created via `gh api repos/.../milestones` or the web UI. Update all three in the same PR that adds a milestone.
+> **Milestones drift the same way, via a different trigger.** Milestones aren't a ProjectV2 single-select field, so a new milestone isn't created by the `updateProjectV2Field` mutation above — but the table below and the `milestones` arrays in `.claude/hook-config.json` and `.claude/propose.json` are just as easy to leave stale when a new milestone is created via `gh api repos/.../milestones` or the web UI. Update all three in the same PR that adds a milestone. `scripts/check-board-id-sync.mjs` compares the milestone **titles** across all three and fails CI if they diverge (the numbers live only in the table below, so they are not cross-checkable).
 
 **Milestones:**
 
@@ -493,6 +504,18 @@ node scripts/check-otel-config-sync.mjs
 ```
 
 This also runs as a CI step (`ci.yml` → `lint-and-test` → "Verify Cloud Run otel-collector config matches the GKE configmap"), so a drifting PR fails either way — running it locally just catches the divergence before waiting on CI. See [#788](https://github.com/merickvaughn/lifting-logbook/issues/788).
+
+### Board-ID cache sync (CLAUDE.md ↔ `.claude/*.json`)
+
+The GitHub Project board IDs are duplicated across three files because each has a separate consumer: the **Epic options** table and the `gh` snippets in this file, the `epics` array in [`.claude/propose.json`](.claude/propose.json) (read by `/propose`), and the `epic_options` map plus field IDs in [`.claude/hook-config.json`](.claude/hook-config.json) (read by the `post-tool-use.py` project-board hook). A single `updateProjectV2Field` mutation — or an org transfer — re-cuts the project node ID, the field IDs and every Epic option ID at once, so a **partial** refresh is the dangerous outcome: the board hook silently writes to a dead field, exactly as it did after the 2026-05-10 mutation ([#627](https://github.com/merickvaughn/lifting-logbook/issues/627)). A guard now fails CI on any divergence.
+
+**Run before pushing whenever you touch a board ID in any of the three files — and always as step 3 of the Backup-and-restore procedure above:**
+
+```bash
+node scripts/check-board-id-sync.mjs
+```
+
+It compares the project node ID, the Epic/Status field IDs, all 10 Epic option IDs, the owner, the project number, the Done option ID and the milestone titles, and additionally verifies this file agrees with *itself* (the node ID alone appears six times, so a partial hand-edit is easy to make). It is a **drift** check, not a **liveness** check — three caches stale in lockstep pass by design; confirming they match the live API remains the manual step in the Backup-and-restore procedure. This also runs as a CI step (`ci.yml` → `lint-and-test` → "Verify board-ID caches are in sync (CLAUDE.md ↔ .claude/*.json)"), so a drifting PR fails either way. See [#865](https://github.com/merickvaughn/lifting-logbook/issues/865).
 
 ### Coverage Requirements
 

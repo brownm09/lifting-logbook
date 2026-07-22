@@ -94,6 +94,12 @@ jobs:
       - name: Unit test otel-collector config sync parsing
         run: node --test scripts/check-otel-config-sync.test.mjs
 
+      - name: Verify board-ID caches are in sync (CLAUDE.md ↔ .claude/*.json)
+        run: node scripts/check-board-id-sync.mjs
+
+      - name: Unit test board-ID sync parsing
+        run: node --test scripts/check-board-id-sync.test.mjs
+
       # The OTel sidecar injector is Python (it rewrites the live Cloud Run api manifest at
       # deploy time — a path that cannot be dry-run tested), so its test runs under Python
       # rather than turbo/jest. PyYAML is the injector's own only dependency. See #786.
