@@ -2,13 +2,13 @@
 
 **Status:** Superseded by [ADR-028](ADR-028-web-runtime-public-config.md) (2026-06-11)
 **Date:** 2026-05-31
-**Closes:** [#388](https://github.com/brownm09/lifting-logbook/issues/388)
-**Related:** [ADR-028](ADR-028-web-runtime-public-config.md) (supersedes — runtime injection), [ADR-022](ADR-022-monorepo-docker-build-strategy.md) (web Dockerfile structure), [ADR-009](ADR-009-infrastructure-kubernetes-cloud-run.md) (deploy targets), [#383](https://github.com/brownm09/lifting-logbook/pull/383), [#387](https://github.com/brownm09/lifting-logbook/pull/387), [#382](https://github.com/brownm09/lifting-logbook/issues/382)
+**Closes:** [#388](https://github.com/merickvaughn/lifting-logbook/issues/388)
+**Related:** [ADR-028](ADR-028-web-runtime-public-config.md) (supersedes — runtime injection), [ADR-022](ADR-022-monorepo-docker-build-strategy.md) (web Dockerfile structure), [ADR-009](ADR-009-infrastructure-kubernetes-cloud-run.md) (deploy targets), [#383](https://github.com/merickvaughn/lifting-logbook/pull/383), [#387](https://github.com/merickvaughn/lifting-logbook/pull/387), [#382](https://github.com/merickvaughn/lifting-logbook/issues/382)
 
 > **Superseded (2026-06-11):** [ADR-028](ADR-028-web-runtime-public-config.md) eliminates the
 > build-time embedding entirely by injecting public config at runtime, restoring the
 > single build-once / promote-everywhere web image this ADR's per-env builds gave up.
-> The Phase-2 follow-up named below is that work ([#396](https://github.com/brownm09/lifting-logbook/issues/396)).
+> The Phase-2 follow-up named below is that work ([#396](https://github.com/merickvaughn/lifting-logbook/issues/396)).
 > The per-env build steps, the `-staging` / `-prod` image tags, and the bundle-grep
 > verification described here no longer reflect the pipeline.
 
@@ -33,9 +33,9 @@ inlined — invisible while staging and production share infrastructure, but a g
 silent production break the moment they don't (separate Clerk instances per env, separate
 API hosts, separate publishable keys).
 
-This is the same failure shape as [#382](https://github.com/brownm09/lifting-logbook/issues/382)
-at a different layer. Two recent fixes — [#383](https://github.com/brownm09/lifting-logbook/pull/383)
-(runtime `CLERK_SECRET_KEY`) and [#387](https://github.com/brownm09/lifting-logbook/pull/387)
+This is the same failure shape as [#382](https://github.com/merickvaughn/lifting-logbook/issues/382)
+at a different layer. Two recent fixes — [#383](https://github.com/merickvaughn/lifting-logbook/pull/383)
+(runtime `CLERK_SECRET_KEY`) and [#387](https://github.com/merickvaughn/lifting-logbook/pull/387)
 (build-time `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`) — addressed individual symptoms of the
 broader pattern "Clerk credential not wired through deploy pipeline" but preserved the
 inherited "use staging value, deploy to both" shortcut. This ADR fixes the root pattern.
@@ -108,11 +108,11 @@ passes them through React context. Remove `ARG NEXT_PUBLIC_*` from the Dockerfil
 single-image build-once / promote-everywhere.
 
 **Why deferred:** the refactor touches the `<ClerkProvider>` bootstrap path — the same
-codepath that [#383](https://github.com/brownm09/lifting-logbook/pull/383) and
-[#387](https://github.com/brownm09/lifting-logbook/pull/387) just stabilized. It also has
+codepath that [#383](https://github.com/merickvaughn/lifting-logbook/pull/383) and
+[#387](https://github.com/merickvaughn/lifting-logbook/pull/387) just stabilized. It also has
 its own regression surface (any client component reading `process.env.NEXT_PUBLIC_*`
 directly), warrants its own ADR documenting the bootstrap pattern chosen, and should not
-block closing [#388](https://github.com/brownm09/lifting-logbook/issues/388). Tracked as a
+block closing [#388](https://github.com/merickvaughn/lifting-logbook/issues/388). Tracked as a
 follow-up issue that, once shipped, will supersede this ADR.
 
 ### Promote prod build to staging
@@ -129,7 +129,7 @@ mutating production-Clerk user state.
   the two-build path succeeds end-to-end (both `web:<sha>-staging` and `web:<sha>-prod`
   built, pushed, and pulled by the corresponding deploy jobs).
 - **Smoke test:** existing `smoke-test` job continues to validate the staging-tagged image.
-- **Deliberate dry-run (AC #3 of [#388](https://github.com/brownm09/lifting-logbook/issues/388)):**
+- **Deliberate dry-run (AC #3 of [#388](https://github.com/merickvaughn/lifting-logbook/issues/388)):**
   after the first deploy on this branch, follow the procedure in
   [`docs/deploy.md`](../deploy.md) → "Verifying per-env web image build" to grep the served
   JS bundle in each environment for the **other** environment's Clerk publishable key
@@ -137,7 +137,7 @@ mutating production-Clerk user state.
 
 ## Cross-project Artifact Registry note
 
-> **Resolved (2026-06-11) by [ADR-029](ADR-029-per-env-artifact-registry-push.md) ([#397](https://github.com/brownm09/lifting-logbook/issues/397)):**
+> **Resolved (2026-06-11) by [ADR-029](ADR-029-per-env-artifact-registry-push.md) ([#397](https://github.com/merickvaughn/lifting-logbook/issues/397)):**
 > the cross-project pull described below no longer exists. `build-images` now re-auths to prod and
 > build-pushes each image **directly** to the prod AR instead of copying staging-AR → prod-AR, so
 > the `artifactregistry.reader` grant was removed from Terraform. The text below is retained as the
@@ -177,11 +177,11 @@ Two follow-ups are tracked:
 
 1. **Runtime public config (Phase 2):** open a separate `[design]` issue
    titled "Refactor apps/web public config to runtime injection (supersedes
-   ADR-025)" immediately after [#388](https://github.com/brownm09/lifting-logbook/issues/388)
+   ADR-025)" immediately after [#388](https://github.com/merickvaughn/lifting-logbook/issues/388)
    closes. That work will supersede this ADR by removing the build-time
    embedding entirely.
 2. **Per-env AR routing:** ✅ Done — [ADR-029](ADR-029-per-env-artifact-registry-push.md)
-   ([#397](https://github.com/brownm09/lifting-logbook/issues/397)). Each environment's image is
+   ([#397](https://github.com/merickvaughn/lifting-logbook/issues/397)). Each environment's image is
    now build-pushed directly to that environment's AR, eliminating the cross-project pull
    dependency and the `artifactregistry.reader` grant.
 

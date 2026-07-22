@@ -2,7 +2,7 @@
 
 **Status:** `shipped`
 **Date:** 2026-04-29
-**Issue:** [#108](https://github.com/brownm09/lifting-logbook/issues/108)
+**Issue:** [#108](https://github.com/merickvaughn/lifting-logbook/issues/108)
 
 ---
 

@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-07-10
-**Closes:** [#780](https://github.com/brownm09/lifting-logbook/issues/780)
+**Closes:** [#780](https://github.com/merickvaughn/lifting-logbook/issues/780)
 **Related:** [ADR-018](ADR-018-observability-stack.md) (logging stack; the original denylist decision)
 
 ---
@@ -18,11 +18,11 @@ The original mitigation ([ADR-018](ADR-018-observability-stack.md)) was a pino `
 `set-cookie`). This is incomplete-by-design. Any auth-bearing header *not* on the list logs in
 plaintext until someone notices.
 
-That failure materialised in [#767](https://github.com/brownm09/lifting-logbook/issues/767):
+That failure materialised in [#767](https://github.com/merickvaughn/lifting-logbook/issues/767):
 server-to-server calls from `apps/web` carry the Clerk JWT in `x-clerk-authorization` rather than
 `authorization` (see `auth.guard.ts`). It was absent from the denylist, so full Clerk JWTs were
 written to GCP Cloud Logging in plaintext for weeks with no signal, until manual inspection found
-them. [PR #771](https://github.com/brownm09/lifting-logbook/pull/771) added the one missing header,
+them. [PR #771](https://github.com/merickvaughn/lifting-logbook/pull/771) added the one missing header,
 but its review flagged that the denylist pattern would recur for the next auth header anyone
 introduced. This ADR records the systemic fix.
 

@@ -40,10 +40,10 @@ The other four checks that live in `ci.yml` (`Lint & Test`, `DB Integration Test
 
 ```bash
 # Inspect current required checks
-gh api repos/brownm09/lifting-logbook/branches/main/protection/required_status_checks
+gh api repos/merickvaughn/lifting-logbook/branches/main/protection/required_status_checks
 
 # Update (full replacement of the contexts list)
-gh api -X PATCH repos/brownm09/lifting-logbook/branches/main/protection/required_status_checks \
+gh api -X PATCH repos/merickvaughn/lifting-logbook/branches/main/protection/required_status_checks \
   -F strict=true \
   -f 'contexts[]=Lint & Test' \
   -f 'contexts[]=DB Integration Tests' \
@@ -57,8 +57,8 @@ gh api -X PATCH repos/brownm09/lifting-logbook/branches/main/protection/required
 
 ## Merge queue readiness
 
-[#673](https://github.com/brownm09/lifting-logbook/issues/673) diagnosed a live-lock: concurrent PR throughput causes `staging.yml`'s deploy jobs (which share a global, not per-PR, concurrency group) to cancel each other's queued runs, which `Staging Integration Tests` then hard-fails on — compounding with `strict: true` above. The fix is GitHub's native merge queue, which serializes required-check re-validation at the front of one queue.
+[#673](https://github.com/merickvaughn/lifting-logbook/issues/673) diagnosed a live-lock: concurrent PR throughput causes `staging.yml`'s deploy jobs (which share a global, not per-PR, concurrency group) to cancel each other's queued runs, which `Staging Integration Tests` then hard-fails on — compounding with `strict: true` above. The fix is GitHub's native merge queue, which serializes required-check re-validation at the front of one queue.
 
-As of [#694](https://github.com/brownm09/lifting-logbook/issues/694), both required-check workflows (`ci.yml` and `staging.yml`) also trigger on `merge_group`, with `github.event.pull_request.*` context references made merge_group-safe throughout (concurrency groups, the fork-repo guard, image tagging, the `dorny/paths-filter` preflight diff, and skipping the PR-comment-only `report-status` job). See [ADR-030](../adr/ADR-030-github-merge-queue-adoption.md) for the full decision record.
+As of [#694](https://github.com/merickvaughn/lifting-logbook/issues/694), both required-check workflows (`ci.yml` and `staging.yml`) also trigger on `merge_group`, with `github.event.pull_request.*` context references made merge_group-safe throughout (concurrency groups, the fork-repo guard, image tagging, the `dorny/paths-filter` preflight diff, and skipping the PR-comment-only `report-status` job). See [ADR-030](../adr/ADR-030-github-merge-queue-adoption.md) for the full decision record.
 
-**"Require merge queue" is NOT YET enabled in live branch protection.** This is deliberately staged: #694 is additive-only wiring, run for a while and confirmed stable before the branch-protection setting is flipped and live-validated in a follow-up ([#695](https://github.com/brownm09/lifting-logbook/issues/695)). This section will be updated once #695 lands to reflect the live "Require merge queue" + Build Concurrency setting.
+**"Require merge queue" is NOT YET enabled in live branch protection.** This is deliberately staged: #694 is additive-only wiring, run for a while and confirmed stable before the branch-protection setting is flipped and live-validated in a follow-up ([#695](https://github.com/merickvaughn/lifting-logbook/issues/695)). This section will be updated once #695 lands to reflect the live "Require merge queue" + Build Concurrency setting.

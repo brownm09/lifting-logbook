@@ -2,8 +2,8 @@
 
 **Status:** `shipped`
 **Date:** 2026-06-03
-**Issue:** [#427](https://github.com/brownm09/lifting-logbook/issues/427)
-**Shipped in:** [#437](https://github.com/brownm09/lifting-logbook/pull/437) — full clean-break migration (no deprecated alias); catalog has 23 entries (not 25).
+**Issue:** [#427](https://github.com/merickvaughn/lifting-logbook/issues/427)
+**Shipped in:** [#437](https://github.com/merickvaughn/lifting-logbook/pull/437) — full clean-break migration (no deprecated alias); catalog has 23 entries (not 25).
 
 ---
 

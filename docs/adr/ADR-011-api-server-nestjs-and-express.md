@@ -3,8 +3,8 @@
 **Status:** Accepted
 **Date:** 2026-04-03
 **Reviewed:** 2026-04-07
-**Review outcome:** Pass with gaps — open items resolved: [#42](https://github.com/brownm09/lifting-logbook/issues/42) (archival policy section below)
-**Amended:** 2026-06-09 — `apps/api-legacy` deleted at the v0.2 cutoff; see Post-comparison disposition ([#465](https://github.com/brownm09/lifting-logbook/issues/465))
+**Review outcome:** Pass with gaps — open items resolved: [#42](https://github.com/merickvaughn/lifting-logbook/issues/42) (archival policy section below)
+**Amended:** 2026-06-09 — `apps/api-legacy` deleted at the v0.2 cutoff; see Post-comparison disposition ([#465](https://github.com/merickvaughn/lifting-logbook/issues/465))
 
 ---
 
@@ -165,7 +165,7 @@ narrative is complete and no further parity updates are expected.
 
 ### Post-comparison disposition
 
-At the v0.2 cutoff the comparison concluded. **Disposition executed 2026-06-09 ([#465](https://github.com/brownm09/lifting-logbook/issues/465)):**
+At the v0.2 cutoff the comparison concluded. **Disposition executed 2026-06-09 ([#465](https://github.com/merickvaughn/lifting-logbook/issues/465)):**
 
 1. Tag the last commit that still contains the implementation so the snapshot stays browsable:
    ```bash

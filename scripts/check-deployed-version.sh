@@ -127,7 +127,7 @@ print_commit_context() {
   if git cat-file -e "${sha}^{commit}" 2>/dev/null; then
     git log -1 --format='    %h  %s  (%an, %ar)' "$sha"
   else
-    echo "    (commit ${sha:0:7} not found in this local clone's history — try 'git fetch origin' or view it directly: https://github.com/brownm09/lifting-logbook/commit/${sha})"
+    echo "    (commit ${sha:0:7} not found in this local clone's history — try 'git fetch origin' or view it directly: https://github.com/merickvaughn/lifting-logbook/commit/${sha})"
   fi
 }
 

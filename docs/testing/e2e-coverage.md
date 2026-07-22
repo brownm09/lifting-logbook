@@ -62,7 +62,7 @@ npx playwright test --headed --project=chromium
 The `e2e` job in `.github/workflows/ci.yml` runs after `lint-and-test` passes. Failures upload an
 HTML report as a GitHub Actions artifact (`playwright-report`).
 
-Tracking issue: [#259](https://github.com/brownm09/lifting-logbook/issues/259)
+Tracking issue: [#259](https://github.com/merickvaughn/lifting-logbook/issues/259)
 
 ## Pages and the API Endpoints They Call
 
@@ -112,7 +112,7 @@ bypass RLS — ambient env now resolves to the restricted role by default.
 
 This flips the pre-#646 default, under which every DB E2E suite connected as the superuser
 bootstrap role and structurally could not detect a broken or missing RLS policy. That's exactly
-how issue [#644](https://github.com/brownm09/lifting-logbook/issues/644) shipped and stayed live
+how issue [#644](https://github.com/merickvaughn/lifting-logbook/issues/644) shipped and stayed live
 for 3+ weeks: `RlsInterceptor` silently never set the `app.current_user_id` GUC, and no suite
 besides `rls.db.e2e.spec.ts` ran with RLS actually capable of rejecting anything.
 
@@ -127,7 +127,7 @@ without local verification, with CI as the only gate.
 The three recovery options the error names:
 
 1. **Fix Docker Desktop.** On Windows, the most common cause is an unregistered
-   `docker-desktop` WSL distro — see [issue #394](https://github.com/brownm09/lifting-logbook/issues/394)
+   `docker-desktop` WSL distro — see [issue #394](https://github.com/merickvaughn/lifting-logbook/issues/394)
    for the factory-reset procedure.
 2. **Use `docker-compose.test.yml`.** Spin up the compose Postgres on 5433 and
    set `DATABASE_URL` so globalSetup takes the CI passthrough branch:

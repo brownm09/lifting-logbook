@@ -2,9 +2,9 @@
 
 **Status:** Accepted
 **Date:** 2026-06-11
-**Closes:** [#396](https://github.com/brownm09/lifting-logbook/issues/396)
+**Closes:** [#396](https://github.com/merickvaughn/lifting-logbook/issues/396)
 **Supersedes:** [ADR-025](ADR-025-web-image-per-env-build.md) (per-environment web image build)
-**Related:** [ADR-022](ADR-022-monorepo-docker-build-strategy.md) (web Dockerfile structure), [ADR-009](ADR-009-infrastructure-kubernetes-cloud-run.md) (deploy targets), [#388](https://github.com/brownm09/lifting-logbook/issues/388) (Phase 1)
+**Related:** [ADR-022](ADR-022-monorepo-docker-build-strategy.md) (web Dockerfile structure), [ADR-009](ADR-009-infrastructure-kubernetes-cloud-run.md) (deploy targets), [#388](https://github.com/merickvaughn/lifting-logbook/issues/388) (Phase 1)
 
 ---
 
@@ -17,7 +17,7 @@ image. Two such variables drove `apps/web`:
 - `NEXT_PUBLIC_API_URL` — the API URL the browser calls.
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` — the Clerk frontend key `<ClerkProvider>` requires.
 
-[ADR-025](ADR-025-web-image-per-env-build.md) (Phase 1, [#388](https://github.com/brownm09/lifting-logbook/issues/388))
+[ADR-025](ADR-025-web-image-per-env-build.md) (Phase 1, [#388](https://github.com/merickvaughn/lifting-logbook/issues/388))
 fixed a real bug — staging values baked into an image then shipped unchanged to production —
 by building the web image **twice per pipeline run**, once per environment. That restored
 correct per-env values but **broke build-once / promote-everywhere**: the artifact the staging

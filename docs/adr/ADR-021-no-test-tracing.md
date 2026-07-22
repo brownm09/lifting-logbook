@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-05-10
-**Closes:** [#222](https://github.com/brownm09/lifting-logbook/issues/222)
+**Closes:** [#222](https://github.com/merickvaughn/lifting-logbook/issues/222)
 
 ## Context
 

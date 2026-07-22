@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-05-05
-**Closes:** [#174](https://github.com/brownm09/lifting-logbook/issues/174)
+**Closes:** [#174](https://github.com/merickvaughn/lifting-logbook/issues/174)
 
 ---
 
@@ -78,7 +78,7 @@ model TrainingMaxHistory {
 }
 ```
 
-**Write path**: `CycleGenerationService.startNewCycle` and `recalculateMaxes` diff old vs. new maxes and call `ITrainingMaxHistoryRepository.appendHistoryEntries` for changed lifts. Source is `'test'` when `weekTypeForDate(dashboard.cycleDate, programSpec) === 'test'`, otherwise `'program'`. Historically the week type was read from a `currentWeekType` column on the dashboard, but that column was a placeholder — it was overwritten at request time and never authoritative — and was removed in [#361](https://github.com/brownm09/lifting-logbook/issues/361).
+**Write path**: `CycleGenerationService.startNewCycle` and `recalculateMaxes` diff old vs. new maxes and call `ITrainingMaxHistoryRepository.appendHistoryEntries` for changed lifts. Source is `'test'` when `weekTypeForDate(dashboard.cycleDate, programSpec) === 'test'`, otherwise `'program'`. Historically the week type was read from a `currentWeekType` column on the dashboard, but that column was a placeholder — it was overwritten at request time and never authoritative — and was removed in [#361](https://github.com/merickvaughn/lifting-logbook/issues/361).
 
 **Read path**: `GET /programs/:program/training-maxes/history` with optional `?lift=`, `?source=`, `?isPR=` query params.
 

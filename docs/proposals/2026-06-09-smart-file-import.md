@@ -2,15 +2,15 @@
 
 **Status:** `shipped`
 **Date:** 2026-06-09
-**Issue:** [#477](https://github.com/brownm09/lifting-logbook/issues/477)
+**Issue:** [#477](https://github.com/merickvaughn/lifting-logbook/issues/477)
 
-> **Phase 1 (MVP) shipped** in [#477](https://github.com/brownm09/lifting-logbook/issues/477) — PR [#485](https://github.com/brownm09/lifting-logbook/pull/485) (merged `46f9f9c`, 2026-06-09). Open follow-ups: [#483](https://github.com/brownm09/lifting-logbook/issues/483) (Phase 2 column-mapper), [#484](https://github.com/brownm09/lifting-logbook/issues/484) (Phase 3 split + Undo), [#486](https://github.com/brownm09/lifting-logbook/issues/486) (multi-tier strength goals), [#488](https://github.com/brownm09/lifting-logbook/issues/488) (commit atomicity / concurrent-import safety), [#489](https://github.com/brownm09/lifting-logbook/issues/489) (maintainability consolidation).
+> **Phase 1 (MVP) shipped** in [#477](https://github.com/merickvaughn/lifting-logbook/issues/477) — PR [#485](https://github.com/merickvaughn/lifting-logbook/pull/485) (merged `46f9f9c`, 2026-06-09). Open follow-ups: [#483](https://github.com/merickvaughn/lifting-logbook/issues/483) (Phase 2 column-mapper), [#484](https://github.com/merickvaughn/lifting-logbook/issues/484) (Phase 3 split + Undo), [#486](https://github.com/merickvaughn/lifting-logbook/issues/486) (multi-tier strength goals), [#488](https://github.com/merickvaughn/lifting-logbook/issues/488) (commit atomicity / concurrent-import safety), [#489](https://github.com/merickvaughn/lifting-logbook/issues/489) (maintainability consolidation).
 
 ---
 
 ## Problem
 
-The Consistent Intermediate Lifter migrating off a brittle Google Sheets / Apps Script setup has not one CSV but four distinct exports — lift history, training maxes, strength goals, and a program spec — and switching tools cannot erase that history. Today's importer ([#225](https://github.com/brownm09/lifting-logbook/issues/225), shipped in PR #236) only handles **lift records**, requires the user to already know which file they're holding, lives on a single program page, commits directly, and offers no preview. The persona wants to drop *any* of their files in and have the app "intelligently figure out how to import" it — with a chance to review and fix before anything is written. The current flow forces them to be the classifier, the mapper, and the validator, which is exactly the friction that keeps history trapped in the spreadsheet.
+The Consistent Intermediate Lifter migrating off a brittle Google Sheets / Apps Script setup has not one CSV but four distinct exports — lift history, training maxes, strength goals, and a program spec — and switching tools cannot erase that history. Today's importer ([#225](https://github.com/merickvaughn/lifting-logbook/issues/225), shipped in PR #236) only handles **lift records**, requires the user to already know which file they're holding, lives on a single program page, commits directly, and offers no preview. The persona wants to drop *any* of their files in and have the app "intelligently figure out how to import" it — with a chance to review and fix before anything is written. The current flow forces them to be the classifier, the mapper, and the validator, which is exactly the friction that keeps history trapped in the spreadsheet.
 
 ## Proposed Solution
 

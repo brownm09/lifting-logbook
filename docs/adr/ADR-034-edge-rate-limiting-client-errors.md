@@ -2,8 +2,8 @@
 
 **Status:** Accepted
 **Date:** 2026-07-11
-**Amended:** 2026-07-12 — the apex + `www` are already live Cloud Run domain mappings, not a greenfield domain; the LB now covers both on one cert, provisioned via Certificate Manager DNS authorization for a zero-downtime cutover (see [Amendment (2026-07-12)](#amendment-2026-07-12-apex-and-www-already-live-zero-downtime-cert-manager-cutover)). Prerequisite code: [#830](https://github.com/brownm09/lifting-logbook/issues/830).
-**Closes:** [#808](https://github.com/brownm09/lifting-logbook/issues/808)
+**Amended:** 2026-07-12 — the apex + `www` are already live Cloud Run domain mappings, not a greenfield domain; the LB now covers both on one cert, provisioned via Certificate Manager DNS authorization for a zero-downtime cutover (see [Amendment (2026-07-12)](#amendment-2026-07-12-apex-and-www-already-live-zero-downtime-cert-manager-cutover)). Prerequisite code: [#830](https://github.com/merickvaughn/lifting-logbook/issues/830).
+**Closes:** [#808](https://github.com/merickvaughn/lifting-logbook/issues/808)
 **Related:** [ADR-020](ADR-020-tail-based-sampling-policy.md) (tail-based sampling — the #806 addendum this implements mitigation 3 of), [ADR-032](ADR-032-cloud-run-api-public-invoker.md) (which flagged a Cloud Armor / rate-limit gate as a reasonable follow-up), [ADR-009](ADR-009-infrastructure-kubernetes-cloud-run.md) (Cloud Run / GKE topology)
 
 ---
@@ -17,18 +17,18 @@ ERROR span per accepted request** (the ADR-020 `errors` tail-sampling policy alw
 error-status traces). That makes the endpoint a span-injection vector into the shared free-tier
 Grafana Cloud / Tempo stack.
 
-[#806](https://github.com/brownm09/lifting-logbook/issues/806) (PR #810) added an app-level
+[#806](https://github.com/merickvaughn/lifting-logbook/issues/806) (PR #810) added an app-level
 **same-origin guard** in the route handler that drops cross-origin *browser* beacons. But it cannot
 stop **scripted** abuse: a `curl` loop sends no truthful `Origin`, so the guard classifies it
 `no-origin` and allows it (dropping all no-`Origin` requests would also drop legitimate non-browser
 reports). The ADR-020 **#806 addendum** recorded an infra-level rate limit as **mitigation (3)** —
 the deferred layer this ADR delivers. At the time #808 was filed the abuse surface was **latent** —
-[#804](https://github.com/brownm09/lifting-logbook/issues/804) had not yet wired `apps/web`'s server
+[#804](https://github.com/merickvaughn/lifting-logbook/issues/804) had not yet wired `apps/web`'s server
 runtime to the prod collector. **#804 has since landed**
-([PR #814](https://github.com/brownm09/lifting-logbook/pull/814), merged 2026-07-11), so that coupling
+([PR #814](https://github.com/merickvaughn/lifting-logbook/pull/814), merged 2026-07-11), so that coupling
 is satisfied and the surface is now effectively live in prod. Enabling this rate limit is therefore the
 immediate operational follow-up — tracked in
-[#826](https://github.com/brownm09/lifting-logbook/issues/826), gated only on a domain / DNS cutover
+[#826](https://github.com/merickvaughn/lifting-logbook/issues/826), gated only on a domain / DNS cutover
 (see Consequences).
 
 **The infra reality that shapes the whole design:** there is no external load balancer in front of
@@ -145,13 +145,13 @@ ingress), then unset `enable_edge_load_balancer` and apply, then remove the DNS 
 
 ## Amendment (2026-07-12): apex and www already live; zero-downtime Cert Manager cutover
 
-**What prompted it.** Enabling in production ([#826](https://github.com/brownm09/lifting-logbook/issues/826))
+**What prompted it.** Enabling in production ([#826](https://github.com/merickvaughn/lifting-logbook/issues/826))
 surfaced that the original enable procedure above assumed a *greenfield* public domain. Live production
 state (verified via `gcloud`) is different: the web Cloud Run service is **already served at
 `liftinglogbook.com` (apex) and `www.liftinglogbook.com` via Cloud Run domain mappings** (`Ready=True`),
 in addition to `*.run.app`; web ingress is `all`. Three facts follow that the original design did not
 handle, corrected by the prerequisite code change
-([#830](https://github.com/brownm09/lifting-logbook/issues/830)) while keeping the stack default-off
+([#830](https://github.com/merickvaughn/lifting-logbook/issues/830)) while keeping the stack default-off
 (still a no-op plan):
 
 1. **The cert must cover the apex *and* `www`.** The shipped design issued a single-domain

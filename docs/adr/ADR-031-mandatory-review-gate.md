@@ -1,11 +1,11 @@
 # ADR-031: Mandatory Review Gate via GitHub Required Status Check
 
 **Status:** Accepted — implemented in the PR that closes
-[#757](https://github.com/brownm09/lifting-logbook/issues/757). See "Implementation" below.
+[#757](https://github.com/merickvaughn/lifting-logbook/issues/757). See "Implementation" below.
 **Date:** 2026-07-06
-**Closes:** [#718](https://github.com/brownm09/lifting-logbook/issues/718) (staged across
-[#720](https://github.com/brownm09/lifting-logbook/issues/720) — this workflow, shipped but not
-yet required — and [#757](https://github.com/brownm09/lifting-logbook/issues/757), which rolls out
+**Closes:** [#718](https://github.com/merickvaughn/lifting-logbook/issues/718) (staged across
+[#720](https://github.com/merickvaughn/lifting-logbook/issues/720) — this workflow, shipped but not
+yet required — and [#757](https://github.com/merickvaughn/lifting-logbook/issues/757), which rolls out
 the branch-protection change now that #720 is proven green)
 **Related:** dev-env [ADR-083](https://github.com/brownm09/dev-env/blob/main/docs/adr/083-auto-merge-checkpoint-gate.md)
 (the complementary client-side hook for the Claude-Code-mediated `--auto` path this check does not
@@ -71,7 +71,7 @@ established that every required-check workflow must trigger on `merge_group`
 ([GitHub Actions docs](https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows#merge_group))
 so the check reports against the queue's synthetic validation commit, not only the PR's own head
 SHA — `ci.yml`/`staging.yml` needed a follow-up PR (#696) to retrofit this. Merge queue enablement
-itself is still pending ([#695](https://github.com/brownm09/lifting-logbook/issues/695), open),
+itself is still pending ([#695](https://github.com/merickvaughn/lifting-logbook/issues/695), open),
 but adding `merge_group` support to a brand-new required-check-eligible workflow at creation time
 avoids repeating that same retrofit here. `merge_group` events expose no PR number directly
 (`context.issue.number` is undefined, confirmed in #696's implementation) — this workflow resolves
@@ -114,7 +114,7 @@ fail open (pass, with a `::warning::` annotation) rather than closed.
 
 ## Implementation
 
-[#757](https://github.com/brownm09/lifting-logbook/issues/757) (2026-07-08) added `Review Gate` to
+[#757](https://github.com/merickvaughn/lifting-logbook/issues/757) (2026-07-08) added `Review Gate` to
 `main`'s branch-protection `required_status_checks.contexts`, alongside the five pre-existing
 contexts (`Lint & Test`, `DB Integration Tests`, `Observability Stack Smoke Test`,
 `Playwright E2E`, `Staging Integration Tests`) via a full-replacement `PATCH` — the same mutation
@@ -137,7 +137,7 @@ implementation prompted.
 
 Revisit if:
 - `merge_group.head_ref`'s `pr-<number>-` format changes or fails to resolve in practice once
-  [#695](https://github.com/brownm09/lifting-logbook/issues/695) enables the merge queue live —
+  [#695](https://github.com/merickvaughn/lifting-logbook/issues/695) enables the merge queue live —
   fix promptly; blast radius is bounded to fail-open (reduced enforcement), not a stuck queue, per
   the safe-fallback design above.
 - The fail-open error rate in practice turns out non-trivial (i.e., the check routinely passes

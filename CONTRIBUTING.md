@@ -98,7 +98,7 @@ this wrong and requests 403 behind Cloud Run IAM.
 | **Browser → API** (`lib/client-api.ts`, Client Components) | `Authorization` | No Cloud Run IAM hop on the client path, so the standard header is free. |
 
 Both paths share **one** typed client — `createApiClient({ baseUrl, getAuthHeaders })` in
-[`packages/api-client`](packages/api-client) ([#466](https://github.com/brownm09/lifting-logbook/issues/466)).
+[`packages/api-client`](packages/api-client) ([#466](https://github.com/merickvaughn/lifting-logbook/issues/466)).
 The endpoints and DTOs live there once; `lib/api.ts` and `lib/client-api.ts` are thin wrappers
 that differ only in the `getAuthHeaders` strategy above. The client merges those headers with
 **auth-wins precedence**, so a call site cannot override them.
@@ -112,7 +112,7 @@ Rules:
   API directly.
 - The dual-header split is the single most error-prone thing in the web↔API boundary. The
   consolidation above is its structural mitigation; lint-enforcing "no direct `fetch()` to the
-  API" is tracked as flag 6 of the architecture review ([#464](https://github.com/brownm09/lifting-logbook/issues/464)).
+  API" is tracked as flag 6 of the architecture review ([#464](https://github.com/merickvaughn/lifting-logbook/issues/464)).
 
 ## Claude Code sessions
 

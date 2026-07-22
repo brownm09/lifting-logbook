@@ -2,13 +2,13 @@
 
 **Status:** Accepted
 **Date:** 2026-04-21
-**Closes:** [#55](https://github.com/brownm09/lifting-logbook/issues/55)
+**Closes:** [#55](https://github.com/merickvaughn/lifting-logbook/issues/55)
 
 ---
 
 ## Context
 
-Issue [#54](https://github.com/brownm09/lifting-logbook/issues/54) proposes a cycle planning agent: the user states a training goal (e.g., "peak my squat for a meet in 8 weeks"), and the agent reasons over lift history, training maxes, and program configuration to produce a structured cycle plan with training max adjustments and reasoning.
+Issue [#54](https://github.com/merickvaughn/lifting-logbook/issues/54) proposes a cycle planning agent: the user states a training goal (e.g., "peak my squat for a meet in 8 weeks"), and the agent reasons over lift history, training maxes, and program configuration to produce a structured cycle plan with training max adjustments and reasoning.
 
 Four design questions require explicit decisions before implementation begins in v0.3:
 

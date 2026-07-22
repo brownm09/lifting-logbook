@@ -2,7 +2,7 @@
   "proposals_dir": "docs/proposals",
   "roadmap_file": "ROADMAP.md",
   "prd_file": "docs/PRD.md",
-  "github_repo": "brownm09/lifting-logbook",
+  "github_repo": "merickvaughn/lifting-logbook",
   "milestones": [
     "v0.1 — Foundation",
     "v0.2 — Core API",

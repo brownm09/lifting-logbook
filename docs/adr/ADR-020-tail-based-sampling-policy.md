@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-05-09
-**Closes:** [#210](https://github.com/brownm09/lifting-logbook/issues/210)
+**Closes:** [#210](https://github.com/merickvaughn/lifting-logbook/issues/210)
 **Supersedes (partially):** [ADR-018](ADR-018-observability-stack.md) § Sampling
 
 ---
@@ -14,7 +14,7 @@ because no production traffic existed to inform a more nuanced policy. The negat
 section of that ADR explicitly noted:
 
 > "Head-based 100% sampling will not scale to high-traffic production. Tracked in
-> [#210](https://github.com/brownm09/lifting-logbook/issues/210); revisit when sustained ingest
+> [#210](https://github.com/merickvaughn/lifting-logbook/issues/210); revisit when sustained ingest
 > crosses 1,000 spans/minute (24h avg) or monthly Grafana Cloud trace cost exceeds $25."
 
 Issue #210 specifies a proactive approach: implement the sampling policy before the triggers are
@@ -124,7 +124,7 @@ traffic levels; the three-policy OR arrangement is sufficient and easier to reas
 
 The `errors` policy above keeps **every** trace containing an `ERROR`-status span. That was
 safe while error spans were emitted only by the authenticated `apps/api` request path, whose rate
-is bounded by real user traffic. [#798](https://github.com/brownm09/lifting-logbook/issues/798)
+is bounded by real user traffic. [#798](https://github.com/merickvaughn/lifting-logbook/issues/798)
 introduced a shape this ADR did not anticipate:
 [`apps/web`'s `POST /api/client-errors`](../../apps/web/app/api/client-errors/route.ts) is
 **public and unauthenticated by necessity** (the failure it reports may itself be an auth expiry, so
@@ -143,13 +143,13 @@ rejections stand for *legitimate* traffic; this addendum records the accepted in
 *unauthenticated* sink and the layered mitigations.
 
 **Latency of the risk.** The surface is **latent** until
-[#804](https://github.com/brownm09/lifting-logbook/issues/804) wires `apps/web`'s server runtime to
+[#804](https://github.com/merickvaughn/lifting-logbook/issues/804) wires `apps/web`'s server runtime to
 the prod collector — until then these spans reach no prod backend. The mitigations below should be
 validated and enforcement enabled **before / with #804**.
 
 **Mitigations (defence in depth):**
 
-1. **Span *size* — shipped in [#805](https://github.com/brownm09/lifting-logbook/pull/805).**
+1. **Span *size* — shipped in [#805](https://github.com/merickvaughn/lifting-logbook/pull/805).**
    `content-length` precheck before buffering, byte-accurate 4 KB body cap, 512-char clamp on every
    attribute value and key, 24-key context cap, scalar-only context values. Bounds the cost of each
    accepted span.
@@ -165,8 +165,8 @@ validated and enforcement enabled **before / with #804**.
    `client.origin.check=same-origin`, then set `CLIENT_ERROR_DROP_CROSS_ORIGIN=true`. Rollback is
    instant — unset the flag (no code deploy).
 
-   **Enforcement enabled — 2026-07-12 ([#809](https://github.com/brownm09/lifting-logbook/issues/809)).**
-   [PR #827](https://github.com/brownm09/lifting-logbook/pull/827) wired `CLIENT_ERROR_ALLOWED_ORIGINS`
+   **Enforcement enabled — 2026-07-12 ([#809](https://github.com/merickvaughn/lifting-logbook/issues/809)).**
+   [PR #827](https://github.com/merickvaughn/lifting-logbook/pull/827) wired `CLIENT_ERROR_ALLOWED_ORIGINS`
    (derived at deploy from each web service's own Cloud Run URL) into the staging + production web
    callers of [`deploy-cloud-run-otel-sidecar`](../../.github/actions/deploy-cloud-run-otel-sidecar/action.yml)
    in **observe mode** (`drop=false`). Staging Tempo validation then confirmed legitimate beacons tag

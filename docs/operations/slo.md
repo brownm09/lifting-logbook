@@ -142,7 +142,7 @@ data. Contact the Grafana Cloud portal (Stack → Settings → Data retention) t
 `APIRouteHighErrorRate` (per-route 5xx ratio `by (http_route) > 5%` for 5m, defined in
 `infra/observability/alerts/api.yaml`) was shipped with two parameters that can only be settled
 against **real production metrics**, and were deferred to
-[#468](https://github.com/brownm09/lifting-logbook/issues/468) per [ADR-019](../adr/ADR-019-slo-methodology.md)'s
+[#468](https://github.com/merickvaughn/lifting-logbook/issues/468) per [ADR-019](../adr/ADR-019-slo-methodology.md)'s
 note that threshold tuning waits for sustained traffic:
 
 1. **Is `http_route` the route *template*** (`/programs/:program/lifts`) rather than the raw path with
@@ -317,7 +317,7 @@ mimirtool alertmanager load infra/observability/alertmanager.yaml
 > the real values from Secret Manager / the Grafana Cloud portal (or configure the contact
 > points directly in the Cloud Alertmanager UI) — never commit the real destinations. This is
 > what makes an alert actually **page** rather than sit on a dashboard; the gap it closes is the
-> #458/#460 outage that ran four days with no notification ([#462](https://github.com/brownm09/lifting-logbook/issues/462)).
+> #458/#460 outage that ran four days with no notification ([#462](https://github.com/merickvaughn/lifting-logbook/issues/462)).
 
 After loading, send a test notification from the Grafana Cloud Alertmanager UI to confirm both
 the email and Slack contact points reach the operator.

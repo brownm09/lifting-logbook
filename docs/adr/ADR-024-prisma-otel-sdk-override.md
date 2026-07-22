@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-05-27
-**Closes:** [#348](https://github.com/brownm09/lifting-logbook/issues/348)
+**Closes:** [#348](https://github.com/merickvaughn/lifting-logbook/issues/348)
 **Related:** [ADR-018](ADR-018-observability-stack.md) (PrismaInstrumentation is an ADR-018 decision)
 
 ---
