@@ -5,6 +5,7 @@ import {
   parseHookConfig,
   parseProposeConfig,
   parseEpicOptionsTable,
+  parseMilestonesTable,
   parseClaudeMd,
   compareBoardIds,
 } from './check-board-id-sync.mjs';
@@ -16,6 +17,8 @@ const EPIC_ROWS = [
   ['Monorepo Scaffolding', 'aaaaaaaa'],
   ['CI/CD Foundation', 'bbbbbbbb'],
 ];
+// Em dashes match the real table, which the title regex has to survive.
+const MILESTONES = ['v0.1 — Foundation', 'v0.2 — Core API'];
 
 /** A miniature CLAUDE.md carrying the same board-ID shapes as the real one. */
 function claudeMdFixture(overrides = {}) {
@@ -26,6 +29,7 @@ function claudeMdFixture(overrides = {}) {
     owner = 'testowner',
     number = '2',
     epicRows = EPIC_ROWS,
+    milestones = MILESTONES,
     // Simulates a partial hand-edit: one of the repeated --project-id flags left stale.
     strayNodeId = nodeId,
     doneOptionId = '98236657',
@@ -60,6 +64,12 @@ function claudeMdFixture(overrides = {}) {
     `  --field-id ${statusField} \\`,
     `  --single-select-option-id ${doneOptionId}`,
     '```',
+    '',
+    '**Milestones:**',
+    '',
+    '| Title | Number |',
+    '|---|---|',
+    ...milestones.map((title, i) => `| ${title} | \`${i + 1}\` |`),
     trailer,
   ].join('\n');
 }
@@ -73,6 +83,7 @@ function hookFixture(overrides = {}) {
     status_field_id: STATUS_FIELD,
     done_option_id: '98236657',
     epic_options: Object.fromEntries(EPIC_ROWS),
+    milestones: [...MILESTONES],
     ...overrides,
   };
 }
@@ -87,6 +98,7 @@ function proposeFixture(overrides = {}) {
       ...overrides.github_project,
     },
     epics: overrides.epics || EPIC_ROWS.map(([name, id]) => ({ name, id })),
+    milestones: overrides.milestones || [...MILESTONES],
   };
 }
 
@@ -137,11 +149,17 @@ test('parseEpicOptionsTable returns undefined when the marker is absent', () => 
   assert.equal(parseEpicOptionsTable('# No board section here\n'), undefined);
 });
 
-test('parseEpicOptionsTable stops at the table end and ignores a later Milestones table', () => {
-  const source = claudeMdFixture({
-    trailer: ['', '**Milestones:**', '', '| Title | Number |', '|---|---|', '| v0.1 | `1` |'].join('\n'),
-  });
-  assert.deepEqual(parseEpicOptionsTable(source), Object.fromEntries(EPIC_ROWS));
+test('parseEpicOptionsTable stops at its table end and never reads Milestones rows', () => {
+  // The fixture already carries a Milestones table below the Epic table; the two must not bleed.
+  assert.deepEqual(parseEpicOptionsTable(claudeMdFixture()), Object.fromEntries(EPIC_ROWS));
+});
+
+test('parseMilestonesTable reads titles and ignores Epic-option rows', () => {
+  assert.deepEqual(parseMilestonesTable(claudeMdFixture()), MILESTONES);
+});
+
+test('parseMilestonesTable returns undefined when the marker is absent', () => {
+  assert.equal(parseMilestonesTable('# No milestones section\n'), undefined);
 });
 
 // --- parseClaudeMd ---
@@ -210,8 +228,15 @@ test('compareBoardIds catches CLAUDE.md disagreeing with itself', () => {
 test('compareBoardIds catches a field ID in CLAUDE.md that no longer exists in hook-config', () => {
   const problems = compare({ hook: { status_field_id: 'PVTSSF_lADORefreshedStatus' } });
   const joined = problems.join('\n');
-  assert.match(joined, /references field ID\(s\) absent from/);
-  assert.match(joined, /never references the Status field ID/);
+  assert.match(joined, /are not cached in/);
+  assert.match(joined, /Status field ID cached in .* never appears in/);
+});
+
+test('field-ID mismatch messages blame neither file — either side may be the stale one', () => {
+  // hook-config was the cache that went stale in #627, so the wording must not assert that
+  // CLAUDE.md is the deviant file.
+  const joined = compare({ hook: { status_field_id: 'PVTSSF_lADORefreshedStatus' } }).join('\n');
+  assert.match(joined, /one of the two is stale/);
 });
 
 test('compareBoardIds catches a renamed epic that only some caches know about', () => {
@@ -229,6 +254,26 @@ test('compareBoardIds catches owner drift — the half-migrated org transfer', (
 test('compareBoardIds catches a Done option ID that CLAUDE.md never uses', () => {
   const problems = compare({ hook: { done_option_id: '0112fb7c' } });
   assert.match(problems.join('\n'), /Done option ID 0112fb7c .* does not appear/);
+});
+
+test('compareBoardIds catches a milestone added to CLAUDE.md but not the JSON caches', () => {
+  // The drift CLAUDE.md warns about: a milestone created via the web UI or `gh api` is not
+  // produced by updateProjectV2Field, so nothing prompts a cache refresh.
+  const problems = compare({
+    claudeMd: { milestones: [...MILESTONES, 'v0.3 — Client Applications'] },
+  });
+  const joined = problems.join('\n');
+  assert.match(joined, /Milestone titles differ/);
+  assert.match(joined, /v0\.3 — Client Applications/);
+});
+
+test('compareBoardIds catches a milestone renamed in only one JSON cache', () => {
+  const problems = compare({ propose: { milestones: ['v0.1 — Foundations', 'v0.2 — Core API'] } });
+  assert.match(problems.join('\n'), /Milestone titles differ/);
+});
+
+test('compareBoardIds accepts milestones that agree across all three', () => {
+  assert.deepEqual(compare(), []);
 });
 
 test('compareBoardIds reports a missing required key rather than silently passing', () => {

@@ -63,6 +63,7 @@ export function parseHookConfig(json) {
     statusFieldId: json.status_field_id,
     doneOptionId: json.done_option_id,
     epics: epics && typeof epics === 'object' ? { ...epics } : undefined,
+    milestones: Array.isArray(json.milestones) ? [...json.milestones] : undefined,
   };
 }
 
@@ -70,9 +71,10 @@ export function parseProposeConfig(json) {
   const epics = Array.isArray(json.epics)
     ? Object.fromEntries(json.epics.map((epic) => [epic.name, epic.id]))
     : undefined;
+  const milestones = Array.isArray(json.milestones) ? [...json.milestones] : undefined;
   const project = json.github_project;
   if (!project || typeof project !== 'object') {
-    return { epics };
+    return { epics, milestones };
   }
   return {
     owner: project.owner,
@@ -80,20 +82,26 @@ export function parseProposeConfig(json) {
     nodeId: project.node_id,
     epicFieldId: project.epic_field_id,
     epics,
+    milestones,
   };
 }
 
 /**
- * Reads the `| Name | `optionId` |` rows of CLAUDE.md's Epic-options table. Scoped to the table
- * that follows the `**Epic options:**` marker, so the Milestones table (whose values are plain
- * integers, not 8-hex option IDs) can never be picked up by accident.
+ * Reads the `| Name | `value` |` rows of the markdown table that follows `marker`. Scoping to the
+ * marker keeps the Epic-options and Milestones tables from reading each other's rows, and
+ * `valuePattern` is a second, independent guard on the value column's shape. Header
+ * (`| Name | Option ID |`) and separator (`|---|---|`) rows match neither pattern and are skipped.
+ *
+ * Returns an array of `[name, value]` pairs in document order, or undefined when the marker or
+ * the table below it is absent.
  */
-export function parseEpicOptionsTable(source) {
+function parseMarkdownTable(source, marker, valuePattern) {
   const lines = source.split(/\r?\n/);
-  const start = lines.findIndex((line) => line.trim() === '**Epic options:**');
+  const start = lines.findIndex((line) => line.trim() === marker);
   if (start === -1) return undefined;
 
-  const epics = {};
+  const rowPattern = new RegExp(`^\\|\\s*(.+?)\\s*\\|\\s*\`(${valuePattern})\`\\s*\\|$`);
+  const rows = [];
   let inTable = false;
   for (let i = start + 1; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -103,11 +111,28 @@ export function parseEpicOptionsTable(source) {
     }
     if (!line.startsWith('|')) break;
     inTable = true;
-    // Header (`| Name | Option ID |`) and separator (`|---|---|`) rows do not match.
-    const row = line.match(/^\|\s*(.+?)\s*\|\s*`([0-9a-f]{8})`\s*\|$/);
-    if (row) epics[row[1]] = row[2];
+    const row = line.match(rowPattern);
+    if (row) rows.push([row[1], row[2]]);
   }
-  return inTable ? epics : undefined;
+  return inTable ? rows : undefined;
+}
+
+/** CLAUDE.md's Epic-options table, as a name → option-ID map. */
+export function parseEpicOptionsTable(source) {
+  const rows = parseMarkdownTable(source, '**Epic options:**', '[0-9a-f]{8}');
+  return rows ? Object.fromEntries(rows) : undefined;
+}
+
+/**
+ * CLAUDE.md's Milestones table, as an array of titles. Only titles are returned: the two JSON
+ * caches store milestones as bare title strings with no numbers, so titles are the only field
+ * that can be cross-checked. CLAUDE.md flags this drift class explicitly — a milestone created
+ * via `gh api repos/.../milestones` or the web UI is not produced by the `updateProjectV2Field`
+ * mutation, so nothing in that flow prompts you to refresh the caches.
+ */
+export function parseMilestonesTable(source) {
+  const rows = parseMarkdownTable(source, '**Milestones:**', '\\d+');
+  return rows ? rows.map(([title]) => title) : undefined;
 }
 
 /**
@@ -142,6 +167,7 @@ export function parseClaudeMd(source) {
       allCaptures(source, /--single-select-option-id\s+([0-9a-f]{8})\b/g),
     ),
     epics: parseEpicOptionsTable(source),
+    milestones: parseMilestonesTable(source),
   };
 }
 
@@ -169,6 +195,14 @@ export function compareBoardIds({ hook, propose, claudeMd }) {
     return true;
   };
 
+  const requireMilestones = (milestones, label) => {
+    if (!Array.isArray(milestones) || milestones.length === 0) {
+      problems.push(`${label} is missing or has no entries.`);
+      return false;
+    }
+    return true;
+  };
+
   requireValue(hook.nodeId, `${HOOK_CONFIG_FILE} → project_node_id`);
   requireValue(hook.epicFieldId, `${HOOK_CONFIG_FILE} → epic_field_id`);
   requireValue(hook.statusFieldId, `${HOOK_CONFIG_FILE} → status_field_id`);
@@ -176,16 +210,19 @@ export function compareBoardIds({ hook, propose, claudeMd }) {
   requireValue(hook.owner, `${HOOK_CONFIG_FILE} → project_owner`);
   requireValue(hook.number, `${HOOK_CONFIG_FILE} → project_number`);
   requireEpics(hook.epics, `${HOOK_CONFIG_FILE} → epic_options`);
+  requireMilestones(hook.milestones, `${HOOK_CONFIG_FILE} → milestones`);
 
   requireValue(propose.nodeId, `${PROPOSE_FILE} → github_project.node_id`);
   requireValue(propose.epicFieldId, `${PROPOSE_FILE} → github_project.epic_field_id`);
   requireValue(propose.owner, `${PROPOSE_FILE} → github_project.owner`);
   requireValue(propose.number, `${PROPOSE_FILE} → github_project.number`);
   requireEpics(propose.epics, `${PROPOSE_FILE} → epics`);
+  requireMilestones(propose.milestones, `${PROPOSE_FILE} → milestones`);
 
   requireValue(claudeMd.declaredNodeId, `${CLAUDE_MD_FILE} → "Project node ID:" declaration`);
   requireValue(claudeMd.declaredEpicFieldId, `${CLAUDE_MD_FILE} → "Epic field ID:" declaration`);
   requireEpics(claudeMd.epics, `${CLAUDE_MD_FILE} → Epic-options table`);
+  requireMilestones(claudeMd.milestones, `${CLAUDE_MD_FILE} → Milestones table`);
 
   // 1. CLAUDE.md must agree with itself before it is worth comparing against anything else.
   const internal = [
@@ -204,7 +241,10 @@ export function compareBoardIds({ hook, propose, claudeMd }) {
 
   // 2. Classify CLAUDE.md's field IDs against hook-config, which is the only cache that labels
   //    which field is which. This is also what cross-checks the Status field ID, since
-  //    propose.json does not carry one.
+  //    propose.json does not carry one. hook-config is the *reference* here purely because it
+  //    holds the labels — not because it is more likely to be correct. In the #627 incident it
+  //    was hook-config that went stale, so these messages state the disagreement rather than
+  //    naming a culprit.
   if (
     typeof hook.epicFieldId === 'string' &&
     typeof hook.statusFieldId === 'string' &&
@@ -214,17 +254,18 @@ export function compareBoardIds({ hook, propose, claudeMd }) {
     const unknown = claudeMd.fieldIds.filter((id) => !known.has(id));
     if (unknown.length > 0) {
       problems.push(
-        `${CLAUDE_MD_FILE} references field ID(s) absent from ${HOOK_CONFIG_FILE}: ${unknown.join(', ')}. ` +
-          `Expected only Epic (${hook.epicFieldId}) and Status (${hook.statusFieldId}). Refresh the caches ` +
-          'together — or, if a new single-select field was added to the board, cache it in ' +
-          `${HOOK_CONFIG_FILE} and extend this guard.`,
+        `Field ID(s) ${unknown.join(', ')} appear in ${CLAUDE_MD_FILE} but are not cached in ` +
+          `${HOOK_CONFIG_FILE} (which holds Epic=${hook.epicFieldId}, Status=${hook.statusFieldId}) — ` +
+          'one of the two is stale. Refresh both together, or, if a new single-select field was ' +
+          `added to the board, cache it in ${HOOK_CONFIG_FILE} and extend this guard.`,
       );
     }
     for (const [label, id] of [['Epic', hook.epicFieldId], ['Status', hook.statusFieldId]]) {
       if (!claudeMd.fieldIds.includes(id)) {
         problems.push(
-          `${CLAUDE_MD_FILE} never references the ${label} field ID (${id}) cached in ${HOOK_CONFIG_FILE}. ` +
-            "A stale ID in CLAUDE.md's snippets sends board edits to a dead field.",
+          `The ${label} field ID cached in ${HOOK_CONFIG_FILE} (${id}) never appears in ` +
+            `${CLAUDE_MD_FILE} — one of the two is stale. Whichever it is, a dead field ID in a ` +
+            'board command sends the edit nowhere.',
         );
       }
     }
@@ -309,6 +350,31 @@ export function compareBoardIds({ hook, propose, claudeMd }) {
     }
   }
 
+  // 5. Milestone titles. CLAUDE.md flags this as the same drift class reached by a different
+  //    trigger: a milestone is not created by updateProjectV2Field, so nothing in the mutation
+  //    flow prompts a cache refresh. Only titles are comparable — the two JSON caches store bare
+  //    strings, and the numbers live solely in CLAUDE.md's table.
+  const milestoneSources = [
+    { file: HOOK_CONFIG_FILE, milestones: hook.milestones },
+    { file: PROPOSE_FILE, milestones: propose.milestones },
+    { file: CLAUDE_MD_FILE, milestones: claudeMd.milestones },
+  ].filter((source) => Array.isArray(source.milestones) && source.milestones.length > 0);
+
+  if (milestoneSources.length >= 2) {
+    const [reference, ...others] = milestoneSources;
+    for (const other of others) {
+      const missing = reference.milestones.filter((title) => !other.milestones.includes(title));
+      const extra = other.milestones.filter((title) => !reference.milestones.includes(title));
+      if (missing.length > 0 || extra.length > 0) {
+        problems.push(
+          `Milestone titles differ between ${reference.file} and ${other.file}:` +
+            (missing.length > 0 ? `\n      missing from ${other.file}: ${missing.join(', ')}` : '') +
+            (extra.length > 0 ? `\n      only in ${other.file}: ${extra.join(', ')}` : ''),
+        );
+      }
+    }
+  }
+
   return problems;
 }
 
@@ -360,9 +426,10 @@ function main() {
   }
 
   const epicCount = Object.keys(hook.epics).length;
+  const milestoneCount = hook.milestones.length;
   console.log(
     `OK: board IDs in sync across ${CLAUDE_MD_FILE}, ${HOOK_CONFIG_FILE}, ${PROPOSE_FILE} ` +
-      `(${hook.nodeId}, ${epicCount} Epic options).`,
+      `(${hook.nodeId}, ${epicCount} Epic options, ${milestoneCount} milestones).`,
   );
   process.exit(0);
 }
