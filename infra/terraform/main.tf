@@ -531,13 +531,13 @@ resource "google_iam_workload_identity_pool_provider" "github" {
     "attribute.repository" = "assertion.repository"
   }
 
-  attribute_condition = "assertion.repository == 'brownm09/lifting-logbook'"
+  attribute_condition = "assertion.repository == 'merickvaughn/lifting-logbook'"
 }
 
 resource "google_service_account_iam_member" "cicd_wif_binding" {
   service_account_id = google_service_account.cicd.name
   role               = "roles/iam.workloadIdentityUser"
-  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/brownm09/lifting-logbook"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/merickvaughn/lifting-logbook"
 }
 
 # ─── IAM — read-only plan service account (#545) ─────────────────────────────
@@ -582,5 +582,5 @@ resource "google_project_iam_member" "cicd_plan_roles" {
 resource "google_service_account_iam_member" "cicd_plan_wif_binding" {
   service_account_id = google_service_account.cicd_plan.name
   role               = "roles/iam.workloadIdentityUser"
-  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/brownm09/lifting-logbook"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/merickvaughn/lifting-logbook"
 }
