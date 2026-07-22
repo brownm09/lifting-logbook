@@ -1,0 +1,34 @@
+{
+  "captured_at": "2026-07-22T17:21:18Z",
+  "issue": "871",
+  "staging":
+{
+  "attributeCondition": "assertion.repository == 'brownm09/lifting-logbook'",
+  "attributeMapping": {
+    "attribute.actor": "assertion.actor",
+    "attribute.repository": "assertion.repository",
+    "google.subject": "assertion.sub"
+  },
+  "displayName": "GitHub OIDC",
+  "name": "projects/910635705567/locations/global/workloadIdentityPools/lifting-logbook-stg-github-pool/providers/github-provider",
+  "oidc": {
+    "issuerUri": "https://token.actions.githubusercontent.com"
+  },
+  "state": "ACTIVE"
+}
+  ,"prod":
+{
+  "attributeCondition": "assertion.repository == 'merickvaughn/lifting-logbook'",
+  "attributeMapping": {
+    "attribute.actor": "assertion.actor",
+    "attribute.repository": "assertion.repository",
+    "google.subject": "assertion.sub"
+  },
+  "displayName": "GitHub OIDC",
+  "name": "projects/508649171914/locations/global/workloadIdentityPools/lifting-logbook-prod-github-pool/providers/github-provider",
+  "oidc": {
+    "issuerUri": "https://token.actions.githubusercontent.com"
+  },
+  "state": "ACTIVE"
+}
+}

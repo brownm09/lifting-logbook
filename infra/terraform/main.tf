@@ -525,19 +525,39 @@ resource "google_iam_workload_identity_pool_provider" "github" {
     issuer_uri = "https://token.actions.githubusercontent.com"
   }
 
+  # google.subject is deliberately NOT assertion.sub (#869). Under merge_group,
+  # GitHub's `sub` embeds the merge queue's synthetic ref
+  # (repo:<owner>/<repo>:ref:refs/heads/gh-readonly-queue/main/pr-<N>-<40-char-sha>),
+  # which overflows Google's 127-byte mapped-attribute limit and fails the exchange
+  # with `invalid_request`. No pull_request/push ref comes close, so the mapping was
+  # latent-broken until the merge queue went live and dropped the first queued PR.
+  # assertion.repository is constant-length and safely bounded. No ACCESS depends on
+  # the subject: both SA bindings below authorize via principalSet on
+  # attribute.repository, and no principal://.../subject/... binding exists anywhere.
+  #
+  # AUDIT granularity is knowingly traded away, however. Cloud Audit Logs derive the
+  # federated principal from google.subject, so every run — whatever the actor — now
+  # authenticates as one constant subject, and a staging apply can no longer be
+  # attributed to the actor or PR that triggered it. attribute.actor does NOT recover
+  # this: it is usable in IAM conditions and principalSet members, but it is not the
+  # identifier logged as the principal. A bounded composite
+  # ("assertion.repository + '/' + assertion.actor") would restore attribution while
+  # staying far under 127 bytes; it is deliberately NOT taken here because this change
+  # is the fix for a live auth outage and re-shaping the subject a second time would
+  # put an unproven value in the critical path. Tracked in #874.
   attribute_mapping = {
-    "google.subject"       = "assertion.sub"
+    "google.subject"       = "assertion.repository"
     "attribute.actor"      = "assertion.actor"
     "attribute.repository" = "assertion.repository"
   }
 
-  attribute_condition = "assertion.repository == 'brownm09/lifting-logbook'"
+  attribute_condition = "assertion.repository == '${var.github_repository}'"
 }
 
 resource "google_service_account_iam_member" "cicd_wif_binding" {
   service_account_id = google_service_account.cicd.name
   role               = "roles/iam.workloadIdentityUser"
-  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/brownm09/lifting-logbook"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/${var.github_repository}"
 }
 
 # ─── IAM — read-only plan service account (#545) ─────────────────────────────
@@ -582,5 +602,5 @@ resource "google_project_iam_member" "cicd_plan_roles" {
 resource "google_service_account_iam_member" "cicd_plan_wif_binding" {
   service_account_id = google_service_account.cicd_plan.name
   role               = "roles/iam.workloadIdentityUser"
-  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/brownm09/lifting-logbook"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/${var.github_repository}"
 }

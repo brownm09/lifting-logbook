@@ -1,0 +1,27 @@
+{
+  "captured_at": "2026-07-22T17:24:40Z",
+  "issue": "871",
+  "staging_cicd": {
+    "bindings": [
+      {
+        "members": [
+          "principalSet://iam.googleapis.com/projects/910635705567/locations/global/workloadIdentityPools/lifting-logbook-stg-github-pool/attribute.repository/brownm09/lifting-logbook"
+        ],
+        "role": "roles/iam.workloadIdentityUser"
+      }
+    ],
+    "version": 1
+  },
+  "staging_plan": {
+    "bindings": [
+      {
+        "members": [
+          "principalSet://iam.googleapis.com/projects/910635705567/locations/global/workloadIdentityPools/lifting-logbook-stg-github-pool/attribute.repository/brownm09/lifting-logbook"
+        ],
+        "role": "roles/iam.workloadIdentityUser"
+      }
+    ],
+    "version": 1
+  },
+  "redaction_note": "Filtered to roles/iam.workloadIdentityUser bindings only — the sole entry the WIF restore path needs. Unrelated principals (including human user: grants) are intentionally omitted: this repo is public."
+}

@@ -29,6 +29,35 @@ variable "app_name" {
   default     = "lifting-logbook"
 }
 
+variable "github_repository" {
+  description = <<-EOT
+    The "owner/repo" this repository's GitHub Actions runs authenticate as, exactly as
+    it appears in the OIDC token's `repository` claim. Single source of truth for the
+    Workload Identity Federation trust boundary: it gates the provider's
+    attribute_condition AND both service-account principalSet bindings (cicd,
+    cicd_plan), which must always agree — a mismatch between them silently yields
+    either `unauthorized_client` at token exchange or a failed impersonation.
+
+    Change this in ONE place after any repository transfer or rename. Before #871 the
+    same owner/repo string was hard-coded at three separate sites; the transfer to the
+    `merickvaughn` org left `main` pinned to the pre-transfer `brownm09` value, and
+    because .github/workflows/staging.yml runs `terraform apply` (not plan) on every PR,
+    any PR branched from main actively re-applied the stale value to the live provider —
+    breaking GCP auth for every other branch, including the PR that carried the fix.
+  EOT
+  type        = string
+  default     = "merickvaughn/lifting-logbook"
+
+  validation {
+    # Charset is GitHub's actual owner/repo alphabet, deliberately narrower than a
+    # bare "one slash" shape check: the value is interpolated into a single-quoted
+    # CEL string in attribute_condition, so admitting a quote here would emit a
+    # malformed expression at the only consumer that reads this variable.
+    condition     = can(regex("^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$", var.github_repository))
+    error_message = "github_repository must be \"owner/repo\" using only letters, digits, dot, underscore or hyphen in each part."
+  }
+}
+
 variable "db_tier" {
   description = "Cloud SQL instance tier"
   type        = string
