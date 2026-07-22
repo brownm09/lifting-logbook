@@ -61,4 +61,30 @@ gh api -X PATCH repos/merickvaughn/lifting-logbook/branches/main/protection/requ
 
 As of [#694](https://github.com/merickvaughn/lifting-logbook/issues/694), both required-check workflows (`ci.yml` and `staging.yml`) also trigger on `merge_group`, with `github.event.pull_request.*` context references made merge_group-safe throughout (concurrency groups, the fork-repo guard, image tagging, the `dorny/paths-filter` preflight diff, and skipping the PR-comment-only `report-status` job). See [ADR-030](../adr/ADR-030-github-merge-queue-adoption.md) for the full decision record.
 
-**"Require merge queue" is NOT YET enabled in live branch protection.** This is deliberately staged: #694 is additive-only wiring, run for a while and confirmed stable before the branch-protection setting is flipped and live-validated in a follow-up ([#695](https://github.com/merickvaughn/lifting-logbook/issues/695)). This section will be updated once #695 lands to reflect the live "Require merge queue" + Build Concurrency setting.
+**"Require merge queue" is ENABLED on `main`** as of 2026-07-22 ([#695](https://github.com/merickvaughn/lifting-logbook/issues/695), unblocked by the [#729](https://github.com/merickvaughn/lifting-logbook/issues/729) transfer to the `merickvaughn` organization — merge queue requires org ownership regardless of repo visibility). Live configuration:
+
+| Setting | Value | Why |
+|---|---|---|
+| Merge method | **Squash** | Matches the repo-wide squash-only merge strategy (keeps `main` linear). |
+| **Build concurrency** | **1** | The one setting that actually fixes [#673](https://github.com/merickvaughn/lifting-logbook/issues/673): only one queue entry re-validates at a time, so the *global* `staging-deploy-mutex-api`/`-web` groups become uncontended rather than merely tolerated. Raising this reintroduces the cancellation cascade. |
+| Merge limits | min 1 / max 5 entries | GitHub defaults; not load-bearing for #673. |
+| Require branches up to date (`strict`) | `true` (unchanged) | The queue, not the contributor, now satisfies it — that is the point of adopting it. |
+
+### Verifying the merge queue setting
+
+**The classic REST branch-protection endpoint does not reliably surface merge-queue state** — `gh api repos/merickvaughn/lifting-logbook/branches/main/protection` returns no `required_merge_queue` key even when the queue is live, and `.../rulesets` is empty because the queue is configured on the classic branch-protection rule rather than a ruleset. Reading either one alone produces a false "not enabled". Query GraphQL instead, which is authoritative:
+
+```bash
+gh api graphql -f query='
+query {
+  repository(owner:"merickvaughn", name:"lifting-logbook") {
+    mergeQueue(branch:"main") {
+      id
+      configuration { mergeMethod mergingStrategy maximumEntriesToBuild maximumEntriesToMerge minimumEntriesToMerge }
+      entries(first:5) { totalCount }
+    }
+  }
+}'
+```
+
+A non-null `mergeQueue.id` means the queue exists; `maximumEntriesToBuild` is the Build Concurrency value in the table above. See [ADR-030](../adr/ADR-030-github-merge-queue-adoption.md) for the full decision record and its 2026-07-22 amendment.
