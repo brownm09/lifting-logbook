@@ -71,24 +71,24 @@ All new issues must be added to the **Lifting Logbook** project and assigned an 
 **Board-item lookups resolve the issue's project-item ID directly via GraphQL — they never enumerate the board, so they never truncate.** See the `gh api graphql … issue(number:$number){projectItems…}` calls in Standard Issue Workflow steps 3 and 9. Do **not** replace them with `gh project item-list --limit N` + a client-side `.find()`: that pages the entire board and silently returns `undefined` for any issue past the page limit (the project passed 500 items on 2026-07-17, so `--limit 500` could not see issue #837+). Prior `--limit` bumps (300→500→1000; [#601](https://github.com/merickvaughn/lifting-logbook/issues/601), [#632](https://github.com/merickvaughn/lifting-logbook/issues/632)) were a treadmill this approach ends ([#852](https://github.com/merickvaughn/lifting-logbook/issues/852)).
 
 **Project IDs (needed for CLI commands):**
-- Project number: `2`, owner: `brownm09`
-- Project node ID: `PVT_kwHOAjEKvM4BTuEF`
-- Epic field ID: `PVTSSF_lAHOAjEKvM4BTuEFzhA7GEs`
+- Project number: `2`, owner: `merickvaughn`
+- Project node ID: `PVT_kwDOEecHO84BeFl_`
+- Epic field ID: `PVTSSF_lADOEecHO84BeFl_zhYiZmg`
 
 **Epic options:**
 
 | Name | Option ID |
 |---|---|
-| Monorepo Scaffolding | `9dcd9556` |
-| Package & App Scaffolding | `ae06cfdd` |
-| Port Interfaces | `cc1ae008` |
-| Shared Types | `a6b59698` |
-| CI/CD Foundation | `fc0df03b` |
-| Architecture & Documentation | `f7202bcd` |
-| Observability | `d3c68018` |
-| API Implementation | `50a1da76` |
-| Client Applications | `31d3931e` |
-| Operations | `0c3f26d2` |
+| Monorepo Scaffolding | `b36a539f` |
+| Package & App Scaffolding | `5f7ee7e1` |
+| Port Interfaces | `679c2b39` |
+| Shared Types | `cd1dd755` |
+| CI/CD Foundation | `8e936837` |
+| Architecture & Documentation | `2f5e3e1b` |
+| Observability | `3b3b9b8c` |
+| API Implementation | `df8223db` |
+| Client Applications | `5111fafe` |
+| Operations | `de6caeb7` |
 
 > **IDs regenerate on every option mutation.** `updateProjectV2Field` with `singleSelectOptions` is a full replacement — passing the existing options unchanged still produces new IDs and drops every item's prior assignment. Always follow the **Backup-and-restore procedure** below before any mutation, and update this table — **plus the other two ID caches listed in step 3** — immediately after.
 
@@ -109,7 +109,7 @@ All new issues must be added to the **Lifting Logbook** project and assigned an 
    # field value (Epic, Status, Priority, …) so restore works whichever field is later mutated.
    gh api graphql --paginate -f query='
      query($endCursor: String) {
-       node(id: "PVT_kwHOAjEKvM4BTuEF") { ... on ProjectV2 {
+       node(id: "PVT_kwDOEecHO84BeFl_") { ... on ProjectV2 {
          items(first: 100, after: $endCursor) {
            pageInfo { hasNextPage endCursor }
            nodes { id content { ... on Issue { number title } }
@@ -121,7 +121,7 @@ All new issues must be added to the **Lifting Logbook** project and assigned an 
    # Completeness check (#857): snapshot line count must equal the live project item count, or the
    # snapshot truncated — do NOT run the mutation until the mismatch is understood.
    SNAP_ITEMS=$(wc -l < "$SNAP")
-   LIVE_ITEMS=$(gh api graphql -f query='query { node(id: "PVT_kwHOAjEKvM4BTuEF") { ... on ProjectV2 { items { totalCount } } } }' --jq '.data.node.items.totalCount')
+   LIVE_ITEMS=$(gh api graphql -f query='query { node(id: "PVT_kwDOEecHO84BeFl_") { ... on ProjectV2 { items { totalCount } } } }' --jq '.data.node.items.totalCount')
    echo "snapshot: $SNAP_ITEMS items   live: $LIVE_ITEMS items"
    if [ "$SNAP_ITEMS" -eq "$LIVE_ITEMS" ]; then
      git add "$SNAP"
@@ -162,13 +162,13 @@ gh issue edit <N> --milestone "<milestone-title>"
 
 # 2. Add issue to project, capture item ID
 TMPFILE="tmp_$$.json"
-gh project item-add 2 --owner brownm09 --url <issue-url> --format json > "$TMPFILE"
+gh project item-add 2 --owner merickvaughn --url <issue-url> --format json > "$TMPFILE"
 ITEM_ID=$(node -e "const d=JSON.parse(require('fs').readFileSync('$TMPFILE','utf8')); console.log(d.id);")
 rm -f "$TMPFILE"
 
 # 3. Set Epic field
-gh project item-edit --project-id PVT_kwHOAjEKvM4BTuEF --id "$ITEM_ID" \
-  --field-id PVTSSF_lAHOAjEKvM4BTuEFzhA7GEs \
+gh project item-edit --project-id PVT_kwDOEecHO84BeFl_ --id "$ITEM_ID" \
+  --field-id PVTSSF_lADOEecHO84BeFl_zhYiZmg \
   --single-select-option-id <option-id>
 ```
 
@@ -185,10 +185,10 @@ If `--format json` is not supported by the installed `gh` version, fall back to 
 3. Move the issue to **In Progress** on the project board:
    ```bash
    # Resolve this issue's project-item ID directly — no board enumeration, so it never truncates (#852)
-   ITEM_ID=$(gh api graphql -f query='query($number:Int!){repository(owner:"brownm09",name:"lifting-logbook"){issue(number:$number){projectItems(first:10){nodes{id project{number}}}}}}' -F number=<N> --jq '.data.repository.issue.projectItems.nodes[]|select(.project.number==2)|.id')
-   gh project item-edit --project-id PVT_kwHOAjEKvM4BTuEF --id "$ITEM_ID" \
-     --field-id PVTSSF_lAHOAjEKvM4BTuEFzhA7F7E \
-     --single-select-option-id 47fc9ee4
+   ITEM_ID=$(gh api graphql -f query='query($number:Int!){repository(owner:"merickvaughn",name:"lifting-logbook"){issue(number:$number){projectItems(first:10){nodes{id project{number}}}}}}' -F number=<N> --jq '.data.repository.issue.projectItems.nodes[]|select(.project.number==2)|.id')
+   gh project item-edit --project-id PVT_kwDOEecHO84BeFl_ --id "$ITEM_ID" \
+     --field-id PVTSSF_lADOEecHO84BeFl_zhYiZk8 \
+     --single-select-option-id a5322fc5
    ```
 4. Implement the changes
 5. Commit with `Closes #<N>` in the message (see Commit Format)
@@ -209,10 +209,10 @@ If `--format json` is not supported by the installed `gh` version, fall back to 
 9. Move the issue to **Done** on the project board:
    ```bash
    # Resolve this issue's project-item ID directly — no board enumeration, so it never truncates (#852)
-   ITEM_ID=$(gh api graphql -f query='query($number:Int!){repository(owner:"brownm09",name:"lifting-logbook"){issue(number:$number){projectItems(first:10){nodes{id project{number}}}}}}' -F number=<N> --jq '.data.repository.issue.projectItems.nodes[]|select(.project.number==2)|.id')
-   gh project item-edit --project-id PVT_kwHOAjEKvM4BTuEF --id "$ITEM_ID" \
-     --field-id PVTSSF_lAHOAjEKvM4BTuEFzhA7F7E \
-     --single-select-option-id 98236657
+   ITEM_ID=$(gh api graphql -f query='query($number:Int!){repository(owner:"merickvaughn",name:"lifting-logbook"){issue(number:$number){projectItems(first:10){nodes{id project{number}}}}}}' -F number=<N> --jq '.data.repository.issue.projectItems.nodes[]|select(.project.number==2)|.id')
+   gh project item-edit --project-id PVT_kwDOEecHO84BeFl_ --id "$ITEM_ID" \
+     --field-id PVTSSF_lADOEecHO84BeFl_zhYiZk8 \
+     --single-select-option-id 0112fb7c
    ```
 10. Pull main: `git checkout main && git pull`
 11. Close the issue if not auto-closed: `gh issue close <N>`
