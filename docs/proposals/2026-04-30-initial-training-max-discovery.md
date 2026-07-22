@@ -2,7 +2,7 @@
 
 **Status:** `shipped`
 **Date:** 2026-04-30
-**Issue:** [#129](https://github.com/brownm09/lifting-logbook/issues/129)
+**Issue:** [#129](https://github.com/merickvaughn/lifting-logbook/issues/129)
 
 ---
 
@@ -38,7 +38,7 @@ The week-level declared type is derived at request time via
 `weekTypeForDate(cycleDate, programSpec)` and exposed on the
 `CycleDashboardResponse` as `currentWeekType` (not a per-exercise aggregate).
 Originally proposed as a stored `CycleDashboard.currentWeekType` field; that
-placeholder was removed in [#361](https://github.com/brownm09/lifting-logbook/issues/361)
+placeholder was removed in [#361](https://github.com/merickvaughn/lifting-logbook/issues/361)
 because the value is never authoritative — it is always re-derived from the program
 spec and date. The Sheets parser reads an optional `Week Type` column
 per-row; blank rows inherit the first non-blank value in the same week, defaulting to

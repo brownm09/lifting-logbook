@@ -10,7 +10,7 @@ const MOCK_API = process.env.PLAYWRIGHT_MOCK_API_URL ?? 'http://127.0.0.1:3004';
 // first navigating test would otherwise fail at page.goto before any assertion runs. Warm
 // the route once here (with generous headroom) so every test navigates to an already-
 // compiled /import. CI (Linux) compiles fast enough that this is effectively a no-op.
-// See https://github.com/brownm09/lifting-logbook/issues/698.
+// See https://github.com/merickvaughn/lifting-logbook/issues/698.
 test.beforeAll(async ({ browser }, testInfo) => {
   test.setTimeout(120_000);
   const page = await browser.newPage({ baseURL: testInfo.project.use.baseURL });

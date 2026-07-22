@@ -15,10 +15,10 @@ Include in your opening brief only: the issue you are working on, current branch
     - Truncated `.d.ts` files: `node_modules/light-my-request/types/index.d.ts` cut mid-type
     - Malformed native binaries: `node_modules/@turbo/windows-64/bin/turbo.exe` failing with `EFTYPE`
 
-    Downstream failures: `nest build` CJS resolution errors (`iconv-lite/lib/streams`, `minimatch/dist/commonjs/index.js`), `TS1110 Type expected` from `light-my-request`, or `spawnSync ... EFTYPE` from turbo. Fix: `rm -rf node_modules/<package> && npm install <package> --no-save` to re-extract a single package, or `rm -rf node_modules && npm ci` for a full reset. CI runs Node 20 and is unaffected. Original investigation: [#373](https://github.com/brownm09/lifting-logbook/issues/373).
-  - **Node 24 Jest worker OOM (Windows only):** Several `packages/core` CSV-fixture-heavy suites exhaust per-worker heap when run in parallel on Node 24. Codified workaround: `jest.config.base.js` applies `workerIdleMemoryLimit: '512MB'` + `maxWorkers: '50%'` when `process.platform === 'win32'`. Linux Node 20 CI is unaffected by both the failure and the setting. Investigation: [#419](https://github.com/brownm09/lifting-logbook/issues/419).
-  - **Windows full-suite parallel-load flakes (local only):** Under a full `npm test` (`turbo run test` runs several jest processes concurrently), Windows oversubscribes the CPU and produces isolation-only flakes — the api `*.db.e2e.spec.ts` `beforeAll` hooks (DB connect + seed + Nest bootstrap) trip Jest's 5s default hook timeout, and a slow web suite occasionally reports `1 failed`. Codified workaround: the two `apps/api/src/**/*.db.e2e.spec.ts` suites pass an explicit 30s `beforeAll` timeout (`DB_E2E_HOOK_TIMEOUT_MS`; apps/api's jest config is standalone and does not extend the win32-capped base), and `jest.config.base.js` adds `testTimeout: 15000` on win32 for the base-extending workspaces (web/core/types/api-client). Linux CI keeps the 5s default. Investigation: [#567](https://github.com/brownm09/lifting-logbook/issues/567).
-  - **Windows web-suite worker OOM (local only):** A full `npm test -w @lifting-logbook/web` parallel run on Windows can OOM a Jest worker at load — most visibly the CSV-heavy onboarding suites (`StepImport`/`StepLifts`), which pull jsdom + React + the full `@lifting-logbook/core` barrel into every worker; every test that *runs* passes and the suites pass cleanly in isolation (`npx jest --config apps/web/jest.config.js --runInBand "StepImport.test|StepLifts.test"`). The [#419](https://github.com/brownm09/lifting-logbook/issues/419) `workerIdleMemoryLimit`/`maxWorkers` mitigation lives in `jest.config.base.js` but is gated to Node ≥ 24, so on Node 20 the web project had no memory guard (only the [#567](https://github.com/brownm09/lifting-logbook/issues/567) `testTimeout`). Codified workaround: `apps/web/jest.config.js` re-applies `workerIdleMemoryLimit: '512MB'` + `maxWorkers: '50%'` on *every* win32 Node (independent of the base's Node-24 gate), since web's per-worker footprint is heavier than `packages/core`'s. Linux CI is unaffected (not win32). Investigation: [#807](https://github.com/brownm09/lifting-logbook/issues/807).
+    Downstream failures: `nest build` CJS resolution errors (`iconv-lite/lib/streams`, `minimatch/dist/commonjs/index.js`), `TS1110 Type expected` from `light-my-request`, or `spawnSync ... EFTYPE` from turbo. Fix: `rm -rf node_modules/<package> && npm install <package> --no-save` to re-extract a single package, or `rm -rf node_modules && npm ci` for a full reset. CI runs Node 20 and is unaffected. Original investigation: [#373](https://github.com/merickvaughn/lifting-logbook/issues/373).
+  - **Node 24 Jest worker OOM (Windows only):** Several `packages/core` CSV-fixture-heavy suites exhaust per-worker heap when run in parallel on Node 24. Codified workaround: `jest.config.base.js` applies `workerIdleMemoryLimit: '512MB'` + `maxWorkers: '50%'` when `process.platform === 'win32'`. Linux Node 20 CI is unaffected by both the failure and the setting. Investigation: [#419](https://github.com/merickvaughn/lifting-logbook/issues/419).
+  - **Windows full-suite parallel-load flakes (local only):** Under a full `npm test` (`turbo run test` runs several jest processes concurrently), Windows oversubscribes the CPU and produces isolation-only flakes — the api `*.db.e2e.spec.ts` `beforeAll` hooks (DB connect + seed + Nest bootstrap) trip Jest's 5s default hook timeout, and a slow web suite occasionally reports `1 failed`. Codified workaround: the two `apps/api/src/**/*.db.e2e.spec.ts` suites pass an explicit 30s `beforeAll` timeout (`DB_E2E_HOOK_TIMEOUT_MS`; apps/api's jest config is standalone and does not extend the win32-capped base), and `jest.config.base.js` adds `testTimeout: 15000` on win32 for the base-extending workspaces (web/core/types/api-client). Linux CI keeps the 5s default. Investigation: [#567](https://github.com/merickvaughn/lifting-logbook/issues/567).
+  - **Windows web-suite worker OOM (local only):** A full `npm test -w @lifting-logbook/web` parallel run on Windows can OOM a Jest worker at load — most visibly the CSV-heavy onboarding suites (`StepImport`/`StepLifts`), which pull jsdom + React + the full `@lifting-logbook/core` barrel into every worker; every test that *runs* passes and the suites pass cleanly in isolation (`npx jest --config apps/web/jest.config.js --runInBand "StepImport.test|StepLifts.test"`). The [#419](https://github.com/merickvaughn/lifting-logbook/issues/419) `workerIdleMemoryLimit`/`maxWorkers` mitigation lives in `jest.config.base.js` but is gated to Node ≥ 24, so on Node 20 the web project had no memory guard (only the [#567](https://github.com/merickvaughn/lifting-logbook/issues/567) `testTimeout`). Codified workaround: `apps/web/jest.config.js` re-applies `workerIdleMemoryLimit: '512MB'` + `maxWorkers: '50%'` on *every* win32 Node (independent of the base's Node-24 gate), since web's per-worker footprint is heavier than `packages/core`'s. Linux CI is unaffected (not win32). Investigation: [#807](https://github.com/merickvaughn/lifting-logbook/issues/807).
 - **Package manager:** npm (workspaces)
 - **`jq` is NOT available.** Use `node -e` with a temp file in the working directory for JSON parsing:
   ```bash
@@ -68,27 +68,27 @@ Architecture follows hexagonal / Ports & Adapters. `packages/core` has zero infr
 
 All new issues must be added to the **Lifting Logbook** project and assigned an epic before work begins.
 
-**Board-item lookups resolve the issue's project-item ID directly via GraphQL — they never enumerate the board, so they never truncate.** See the `gh api graphql … issue(number:$number){projectItems…}` calls in Standard Issue Workflow steps 3 and 9. Do **not** replace them with `gh project item-list --limit N` + a client-side `.find()`: that pages the entire board and silently returns `undefined` for any issue past the page limit (the project passed 500 items on 2026-07-17, so `--limit 500` could not see issue #837+). Prior `--limit` bumps (300→500→1000; [#601](https://github.com/brownm09/lifting-logbook/issues/601), [#632](https://github.com/brownm09/lifting-logbook/issues/632)) were a treadmill this approach ends ([#852](https://github.com/brownm09/lifting-logbook/issues/852)).
+**Board-item lookups resolve the issue's project-item ID directly via GraphQL — they never enumerate the board, so they never truncate.** See the `gh api graphql … issue(number:$number){projectItems…}` calls in Standard Issue Workflow steps 3 and 9. Do **not** replace them with `gh project item-list --limit N` + a client-side `.find()`: that pages the entire board and silently returns `undefined` for any issue past the page limit (the project passed 500 items on 2026-07-17, so `--limit 500` could not see issue #837+). Prior `--limit` bumps (300→500→1000; [#601](https://github.com/merickvaughn/lifting-logbook/issues/601), [#632](https://github.com/merickvaughn/lifting-logbook/issues/632)) were a treadmill this approach ends ([#852](https://github.com/merickvaughn/lifting-logbook/issues/852)).
 
 **Project IDs (needed for CLI commands):**
-- Project number: `2`, owner: `brownm09`
-- Project node ID: `PVT_kwHOAjEKvM4BTuEF`
-- Epic field ID: `PVTSSF_lAHOAjEKvM4BTuEFzhA7GEs`
+- Project number: `2`, owner: `merickvaughn`
+- Project node ID: `PVT_kwDOEecHO84BeFl_`
+- Epic field ID: `PVTSSF_lADOEecHO84BeFl_zhYiZmg`
 
 **Epic options:**
 
 | Name | Option ID |
 |---|---|
-| Monorepo Scaffolding | `9dcd9556` |
-| Package & App Scaffolding | `ae06cfdd` |
-| Port Interfaces | `cc1ae008` |
-| Shared Types | `a6b59698` |
-| CI/CD Foundation | `fc0df03b` |
-| Architecture & Documentation | `f7202bcd` |
-| Observability | `d3c68018` |
-| API Implementation | `50a1da76` |
-| Client Applications | `31d3931e` |
-| Operations | `0c3f26d2` |
+| Monorepo Scaffolding | `b36a539f` |
+| Package & App Scaffolding | `5f7ee7e1` |
+| Port Interfaces | `679c2b39` |
+| Shared Types | `cd1dd755` |
+| CI/CD Foundation | `8e936837` |
+| Architecture & Documentation | `2f5e3e1b` |
+| Observability | `3b3b9b8c` |
+| API Implementation | `df8223db` |
+| Client Applications | `5111fafe` |
+| Operations | `de6caeb7` |
 
 > **IDs regenerate on every option mutation.** `updateProjectV2Field` with `singleSelectOptions` is a full replacement — passing the existing options unchanged still produces new IDs and drops every item's prior assignment. Always follow the **Backup-and-restore procedure** below before any mutation, and update this table — **plus the other two ID caches listed in step 3** — immediately after.
 
@@ -96,10 +96,10 @@ All new issues must be added to the **Lifting Logbook** project and assigned an 
 
 1. Snapshot current single-select assignments (Epic, Status, Priority) to a git-tracked file. The
    query **paginates through every item** — `items(first: 100)` alone caps the snapshot at 100 items
-   and silently drops the rest ([#857](https://github.com/brownm09/lifting-logbook/issues/857): the
+   and silently drops the rest ([#857](https://github.com/merickvaughn/lifting-logbook/issues/857): the
    board passed 500 items on 2026-07-17), so a restore would lose the un-captured items' assignments.
    `gh api graphql --paginate` loops on `pageInfo`/`endCursor` automatically (no fixed `--limit` to
-   keep bumping — the treadmill [#852](https://github.com/brownm09/lifting-logbook/issues/852) warns
+   keep bumping — the treadmill [#852](https://github.com/merickvaughn/lifting-logbook/issues/852) warns
    against), and the completeness guard refuses to commit an incomplete snapshot:
    ```bash
    mkdir -p .claude/backups
@@ -109,7 +109,7 @@ All new issues must be added to the **Lifting Logbook** project and assigned an 
    # field value (Epic, Status, Priority, …) so restore works whichever field is later mutated.
    gh api graphql --paginate -f query='
      query($endCursor: String) {
-       node(id: "PVT_kwHOAjEKvM4BTuEF") { ... on ProjectV2 {
+       node(id: "PVT_kwDOEecHO84BeFl_") { ... on ProjectV2 {
          items(first: 100, after: $endCursor) {
            pageInfo { hasNextPage endCursor }
            nodes { id content { ... on Issue { number title } }
@@ -121,7 +121,7 @@ All new issues must be added to the **Lifting Logbook** project and assigned an 
    # Completeness check (#857): snapshot line count must equal the live project item count, or the
    # snapshot truncated — do NOT run the mutation until the mismatch is understood.
    SNAP_ITEMS=$(wc -l < "$SNAP")
-   LIVE_ITEMS=$(gh api graphql -f query='query { node(id: "PVT_kwHOAjEKvM4BTuEF") { ... on ProjectV2 { items { totalCount } } } }' --jq '.data.node.items.totalCount')
+   LIVE_ITEMS=$(gh api graphql -f query='query { node(id: "PVT_kwDOEecHO84BeFl_") { ... on ProjectV2 { items { totalCount } } } }' --jq '.data.node.items.totalCount')
    echo "snapshot: $SNAP_ITEMS items   live: $LIVE_ITEMS items"
    if [ "$SNAP_ITEMS" -eq "$LIVE_ITEMS" ]; then
      git add "$SNAP"
@@ -136,7 +136,7 @@ All new issues must be added to the **Lifting Logbook** project and assigned an 
    - [`.claude/propose.json`](.claude/propose.json) — the `epics` array (consumed by `/propose`);
    - [`.claude/hook-config.json`](.claude/hook-config.json) — the `epic_options` map (consumed by the `post-tool-use.py` project-board hook, which prints them verbatim with no live fetch).
 
-   > `hook-config.json` was the cache omitted in the 2026-05-10 mutation, which left the issue/PR hook suggesting dead Epic option IDs until [#627](https://github.com/brownm09/lifting-logbook/issues/627). Do not skip it.
+   > `hook-config.json` was the cache omitted in the 2026-05-10 mutation, which left the issue/PR hook suggesting dead Epic option IDs until [#627](https://github.com/merickvaughn/lifting-logbook/issues/627). Do not skip it.
 4. Restore assignments by reading the snapshot (one JSON object per line) and re-issuing `gh project item-edit` for each item: for each line, take the `fields[]` entry whose `field` is the mutated field (e.g. `Epic`), map its `value` (the option name) → the new option ID, and edit the item by its `id`.
 
 If a mutation runs without a prior snapshot commit, stop and recover from the latest snapshot in `.claude/backups/` before continuing any other work.
@@ -162,13 +162,13 @@ gh issue edit <N> --milestone "<milestone-title>"
 
 # 2. Add issue to project, capture item ID
 TMPFILE="tmp_$$.json"
-gh project item-add 2 --owner brownm09 --url <issue-url> --format json > "$TMPFILE"
+gh project item-add 2 --owner merickvaughn --url <issue-url> --format json > "$TMPFILE"
 ITEM_ID=$(node -e "const d=JSON.parse(require('fs').readFileSync('$TMPFILE','utf8')); console.log(d.id);")
 rm -f "$TMPFILE"
 
 # 3. Set Epic field
-gh project item-edit --project-id PVT_kwHOAjEKvM4BTuEF --id "$ITEM_ID" \
-  --field-id PVTSSF_lAHOAjEKvM4BTuEFzhA7GEs \
+gh project item-edit --project-id PVT_kwDOEecHO84BeFl_ --id "$ITEM_ID" \
+  --field-id PVTSSF_lADOEecHO84BeFl_zhYiZmg \
   --single-select-option-id <option-id>
 ```
 
@@ -185,18 +185,18 @@ If `--format json` is not supported by the installed `gh` version, fall back to 
 3. Move the issue to **In Progress** on the project board:
    ```bash
    # Resolve this issue's project-item ID directly — no board enumeration, so it never truncates (#852)
-   ITEM_ID=$(gh api graphql -f query='query($number:Int!){repository(owner:"brownm09",name:"lifting-logbook"){issue(number:$number){projectItems(first:10){nodes{id project{number}}}}}}' -F number=<N> --jq '.data.repository.issue.projectItems.nodes[]|select(.project.number==2)|.id')
-   gh project item-edit --project-id PVT_kwHOAjEKvM4BTuEF --id "$ITEM_ID" \
-     --field-id PVTSSF_lAHOAjEKvM4BTuEFzhA7F7E \
-     --single-select-option-id 47fc9ee4
+   ITEM_ID=$(gh api graphql -f query='query($number:Int!){repository(owner:"merickvaughn",name:"lifting-logbook"){issue(number:$number){projectItems(first:10){nodes{id project{number}}}}}}' -F number=<N> --jq '.data.repository.issue.projectItems.nodes[]|select(.project.number==2)|.id')
+   gh project item-edit --project-id PVT_kwDOEecHO84BeFl_ --id "$ITEM_ID" \
+     --field-id PVTSSF_lADOEecHO84BeFl_zhYiZk8 \
+     --single-select-option-id a5322fc5
    ```
 4. Implement the changes
 5. Commit with `Closes #<N>` in the message (see Commit Format)
 6. Push: `git push -u origin <branch>`
 7. Open a PR: `gh pr create --title "<prefix> <title>" --body "..."`
 8. After PR approval, squash merge with a single server-side call — the repo has
-   `delete_branch_on_merge` enabled ([#841](https://github.com/brownm09/lifting-logbook/issues/841);
-   verify live with `gh api repos/brownm09/lifting-logbook --jq .delete_branch_on_merge` → `true`),
+   `delete_branch_on_merge` enabled ([#841](https://github.com/merickvaughn/lifting-logbook/issues/841);
+   verify live with `gh api repos/merickvaughn/lifting-logbook --jq .delete_branch_on_merge` → `true`),
    so GitHub deletes the remote branch server-side the instant the PR merges:
    ```bash
    gh pr merge <N> --squash
@@ -209,10 +209,10 @@ If `--format json` is not supported by the installed `gh` version, fall back to 
 9. Move the issue to **Done** on the project board:
    ```bash
    # Resolve this issue's project-item ID directly — no board enumeration, so it never truncates (#852)
-   ITEM_ID=$(gh api graphql -f query='query($number:Int!){repository(owner:"brownm09",name:"lifting-logbook"){issue(number:$number){projectItems(first:10){nodes{id project{number}}}}}}' -F number=<N> --jq '.data.repository.issue.projectItems.nodes[]|select(.project.number==2)|.id')
-   gh project item-edit --project-id PVT_kwHOAjEKvM4BTuEF --id "$ITEM_ID" \
-     --field-id PVTSSF_lAHOAjEKvM4BTuEFzhA7F7E \
-     --single-select-option-id 98236657
+   ITEM_ID=$(gh api graphql -f query='query($number:Int!){repository(owner:"merickvaughn",name:"lifting-logbook"){issue(number:$number){projectItems(first:10){nodes{id project{number}}}}}}' -F number=<N> --jq '.data.repository.issue.projectItems.nodes[]|select(.project.number==2)|.id')
+   gh project item-edit --project-id PVT_kwDOEecHO84BeFl_ --id "$ITEM_ID" \
+     --field-id PVTSSF_lADOEecHO84BeFl_zhYiZk8 \
+     --single-select-option-id 0112fb7c
    ```
 10. Pull main: `git checkout main && git pull`
 11. Close the issue if not auto-closed: `gh issue close <N>`
@@ -229,7 +229,7 @@ The `gh pr *` commands the steps above depend on — `gh pr create` (step 7), `g
 (step 8), `gh pr view --json`, `gh pr comment` — are **all GraphQL** calls, and this repo's 60+
 concurrent worktrees share **one GitHub API rate-limit bucket per resource class**. GraphQL can
 therefore exhaust while the separate **REST (core)** bucket is still healthy. Motivating incident:
-[PR #700](https://github.com/brownm09/lifting-logbook/pull/700)'s session (2026-07-05) — `gh pr
+[PR #700](https://github.com/merickvaughn/lifting-logbook/pull/700)'s session (2026-07-05) — `gh pr
 create` died with `GraphQL: API rate limit already exceeded` while REST core showed 4999/5000. The
 buckets are independent, so when a `gh pr` command fails that way, don't wait for the reset — fall
 back to the REST equivalents. (The global
@@ -245,7 +245,7 @@ back to the REST equivalents. (The global
 - **Create a PR** instead of `gh pr create` — write the body to a scratch file first so backticks
   aren't mangled by the shell:
   ```bash
-  gh api -X POST repos/brownm09/lifting-logbook/pulls \
+  gh api -X POST repos/merickvaughn/lifting-logbook/pulls \
     -f title="[docs] ..." -f head="<branch>" -f base=main \
     -F body=@C:/Users/brown/.claude/scratch/pr-body.md
   ```
@@ -254,11 +254,11 @@ back to the REST equivalents. (The global
   exhausted, merge over REST — GitHub still deletes the branch server-side, since
   `delete_branch_on_merge` is enabled, so there is no explicit ref-delete (it would 422):
   ```bash
-  gh api -X PUT repos/brownm09/lifting-logbook/pulls/<N>/merge -f merge_method=squash
+  gh api -X PUT repos/merickvaughn/lifting-logbook/pulls/<N>/merge -f merge_method=squash
   ```
 - **Inspect PR state** instead of `gh pr view --json`:
   ```bash
-  gh api repos/brownm09/lifting-logbook/pulls/<N>
+  gh api repos/merickvaughn/lifting-logbook/pulls/<N>
   ```
 
 ---
@@ -304,7 +304,7 @@ Closes #1
 - **Title format:** `[<type>] <description>` (matching the commit type prefix)
 - **Body:** Summary paragraph + Acceptance Criteria checklist (copy from issue) + test instructions
 - **Merge strategy:** Squash merge only — keeps `main` history linear
-- **Branch cleanup:** Automatic — `delete_branch_on_merge` is enabled ([#841](https://github.com/brownm09/lifting-logbook/issues/841)), so GitHub deletes the remote branch server-side on merge. Don't pass `--delete-branch` or run a manual `gh api -X DELETE .../git/refs/heads/<branch>` (it would 422); just `gh pr merge <N> --squash` per Standard Issue Workflow step 8. Any PRs stacked on the merged branch are auto-retargeted to `main`.
+- **Branch cleanup:** Automatic — `delete_branch_on_merge` is enabled ([#841](https://github.com/merickvaughn/lifting-logbook/issues/841)), so GitHub deletes the remote branch server-side on merge. Don't pass `--delete-branch` or run a manual `gh api -X DELETE .../git/refs/heads/<branch>` (it would 422); just `gh pr merge <N> --squash` per Standard Issue Workflow step 8. Any PRs stacked on the merged branch are auto-retargeted to `main`.
 
 ---
 
@@ -415,7 +415,7 @@ npm test
 ```
 
 Type-checking runs as a separate Turbo task. ts-jest runs **transpile-only** for speed (see
-[#651](https://github.com/brownm09/lifting-logbook/issues/651)), so a dedicated `tsc --noEmit` gate
+[#651](https://github.com/merickvaughn/lifting-logbook/issues/651)), so a dedicated `tsc --noEmit` gate
 owns type-checking for `core` and `web`. It is a **blocking CI gate** (CI runs
 `turbo run lint typecheck test`) — run it before opening a PR:
 
@@ -426,7 +426,7 @@ npm run typecheck
 **Prerequisites:**
 - Run `npm run build` first if you have touched compiled output (e.g., API controllers, shared types in `packages/types`).
 - The API DB E2E suite (`apps/api/src/programs/programs.db.e2e.spec.ts`) auto-provisions Postgres via Testcontainers in `apps/api/jest.global-setup.js`. Docker Desktop must be running; no `DATABASE_URL` configuration is required locally. In CI, the existing service container provides `DATABASE_URL` and globalSetup uses it directly.
-- **When Docker is down:** globalSetup hard-fails with a multi-line actionable message naming three recovery options (fix Docker, use `docker-compose.test.yml`, or set `LIFTING_SKIP_DB_E2E=1`). The escape hatch is only valid when the diff under test touches no DB code (no changes under `apps/api/prisma/`, no repository changes); cite [issue #394](https://github.com/brownm09/lifting-logbook/issues/394) in the PR body when it is used. See [`docs/testing/e2e-coverage.md`](docs/testing/e2e-coverage.md) for the full recovery procedure.
+- **When Docker is down:** globalSetup hard-fails with a multi-line actionable message naming three recovery options (fix Docker, use `docker-compose.test.yml`, or set `LIFTING_SKIP_DB_E2E=1`). The escape hatch is only valid when the diff under test touches no DB code (no changes under `apps/api/prisma/`, no repository changes); cite [issue #394](https://github.com/merickvaughn/lifting-logbook/issues/394) in the PR body when it is used. See [`docs/testing/e2e-coverage.md`](docs/testing/e2e-coverage.md) for the full recovery procedure.
 
 Individual workspaces can be verified independently:
 
@@ -452,15 +452,15 @@ npm test -w @lifting-logbook/web
 npm run test:e2e -w @lifting-logbook/web
 ```
 
-Playwright browsers must be installed once (`npx playwright install chromium`; CI uses the `--with-deps` form for its Linux runner — that flag is a no-op on Windows). The config handles all env vars (dummy Clerk keys, `DEV_AUTH_TOKEN`, `API_URL`) so no manual setup is needed. The motivating incident is [#444](https://github.com/brownm09/lifting-logbook/issues/444) / PR #438, where an aria-label rename (`Back Squat` → `Squat`) passed Jest but broke the smoke spec and was only caught by CI.
+Playwright browsers must be installed once (`npx playwright install chromium`; CI uses the `--with-deps` form for its Linux runner — that flag is a no-op on Windows). The config handles all env vars (dummy Clerk keys, `DEV_AUTH_TOKEN`, `API_URL`) so no manual setup is needed. The motivating incident is [#444](https://github.com/merickvaughn/lifting-logbook/issues/444) / PR #438, where an aria-label rename (`Back Squat` → `Squat`) passed Jest but broke the smoke spec and was only caught by CI.
 
-**Heavy on-demand-compiled routes need a `beforeAll` warmup.** When a Playwright e2e spec targets a heavy App Router route that Next dev compiles on-demand (e.g. `/import`), the first cold compile on Windows local dev can exceed Playwright's default `expect` (5s) *and* per-test (30s) timeouts — the first `page.goto` dies before any assertion runs. Warm the route once in a `test.beforeAll` that navigates a throwaway page to it with generous headroom (`test.setTimeout(120_000)` plus a ~90s `goto`/`expect` timeout), so every test then runs against an already-compiled route; CI (Linux) compiles fast enough that the warmup is a no-op there. Reference implementation: [`apps/web/e2e/import.spec.ts`](apps/web/e2e/import.spec.ts); motivating incident [#698](https://github.com/brownm09/lifting-logbook/issues/698) / [PR #715](https://github.com/brownm09/lifting-logbook/pull/715).
+**Heavy on-demand-compiled routes need a `beforeAll` warmup.** When a Playwright e2e spec targets a heavy App Router route that Next dev compiles on-demand (e.g. `/import`), the first cold compile on Windows local dev can exceed Playwright's default `expect` (5s) *and* per-test (30s) timeouts — the first `page.goto` dies before any assertion runs. Warm the route once in a `test.beforeAll` that navigates a throwaway page to it with generous headroom (`test.setTimeout(120_000)` plus a ~90s `goto`/`expect` timeout), so every test then runs against an already-compiled route; CI (Linux) compiles fast enough that the warmup is a no-op there. Reference implementation: [`apps/web/e2e/import.spec.ts`](apps/web/e2e/import.spec.ts); motivating incident [#698](https://github.com/merickvaughn/lifting-logbook/issues/698) / [PR #715](https://github.com/merickvaughn/lifting-logbook/pull/715).
 
-**Troubleshooting — `ECONNREFUSED` on Windows (all e2e tests fail at once).** If every test fails with `apiRequestContext.get: connect ECONNREFUSED` (on `::1:3004` *or* `127.0.0.1:3004`) and `page.goto` hangs until it times out, the cause is an IPv4/IPv6 loopback mismatch, not a UI-string regression. On Windows the `webServer` processes (`node e2e/mock-api.mjs` on :3004, `next dev` on :3000) bind loopback **non-deterministically** — the default `server.listen(port)` / `next dev` host can come up IPv4-only *or* `::1`-only across runs — while Node 18+'s `verbatim` DNS resolves `localhost` to `::1` first. So a client dialing one family can reach a server listening on the other and get refused. The harness pins **everything** to `127.0.0.1` (unambiguous IPv4 loopback on every platform) so client, server bind, and readiness probe always agree: Playwright `use.baseURL`, the webServer `API_URL` / `PUBLIC_API_URL` env, `next dev --hostname 127.0.0.1`, the `url:` readiness probes (not bare `port:`) — all in [`apps/web/playwright.config.ts`](apps/web/playwright.config.ts) — plus the mock's `server.listen(PORT, '127.0.0.1')` bind in [`apps/web/e2e/mock-api.mjs`](apps/web/e2e/mock-api.mjs) and the `MOCK_API` constant in each spec. Linux CI is unaffected (`localhost` and `127.0.0.1` both resolve to IPv4 loopback there), so **keep these on `127.0.0.1`, never `localhost`** — reverting any one of them reintroduces the Windows failure. Because `reuseExistingServer` is on locally, a leftover/zombie server from a prior run could once be silently reused across worktrees; [#746](https://github.com/brownm09/lifting-logbook/issues/746) fixed that structurally — `playwright.config.ts` now allocates a **free port per run** (`allocatePorts()`) for both the mock and `next dev`, threading it through `MOCK_API_PORT` / `PLAYWRIGHT_MOCK_API_URL` and `use.baseURL`, so concurrent worktrees each start their own servers and never share. A stale server squatting this run's freshly-allocated port is astronomically unlikely and would surface as a startup `EADDRINUSE`, not a silent wrong-build reuse. Motivating incidents: [#741](https://github.com/brownm09/lifting-logbook/issues/741) (127.0.0.1 host pinning), [#746](https://github.com/brownm09/lifting-logbook/issues/746) (per-worktree dynamic ports).
+**Troubleshooting — `ECONNREFUSED` on Windows (all e2e tests fail at once).** If every test fails with `apiRequestContext.get: connect ECONNREFUSED` (on `::1:3004` *or* `127.0.0.1:3004`) and `page.goto` hangs until it times out, the cause is an IPv4/IPv6 loopback mismatch, not a UI-string regression. On Windows the `webServer` processes (`node e2e/mock-api.mjs` on :3004, `next dev` on :3000) bind loopback **non-deterministically** — the default `server.listen(port)` / `next dev` host can come up IPv4-only *or* `::1`-only across runs — while Node 18+'s `verbatim` DNS resolves `localhost` to `::1` first. So a client dialing one family can reach a server listening on the other and get refused. The harness pins **everything** to `127.0.0.1` (unambiguous IPv4 loopback on every platform) so client, server bind, and readiness probe always agree: Playwright `use.baseURL`, the webServer `API_URL` / `PUBLIC_API_URL` env, `next dev --hostname 127.0.0.1`, the `url:` readiness probes (not bare `port:`) — all in [`apps/web/playwright.config.ts`](apps/web/playwright.config.ts) — plus the mock's `server.listen(PORT, '127.0.0.1')` bind in [`apps/web/e2e/mock-api.mjs`](apps/web/e2e/mock-api.mjs) and the `MOCK_API` constant in each spec. Linux CI is unaffected (`localhost` and `127.0.0.1` both resolve to IPv4 loopback there), so **keep these on `127.0.0.1`, never `localhost`** — reverting any one of them reintroduces the Windows failure. Because `reuseExistingServer` is on locally, a leftover/zombie server from a prior run could once be silently reused across worktrees; [#746](https://github.com/merickvaughn/lifting-logbook/issues/746) fixed that structurally — `playwright.config.ts` now allocates a **free port per run** (`allocatePorts()`) for both the mock and `next dev`, threading it through `MOCK_API_PORT` / `PLAYWRIGHT_MOCK_API_URL` and `use.baseURL`, so concurrent worktrees each start their own servers and never share. A stale server squatting this run's freshly-allocated port is astronomically unlikely and would surface as a startup `EADDRINUSE`, not a silent wrong-build reuse. Motivating incidents: [#741](https://github.com/merickvaughn/lifting-logbook/issues/741) (127.0.0.1 host pinning), [#746](https://github.com/merickvaughn/lifting-logbook/issues/746) (per-worktree dynamic ports).
 
 ### Turbo version pin sync (Dockerfile ↔ package.json)
 
-`apps/web/Dockerfile`'s installer stage pins `npx turbo@<version> prune` to an exact version — `node_modules` is dockerignored ahead of that step, so a bare `npx turbo` has no local install to prefer and would fetch whatever the registry currently tags `latest`. That pin must match the root `package.json`'s `devDependencies.turbo` exactly, or the prune step and the later `npm ci`/build step in the same image run under two different turbo versions with nothing to catch the drift until an uncached Docker build. See [#674](https://github.com/brownm09/lifting-logbook/issues/674) / [#692](https://github.com/brownm09/lifting-logbook/issues/692).
+`apps/web/Dockerfile`'s installer stage pins `npx turbo@<version> prune` to an exact version — `node_modules` is dockerignored ahead of that step, so a bare `npx turbo` has no local install to prefer and would fetch whatever the registry currently tags `latest`. That pin must match the root `package.json`'s `devDependencies.turbo` exactly, or the prune step and the later `npm ci`/build step in the same image run under two different turbo versions with nothing to catch the drift until an uncached Docker build. See [#674](https://github.com/merickvaughn/lifting-logbook/issues/674) / [#692](https://github.com/merickvaughn/lifting-logbook/issues/692).
 
 **Run before pushing whenever `apps/web/Dockerfile` or the root `package.json`'s `turbo` devDependency changes:**
 
@@ -472,7 +472,7 @@ This also runs as a CI step (`ci.yml` → `lint-and-test` → "Verify turbo vers
 
 ### Grafana OTLP/Loki endpoint single source
 
-The Grafana Cloud OTLP/Loki ingest endpoints live in exactly one file — [`infra/observability/grafana-endpoints.env`](infra/observability/grafana-endpoints.env) — and every consumer derives them from it: `deploy.yml` sources it for the Cloud Run sidecar inject and passes it to the GKE `otel-collector` Helm chart via `--set-string`. This is the fix for the endpoint-drift class behind the no-telemetry incident [#781](https://github.com/brownm09/lifting-logbook/issues/781): a region/gateway change is now a one-line edit there, and re-hardcoding a literal endpoint anywhere else is a CI failure.
+The Grafana Cloud OTLP/Loki ingest endpoints live in exactly one file — [`infra/observability/grafana-endpoints.env`](infra/observability/grafana-endpoints.env) — and every consumer derives them from it: `deploy.yml` sources it for the Cloud Run sidecar inject and passes it to the GKE `otel-collector` Helm chart via `--set-string`. This is the fix for the endpoint-drift class behind the no-telemetry incident [#781](https://github.com/merickvaughn/lifting-logbook/issues/781): a region/gateway change is now a one-line edit there, and re-hardcoding a literal endpoint anywhere else is a CI failure.
 
 **Run before pushing whenever you change an OTLP/Loki endpoint or touch its wiring (`deploy.yml`, the `*-otel-collector.yaml` values files, or the Cloud Run collector config):**
 
@@ -480,11 +480,11 @@ The Grafana Cloud OTLP/Loki ingest endpoints live in exactly one file — [`infr
 node scripts/check-grafana-endpoint-sources.mjs
 ```
 
-This also runs as a CI step (`ci.yml` → `lint-and-test` → "Verify Grafana OTLP/Loki endpoints have a single source"), so a drifting PR fails either way — running it locally just catches a re-hardcoded endpoint before waiting on CI. See [#785](https://github.com/brownm09/lifting-logbook/issues/785).
+This also runs as a CI step (`ci.yml` → `lint-and-test` → "Verify Grafana OTLP/Loki endpoints have a single source"), so a drifting PR fails either way — running it locally just catches a re-hardcoded endpoint before waiting on CI. See [#785](https://github.com/merickvaughn/lifting-logbook/issues/785).
 
 ### otel-collector config sync (Cloud Run ↔ GKE)
 
-The Cloud Run collector sidecar and the GKE DaemonSet must run the **same** pipeline (the premise of [#782](https://github.com/brownm09/lifting-logbook/pull/782)). The Cloud Run config [`infra/cloud-run/otel-collector-config.yaml`](infra/cloud-run/otel-collector-config.yaml) is kept identical — below its comment header — to the `config.yaml` block scalar embedded in the GKE [`infra/kubernetes/charts/otel-collector/templates/configmap.yaml`](infra/kubernetes/charts/otel-collector/templates/configmap.yaml). A guard fails CI if the two diverge, instead of relying on a "keep in sync" comment.
+The Cloud Run collector sidecar and the GKE DaemonSet must run the **same** pipeline (the premise of [#782](https://github.com/merickvaughn/lifting-logbook/pull/782)). The Cloud Run config [`infra/cloud-run/otel-collector-config.yaml`](infra/cloud-run/otel-collector-config.yaml) is kept identical — below its comment header — to the `config.yaml` block scalar embedded in the GKE [`infra/kubernetes/charts/otel-collector/templates/configmap.yaml`](infra/kubernetes/charts/otel-collector/templates/configmap.yaml). A guard fails CI if the two diverge, instead of relying on a "keep in sync" comment.
 
 **Run before pushing whenever you edit either collector config (the Cloud Run file or the GKE configmap's `config.yaml` block):**
 
@@ -492,7 +492,7 @@ The Cloud Run collector sidecar and the GKE DaemonSet must run the **same** pipe
 node scripts/check-otel-config-sync.mjs
 ```
 
-This also runs as a CI step (`ci.yml` → `lint-and-test` → "Verify Cloud Run otel-collector config matches the GKE configmap"), so a drifting PR fails either way — running it locally just catches the divergence before waiting on CI. See [#788](https://github.com/brownm09/lifting-logbook/issues/788).
+This also runs as a CI step (`ci.yml` → `lint-and-test` → "Verify Cloud Run otel-collector config matches the GKE configmap"), so a drifting PR fails either way — running it locally just catches the divergence before waiting on CI. See [#788](https://github.com/merickvaughn/lifting-logbook/issues/788).
 
 ### Coverage Requirements
 
@@ -515,7 +515,7 @@ Every test failure reported in a pre-PR run must be resolved in one of two ways 
 1. **Fixed in this PR** (default).
 2. **Tracked by an open GitHub issue cited in the PR body** by number — prose explanation alone is not sufficient. If the failure does not yet have an issue, file one before opening the PR.
 
-A label of "pre-existing" without an open-issue link is not acceptable. The motivating incident is [#349 / PR #355](https://github.com/brownm09/lifting-logbook/pull/355), where four API suite-load failures were carried as "pre-existing" until a one-line `postinstall` hook fixed the entire class — the rule should have forced the investigation up front. The global equivalent of this rule is tracked in [dev-env#281](https://github.com/brownm09/dev-env/issues/281).
+A label of "pre-existing" without an open-issue link is not acceptable. The motivating incident is [#349 / PR #355](https://github.com/merickvaughn/lifting-logbook/pull/355), where four API suite-load failures were carried as "pre-existing" until a one-line `postinstall` hook fixed the entire class — the rule should have forced the investigation up front. The global equivalent of this rule is tracked in [dev-env#281](https://github.com/brownm09/dev-env/issues/281).
 
 ### Skewed-test rule
 
@@ -536,7 +536,7 @@ on the five `page.test.tsx` files that `import { renderToStaticMarkup } from 're
 
 **Symptom that confirms it:** the error names a `server.node.js` runtime file (so `react-dom` IS installed) rather than "Cannot find module" (which would mean `react-dom` itself is missing); the same five files pass under `npm ci` or a completed `npm install`.
 
-**Fix:** run a full install in the worktree — `npm install`, or `rm -rf node_modules && npm ci` — then re-run `npm run typecheck`. As of [#777](https://github.com/brownm09/lifting-logbook/issues/777), `@types/react` + `@types/react-dom` are now also declared in the **root** `package.json` (`^19`), so they hoist to the repo-root `node_modules` and resolve from `apps/web` even when the workspace-local `devDependency` copy is torn — this **hardens but does not eliminate** the failure: an `--omit=dev` install still drops them everywhere, so the full-install recovery above remains the fix. (The hoist became possible once `apps/mobile` moved to Expo SDK 55 / RN 0.83 / React 19.2, aligning its `@types/react` onto the 19.2.x line so a single root-hoisted `@types/react` satisfies both apps; it previously `ERESOLVE`d against mobile's Expo 54 / RN 0.81 `@types/react@19.1.x` pin vs. `@types/react-dom`'s `@types/react@^19.2.0` peer.) Motivating incident: [#769](https://github.com/brownm09/lifting-logbook/issues/769).
+**Fix:** run a full install in the worktree — `npm install`, or `rm -rf node_modules && npm ci` — then re-run `npm run typecheck`. As of [#777](https://github.com/merickvaughn/lifting-logbook/issues/777), `@types/react` + `@types/react-dom` are now also declared in the **root** `package.json` (`^19`), so they hoist to the repo-root `node_modules` and resolve from `apps/web` even when the workspace-local `devDependency` copy is torn — this **hardens but does not eliminate** the failure: an `--omit=dev` install still drops them everywhere, so the full-install recovery above remains the fix. (The hoist became possible once `apps/mobile` moved to Expo SDK 55 / RN 0.83 / React 19.2, aligning its `@types/react` onto the 19.2.x line so a single root-hoisted `@types/react` satisfies both apps; it previously `ERESOLVE`d against mobile's Expo 54 / RN 0.81 `@types/react@19.1.x` pin vs. `@types/react-dom`'s `@types/react@^19.2.0` peer.) Motivating incident: [#769](https://github.com/merickvaughn/lifting-logbook/issues/769).
 
 ### CI not firing — merge conflict silences GitHub Actions
 
@@ -552,11 +552,11 @@ gh pr view <N> --json mergeable,mergeStateStatus
 
 **Fix:** `git fetch origin` first (the rebase target is only as current as this repo's local `origin/main` tracking ref — a stale ref means the rebase resolves against outdated content and doesn't actually clear the conflict against the real current `main`). Then rebase (or squash-rebase) the branch onto `origin/main` and force-push. Once the conflict is resolved, GitHub recreates the merge ref and CI fires normally on the next push.
 
-Motivating incident: [PR #604](https://github.com/brownm09/lifting-logbook/pull/604).
+Motivating incident: [PR #604](https://github.com/merickvaughn/lifting-logbook/pull/604).
 
 ### Stale-branch squash-merge rejection — update-branch API silently uses a stale main
 
-**Pattern:** lifting-logbook has `allow_update_branch: false` in its repo settings (confirmed via `gh api repos/brownm09/lifting-logbook --jq .allow_update_branch`). When a PR's branch falls behind `main` and `gh pr merge --squash` is rejected with "the head branch is not up to date with the base branch", calling `gh api -X PUT repos/brownm09/lifting-logbook/pulls/<N>/update-branch` returns an apparent-success message (`{"message":"Updating pull request branch."}`) but the update can silently apply against a **stale snapshot** of `main` — not the current tip — with no error surfaced. In one observed case, the resulting merge commit's merged-in `main` SHA matched the PR's *original* base ref from when it was first opened, not `main`'s actual current HEAD, even though `main` had moved significantly since. `mergeStateStatus` stayed `BEHIND` for 9+ minutes with no indication anything was wrong.
+**Pattern:** lifting-logbook has `allow_update_branch: false` in its repo settings (confirmed via `gh api repos/merickvaughn/lifting-logbook --jq .allow_update_branch`). When a PR's branch falls behind `main` and `gh pr merge --squash` is rejected with "the head branch is not up to date with the base branch", calling `gh api -X PUT repos/merickvaughn/lifting-logbook/pulls/<N>/update-branch` returns an apparent-success message (`{"message":"Updating pull request branch."}`) but the update can silently apply against a **stale snapshot** of `main` — not the current tip — with no error surfaced. In one observed case, the resulting merge commit's merged-in `main` SHA matched the PR's *original* base ref from when it was first opened, not `main`'s actual current HEAD, even though `main` had moved significantly since. `mergeStateStatus` stayed `BEHIND` for 9+ minutes with no indication anything was wrong.
 
 **Symptom:** `mergeStateStatus` remains `BEHIND` well after `update-branch` reports success, and the eventual merge commit's second parent is not `main`'s actual current tip.
 
@@ -570,7 +570,7 @@ If they don't match, the API used a stale snapshot.
 
 **Fix:** Don't rely on the `update-branch` API for this repo. Instead, manually merge: create a worktree for the PR's branch, `git fetch origin` (the merge is only as current as this repo's local `origin/main` tracking ref), `git merge origin/main`, resolve any conflicts, `git push`. This is deterministic and uses the actual current `main` tip.
 
-Motivating incident: [PR #722](https://github.com/brownm09/lifting-logbook/pull/722) merge session, 2026-07-08.
+Motivating incident: [PR #722](https://github.com/merickvaughn/lifting-logbook/pull/722) merge session, 2026-07-08.
 
 ### Staging-deploy queue starvation — cross-PR mutex preemption
 
@@ -580,7 +580,7 @@ Motivating incident: [PR #722](https://github.com/brownm09/lifting-logbook/pull/
 
 **Diagnosis:**
 ```bash
-gh run list --workflow=staging.yml -R brownm09/lifting-logbook --limit 20
+gh run list --workflow=staging.yml -R merickvaughn/lifting-logbook --limit 20
 ```
 Open the cancelled run's job log — GitHub Actions annotates the cancellation directly: `Canceling since a higher priority waiting request for staging-deploy-mutex-web exists`.
 
@@ -588,9 +588,9 @@ Open the cancelled run's job log — GitHub Actions annotates the cancellation d
 ```bash
 gh run rerun <run-id> --failed
 ```
-This is a known, already-diagnosed CI mechanic, not a new bug — see [#673](https://github.com/brownm09/lifting-logbook/issues/673) for the full root-cause analysis and [ADR-030](docs/adr/ADR-030-github-merge-queue-adoption.md) for the accepted structural fix (GitHub merge queue). Activation is tracked in [#695](https://github.com/brownm09/lifting-logbook/issues/695); until it lands, re-running after the queue clears is the only workaround.
+This is a known, already-diagnosed CI mechanic, not a new bug — see [#673](https://github.com/merickvaughn/lifting-logbook/issues/673) for the full root-cause analysis and [ADR-030](docs/adr/ADR-030-github-merge-queue-adoption.md) for the accepted structural fix (GitHub merge queue). Activation is tracked in [#695](https://github.com/merickvaughn/lifting-logbook/issues/695); until it lands, re-running after the queue clears is the only workaround.
 
-Motivating incidents: [PR #703](https://github.com/brownm09/lifting-logbook/pull/703), [PR #711](https://github.com/brownm09/lifting-logbook/pull/711).
+Motivating incidents: [PR #703](https://github.com/merickvaughn/lifting-logbook/pull/703), [PR #711](https://github.com/merickvaughn/lifting-logbook/pull/711).
 
 ---
 
@@ -606,14 +606,14 @@ This repo runs a full OpenTelemetry + Grafana Cloud stack. The Plan-then-optimiz
 - **Backends** — Grafana Cloud via the OTel Collector: traces → **Tempo**, logs → **Loki**, metrics → **Mimir** (see [ADR-018](docs/adr/ADR-018-observability-stack.md)).
 - **Log↔trace correlation** — a Pino `mixin()` injects `trace_id` / `span_id` from the active span into every log line, enabling bidirectional Loki↔Tempo navigation in Grafana.
 - **Errors** — domain exceptions are mapped to HTTP responses by per-feature exception filters (e.g. `apps/api/src/programs/conflict.filter.ts`, `not-found.filter.ts`); request/response logging — including error responses, carrying `trace_id`/`span_id` via the `mixin` — is emitted by `nestjs-pino`/`pino-http` auto-logging. Error spans on the failing request are retained by the tail-based sampling policy ([ADR-020](docs/adr/ADR-020-tail-based-sampling-policy.md)).
-- **Client-side write errors** — every `apps/web` mutation invoked from a Client Component (the writes re-exported by `apps/web/lib/client-api.ts`) reports its caught error through [`apps/web/lib/log-client-error.ts`](apps/web/lib/log-client-error.ts) (`logClientError('<op>', err, ctx?)`), which (1) emits a consistent, greppable `[client-mutation] <op> failed` line to the browser console — never a bare `console.error` or an empty `catch {}` — and (2) sends a best-effort same-origin beacon to the [`/api/client-errors`](apps/web/app/api/client-errors/route.ts) route handler, which records the error as an OTel span (`client.mutation.error`, status `ERROR`) so it lands in Grafana (Tempo, retained by the [ADR-020](docs/adr/ADR-020-tail-based-sampling-policy.md) tail-sampling `errors` policy). `apps/web` instruments only the server runtime (`@vercel/otel`, [`apps/web/instrumentation.ts`](apps/web/instrumentation.ts)) — there is no browser OTel SDK, so the same-origin beacon → server-span path is how a browser failure reaches Grafana, and `logClientError` is the single seam it attaches at. Implemented in [#798](https://github.com/brownm09/lifting-logbook/issues/798); origin [#783](https://github.com/brownm09/lifting-logbook/issues/783). Because the sink is public/unauthenticated and each accepted request records a *retained* ERROR span, [#806](https://github.com/brownm09/lifting-logbook/issues/806) added a **same-origin abuse guard** to the route handler: the `Origin` verdict is always tagged on the span (`client.origin.check`), and cross-origin browser beacons are dropped **only** when classified against the `CLIENT_ERROR_ALLOWED_ORIGINS` allowlist **and** `CLIENT_ERROR_DROP_CROSS_ORIGIN=true` (observe-only otherwise, so a false-drop can't silently kill the telemetry — validate `same-origin` in staging Tempo before enabling). Scripted/no-`Origin` abuse is out of scope for the app and belongs to an infra-level rate limit; see the [ADR-020](docs/adr/ADR-020-tail-based-sampling-policy.md) #806 addendum. In staging and production the allowlist is **derived at deploy** from each web service's own Cloud Run URL by the `client_error_guard` input of [`.github/actions/deploy-cloud-run-otel-sidecar`](.github/actions/deploy-cloud-run-otel-sidecar/action.yml) (no hard-coded origin, self-correcting if the URL changes), and enforcement is enabled by setting that action's `client_error_drop_cross_origin` input to `true` in [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) — staging then prod, only after staging Tempo confirms legit beacons tag `same-origin` ([#809](https://github.com/brownm09/lifting-logbook/issues/809)).
+- **Client-side write errors** — every `apps/web` mutation invoked from a Client Component (the writes re-exported by `apps/web/lib/client-api.ts`) reports its caught error through [`apps/web/lib/log-client-error.ts`](apps/web/lib/log-client-error.ts) (`logClientError('<op>', err, ctx?)`), which (1) emits a consistent, greppable `[client-mutation] <op> failed` line to the browser console — never a bare `console.error` or an empty `catch {}` — and (2) sends a best-effort same-origin beacon to the [`/api/client-errors`](apps/web/app/api/client-errors/route.ts) route handler, which records the error as an OTel span (`client.mutation.error`, status `ERROR`) so it lands in Grafana (Tempo, retained by the [ADR-020](docs/adr/ADR-020-tail-based-sampling-policy.md) tail-sampling `errors` policy). `apps/web` instruments only the server runtime (`@vercel/otel`, [`apps/web/instrumentation.ts`](apps/web/instrumentation.ts)) — there is no browser OTel SDK, so the same-origin beacon → server-span path is how a browser failure reaches Grafana, and `logClientError` is the single seam it attaches at. Implemented in [#798](https://github.com/merickvaughn/lifting-logbook/issues/798); origin [#783](https://github.com/merickvaughn/lifting-logbook/issues/783). Because the sink is public/unauthenticated and each accepted request records a *retained* ERROR span, [#806](https://github.com/merickvaughn/lifting-logbook/issues/806) added a **same-origin abuse guard** to the route handler: the `Origin` verdict is always tagged on the span (`client.origin.check`), and cross-origin browser beacons are dropped **only** when classified against the `CLIENT_ERROR_ALLOWED_ORIGINS` allowlist **and** `CLIENT_ERROR_DROP_CROSS_ORIGIN=true` (observe-only otherwise, so a false-drop can't silently kill the telemetry — validate `same-origin` in staging Tempo before enabling). Scripted/no-`Origin` abuse is out of scope for the app and belongs to an infra-level rate limit; see the [ADR-020](docs/adr/ADR-020-tail-based-sampling-policy.md) #806 addendum. In staging and production the allowlist is **derived at deploy** from each web service's own Cloud Run URL by the `client_error_guard` input of [`.github/actions/deploy-cloud-run-otel-sidecar`](.github/actions/deploy-cloud-run-otel-sidecar/action.yml) (no hard-coded origin, self-correcting if the URL changes), and enforcement is enabled by setting that action's `client_error_drop_cross_origin` input to `true` in [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) — staging then prod, only after staging Tempo confirms legit beacons tag `same-origin` ([#809](https://github.com/merickvaughn/lifting-logbook/issues/809)).
 
 ### What the Observability audit dimension must verify for this repo
 
 1. **Raw SQL is NOT auto-traced.** `@prisma/instrumentation` is excluded from the OTel SDK due to an SDK v1/v2 incompatibility ([ADR-024](docs/adr/ADR-024-prisma-otel-sdk-override.md)). Prisma Client ORM calls and any `$queryRaw` / `$executeRaw` emit **no spans**. Any new raw-SQL call site must be wrapped in a **manual span** to remain observable. (There are currently zero raw-SQL usages — this is a forward-looking gate.)
 2. **LLM adapters apply NO PII scrubbing to prompts.** The cycle-planning adapters (`apps/api/src/adapters/llm/anthropic-cycle-planning.adapter.ts`, `openai-compatible-cycle-planning.adapter.ts`) send user context to the provider unscrubbed. New LLM call sites must consider prompt-content exposure before sending or logging.
 3. **Header redaction is redact-by-default (allowlist), not a denylist.** Request/response headers are filtered to the `LOGGABLE_REQUEST_HEADERS` allowlist in `app.module.ts`; any header not explicitly marked safe is dropped, and `log-header-allowlist.spec.ts` fails CI if a credential-bearing name is added to the allowlist ([ADR-033](docs/adr/ADR-033-log-header-allowlist.md)). The allowlist covers **headers**, not payloads — new API boundaries must still log at appropriate levels and must never log secrets, tokens, or sensitive request/response **bodies**.
-4. **Client-side mutations must not swallow errors.** Every write invoked from a Client Component must route its caught error through [`apps/web/lib/log-client-error.ts`](apps/web/lib/log-client-error.ts) (`logClientError`) — never an empty `catch {}`, a bare `console.error`, or an uncaught rejection. Context passed to the helper carries ids/actions only, never secrets, tokens, or request bodies (the api-client throws only `Error(message)`/`ApiClientError`, so the caught error itself is safe to log). See [#783](https://github.com/brownm09/lifting-logbook/issues/783).
+4. **Client-side mutations must not swallow errors.** Every write invoked from a Client Component must route its caught error through [`apps/web/lib/log-client-error.ts`](apps/web/lib/log-client-error.ts) (`logClientError`) — never an empty `catch {}`, a bare `console.error`, or an uncaught rejection. Context passed to the helper carries ids/actions only, never secrets, tokens, or request bodies (the api-client throws only `Error(message)`/`ApiClientError`, so the caught error itself is safe to log). See [#783](https://github.com/merickvaughn/lifting-logbook/issues/783).
 
 ### References
 
@@ -658,4 +658,4 @@ shards, and `reports/`).
 > Historical note: this section previously documented a single-draft-file-per-day workflow
 > (`YYYY-MM-DD_draft.md` hand-edited across sessions, composed at day end). That workflow was
 > retired when the global config moved to the sharded stub/manifest system; see
-> [#772](https://github.com/brownm09/lifting-logbook/issues/772).
+> [#772](https://github.com/merickvaughn/lifting-logbook/issues/772).

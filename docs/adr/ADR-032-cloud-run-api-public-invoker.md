@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-07-09
-**Closes:** [#766](https://github.com/brownm09/lifting-logbook/issues/766)
+**Closes:** [#766](https://github.com/merickvaughn/lifting-logbook/issues/766)
 **Related:** [ADR-028](ADR-028-web-runtime-public-config.md) (runtime `PUBLIC_API_URL` injection), [ADR-009](ADR-009-infrastructure-kubernetes-cloud-run.md) (Cloud Run/GKE topology)
 
 ---

@@ -368,13 +368,13 @@ finished before the gate prompts. The summary shows either **`No changes`** or a
 `Plan: N to add, N to change, N to destroy.` with the affected resource addresses. That is the
 exact blast radius `terraform apply (production)` will apply the moment you approve. **A
 prod-affecting Terraform diff can ride in on an unrelated merge** — the RLS database-role
-cutover ([#517](https://github.com/brownm09/lifting-logbook/issues/517)) applied on
+cutover ([#517](https://github.com/merickvaughn/lifting-logbook/issues/517)) applied on
 2026-06-15 behind a context-free one-click approval triggered by an unrelated CI-fix merge
-([#540](https://github.com/brownm09/lifting-logbook/issues/540)), because the cutover config
-([#533](https://github.com/brownm09/lifting-logbook/issues/533)) had sat dormant in `main`
+([#540](https://github.com/merickvaughn/lifting-logbook/issues/540)), because the cutover config
+([#533](https://github.com/merickvaughn/lifting-logbook/issues/533)) had sat dormant in `main`
 while `deploy-production` was skipped. If `plan-production` shows resources you did not expect,
 **do not approve** — investigate first. See
-[#542](https://github.com/brownm09/lifting-logbook/issues/542). (`plan-production` is advisory:
+[#542](https://github.com/merickvaughn/lifting-logbook/issues/542). (`plan-production` is advisory:
 if it fails transiently the deploy is not blocked, but no summary is available — review the
 apply output during the gated deploy instead.)
 
@@ -384,21 +384,21 @@ apply output during the gated deploy instead.)
 `add/change/destroy` summary + resource addresses as a sticky PR comment, so the prod blast radius
 is visible at **review/merge time**, not just at the approval gate. It authenticates as the
 least-privilege read-only plan service account (`GCP_PROD_PLAN_SERVICE_ACCOUNT`, see
-[Step 5](#step-5--add-github-repository-secrets-and-variables) / [#545](https://github.com/brownm09/lifting-logbook/issues/545))
+[Step 5](#step-5--add-github-repository-secrets-and-variables) / [#545](https://github.com/merickvaughn/lifting-logbook/issues/545))
 — `terraform plan -lock=false`, never an apply — and only loads prod creds on same-repo PRs that
 change `infra/terraform/**` (`pull_request`, not `pull_request_target`; fork PRs are skipped). It is
 **advisory** — a non-empty plan does not block merge and is not a required check — but a reviewer who
 sees an unexpected prod resource address in the comment should **not merge** until they understand
-why. This is Layer B of [#542](https://github.com/brownm09/lifting-logbook/issues/542); `plan-production`
+why. This is Layer B of [#542](https://github.com/merickvaughn/lifting-logbook/issues/542); `plan-production`
 above is the Layer A backstop at the gate.
 
 Once approved, `deploy-production` self-guards at two boundaries (issue
-[#490](https://github.com/brownm09/lifting-logbook/issues/490)):
+[#490](https://github.com/merickvaughn/lifting-logbook/issues/490)):
 
 - **Pre-promote auth-secret check** — before any prod mutation, the job fails fast if
   `lifting-logbook-prod-clerk-secret-key` or `…-clerk-publishable-key` is absent, empty, or still
   the `REPLACE_ME` placeholder ([Step 4](#step-4--sign-up-for-clerk-and-create-two-apps)). This
-  prevents the [#382](https://github.com/brownm09/lifting-logbook/issues/382) auth-outage class
+  prevents the [#382](https://github.com/merickvaughn/lifting-logbook/issues/382) auth-outage class
   (a missing secret reaching a live prod web revision). A "secret inaccessible" error (as opposed
   to "missing"/"placeholder") usually means a transient Secret Manager blip or an IAM gap — re-run
   the deploy if transient.
@@ -417,10 +417,10 @@ Once approved, `deploy-production` self-guards at two boundaries (issue
 RUNID=$(gh run list --workflow Deploy --branch main --limit 1 --json databaseId -q '.[0].databaseId')
 
 # Inspect what is pending approval (optional)
-gh api repos/brownm09/lifting-logbook/actions/runs/$RUNID/pending_deployments
+gh api repos/merickvaughn/lifting-logbook/actions/runs/$RUNID/pending_deployments
 
 # Approve the production environment (id 15694632193)
-gh api repos/brownm09/lifting-logbook/actions/runs/$RUNID/pending_deployments \
+gh api repos/merickvaughn/lifting-logbook/actions/runs/$RUNID/pending_deployments \
   -X POST -f state=approved -F 'environment_ids[]=15694632193' -f comment="approved via gh"
 ```
 
@@ -665,7 +665,7 @@ and web services also ship telemetry now (#768 api, #804 web)** via a co-located
 (see [`scripts/inject-otel-sidecar.py`](../scripts/inject-otel-sidecar.py) and the observability
 runbook). Both reuse the **same** auth-header secrets and endpoints as GKE, so the one-time token
 bootstrap below covers all of them. (The shared Grafana endpoints initially pointed at the wrong stack
-([#781](https://github.com/brownm09/lifting-logbook/issues/781)); [#784](https://github.com/brownm09/lifting-logbook/pull/784)
+([#781](https://github.com/merickvaughn/lifting-logbook/issues/781)); [#784](https://github.com/merickvaughn/lifting-logbook/pull/784)
 corrected them — OTLP → `us-east-3`, Loki → `logs-prod-042` — so telemetry now lands.)
 
 **One-time token bootstrap (do this once per environment, before the deploy that needs it).**
@@ -715,7 +715,7 @@ if a secret is missing or empty.
    > **Single shared stack (free tier).** Staging and production reuse the *same* Grafana Cloud
    > stack, endpoints, and token here. Because the API does not yet emit a `deployment.environment`
    > attribute, the two environments' telemetry intermix and staging 5xx can trip prod alerts —
-   > tracked in [#487](https://github.com/brownm09/lifting-logbook/issues/487). If you later move to
+   > tracked in [#487](https://github.com/merickvaughn/lifting-logbook/issues/487). If you later move to
    > separate stacks, give each env its own endpoints (the per-env values files) and token (the
    > per-env secrets) instead.
 
@@ -756,17 +756,17 @@ Terraform — an external HTTPS load balancer with a serverless NEG in front of 
 service, plus a Cloud Armor per-IP throttle scoped to the `/api/client-errors` path — is committed in
 [`infra/terraform/edge-load-balancer.tf`](../infra/terraform/edge-load-balancer.tf) but **off by
 default** (`enable_edge_load_balancer = false`), so it is a no-op plan and the app keeps serving
-directly off `*.run.app`. **[#804](https://github.com/brownm09/lifting-logbook/issues/804) has since
-landed** ([PR #814](https://github.com/brownm09/lifting-logbook/pull/814)), so the web runtime already
+directly off `*.run.app`. **[#804](https://github.com/merickvaughn/lifting-logbook/issues/804) has since
+landed** ([PR #814](https://github.com/merickvaughn/lifting-logbook/pull/814)), so the web runtime already
 exports to the prod collector and the surface is live — enablement (tracked in
-[#826](https://github.com/brownm09/lifting-logbook/issues/826)) now waits only on a domain / DNS cutover:
+[#826](https://github.com/merickvaughn/lifting-logbook/issues/826)) now waits only on a domain / DNS cutover:
 
 > **Prod is already served at the `liftinglogbook.com` apex + `www` via Cloud Run domain mappings**,
 > not a greenfield domain — so the cutover covers **both** domains, uses a **Certificate Manager
 > DNS-authorization** cert (the cert reaches `ACTIVE` while the apex/www keep serving, for a
 > zero-downtime flip), and must **delete** the domain mappings before phase 2 (they are incompatible
 > with the phase-2 ingress lock). This procedure is the [ADR-034 2026-07-12 amendment](adr/ADR-034-edge-rate-limiting-client-errors.md#amendment-2026-07-12-apex-and-www-already-live-zero-downtime-cert-manager-cutover);
-> the code prerequisite is [#830](https://github.com/brownm09/lifting-logbook/issues/830).
+> the code prerequisite is [#830](https://github.com/merickvaughn/lifting-logbook/issues/830).
 
 Enabling is **two phases** (decoupled so the live domain never goes dark):
 

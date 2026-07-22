@@ -2,8 +2,8 @@
 
 **Status:** Accepted
 **Date:** 2026-06-11
-**Closes:** [#397](https://github.com/brownm09/lifting-logbook/issues/397)
-**Related:** [ADR-025](ADR-025-web-image-per-env-build.md) (updates its "Cross-project Artifact Registry note"), [ADR-028](ADR-028-web-runtime-public-config.md) (single `web:<sha>` image), [ADR-026](ADR-026-ci-action-version-pinning.md) (pinned `wretry`/build-push actions), [#411](https://github.com/brownm09/lifting-logbook/pull/411) (the imagetools copy this replaces), [#464](https://github.com/brownm09/lifting-logbook/issues/464) (architecture-review umbrella)
+**Closes:** [#397](https://github.com/merickvaughn/lifting-logbook/issues/397)
+**Related:** [ADR-025](ADR-025-web-image-per-env-build.md) (updates its "Cross-project Artifact Registry note"), [ADR-028](ADR-028-web-runtime-public-config.md) (single `web:<sha>` image), [ADR-026](ADR-026-ci-action-version-pinning.md) (pinned `wretry`/build-push actions), [#411](https://github.com/merickvaughn/lifting-logbook/pull/411) (the imagetools copy this replaces), [#464](https://github.com/merickvaughn/lifting-logbook/issues/464) (architecture-review umbrella)
 
 ---
 
@@ -15,7 +15,7 @@ project's Artifact Registry (`steps.ar.outputs.repo`). `deploy-production` pulls
 **production** project's AR (`steps.tf-prod.outputs.ar_repo`), so the images had to reach the prod
 AR somehow.
 
-The previous arrangement ([#411](https://github.com/brownm09/lifting-logbook/pull/411)) re-authed to
+The previous arrangement ([#411](https://github.com/merickvaughn/lifting-logbook/pull/411)) re-authed to
 the prod CI/CD service account and ran `docker buildx imagetools create` to copy both images from the
 staging AR into the prod AR. `imagetools create` is a registry-to-registry copy: it **reads the
 source manifest from the staging AR** while authenticated as the prod SA. That cross-project *read*
@@ -25,7 +25,7 @@ provisioned in Terraform (`google_artifact_registry_repository_iam_member.extern
 
 [ADR-025](ADR-025-web-image-per-env-build.md) flagged this cross-project pull in its "Cross-project
 Artifact Registry note" and named per-env AR routing as the cleaner long-term shape, deferring it to
-a follow-up ([#397](https://github.com/brownm09/lifting-logbook/issues/397)). That standing
+a follow-up ([#397](https://github.com/merickvaughn/lifting-logbook/issues/397)). That standing
 cross-project IAM grant is easy to break (a registry recreation or SA rotation silently breaks every
 production deploy) and violates least privilege — the prod automation identity should not be able to
 read the staging registry at all.
@@ -92,8 +92,8 @@ together and stay consistent within a single run.
 **Resilience / rollback:**
 - The prod build-push reuses the same `Wandalen/wretry.action` 3× bounded retry as the staging push
   (and as the old imagetools copy), preserving resilience to transient Artifact Registry 504s
-  ([#498](https://github.com/brownm09/lifting-logbook/issues/498) /
-  [#504](https://github.com/brownm09/lifting-logbook/issues/504)).
+  ([#498](https://github.com/merickvaughn/lifting-logbook/issues/498) /
+  [#504](https://github.com/merickvaughn/lifting-logbook/issues/504)).
 - Rollback is a PR revert, which restores **both** the imagetools copy path **and** the Terraform
   grant. The grant must be re-applied (`terraform apply` on staging) before the reverted copy path
   can read the staging AR again — a plain workflow rollback without the Terraform apply would leave
@@ -129,14 +129,14 @@ the existing pattern wins.
 ## Addendum — 2026-07-10 (#795): same-project pull-through mirror reader
 
 This ADR removed the module's one **cross-project** `artifactregistry.reader` grant (the prod SA
-reading the staging AR). [#795](https://github.com/brownm09/lifting-logbook/issues/795) then adds the
+reading the staging AR). [#795](https://github.com/merickvaughn/lifting-logbook/issues/795) then adds the
 module's first **same-project** AR reader grant, and the two do not conflict.
 
 A `REMOTE_REPOSITORY` Docker Hub pull-through repo `${var.app_name}-dockerhub`
 (`google_artifact_registry_repository.dockerhub_mirror`, `main.tf`) was added so the otel-collector
 image is served from Artifact Registry rather than Docker Hub on the request path — Docker Hub's
 mutable tag exposes new production instances to a rate-limit (100 pulls/6h per IP) or outage on every
-cold-start / node pull ([#788](https://github.com/brownm09/lifting-logbook/issues/788)). Pulling
+cold-start / node pull ([#788](https://github.com/merickvaughn/lifting-logbook/issues/788)). Pulling
 *through* a remote repo requires `artifactregistry.reader` **on that repo**, so
 `google_artifact_registry_repository_iam_member.dockerhub_mirror_readers` grants it — scoped to the
 mirror repo, inside each environment's **own** project — to the two image-pull identities: the Cloud

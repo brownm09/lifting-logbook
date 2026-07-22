@@ -101,7 +101,7 @@ Deliberate non-flags (cannot be verified statically, so left to code review):
 
 > **Lint scope.** The web workspace lint script is `eslint app lib`, so this rule
 > runs against both `apps/web/app` and `apps/web/lib` in CI. (`lib/` coverage was
-> added in [#473](https://github.com/brownm09/lifting-logbook/issues/473) — before
+> added in [#473](https://github.com/merickvaughn/lifting-logbook/issues/473) — before
 > that the script was `eslint app` and `lib/` fetch sites were unguarded.)
 
 ### `lifting-logbook/no-raw-fetch-outside-api-client`
@@ -112,8 +112,8 @@ access into [`packages/api-client`](../../packages/api-client)'s
 `createApiClient({ baseUrl, getAuthHeaders })`, which owns the
 `X-Clerk-Authorization` (server, Cloud Run IAM) vs `Authorization` (browser) split
 and merges auth headers with auth-wins precedence. This rule (flag 6 of the
-2026-06-08 architecture review, [#464](https://github.com/brownm09/lifting-logbook/issues/464)
-/ [#494](https://github.com/brownm09/lifting-logbook/issues/494)) prevents a raw
+2026-06-08 architecture review, [#464](https://github.com/merickvaughn/lifting-logbook/issues/464)
+/ [#494](https://github.com/merickvaughn/lifting-logbook/issues/494)) prevents a raw
 `fetch()` to the API — written the "obvious" way — from bypassing the client and
 403-ing behind Cloud Run IAM.
 
@@ -194,6 +194,6 @@ leak between cases.
 
 - [`docs/standards/error-fallback-test-coverage.md`](../../docs/standards/error-fallback-test-coverage.md) — the standard the rule enforces
 - [`eslint.config.js`](../../eslint.config.js) — where rules are wired into the lint pipeline
-- [#349](https://github.com/brownm09/lifting-logbook/issues/349) — the audit that produced the standard
-- [#353](https://github.com/brownm09/lifting-logbook/issues/353) — the static-check enforcement
-- [#354](https://github.com/brownm09/lifting-logbook/issues/354) — follow-up audit extending scope to `packages/`
+- [#349](https://github.com/merickvaughn/lifting-logbook/issues/349) — the audit that produced the standard
+- [#353](https://github.com/merickvaughn/lifting-logbook/issues/353) — the static-check enforcement
+- [#354](https://github.com/merickvaughn/lifting-logbook/issues/354) — follow-up audit extending scope to `packages/`

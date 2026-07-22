@@ -2,7 +2,7 @@
 
 **Status:** `shipped`
 **Date:** 2026-04-13
-**Issue:** [#64](https://github.com/brownm09/lifting-logbook/issues/64)
+**Issue:** [#64](https://github.com/merickvaughn/lifting-logbook/issues/64)
 
 ---
 

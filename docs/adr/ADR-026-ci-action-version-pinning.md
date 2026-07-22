@@ -2,18 +2,18 @@
 
 **Status:** Accepted
 **Date:** 2026-06-04
-**Closes:** [#418](https://github.com/brownm09/lifting-logbook/issues/418)
-**Related:** [#416](https://github.com/brownm09/lifting-logbook/pull/416) (the Node 20 deprecation-wave bumps that spun off this issue), [ADR-025](ADR-025-web-image-per-env-build.md) (the privileged `deploy.yml`/`staging.yml` workflows whose supply-chain posture this governs)
+**Closes:** [#418](https://github.com/merickvaughn/lifting-logbook/issues/418)
+**Related:** [#416](https://github.com/merickvaughn/lifting-logbook/pull/416) (the Node 20 deprecation-wave bumps that spun off this issue), [ADR-025](ADR-025-web-image-per-env-build.md) (the privileged `deploy.yml`/`staging.yml` workflows whose supply-chain posture this governs)
 
 ---
 
 ## Context
 
 GitHub Actions workflows reference third-party actions by a floating major-version tag
-(`actions/checkout@v5`, `docker/build-push-action@v6`, etc.). [#416](https://github.com/brownm09/lifting-logbook/pull/416)
+(`actions/checkout@v5`, `docker/build-push-action@v6`, etc.). [#416](https://github.com/merickvaughn/lifting-logbook/pull/416)
 cleared the 2026-06-16 Node 20 runtime-deprecation wave by bumping three actions to their next
 majors. Two adjacent hygiene questions were deliberately left out of that tightly-scoped PR and
-filed as [#418](https://github.com/brownm09/lifting-logbook/issues/418):
+filed as [#418](https://github.com/merickvaughn/lifting-logbook/issues/418):
 
 1. **Audit the remaining actions** for the *next* runtime-deprecation cycle, so the next wave is
    queued rather than discovered under deadline.
@@ -23,7 +23,7 @@ filed as [#418](https://github.com/brownm09/lifting-logbook/issues/418):
 
 ### Audit result (item 1)
 
-Every action not already addressed by [#416](https://github.com/brownm09/lifting-logbook/pull/416)
+Every action not already addressed by [#416](https://github.com/merickvaughn/lifting-logbook/pull/416)
 is on a current major whose `runs:` uses a Node runtime GitHub still ships on its runners
 (`node20` or `node24` at time of writing — see the Runtime column). No action is on a
 soon-to-be-deprecated runtime; **no bumps are needed this wave.** The table inventories every
@@ -59,7 +59,7 @@ and re-audited here).
 **Keep floating major-version tags (`@vN`) for all actions, in every workflow — option (a).**
 
 Re-audit action runtimes whenever GitHub announces a runner Node-runtime deprecation (the same
-trigger that produced [#416](https://github.com/brownm09/lifting-logbook/pull/416)); bump in a
+trigger that produced [#416](https://github.com/merickvaughn/lifting-logbook/pull/416)); bump in a
 single tightly-scoped PR after verifying input compatibility against each target `action.yml`.
 
 ## Rationale
@@ -114,7 +114,7 @@ everywhere with Dependabot) if any of the following changes:
   Defines the `@ref` pinning forms (branch, tag, SHA) and their resolution semantics.
 - [GitHub Changelog — GitHub Actions: Transitioning from Node 16 to Node 20](https://github.blog/changelog/2023-09-22-github-actions-transitioning-from-node-16-to-node-20/) —
   The runtime-deprecation mechanism that drives the re-audit trigger; the same class of
-  announcement produced [#416](https://github.com/brownm09/lifting-logbook/pull/416).
+  announcement produced [#416](https://github.com/merickvaughn/lifting-logbook/pull/416).
 - [Dependabot — Keeping your actions up to date](https://docs.github.com/en/code-security/dependabot/working-with-dependabot/keeping-your-actions-up-to-date-with-dependabot) —
   The mechanism that would be required to make a digest-pin strategy maintainable; its absence is
   part of why option (a) is chosen.

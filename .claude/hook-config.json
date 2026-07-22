@@ -1,20 +1,20 @@
 {
-  "repo": "brownm09/lifting-logbook",
+  "repo": "merickvaughn/lifting-logbook",
   "project_number": "2",
-  "project_owner": "brownm09",
-  "project_node_id": "PVT_kwHOAjEKvM4BTuEF",
-  "epic_field_id": "PVTSSF_lAHOAjEKvM4BTuEFzhA7GEs",
+  "project_owner": "merickvaughn",
+  "project_node_id": "PVT_kwDOEecHO84BeFl_",
+  "epic_field_id": "PVTSSF_lADOEecHO84BeFl_zhYiZmg",
   "epic_options": {
-    "Monorepo Scaffolding":         "9dcd9556",
-    "Package & App Scaffolding":    "ae06cfdd",
-    "Port Interfaces":              "cc1ae008",
-    "Shared Types":                 "a6b59698",
-    "CI/CD Foundation":             "fc0df03b",
-    "Architecture & Documentation": "f7202bcd",
-    "Observability":                "d3c68018",
-    "API Implementation":           "50a1da76",
-    "Client Applications":          "31d3931e",
-    "Operations":                   "0c3f26d2"
+    "Monorepo Scaffolding":         "b36a539f",
+    "Package & App Scaffolding":    "5f7ee7e1",
+    "Port Interfaces":              "679c2b39",
+    "Shared Types":                 "cd1dd755",
+    "CI/CD Foundation":             "8e936837",
+    "Architecture & Documentation": "2f5e3e1b",
+    "Observability":                "3b3b9b8c",
+    "API Implementation":           "df8223db",
+    "Client Applications":          "5111fafe",
+    "Operations":                   "de6caeb7"
   },
   "milestones": [
     "v0.1 — Foundation",
@@ -22,6 +22,6 @@
     "v0.3 — Client Applications",
     "v0.4 — Alpha Release"
   ],
-  "status_field_id": "PVTSSF_lAHOAjEKvM4BTuEFzhA7F7E",
-  "done_option_id": "98236657"
+  "status_field_id": "PVTSSF_lADOEecHO84BeFl_zhYiZk8",
+  "done_option_id": "0112fb7c"
 }

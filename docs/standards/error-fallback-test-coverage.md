@@ -2,7 +2,7 @@
 
 **Applies to:** all packages and apps — anywhere a server component or API boundary swallows an error with a fallback value
 **Status:** Active
-**Related issue:** [#349 — Audit and remediate skewed tests across the codebase](https://github.com/brownm09/lifting-logbook/issues/349)
+**Related issue:** [#349 — Audit and remediate skewed tests across the codebase](https://github.com/merickvaughn/lifting-logbook/issues/349)
 **Related ADR:** [ADR-023 — Staging Integration Test Design](../adr/ADR-023-staging-integration-test-design.md)
 
 ---
@@ -21,7 +21,7 @@ A test that asserts only structure or presence — heading visible, tab visible,
 
 ## Why
 
-PR [#346](https://github.com/brownm09/lifting-logbook/pull/346) introduced graceful-degradation wrappers on three Next.js Server Components (`ProgramsPage`, `HistoryPage`, `CyclePage`) without updating the staging suite. The Playwright assertions checked only structure — headings, tab elements, URL patterns — so the staging suite continued to pass even when the backend API was unreachable. The graceful degradation itself is correct product behavior (per ADR-023), but the test surface no longer distinguished success from silent failure.
+PR [#346](https://github.com/merickvaughn/lifting-logbook/pull/346) introduced graceful-degradation wrappers on three Next.js Server Components (`ProgramsPage`, `HistoryPage`, `CyclePage`) without updating the staging suite. The Playwright assertions checked only structure — headings, tab elements, URL patterns — so the staging suite continued to pass even when the backend API was unreachable. The graceful degradation itself is correct product behavior (per ADR-023), but the test surface no longer distinguished success from silent failure.
 
 This pattern can recur anywhere an error boundary returns a neutral value: empty arrays, default settings, redirects to a recovery page. The standard ensures every new occurrence is paired with a deliberate decision about test coverage.
 
@@ -70,14 +70,14 @@ When the staging test user genuinely has no records, this is acceptable **only i
   - **Cache behavior.** The reference set is built once per ESLint process; IDE / `eslint --fix --watch` workflows will not pick up newly-added test comments until the language-server restarts.
 - **Reviewer checklist.** The static check guarantees the *form* of coverage. Reviewers still verify that the named test actually distinguishes success from fallback — a reference comment pointing at a test that itself only checks structure does not satisfy the spirit of the rule.
 - **CLAUDE.md `## Testing` rule.** A short subsection of the project CLAUDE.md points at this standard and applies the rule at PR creation time.
-- **Audit coverage.** The initial audit (issue #349) covered `apps/web` and `apps/api`. A follow-up audit for `packages/core` and `packages/types` is tracked in [#354](https://github.com/brownm09/lifting-logbook/issues/354). When that closes, extend the rule's `files` glob in `eslint.config.js`.
+- **Audit coverage.** The initial audit (issue #349) covered `apps/web` and `apps/api`. A follow-up audit for `packages/core` and `packages/types` is tracked in [#354](https://github.com/merickvaughn/lifting-logbook/issues/354). When that closes, extend the rule's `files` glob in `eslint.config.js`.
 
 ---
 
 ## References
 
-- [Issue #349 — Audit and remediate skewed tests](https://github.com/brownm09/lifting-logbook/issues/349) — the audit that produced this standard
-- [PR #346 — staging deploy with Playwright integration test gate](https://github.com/brownm09/lifting-logbook/pull/346) — the incident that surfaced the pattern, and the first explicit success-path test (test 5)
+- [Issue #349 — Audit and remediate skewed tests](https://github.com/merickvaughn/lifting-logbook/issues/349) — the audit that produced this standard
+- [PR #346 — staging deploy with Playwright integration test gate](https://github.com/merickvaughn/lifting-logbook/pull/346) — the incident that surfaced the pattern, and the first explicit success-path test (test 5)
 - [ADR-023 — Staging Integration Test Design](../adr/ADR-023-staging-integration-test-design.md) — Consequences section names this limitation
 
 ---
@@ -86,4 +86,4 @@ When the staging test user genuinely has no records, this is acceptable **only i
 
 | Date | Scope | Findings | Issue | PR |
 |---|---|---|---|---|
-| 2026-05-27 | `packages/core/**`, `packages/types/**` | 4 untested or under-tested neutral-return branches in `tableToObjects`, `parseCycleDashboard`, `formatDateYYYYMMDD`, `weekTypeForDate`. All four remediated with explicit fallback-branch tests; one production-code inconsistency in `parseCycleDashboard` (silent defaults vs. sibling `parseTrainingMaxes` which throws) deferred to a follow-up issue. | [#354](https://github.com/brownm09/lifting-logbook/issues/354) | [#357](https://github.com/brownm09/lifting-logbook/pull/357) |
+| 2026-05-27 | `packages/core/**`, `packages/types/**` | 4 untested or under-tested neutral-return branches in `tableToObjects`, `parseCycleDashboard`, `formatDateYYYYMMDD`, `weekTypeForDate`. All four remediated with explicit fallback-branch tests; one production-code inconsistency in `parseCycleDashboard` (silent defaults vs. sibling `parseTrainingMaxes` which throws) deferred to a follow-up issue. | [#354](https://github.com/merickvaughn/lifting-logbook/issues/354) | [#357](https://github.com/merickvaughn/lifting-logbook/pull/357) |

@@ -3,7 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-04-03
 **Reviewed:** 2026-04-07
-**Review outcome:** Pass with gaps — open items resolved: [#38](https://github.com/brownm09/lifting-logbook/issues/38) (ADR-014), [#39](https://github.com/brownm09/lifting-logbook/issues/39) (cache invalidation section below)
+**Review outcome:** Pass with gaps — open items resolved: [#38](https://github.com/merickvaughn/lifting-logbook/issues/38) (ADR-014), [#39](https://github.com/merickvaughn/lifting-logbook/issues/39) (cache invalidation section below)
 
 ---
 

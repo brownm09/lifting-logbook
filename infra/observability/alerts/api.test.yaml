@@ -38,7 +38,7 @@ tests:
             exp_annotations:
               summary: "Route /programs/:program/lifts 5xx rate > 5%"
               description: "100% of requests to /programs/:program/lifts are returning 5xx over the last 5m"
-              runbook_url: "https://github.com/brownm09/lifting-logbook/blob/main/docs/runbooks/api-5xx-surge.md"
+              runbook_url: "https://github.com/merickvaughn/lifting-logbook/blob/main/docs/runbooks/api-5xx-surge.md"
       # The aggregate warning must NOT fire — overall 5xx ratio is ~0.1%, under 1%.
       - eval_time: 6m
         alertname: APIHighErrorRate
@@ -65,7 +65,7 @@ tests:
             exp_annotations:
               summary: "API error rate > 1%"
               description: "2.913% of requests are returning 5xx"
-              runbook_url: "https://github.com/brownm09/lifting-logbook/blob/main/docs/runbooks/api-5xx-surge.md"
+              runbook_url: "https://github.com/merickvaughn/lifting-logbook/blob/main/docs/runbooks/api-5xx-surge.md"
 
   # Scenario: the #487 env-scoping guard. An identical broken route on STAGING
   # (deployment_environment_name="staging") must NOT page — the production-scoped
@@ -119,4 +119,4 @@ tests:
             exp_annotations:
               summary: "API p95 latency > 1s"
               description: "p95 latency is 2s"
-              runbook_url: "https://github.com/brownm09/lifting-logbook/blob/main/docs/runbooks/api-5xx-surge.md"
+              runbook_url: "https://github.com/merickvaughn/lifting-logbook/blob/main/docs/runbooks/api-5xx-surge.md"

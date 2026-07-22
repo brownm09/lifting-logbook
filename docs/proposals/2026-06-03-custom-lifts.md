@@ -2,7 +2,7 @@
 
 **Status:** `shipped`
 **Date:** 2026-06-03
-**Issue:** [#425](https://github.com/brownm09/lifting-logbook/issues/425)
+**Issue:** [#425](https://github.com/merickvaughn/lifting-logbook/issues/425)
 
 ---
 
@@ -70,7 +70,7 @@ model CustomLift {
 
 Add an `ICustomLiftRepository` port (`apps/api/src/ports/`) with in-memory and Prisma adapters, wired
 through the existing `IRepositoryFactory.forUser(...)` per-user factory (the pattern introduced in
-[#144](https://github.com/brownm09/lifting-logbook/issues/144)).
+[#144](https://github.com/merickvaughn/lifting-logbook/issues/144)).
 
 **4. Resolution**
 

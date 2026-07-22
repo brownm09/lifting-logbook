@@ -17,7 +17,7 @@ green; `Verify deploy prerequisites` fails with "deploy-api did not succeed"
 
 ## Likely causes
 
-Ordered by observed probability (the [#498](https://github.com/brownm09/lifting-logbook/issues/498)
+Ordered by observed probability (the [#498](https://github.com/merickvaughn/lifting-logbook/issues/498)
 diagnosis, 2026-06-10):
 
 1. **Artifact Registry 504 on layer-blob push** during `Build & Push Images`. This is the
@@ -67,10 +67,10 @@ The pipeline now self-heals the transient classes; manual action is the exceptio
    (`Wandalen/wretry.action`, 3 attempts on the build steps; a 2-attempt shell loop on
    `terraform apply`). A single transient 504 no longer reds the run. The same hardening was
    applied to `deploy.yml` (the push-to-`main` prod + staging-promote pipeline) for parity
-   ([#504](https://github.com/brownm09/lifting-logbook/issues/504)) — including bounded retries on
+   ([#504](https://github.com/merickvaughn/lifting-logbook/issues/504)) — including bounded retries on
    the two `terraform apply` steps and every `docker/build-push-action` build. The latter now
    includes the two direct prod-AR build-pushes that replaced the former `imagetools`
-   staging-AR→prod-AR copies ([#397](https://github.com/brownm09/lifting-logbook/issues/397) /
+   staging-AR→prod-AR copies ([#397](https://github.com/merickvaughn/lifting-logbook/issues/397) /
    [ADR-029](../adr/ADR-029-per-env-artifact-registry-push.md)); they are exposed to the same
    transient AR 504s and carry the same 3-attempt retry.
 2. **Migrate** runs a bounded 3-attempt retry and then **hard-fails** — there is no longer a
@@ -97,7 +97,7 @@ it (or someone force-cancels it manually).
 - **Cause:** a runner-level wedge (a hung apt/network fetch, a stuck process), **not** a code or
   config failure. The 6h fallback applies to any job with no explicit `timeout-minutes`.
 - **Mitigation (in place):** every job in `staging.yml`, `ci.yml`, and `deploy.yml` now sets an
-  explicit `timeout-minutes` sized to ~2–4× its normal runtime (see [#566](https://github.com/brownm09/lifting-logbook/issues/566)).
+  explicit `timeout-minutes` sized to ~2–4× its normal runtime (see [#566](https://github.com/merickvaughn/lifting-logbook/issues/566)).
   A wedge now auto-cancels in minutes instead of consuming a 6h slot. If you add a **new** job to
   any of these workflows, give it a `timeout-minutes` too.
 - **If it recurs anyway:** cancel the run, then `gh run rerun <run-id> --failed`. If the same
@@ -111,15 +111,15 @@ hours before being force-cancelled.
 ## Hollow green — deploy-api reports success but nothing deployed
 
 A failure class specific to the `deploy-api` Cloud Run sidecar deploy. That step carries
-`continue-on-error: true` on purpose ([#498](https://github.com/brownm09/lifting-logbook/issues/498)):
+`continue-on-error: true` on purpose ([#498](https://github.com/merickvaughn/lifting-logbook/issues/498)):
 a *revision* that fails to start must still let the `Fetch Cloud Run API logs on failure` step run,
 and the integration-test gate — not the deploy step — fails the run. Since
-[#822](https://github.com/brownm09/lifting-logbook/pull/822) moved the deploy to
+[#822](https://github.com/merickvaughn/lifting-logbook/pull/822) moved the deploy to
 `uses: ./.github/actions/deploy-cloud-run-otel-sidecar`, a new outcome became maskable: the
 composite action can fail to **load** (a manifest/template-validation error), which
 `continue-on-error` also swallows — so `deploy-api` shows a green ✓ while **no revision was
 submitted** and the stale revision keeps serving. Integration tests then run against old code and
-the green propagates undetected ([#823](https://github.com/brownm09/lifting-logbook/issues/823); it
+the green propagates undetected ([#823](https://github.com/merickvaughn/lifting-logbook/issues/823); it
 happened on #822's first CI run, an `env.REGION`-in-an-input-description bug in `action.yml`).
 
 - **Symptom:** the `Verify API revision actually deployed (staging)` step in `Deploy API (staging)`

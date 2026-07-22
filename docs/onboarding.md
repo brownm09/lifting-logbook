@@ -35,7 +35,7 @@ Before you begin, install:
 > The manual steps are kept below for reference or if you prefer to run each step individually.
 
 ```sh
-git clone https://github.com/brownm09/lifting-logbook.git
+git clone https://github.com/merickvaughn/lifting-logbook.git
 cd lifting-logbook
 
 # Pick up the correct Node version

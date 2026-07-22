@@ -2,7 +2,7 @@
 
 **Status:** `shipped`
 **Date:** 2026-06-03
-**Issue:** [#426](https://github.com/brownm09/lifting-logbook/issues/426)
+**Issue:** [#426](https://github.com/merickvaughn/lifting-logbook/issues/426)
 
 ---
 
@@ -40,7 +40,7 @@ which mirrors the canonical core utility `estimateTrainingMax`
 accuracy") is preserved.
 
 *(Update, 2026-07-02: the two implementations drifted apart and were consolidated onto a single
-implementation in `packages/core` — see [issue #642](https://github.com/brownm09/lifting-logbook/issues/642).
+implementation in `packages/core` — see [issue #642](https://github.com/merickvaughn/lifting-logbook/issues/642).
 The live estimate now calls `estimateOneRepMax()` directly; `brzycki1RM` no longer exists.)*
 
 **3. Persist confirmed maxes**
@@ -56,13 +56,13 @@ This closes the discard gap so onboarding actually seeds the training maxes it c
 - [ ] Confirmed maxes are persisted to training maxes on completion (the discard gap is closed)
 - [ ] Estimation continues to use the Brzycki path; rep-range guidance is unchanged
 - [ ] Web test coverage per the "new frontend feature" rule (Playwright once
-      [#259](https://github.com/brownm09/lifting-logbook/issues/259) lands; until then a written test plan
+      [#259](https://github.com/merickvaughn/lifting-logbook/issues/259) lands; until then a written test plan
       in the PR body)
 
 ## Out of Scope
 
 - Mobile onboarding — `apps/mobile` is a "coming soon" placeholder
-- Test-week max discovery — shipped in [#129](https://github.com/brownm09/lifting-logbook/issues/129)
+- Test-week max discovery — shipped in [#129](https://github.com/merickvaughn/lifting-logbook/issues/129)
 - Automatic re-estimation of maxes from logged workout sets after onboarding
 
 ## Open Questions

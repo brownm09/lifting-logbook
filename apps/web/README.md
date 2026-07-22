@@ -36,8 +36,8 @@ which enables **dev-auth mode** (see [Authentication](#authentication) below).
 > console stays clean. (The template used to ship Clerk's public example key to satisfy a
 > `<ClerkProvider>` startup check, which logged a benign *"unable to attribute this request
 > to an instance"* console error; skipping the provider resolved both —
-> [#828](https://github.com/brownm09/lifting-logbook/issues/828) /
-> [#834](https://github.com/brownm09/lifting-logbook/issues/834).) Supply your own Clerk
+> [#828](https://github.com/merickvaughn/lifting-logbook/issues/828) /
+> [#834](https://github.com/merickvaughn/lifting-logbook/issues/834).) Supply your own Clerk
 > keys (below) only for a real sign-in flow.
 
 ### 3. Run the dev servers
@@ -86,7 +86,7 @@ Public config is injected at **runtime**, not baked into the bundle at build tim
 deliberately carry **no `NEXT_PUBLIC_` prefix** (the root layout reads them per request and
 delivers them to the browser via `window.__PUBLIC_CONFIG__`). See
 [`lib/public-config.ts`](lib/public-config.ts), [ADR-028](../../docs/adr/ADR-028-web-runtime-public-config.md),
-and [#396](https://github.com/brownm09/lifting-logbook/issues/396).
+and [#396](https://github.com/merickvaughn/lifting-logbook/issues/396).
 
 | Variable | Required locally | Default | Purpose |
 |---|---|---|---|

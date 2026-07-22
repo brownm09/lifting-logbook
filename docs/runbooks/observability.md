@@ -157,7 +157,7 @@ Four Prometheus alert rules are defined in
 [`infra/observability/alerts/api.yaml`](../../infra/observability/alerts/api.yaml). **All four are
 scoped to production** via the `deployment_environment_name="production"` label — staging and
 production share one free-tier Grafana Cloud stack, so without scoping a staging 5xx would page on
-the prod rules ([#487](https://github.com/brownm09/lifting-logbook/issues/487); see the
+the prod rules ([#487](https://github.com/merickvaughn/lifting-logbook/issues/487); see the
 environment-scoping note under [Grafana Cloud credential wiring](#grafana-cloud-credential-wiring)).
 
 | Rule | Condition (production only) | Severity |
@@ -174,7 +174,7 @@ sustained 5xx regardless of overall volume. See
 [api-5xx-surge.md](api-5xx-surge.md) for first response. Its `> 5%` threshold, `for: 5m` window,
 and whether to add a low-traffic volume floor are calibrated against production metrics using the
 queries in [slo.md → Calibrating `APIRouteHighErrorRate`](../operations/slo.md#calibrating-apiroutehigherrorrate)
-([#468](https://github.com/brownm09/lifting-logbook/issues/468)).
+([#468](https://github.com/merickvaughn/lifting-logbook/issues/468)).
 
 > **Known issue:** `APINoRequests` fires spuriously outside business hours because it
 > has no `for:` grace period. This is a documented open item in ADR-018. The Alertmanager
@@ -272,7 +272,7 @@ Prometheus container scrapes.)
 > **Shared stack (free tier) — environment scoping:** staging and production export to the
 > **same** Grafana Cloud stack with the same endpoints/token, so telemetry from both environments
 > intermixes in Tempo/Loki/Mimir. To keep staging from paging the production alert rules
-> ([#487](https://github.com/brownm09/lifting-logbook/issues/487)):
+> ([#487](https://github.com/merickvaughn/lifting-logbook/issues/487)):
 >
 > 1. The API and web SDKs tag every span/metric/log with the
 >    [`deployment.environment.name`](https://opentelemetry.io/docs/specs/semconv/resource/deployment-environment/)
@@ -346,8 +346,8 @@ non-secret endpoints are set in the Cloud Run deploy step and must match
 CPU allocation (`cpu_idle` — CPU only during request processing), so between requests the collector's
 `batch`, `tail_sampling` (`decision_wait`), and periodic OTLP export timers run best-effort rather
 than always-on like the GKE DaemonSet; buffered telemetry can be delayed or dropped when an idle
-instance is throttled or scaled in. Revisit collector CPU allocation ([#787](https://github.com/brownm09/lifting-logbook/issues/787))
-now that #781's endpoint fix ([#784](https://github.com/brownm09/lifting-logbook/pull/784)) lets real
+instance is throttled or scaled in. Revisit collector CPU allocation ([#787](https://github.com/merickvaughn/lifting-logbook/issues/787))
+now that #781's endpoint fix ([#784](https://github.com/merickvaughn/lifting-logbook/pull/784)) lets real
 delivery be measured. (2) **Terraform recreate.** For **both** services Terraform declares only the
 app container (the sidecar lives solely in the injected manifest, and each service is
 `lifecycle.ignore_changes = [template]`). If the api **or** web service is ever recreated by
@@ -356,7 +356,7 @@ to a `localhost:4318` with nothing listening, silently dropping all telemetry (t
 until the next pipeline deploy re-injects the sidecar. **A pipeline deploy must follow any Terraform
 recreate of either service.**
 
-> **Note — the Grafana endpoint blocker ([#781](https://github.com/brownm09/lifting-logbook/issues/781)) is now fixed ([#784](https://github.com/brownm09/lifting-logbook/pull/784)).**
+> **Note — the Grafana endpoint blocker ([#781](https://github.com/merickvaughn/lifting-logbook/issues/781)) is now fixed ([#784](https://github.com/merickvaughn/lifting-logbook/pull/784)).**
 > During this change's staging validation, Grafana Cloud rejected every export — **Loki 401 / OTLP 530**,
 > for **both** GKE and Cloud Run — because the shared endpoints pointed at the wrong Grafana stack
 > (confirmed by a direct `curl`, bypassing the collector). #784 corrected them (OTLP →

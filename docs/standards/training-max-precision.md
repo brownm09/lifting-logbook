@@ -2,7 +2,7 @@
 
 **Applies to:** all packages and apps — anywhere a training-max or 1RM weight value is parsed, persisted, compared, or derived
 **Status:** Active
-**Related issue:** [#633 — Training-max precision loss and configurable workout-rounding increment](https://github.com/brownm09/lifting-logbook/issues/633)
+**Related issue:** [#633 — Training-max precision loss and configurable workout-rounding increment](https://github.com/merickvaughn/lifting-logbook/issues/633)
 
 ---
 
@@ -38,10 +38,10 @@ these three categories it falls into before deciding whether — and how — to 
 
 ## Why
 
-[PR #636](https://github.com/brownm09/lifting-logbook/pull/636) fixed four places where a
+[PR #636](https://github.com/merickvaughn/lifting-logbook/pull/636) fixed four places where a
 directly-known value (category 1) was silently rounded to a whole number, contradicting
 that code's own documented "persisted as-is" contract in three of the four cases. Git blame
-traced one of them to [PR #560](https://github.com/brownm09/lifting-logbook/pull/560), which
+traced one of them to [PR #560](https://github.com/merickvaughn/lifting-logbook/pull/560), which
 introduced the "enter training maxes directly" onboarding method by copy-pasting the
 adjacent estimate-derivation code's rounding pattern (category 2) without reconsidering it
 for a path meant to have none. The contract existed only in a code comment — nowhere a
@@ -104,7 +104,7 @@ categories above applies and that the rounding behavior (or lack of it) matches.
 
 ## References
 
-- [Issue #633 — Training-max precision loss and configurable workout-rounding increment](https://github.com/brownm09/lifting-logbook/issues/633) — the audit that produced this standard
-- [PR #636 — Preserve training-max decimal precision in Import, onboarding, and history](https://github.com/brownm09/lifting-logbook/pull/636) — the incident and fix
-- [PR #560 — Add 'enter training maxes directly' onboarding method](https://github.com/brownm09/lifting-logbook/pull/560) — introduced one of the four bugs fixed in #636
-- [Issue #642 — Consolidate duplicate Brzycki 1RM-estimation implementations onto packages/core](https://github.com/brownm09/lifting-logbook/issues/642) — moved `floorToIncrement()`/the estimate formula from `apps/web` into `packages/core` so this standard's category-2 convention has a single implementation instead of two that could drift again
+- [Issue #633 — Training-max precision loss and configurable workout-rounding increment](https://github.com/merickvaughn/lifting-logbook/issues/633) — the audit that produced this standard
+- [PR #636 — Preserve training-max decimal precision in Import, onboarding, and history](https://github.com/merickvaughn/lifting-logbook/pull/636) — the incident and fix
+- [PR #560 — Add 'enter training maxes directly' onboarding method](https://github.com/merickvaughn/lifting-logbook/pull/560) — introduced one of the four bugs fixed in #636
+- [Issue #642 — Consolidate duplicate Brzycki 1RM-estimation implementations onto packages/core](https://github.com/merickvaughn/lifting-logbook/issues/642) — moved `floorToIncrement()`/the estimate formula from `apps/web` into `packages/core` so this standard's category-2 convention has a single implementation instead of two that could drift again

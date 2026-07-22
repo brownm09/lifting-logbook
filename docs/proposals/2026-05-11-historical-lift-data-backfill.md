@@ -2,7 +2,7 @@
 
 **Status:** `declined`
 **Date:** 2026-05-11
-**Issue:** [#225](https://github.com/brownm09/lifting-logbook/issues/225)
+**Issue:** [#225](https://github.com/merickvaughn/lifting-logbook/issues/225)
 
 ---
 

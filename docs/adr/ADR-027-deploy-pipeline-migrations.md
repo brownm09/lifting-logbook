@@ -2,8 +2,8 @@
 
 **Status:** Accepted
 **Date:** 2026-06-08
-**Closes:** [#460](https://github.com/brownm09/lifting-logbook/issues/460)
-**Related:** [#458](https://github.com/brownm09/lifting-logbook/issues/458) / [#459](https://github.com/brownm09/lifting-logbook/pull/459) (the onboarding lift-catalog symptom this fixes at the root), [ADR-009](ADR-009-infrastructure-kubernetes-cloud-run.md) (Cloud Run / Cloud SQL / Terraform infrastructure), [ADR-010](ADR-010-multi-tenancy-data-isolation.md) (single shared schema, `user_id`-scoped), [ADR-024](ADR-024-prisma-otel-sdk-override.md) (Prisma runtime engine on Alpine — the same image this job reuses)
+**Closes:** [#460](https://github.com/merickvaughn/lifting-logbook/issues/460)
+**Related:** [#458](https://github.com/merickvaughn/lifting-logbook/issues/458) / [#459](https://github.com/merickvaughn/lifting-logbook/pull/459) (the onboarding lift-catalog symptom this fixes at the root), [ADR-009](ADR-009-infrastructure-kubernetes-cloud-run.md) (Cloud Run / Cloud SQL / Terraform infrastructure), [ADR-010](ADR-010-multi-tenancy-data-isolation.md) (single shared schema, `user_id`-scoped), [ADR-024](ADR-024-prisma-otel-sdk-override.md) (Prisma runtime engine on Alpine — the same image this job reuses)
 
 ---
 
@@ -15,9 +15,9 @@ CI test database (Postgres service container). Neither `deploy.yml` (the push-to
 pipeline that deploys staging and production) nor `staging.yml` (the per-PR staging pipeline)
 ran migrations against the deployed database.
 
-The consequence surfaced as [#458](https://github.com/brownm09/lifting-logbook/issues/458): the
+The consequence surfaced as [#458](https://github.com/merickvaughn/lifting-logbook/issues/458): the
 onboarding lift-catalog picker appeared broken in production. The root cause (confirmed in prod
-logs while merging [#459](https://github.com/brownm09/lifting-logbook/pull/459)) was that
+logs while merging [#459](https://github.com/merickvaughn/lifting-logbook/pull/459)) was that
 `GET /programs/:program/lifts` returned HTTP 500 on every request because the `custom_lift`
 table did not exist in the production database. The migration that creates it
 (`20260603000000_add_custom_lift`, plus the follow-up `20260603120000_add_movement_profile`)
@@ -144,7 +144,7 @@ break-glass / first-time-bootstrap path, not the steady-state mechanism.
 When this ADR shipped, the staging pipeline's `Run database migrations (staging)` step (and the
 Cloud Run API deploy step) carried `continue-on-error: true`, justified as tolerating
 "intermittent staging Cloud SQL connectivity flakiness", with the Staging Integration Tests as
-the authoritative gate. [#498](https://github.com/brownm09/lifting-logbook/issues/498) was filed
+the authoritative gate. [#498](https://github.com/merickvaughn/lifting-logbook/issues/498) was filed
 to track that untracked root cause.
 
 A read-only GCP diagnosis (gcloud telemetry, 2026-06-10) **did not corroborate the Cloud SQL

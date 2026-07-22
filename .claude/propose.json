@@ -2,7 +2,7 @@
   "proposals_dir": "docs/proposals",
   "roadmap_file": "ROADMAP.md",
   "prd_file": "docs/PRD.md",
-  "github_repo": "brownm09/lifting-logbook",
+  "github_repo": "merickvaughn/lifting-logbook",
   "milestones": [
     "v0.1 — Foundation",
     "v0.2 — Core API",
@@ -10,21 +10,21 @@
     "v0.4 — Alpha Release"
   ],
   "epics": [
-    { "name": "Monorepo Scaffolding",         "id": "9dcd9556" },
-    { "name": "Package & App Scaffolding",    "id": "ae06cfdd" },
-    { "name": "Port Interfaces",              "id": "cc1ae008" },
-    { "name": "Shared Types",                 "id": "a6b59698" },
-    { "name": "CI/CD Foundation",             "id": "fc0df03b" },
-    { "name": "Architecture & Documentation", "id": "f7202bcd" },
-    { "name": "Observability",                "id": "d3c68018" },
-    { "name": "API Implementation",           "id": "50a1da76" },
-    { "name": "Client Applications",          "id": "31d3931e" },
-    { "name": "Operations",                   "id": "0c3f26d2" }
+    { "name": "Monorepo Scaffolding",         "id": "b36a539f" },
+    { "name": "Package & App Scaffolding",    "id": "5f7ee7e1" },
+    { "name": "Port Interfaces",              "id": "679c2b39" },
+    { "name": "Shared Types",                 "id": "cd1dd755" },
+    { "name": "CI/CD Foundation",             "id": "8e936837" },
+    { "name": "Architecture & Documentation", "id": "2f5e3e1b" },
+    { "name": "Observability",                "id": "3b3b9b8c" },
+    { "name": "API Implementation",           "id": "df8223db" },
+    { "name": "Client Applications",          "id": "5111fafe" },
+    { "name": "Operations",                   "id": "de6caeb7" }
   ],
   "github_project": {
     "number": 2,
-    "owner": "brownm09",
-    "node_id": "PVT_kwHOAjEKvM4BTuEF",
-    "epic_field_id": "PVTSSF_lAHOAjEKvM4BTuEFzhA7GEs"
+    "owner": "merickvaughn",
+    "node_id": "PVT_kwDOEecHO84BeFl_",
+    "epic_field_id": "PVTSSF_lADOEecHO84BeFl_zhYiZmg"
   }
 }

@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-05-23
-**Closes:** [#310](https://github.com/brownm09/lifting-logbook/issues/310) (image-size optimization deferred)
+**Closes:** [#310](https://github.com/merickvaughn/lifting-logbook/issues/310) (image-size optimization deferred)
 
 ---
 
@@ -13,8 +13,8 @@ The canonical Turborepo documentation recommends `turbo prune --docker` to produ
 subset of the repo containing only the packages a given app depends on, which reduces builder
 image size and cache invalidation surface.
 
-Between PRs [#311](https://github.com/brownm09/lifting-logbook/pull/311) and
-[#317](https://github.com/brownm09/lifting-logbook/pull/317), five successive fixes were
+Between PRs [#311](https://github.com/merickvaughn/lifting-logbook/pull/311) and
+[#317](https://github.com/merickvaughn/lifting-logbook/pull/317), five successive fixes were
 required to get the API container running in production. Each fix patched a different symptom
 of the same root cause: `turbo prune` was silently dropping dependencies.
 
@@ -87,5 +87,5 @@ repo. Always run `npm install` from the worktree root before the first commit. S
 
 - [Turborepo — Pruning documentation](https://turbo.build/repo/docs/guides/tools/docker)
 - [npm workspaces — Hoisting behavior](https://docs.npmjs.com/cli/v10/using-npm/workspaces#installing-workspaces)
-- PRs: [#311](https://github.com/brownm09/lifting-logbook/pull/311), [#313](https://github.com/brownm09/lifting-logbook/pull/313), [#315](https://github.com/brownm09/lifting-logbook/pull/315), [#317](https://github.com/brownm09/lifting-logbook/pull/317)
-- Issue [#310](https://github.com/brownm09/lifting-logbook/issues/310): deferred image-size optimization
+- PRs: [#311](https://github.com/merickvaughn/lifting-logbook/pull/311), [#313](https://github.com/merickvaughn/lifting-logbook/pull/313), [#315](https://github.com/merickvaughn/lifting-logbook/pull/315), [#317](https://github.com/merickvaughn/lifting-logbook/pull/317)
+- Issue [#310](https://github.com/merickvaughn/lifting-logbook/issues/310): deferred image-size optimization

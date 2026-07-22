@@ -19,7 +19,7 @@ groups:
         annotations:
           summary: "API error rate > 1%"
           description: "{{ $value | humanizePercentage }} of requests are returning 5xx"
-          runbook_url: "https://github.com/brownm09/lifting-logbook/blob/main/docs/runbooks/api-5xx-surge.md"
+          runbook_url: "https://github.com/merickvaughn/lifting-logbook/blob/main/docs/runbooks/api-5xx-surge.md"
 
       # Per-route 5xx rate. The aggregate APIHighErrorRate above can stay under 1%
       # when a single endpoint fails at 100% but carries only a small share of total
@@ -38,7 +38,7 @@ groups:
         annotations:
           summary: "Route {{ $labels.http_route }} 5xx rate > 5%"
           description: "{{ $value | humanizePercentage }} of requests to {{ $labels.http_route }} are returning 5xx over the last 5m"
-          runbook_url: "https://github.com/brownm09/lifting-logbook/blob/main/docs/runbooks/api-5xx-surge.md"
+          runbook_url: "https://github.com/merickvaughn/lifting-logbook/blob/main/docs/runbooks/api-5xx-surge.md"
 
       - alert: APIHighP95Latency
         expr: |
@@ -52,7 +52,7 @@ groups:
         annotations:
           summary: "API p95 latency > 1s"
           description: "p95 latency is {{ $value | humanizeDuration }}"
-          runbook_url: "https://github.com/brownm09/lifting-logbook/blob/main/docs/runbooks/api-5xx-surge.md"
+          runbook_url: "https://github.com/merickvaughn/lifting-logbook/blob/main/docs/runbooks/api-5xx-surge.md"
 
       - alert: APINoRequests
         expr: |
@@ -63,4 +63,4 @@ groups:
         annotations:
           summary: "Production API received no requests in 10 minutes"
           description: "No traffic seen on production. May fire spuriously outside business hours."
-          runbook_url: "https://github.com/brownm09/lifting-logbook/blob/main/docs/runbooks/api-5xx-surge.md"
+          runbook_url: "https://github.com/merickvaughn/lifting-logbook/blob/main/docs/runbooks/api-5xx-surge.md"

@@ -141,7 +141,7 @@ monorepo/
 | [ADR-007](adr/ADR-007-nextjs-app-router-web-frontend.md)      | Next.js App Router for Web Frontend                           | Accepted |
 | [ADR-008](adr/ADR-008-mobile-strategy.md)                     | Mobile Client Strategy — React Native to Native Kotlin        | Accepted |
 | [ADR-009](adr/ADR-009-infrastructure-kubernetes-cloud-run.md) | Infrastructure — GKE Autopilot Primary, Cloud Run Comparison  | Accepted · 90/10 split not wired |
-| [ADR-010](adr/ADR-010-multi-tenancy-data-isolation.md)        | Multi-Tenancy Data Isolation Strategy                         | Accepted · RLS implemented ([#511](https://github.com/brownm09/lifting-logbook/issues/511)) |
+| [ADR-010](adr/ADR-010-multi-tenancy-data-isolation.md)        | Multi-Tenancy Data Isolation Strategy                         | Accepted · RLS implemented ([#511](https://github.com/merickvaughn/lifting-logbook/issues/511)) |
 | [ADR-011](adr/ADR-011-api-server-nestjs-and-express.md)       | API Server — NestJS Primary with Express Legacy Comparison    | Accepted |
 | [ADR-012](adr/ADR-012-analytics-and-ab-testing.md)            | Analytics and A/B Testing — Firebase Analytics and Optimizely | Accepted |
 | [ADR-013](adr/ADR-013-testing-strategy.md)                    | Testing Strategy                                              | Accepted |
